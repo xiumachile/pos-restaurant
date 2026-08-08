@@ -54,5 +54,19 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www
 
+# ---------------------------------------------------------
+# Usuario de desarrollo
+# Mantiene los permisos del proyecto alineados con el host
+# UID/GID 1000 = usuario xiuming
+# ---------------------------------------------------------
+
+ARG UID=1000
+ARG GID=1000
+
+RUN addgroup -g ${GID} xiuming \
+    && adduser -D -u ${UID} -G xiuming xiuming
+
+USER xiuming
+
 EXPOSE 9000
 CMD ["php-fpm"]
