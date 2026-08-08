@@ -1,0 +1,137 @@
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------
+  # Aplicación PHP-FPM (Laravel 12)
+  # ---------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: pos_app
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+    networks:
+      - pos_network
+    depends_on:
+      - postgres
+      - redis
+
+  # ---------------------------------------------------------
+  # Nginx (servidor web)
+  # ---------------------------------------------------------
+  nginx:
+    image: nginx:alpine
+    container_name: pos_nginx
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - ./:/var/www
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - pos_network
+    depends_on:
+      - app
+
+  # ---------------------------------------------------------
+  # PostgreSQL 15 (base de datos principal)
+  # ---------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: pos_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-pos_restaurant}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pos_pgdata:/var/lib/postgresql/data
+    networks:
+      - pos_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------
+  # Redis 7 (cache, colas, sesiones)
+  # ---------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: pos_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - pos_redisdata:/data
+    networks:
+      - pos_network
+
+  # ---------------------------------------------------------
+  # Mailpit (captura de emails en desarrollo)
+  # UI: http://localhost:8025
+  # ---------------------------------------------------------
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: pos_mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"   # Interfaz web
+      - "1025:1025"   # SMTP
+    networks:
+      - pos_network
+
+  # ---------------------------------------------------------
+  # Laravel Reverb (WebSockets en tiempo real)
+  # ---------------------------------------------------------
+  reverb:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: pos_reverb
+    restart: unless-stopped
+    working_dir: /var/www
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    volumes:
+      - ./:/var/www
+    ports:
+      - "8080:8080"
+    networks:
+      - pos_network
+    depends_on:
+      - app
+      - redis
+
+  # ---------------------------------------------------------
+  # Laravel Horizon (worker de colas)
+  # ---------------------------------------------------------
+  queue:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: pos_queue
+    restart: unless-stopped
+    working_dir: /var/www
+    command: php artisan horizon
+    volumes:
+      - ./:/var/www
+    networks:
+      - pos_network
+    depends_on:
+      - app
+      - redis
+
+networks:
+  pos_network:
+    driver: bridge
+
+volumes:
+  pos_pgdata:
+  pos_redisdata:

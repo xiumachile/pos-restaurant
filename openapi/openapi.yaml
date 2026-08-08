@@ -1,0 +1,95 @@
+openapi: 3.0.3
+info:
+  title: POS Restaurante API
+  description: |
+    API del Sistema POS Empresarial para Restaurantes.
+    SaaS Multiempresa | Offline-First | Español / Chino Mandarín.
+
+    ## Convenciones
+    - Toda entidad operativa incluye `company_id` y `branch_id`.
+    - Mutaciones críticas requieren `Idempotency-Key`.
+    - El idioma se resuelve vía `Accept-Language` o `X-Terminal-ID`.
+  version: 1.0.0
+  contact:
+    name: Equipo de Desarrollo
+
+servers:
+  - url: http://localhost:8000/api
+    description: Desarrollo local
+  - url: https://staging.pos.local/api
+    description: Staging
+
+tags:
+  - name: Auth
+    description: Autenticación (JWT + PIN POS)
+  - name: Companies
+    description: Empresas (tenant raíz)
+  - name: Branches
+    description: Sucursales
+  - name: Catalog
+    description: Productos, categorías y modificadores
+  - name: Tables
+    description: Mesas y áreas
+  - name: Orders
+    description: Pedidos
+  - name: Kitchen
+    description: Cocina / KDS
+  - name: Billing
+    description: Facturación y cuentas
+  - name: Payments
+    description: Pagos, split bill y propinas
+  - name: Cashier
+    description: Sesiones de caja
+  - name: Sync
+    description: Sincronización offline-first
+
+paths: {}
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    pinAuth:
+      type: apiKey
+      in: header
+      name: X-POS-PIN
+
+  parameters:
+    TerminalId:
+      name: X-Terminal-ID
+      in: header
+      required: false
+      description: UUID de la terminal (POS/KDS) para resolver idioma y contexto.
+      schema:
+        type: string
+        format: uuid
+    AcceptLanguage:
+      name: Accept-Language
+      in: header
+      required: false
+      description: Idioma deseado (es-CL o zh-CN).
+      schema:
+        type: string
+        enum: [es-CL, zh-CN]
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Clave de idempotencia para mutaciones críticas.
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+        errors:
+          type: object
+
+security:
+  - bearerAuth: []
