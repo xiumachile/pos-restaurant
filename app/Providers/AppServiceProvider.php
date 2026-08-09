@@ -3,20 +3,18 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use App\Shared\Application\TenantContext;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
-        //
+        // Servicio de contexto de tenant (singleton por request)
+        $this->app->scoped(TenantContext::class, function ($app) {
+            return new TenantContext();
+        });
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
         //

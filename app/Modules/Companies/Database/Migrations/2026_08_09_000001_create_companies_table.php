@@ -9,12 +9,14 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Extensión pgcrypto para gen_random_uuid() en PostgreSQL
+        // pgcrypto solo existe en PostgreSQL
+    if (DB::getDriverName() === 'pgsql') {
         DB::statement('CREATE EXTENSION IF NOT EXISTS pgcrypto');
+    }
 
-        Schema::create('companies', function (Blueprint $table) {
-            $table->id();
-            $table->uuid('uuid')->unique();
+    Schema::create('companies', function (Blueprint $table) {
+        $table->id();
+        $table->uuid('uuid')->unique();
 
             // Datos legales y comerciales
             $table->string('tax_id', 30)->unique()->comment('RUT/NIT/CUIT');

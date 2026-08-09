@@ -5,28 +5,21 @@ namespace App\Shared\Domain\Scopes;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Scope;
+use App\Shared\Application\TenantContext;
 
 class CompanyScope implements Scope
 {
-    /**
-     * Aplicar scope: filtra por company_id del usuario autenticado.
-     */
     public function apply(Builder $builder, Model $model): void
     {
-        // No aplicar en consola (migraciones, seeders, comandos)
-        if (app()->runningInConsole()) {
-            return;
-        }
+        /** @var TenantContext $tenantContext */
+        $tenantContext = app(TenantContext::class);
 
-        // No aplicar si no hay usuario autenticado
-        if (!auth()->check()) {
-            return;
+        // Solo aplicar aislamiento si hay contexto configurado
+        if ($tenantContext->hasCompany()) {
+            $builder->where($model->getTable() . '.company_id', $tenantContext->companyId());
+        } elseif (auth()->check() && isset(auth()->user()->company_id)) {
+            $builder->where($model->getTable() . '.company_id', auth()->user()->company_id);
         }
-
-        $user = auth()->user();
-
-        if (isset($user->company_id)) {
-            $builder->where($model->getTable() . '.company_id', $user->company_id);
-        }
+        // Sin contexto: no aplicar filtro (migraciones, seeders)
     }
 }
