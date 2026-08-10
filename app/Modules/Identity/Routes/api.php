@@ -1,0 +1,25 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use Modules\Identity\Interfaces\Controllers\AuthController;
+
+Route::prefix('v1/auth')->group(function () {
+    // Rutas públicas (sin autenticación)
+    Route::post('/login', [AuthController::class, 'login'])
+        ->name('auth.login');
+
+    Route::post('/login/pos', [AuthController::class, 'posLogin'])
+        ->name('auth.login.pos');
+
+    // Rutas protegidas (requieren JWT válido)
+    Route::middleware('auth:api')->group(function () {
+        Route::post('/refresh', [AuthController::class, 'refresh'])
+            ->name('auth.refresh');
+
+        Route::post('/logout', [AuthController::class, 'logout'])
+            ->name('auth.logout');
+
+        Route::get('/me', [AuthController::class, 'me'])
+            ->name('auth.me');
+    });
+});
