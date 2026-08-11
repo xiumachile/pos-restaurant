@@ -4,6 +4,10 @@ namespace Modules\Orders\Domain\Services;
 
 use Illuminate\Support\Carbon;
 use Modules\Orders\Domain\Entities\Order;
+use Modules\Orders\Domain\Events\OrderCancelled;
+use Modules\Orders\Domain\Events\OrderClosed;
+use Modules\Orders\Domain\Events\OrderConfirmed;
+use Modules\Orders\Domain\Events\OrderPaid;
 use Modules\Orders\Domain\Exceptions\InvalidOrderTransitionException;
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
 
@@ -11,7 +15,7 @@ class OrderStateMachine
 {
     /**
      * Realiza una transición de estado del pedido.
-     * Valida la transición y actualiza timestamps relevantes.
+     * Valida la transición, actualiza timestamps y dispara eventos.
      */
     public function transition(Order $order, OrderStatus $newStatus, ?string $reason = null): Order
     {
@@ -30,6 +34,9 @@ class OrderStateMachine
         }
 
         $order->save();
+
+        // Disparar evento correspondiente
+        $this->dispatchEvent($order, $newStatus);
 
         return $order;
     }
@@ -57,6 +64,20 @@ class OrderStateMachine
             OrderStatus::PAID => $order->paid_at = $now,
             OrderStatus::CLOSED => $order->closed_at = $now,
             OrderStatus::CANCELLED => $order->cancelled_at = $now,
+            default => null,
+        };
+    }
+
+    /**
+     * Dispara el evento correspondiente al nuevo estado.
+     */
+    protected function dispatchEvent(Order $order, OrderStatus $status): void
+    {
+        match($status) {
+            OrderStatus::CONFIRMED => OrderConfirmed::dispatch($order),
+            OrderStatus::PAID => OrderPaid::dispatch($order),
+            OrderStatus::CLOSED => OrderClosed::dispatch($order),
+            OrderStatus::CANCELLED => OrderCancelled::dispatch($order),
             default => null,
         };
     }
