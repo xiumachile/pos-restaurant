@@ -2,17 +2,18 @@
 
 namespace Modules\Identity\Domain\Entities;
 
-use App\Shared\Domain\Traits\HasUuid;
 use App\Shared\Domain\Traits\BelongsToTenant;
+use App\Shared\Domain\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Modules\Companies\Domain\Entities\Company;
 use Modules\Branches\Domain\Entities\Branch;
+use Modules\Companies\Domain\Entities\Company;
+use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
 
-class User extends Authenticatable
+class User extends Authenticatable implements JWTSubject
 {
     use HasApiTokens;
     use HasFactory;
@@ -47,41 +48,42 @@ class User extends Authenticatable
         ];
     }
 
-    /**
-     * Relación: un usuario pertenece a una empresa.
-     */
+    public function getJWTIdentifier()
+    {
+        return $this->getKey();
+    }
+
+    public function getJWTCustomClaims(): array
+    {
+        return [
+            'company_id' => $this->company_id,
+            'branch_id' => $this->branch_id,
+            'role' => $this->role,
+            'locale' => $this->locale,
+            'uuid' => $this->uuid,
+        ];
+    }
+
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
     }
 
-    /**
-     * Relación: un usuario pertenece a una sucursal.
-     */
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
     }
 
-    /**
-     * Verificar si el usuario es administrador.
-     */
     public function isAdmin(): bool
     {
         return $this->role === 'admin';
     }
 
-    /**
-     * Verificar si el usuario es encargado.
-     */
     public function isManager(): bool
     {
         return in_array($this->role, ['admin', 'manager']);
     }
 
-    /**
-     * Verificar PIN POS.
-     */
     public function verifyPosPin(string $pin): bool
     {
         if (empty($this->pos_pin_hash)) {
@@ -90,9 +92,6 @@ class User extends Authenticatable
         return password_verify($pin, $this->pos_pin_hash);
     }
 
-    /**
-     * Establecer PIN POS.
-     */
     public function setPosPin(string $pin): void
     {
         $this->pos_pin_hash = password_hash($pin, PASSWORD_BCRYPT);
