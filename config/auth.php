@@ -21,7 +21,7 @@ return [
 
     'providers' => [
         'users' => [
-            'driver' => 'eloquent',
+            'driver' => 'jwt-eloquent',
             'model' => env('AUTH_MODEL', Modules\Identity\Domain\Entities\User::class),
         ],
     ],

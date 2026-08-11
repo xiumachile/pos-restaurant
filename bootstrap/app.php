@@ -14,10 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Middleware de contexto de tenant para API
-        $middleware->api(append: [
-            \App\Shared\Http\Middleware\TenantContextMiddleware::class,
-        ]);
+        // TenantContextMiddleware ya se aplica directamente en las rutas API
     })
     ->withExceptions(function (Exceptions $exceptions) {
         // Convertir AuthenticationException a JSON 401 en APIs
