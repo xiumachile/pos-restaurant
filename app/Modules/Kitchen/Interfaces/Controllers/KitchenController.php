@@ -5,9 +5,13 @@ namespace Modules\Kitchen\Interfaces\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Modules\Identity\Domain\Entities\User;
 use Modules\Kitchen\Domain\Services\KitchenQueueService;
+use Modules\Kitchen\Interfaces\Requests\AssignCookRequest;
+use Modules\Kitchen\Interfaces\Requests\UpdatePriorityRequest;
 use Modules\Kitchen\Interfaces\Resources\KitchenOrderResource;
 use Modules\Orders\Domain\Entities\Order;
+use Modules\Orders\Domain\ValueObjects\OrderPriority;
 
 class KitchenController extends Controller
 {
@@ -24,7 +28,6 @@ class KitchenController extends Controller
         $branchId = $request->user()->branch_id;
         $queue = $this->queueService->getQueue($branchId);
 
-        // Convertir Collection agrupada a estructura JSON
         $response = $queue->map(function ($orders, $zone) {
             return [
                 'zone' => $zone,
@@ -65,25 +68,55 @@ class KitchenController extends Controller
      * POST /api/v1/kitchen/orders/{uuid}/assign-cook
      * Asigna un cocinero responsable al pedido.
      */
-    public function assignCook(Request $request, string $uuid): JsonResponse
+    public function assignCook(AssignCookRequest $request, string $uuid): JsonResponse
     {
-        $validated = $request->validate([
-            'cook_uuid' => 'required|uuid|exists:users,uuid',
-        ]);
-
+        $validated = $request->validated();
         $order = Order::where('uuid', $uuid)->firstOrFail();
 
         // Validar que el pedido esté en estado de cocina
         if (!$order->status->isInKitchenQueue()) {
             return response()->json([
                 'error' => 'invalid_state',
-                'message' => 'Solo se pueden asignar cocineros a pedidos en cola de cocina.',
+                'message' => 'Solo se pueden asignar cocineros a pedidos en cola de cocina (confirmed o preparing).',
             ], 422);
         }
 
-        // Aquí podrías agregar el campo assigned_cook_id en una migración futura
-        // Por ahora retornamos el pedido actualizado
-        $order->load(['items', 'table', 'waiter']);
+        // Buscar el cocinero por UUID
+        $cook = User::where('uuid', $validated['cook_uuid'])
+            ->where('role', 'kitchen')
+            ->where('company_id', $order->company_id)
+            ->firstOrFail();
+
+        // Asignar el cocinero
+        $order->assigned_cook_id = $cook->id;
+        $order->save();
+
+        $order->load(['items', 'table', 'waiter', 'assignedCook']);
+
+        return KitchenOrderResource::make($order)->response();
+    }
+
+    /**
+     * POST /api/v1/kitchen/orders/{uuid}/priority
+     * Cambia la prioridad de un pedido.
+     */
+    public function updatePriority(UpdatePriorityRequest $request, string $uuid): JsonResponse
+    {
+        $validated = $request->validated();
+        $order = Order::where('uuid', $uuid)->firstOrFail();
+
+        // Solo se puede cambiar prioridad en pedidos activos
+        if ($order->status->isFinalState()) {
+            return response()->json([
+                'error' => 'invalid_state',
+                'message' => 'No se puede cambiar la prioridad de un pedido en estado final.',
+            ], 422);
+        }
+
+        $order->priority = OrderPriority::from($validated['priority']);
+        $order->save();
+
+        $order->load(['items', 'table', 'waiter', 'assignedCook']);
 
         return KitchenOrderResource::make($order)->response();
     }

@@ -16,24 +16,29 @@ use Modules\Orders\Domain\Listeners\UpdateTableOnPaid;
 
 class OrderEventServiceProvider extends ServiceProvider
 {
+    /**
+     * The event to listener mappings for the application.
+     *
+     * @var array<class-string, array<int, class-string>>
+     */
     protected $listen = [
         OrderConfirmed::class => [
             UpdateTableOnConfirm::class,
-            [BroadcastOrderEvents::class, 'handleOrderConfirmed'],
+            BroadcastOrderEvents::class . '@handleOrderConfirmed',
         ],
         OrderReady::class => [
-            [BroadcastOrderEvents::class, 'handleOrderReady'],
+            BroadcastOrderEvents::class . '@handleOrderReady',
         ],
         OrderPaid::class => [
             UpdateTableOnPaid::class,
-            [BroadcastOrderEvents::class, 'handleOrderPaid'],
+            BroadcastOrderEvents::class . '@handleOrderPaid',
         ],
         OrderClosed::class => [
             UpdateTableOnClose::class,
         ],
         OrderCancelled::class => [
             UpdateTableOnCancel::class,
-            [BroadcastOrderEvents::class, 'handleOrderCancelled'],
+            BroadcastOrderEvents::class . '@handleOrderCancelled',
         ],
     ];
 

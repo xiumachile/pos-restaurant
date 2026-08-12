@@ -69,4 +69,12 @@ enum OrderStatus: string
     {
         return $this === self::SERVED;
     }
+
+    /**
+     * Verifica si el pedido está en un estado final (closed o cancelled).
+     */
+    public function isFinalState(): bool
+    {
+        return in_array($this, [self::CLOSED, self::CANCELLED]);
+    }
 }

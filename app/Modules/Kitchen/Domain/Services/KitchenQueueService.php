@@ -21,6 +21,7 @@ class KitchenQueueService
         $orders = Order::with(['items.menuItem.product', 'table', 'waiter'])
             ->where('branch_id', $branchId)
             ->inKitchenQueue()
+            ->orderByRaw("CASE priority WHEN 'vip' THEN 1 WHEN 'rush' THEN 2 ELSE 3 END ASC")
             ->orderBy('confirmed_at', 'asc')
             ->get();
 

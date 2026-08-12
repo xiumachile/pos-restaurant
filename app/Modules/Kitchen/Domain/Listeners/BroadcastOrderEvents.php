@@ -13,7 +13,6 @@ use Modules\Orders\Domain\Events\OrderReady;
 
 /**
  * Listener que convierte eventos de dominio en eventos de broadcast.
- * Se registra en OrderEventServiceProvider.
  */
 class BroadcastOrderEvents
 {

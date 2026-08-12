@@ -6,23 +6,30 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::table('orders', function (Blueprint $table) {
-            //
+            // Cocinero asignado (nullable: no todos los pedidos tienen cocinero asignado)
+            $table->foreignId('assigned_cook_id')
+                ->nullable()
+                ->after('waiter_id')
+                ->constrained('users')
+                ->nullOnDelete();
+
+            // Prioridad del pedido (normal por defecto)
+            $table->string('priority', 20)->default('normal')->after('type');
+
+            // Índice para búsquedas por prioridad
+            $table->index(['branch_id', 'priority', 'status'], 'idx_orders_kitchen_queue');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::table('orders', function (Blueprint $table) {
-            //
+            $table->dropIndex('idx_orders_kitchen_queue');
+            $table->dropForeign(['assigned_cook_id']);
+            $table->dropColumn(['assigned_cook_id', 'priority']);
         });
     }
 };

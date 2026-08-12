@@ -29,6 +29,8 @@ class Order extends Model
         'status',
         'table_id',
         'waiter_id',
+        'assigned_cook_id',
+        'priority',
         'cashier_id',
         'subtotal',
         'tax_amount',
@@ -48,6 +50,7 @@ class Order extends Model
         return [
             'type' => OrderType::class,
             'status' => OrderStatus::class,
+        'priority' => \Modules\Orders\Domain\ValueObjects\OrderPriority::class,
             'subtotal' => 'decimal:2',
             'tax_amount' => 'decimal:2',
             'discount_amount' => 'decimal:2',
@@ -154,5 +157,13 @@ class Order extends Model
         // IVA 19% (configurable en el futuro)
         $this->tax_amount = round($this->subtotal * 0.19, 2);
         $this->total = $this->subtotal + $this->tax_amount - $this->discount_amount;
+    }
+
+    /**
+     * Cocinero asignado al pedido.
+     */
+    public function assignedCook(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_cook_id');
     }
 }
