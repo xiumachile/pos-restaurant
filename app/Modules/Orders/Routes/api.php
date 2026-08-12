@@ -2,7 +2,6 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\Orders\Interfaces\Controllers\CashierController;
-use Modules\Orders\Interfaces\Controllers\KitchenController;
 use Modules\Orders\Interfaces\Controllers\OrderController;
 use Modules\Orders\Interfaces\Controllers\OrderItemController;
 use Modules\Orders\Interfaces\Controllers\OrderTransitionController;
@@ -34,11 +33,6 @@ Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class])->g
     Route::post('/orders/{uuid}/pay', [OrderTransitionController::class, 'pay'])->name('orders.pay');
     Route::post('/orders/{uuid}/close', [OrderTransitionController::class, 'close'])->name('orders.close');
     Route::post('/orders/{uuid}/cancel', [OrderTransitionController::class, 'cancel'])->name('orders.cancel');
-
-    // ============================================
-    // Kitchen endpoints
-    // ============================================
-    Route::get('/kitchen/queue', [KitchenController::class, 'queue'])->name('kitchen.queue');
 
     // ============================================
     // Cashier endpoints
