@@ -3,10 +3,12 @@
 namespace App\Providers;
 
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
+use Modules\Kitchen\Domain\Listeners\BroadcastOrderEvents;
 use Modules\Orders\Domain\Events\OrderCancelled;
 use Modules\Orders\Domain\Events\OrderClosed;
 use Modules\Orders\Domain\Events\OrderConfirmed;
 use Modules\Orders\Domain\Events\OrderPaid;
+use Modules\Orders\Domain\Events\OrderReady;
 use Modules\Orders\Domain\Listeners\UpdateTableOnCancel;
 use Modules\Orders\Domain\Listeners\UpdateTableOnClose;
 use Modules\Orders\Domain\Listeners\UpdateTableOnConfirm;
@@ -22,29 +24,29 @@ class OrderEventServiceProvider extends ServiceProvider
     protected $listen = [
         OrderConfirmed::class => [
             UpdateTableOnConfirm::class,
+            BroadcastOrderEvents::class . '@handleOrderConfirmed',
+        ],
+        OrderReady::class => [
+            BroadcastOrderEvents::class . '@handleOrderReady',
         ],
         OrderPaid::class => [
             UpdateTableOnPaid::class,
+            BroadcastOrderEvents::class . '@handleOrderPaid',
         ],
         OrderClosed::class => [
             UpdateTableOnClose::class,
         ],
         OrderCancelled::class => [
             UpdateTableOnCancel::class,
+            BroadcastOrderEvents::class . '@handleOrderCancelled',
         ],
     ];
 
-    /**
-     * Register any events for your application.
-     */
     public function boot(): void
     {
         //
     }
 
-    /**
-     * Determine if events and listeners should be automatically discovered.
-     */
     public function shouldDiscoverEvents(): bool
     {
         return false;
