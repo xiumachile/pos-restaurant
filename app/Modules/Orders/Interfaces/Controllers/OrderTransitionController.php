@@ -18,67 +18,49 @@ class OrderTransitionController extends Controller
         private OrderStateMachine $stateMachine
     ) {}
 
-    /**
-     * POST /api/v1/orders/{uuid}/confirm
-     */
     public function confirm(Request $request, string $uuid): JsonResponse
     {
-        return $this->transition($uuid, OrderStatus::CONFIRMED);
+        return $this->transition($request, $uuid, OrderStatus::CONFIRMED, 'confirm');
     }
 
-    /**
-     * POST /api/v1/orders/{uuid}/prepare
-     */
     public function prepare(Request $request, string $uuid): JsonResponse
     {
-        return $this->transition($uuid, OrderStatus::PREPARING);
+        return $this->transition($request, $uuid, OrderStatus::PREPARING, 'prepare');
     }
 
-    /**
-     * POST /api/v1/orders/{uuid}/ready
-     */
     public function ready(Request $request, string $uuid): JsonResponse
     {
-        return $this->transition($uuid, OrderStatus::READY);
+        return $this->transition($request, $uuid, OrderStatus::READY, 'ready');
     }
 
-    /**
-     * POST /api/v1/orders/{uuid}/serve
-     */
     public function serve(Request $request, string $uuid): JsonResponse
     {
-        return $this->transition($uuid, OrderStatus::SERVED);
+        return $this->transition($request, $uuid, OrderStatus::SERVED, 'serve');
     }
 
-    /**
-     * POST /api/v1/orders/{uuid}/pay
-     */
     public function pay(Request $request, string $uuid): JsonResponse
     {
         $order = $this->getOrder($uuid);
-        
+        $this->authorize('pay', $order);
+
         // Asignar cajero al pagar
         $order->cashier_id = $request->user()->id;
         $order->save();
 
-        return $this->transition($uuid, OrderStatus::PAID);
+        return $this->transition($request, $uuid, OrderStatus::PAID, 'pay', skipAuth: true);
     }
 
-    /**
-     * POST /api/v1/orders/{uuid}/close
-     */
     public function close(Request $request, string $uuid): JsonResponse
     {
-        return $this->transition($uuid, OrderStatus::CLOSED);
+        return $this->transition($request, $uuid, OrderStatus::CLOSED, 'close');
     }
 
-    /**
-     * POST /api/v1/orders/{uuid}/cancel
-     */
     public function cancel(CancelOrderRequest $request, string $uuid): JsonResponse
     {
         try {
             $order = $this->getOrder($uuid);
+            $this->authorize('cancel', $order);
+
             $order = $this->stateMachine->transition(
                 $order,
                 OrderStatus::CANCELLED,
@@ -97,14 +79,23 @@ class OrderTransitionController extends Controller
     }
 
     /**
-     * Realiza una transición genérica.
+     * Realiza una transición genérica con autorización.
      */
-    protected function transition(string $uuid, OrderStatus $newStatus): JsonResponse
-    {
+    protected function transition(
+        Request $request,
+        string $uuid,
+        OrderStatus $newStatus,
+        string $policyMethod,
+        bool $skipAuth = false
+    ): JsonResponse {
         try {
             $order = $this->getOrder($uuid);
-            $order = $this->stateMachine->transition($order, $newStatus);
 
+            if (!$skipAuth) {
+                $this->authorize($policyMethod, $order);
+            }
+
+            $order = $this->stateMachine->transition($order, $newStatus);
             $order->load(['items', 'table', 'waiter']);
 
             return OrderResource::make($order)->response();

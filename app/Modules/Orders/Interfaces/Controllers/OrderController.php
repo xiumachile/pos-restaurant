@@ -5,13 +5,9 @@ namespace Modules\Orders\Interfaces\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
-use Modules\Catalog\Domain\Entities\MenuItem;
 use Modules\Orders\Domain\Entities\Order;
-use Modules\Orders\Domain\Entities\OrderItem;
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
 use Modules\Orders\Domain\ValueObjects\OrderType;
-use Modules\Orders\Interfaces\Requests\AddItemRequest;
 use Modules\Orders\Interfaces\Requests\CreateOrderRequest;
 use Modules\Orders\Interfaces\Resources\OrderResource;
 use Modules\Tables\Domain\Entities\RestaurantTable;
@@ -20,18 +16,31 @@ class OrderController extends Controller
 {
     /**
      * GET /api/v1/orders
-     * Lista pedidos con filtros opcionales.
+     * Lista pedidos filtrados según el rol del usuario.
      */
     public function index(Request $request): JsonResponse
     {
+        $user = $request->user();
         $query = Order::query()->with(['items', 'table', 'waiter']);
 
-        // Filtro por estado
+        // Filtros por rol
+        if ($user->role === 'waiter') {
+            // waiter solo ve sus propios pedidos
+            $query->where('waiter_id', $user->id);
+        } elseif ($user->role === 'kitchen') {
+            // kitchen solo ve cola de cocina
+            $query->inKitchenQueue();
+        } elseif ($user->role === 'cashier') {
+            // cashier ve pedidos esperando pago
+            $query->awaitingPayment();
+        }
+        // admin/manager ven todos
+
+        // Filtros opcionales
         if ($request->has('status')) {
             $query->where('status', $request->input('status'));
         }
 
-        // Filtro por mesa
         if ($request->has('table_uuid')) {
             $table = RestaurantTable::where('uuid', $request->input('table_uuid'))->first();
             if ($table) {
@@ -39,7 +48,6 @@ class OrderController extends Controller
             }
         }
 
-        // Solo activos por defecto
         if ($request->boolean('active_only', true)) {
             $query->active();
         }
@@ -58,7 +66,6 @@ class OrderController extends Controller
         $validated = $request->validated();
         $user = $request->user();
 
-        // Resolver mesa si es dine_in
         $tableId = null;
         if (!empty($validated['table_uuid'])) {
             $table = RestaurantTable::where('uuid', $validated['table_uuid'])->first();
@@ -89,7 +96,7 @@ class OrderController extends Controller
 
     /**
      * GET /api/v1/orders/{uuid}
-     * Detalle de un pedido.
+     * Detalle de un pedido. Usa el policy para autorizar.
      */
     public function show(string $uuid): JsonResponse
     {
@@ -97,16 +104,20 @@ class OrderController extends Controller
             ->where('uuid', $uuid)
             ->firstOrFail();
 
+        $this->authorize('view', $order);
+
         return OrderResource::make($order)->response();
     }
 
     /**
      * DELETE /api/v1/orders/{uuid}
-     * Elimina un pedido draft.
+     * Elimina un pedido draft. Usa el policy para autorizar.
      */
     public function destroy(string $uuid): JsonResponse
     {
         $order = Order::where('uuid', $uuid)->firstOrFail();
+
+        $this->authorize('delete', $order);
 
         if (!$order->isEditable()) {
             return response()->json([
@@ -120,15 +131,11 @@ class OrderController extends Controller
         return response()->json(['message' => 'Pedido eliminado correctamente.']);
     }
 
-    /**
-     * Genera un número de pedido único por sucursal.
-     */
     protected function generateOrderNumber(int $branchId): string
     {
         $prefix = 'ORD-' . str_pad($branchId, 3, '0', STR_PAD_LEFT);
         $date = now()->format('Ymd');
-        
-        // Contar pedidos existentes hoy para esta sucursal
+
         $count = Order::where('branch_id', $branchId)
             ->whereDate('created_at', today())
             ->count() + 1;
