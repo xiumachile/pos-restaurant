@@ -4,6 +4,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -14,16 +15,28 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // TenantContextMiddleware ya se aplica directamente en las rutas API
+        $middleware->alias([
+            'role' => \App\Shared\Http\Middleware\CheckRole::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        // Convertir AuthenticationException a JSON 401 en APIs
+        // AuthenticationException → 401 JSON
         $exceptions->render(function (AuthenticationException $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json([
                     'error' => 'unauthenticated',
                     'message' => 'Token de autenticación inválido o ausente.',
                 ], 401);
+            }
+        });
+
+        // AuthorizationException → 403 JSON
+        $exceptions->render(function (AuthorizationException $e, Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json([
+                    'error' => 'forbidden',
+                    'message' => $e->getMessage() ?: 'No tienes permisos para realizar esta acción.',
+                ], 403);
             }
         });
     })->create();
