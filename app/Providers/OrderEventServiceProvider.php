@@ -13,6 +13,8 @@ use Modules\Orders\Domain\Listeners\UpdateTableOnCancel;
 use Modules\Orders\Domain\Listeners\UpdateTableOnClose;
 use Modules\Orders\Domain\Listeners\UpdateTableOnConfirm;
 use Modules\Orders\Domain\Listeners\UpdateTableOnPaid;
+use Modules\Inventory\Domain\Listeners\ReserveStockOnOrderConfirm;
+use Modules\Inventory\Domain\Listeners\ReturnStockOnOrderCancel;
 
 class OrderEventServiceProvider extends ServiceProvider
 {
@@ -25,6 +27,7 @@ class OrderEventServiceProvider extends ServiceProvider
         OrderConfirmed::class => [
             UpdateTableOnConfirm::class,
             BroadcastOrderEvents::class . '@handleOrderConfirmed',
+            ReserveStockOnOrderConfirm::class,
         ],
         OrderReady::class => [
             BroadcastOrderEvents::class . '@handleOrderReady',
@@ -39,6 +42,7 @@ class OrderEventServiceProvider extends ServiceProvider
         OrderCancelled::class => [
             UpdateTableOnCancel::class,
             BroadcastOrderEvents::class . '@handleOrderCancelled',
+            ReturnStockOnOrderCancel::class,
         ],
     ];
 
