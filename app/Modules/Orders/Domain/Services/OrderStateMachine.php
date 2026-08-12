@@ -8,20 +8,16 @@ use Modules\Orders\Domain\Events\OrderCancelled;
 use Modules\Orders\Domain\Events\OrderClosed;
 use Modules\Orders\Domain\Events\OrderConfirmed;
 use Modules\Orders\Domain\Events\OrderPaid;
+use Modules\Orders\Domain\Events\OrderReady;
 use Modules\Orders\Domain\Exceptions\InvalidOrderTransitionException;
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
 
 class OrderStateMachine
 {
-    /**
-     * Realiza una transición de estado del pedido.
-     * Valida la transición, actualiza timestamps y dispara eventos.
-     */
     public function transition(Order $order, OrderStatus $newStatus, ?string $reason = null): Order
     {
         $this->assertCanTransition($order->status, $newStatus);
 
-        // La cancelación requiere razón
         if ($newStatus === OrderStatus::CANCELLED && empty($reason)) {
             throw InvalidOrderTransitionException::requiresReason();
         }
@@ -35,15 +31,11 @@ class OrderStateMachine
 
         $order->save();
 
-        // Disparar evento correspondiente
         $this->dispatchEvent($order, $newStatus);
 
         return $order;
     }
 
-    /**
-     * Valida que la transición sea permitida.
-     */
     public function assertCanTransition(OrderStatus $from, OrderStatus $to): void
     {
         if (!$from->canTransitionTo($to)) {
@@ -51,9 +43,6 @@ class OrderStateMachine
         }
     }
 
-    /**
-     * Actualiza el timestamp correspondiente según el estado.
-     */
     protected function updateTimestamp(Order $order, OrderStatus $status): void
     {
         $now = Carbon::now();
@@ -68,13 +57,11 @@ class OrderStateMachine
         };
     }
 
-    /**
-     * Dispara el evento correspondiente al nuevo estado.
-     */
     protected function dispatchEvent(Order $order, OrderStatus $status): void
     {
         match($status) {
             OrderStatus::CONFIRMED => OrderConfirmed::dispatch($order),
+            OrderStatus::READY => OrderReady::dispatch($order),
             OrderStatus::PAID => OrderPaid::dispatch($order),
             OrderStatus::CLOSED => OrderClosed::dispatch($order),
             OrderStatus::CANCELLED => OrderCancelled::dispatch($order),
@@ -82,17 +69,11 @@ class OrderStateMachine
         };
     }
 
-    /**
-     * Verifica si el pedido puede ser modificado.
-     */
     public function canModifyItems(Order $order): bool
     {
         return $order->isEditable();
     }
 
-    /**
-     * Verifica si el pedido puede ser cancelado.
-     */
     public function canCancel(Order $order): bool
     {
         return $order->status->canTransitionTo(OrderStatus::CANCELLED);
