@@ -163,13 +163,18 @@ class InventoryController extends Controller
 
     /**
      * GET /api/v1/inventory/alerts
-     * Items con stock bajo o sin stock.
+     * Items con stock bajo o sin stock en la sucursal del usuario.
      */
     public function alerts(Request $request): JsonResponse
     {
         $branchId = $request->user()->branch_id;
 
+        // Solo items que tienen registro de stock en esta sucursal
+        // y ese stock es bajo o sin stock
         $items = InventoryItem::active()
+            ->whereHas('stocks', function ($query) use ($branchId) {
+                $query->where('branch_id', $branchId);
+            })
             ->get()
             ->filter(function ($item) use ($branchId) {
                 $status = $item->stockStatusForBranch($branchId);
