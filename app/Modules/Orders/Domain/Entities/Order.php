@@ -166,4 +166,20 @@ class Order extends Model
     {
         return $this->belongsTo(User::class, 'assigned_cook_id');
     }
+
+    /**
+     * Pagos asociados al pedido.
+     */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(\Modules\Payments\Domain\Entities\Payment::class);
+    }
+
+    /**
+     * Sub-cuentas (Split Bill) del pedido.
+     */
+    public function bills(): HasMany
+    {
+        return $this->hasMany(\Modules\Payments\Domain\Entities\Bill::class);
+    }
 }
