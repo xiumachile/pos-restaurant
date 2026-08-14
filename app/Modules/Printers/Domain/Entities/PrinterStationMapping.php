@@ -52,7 +52,9 @@ class PrinterStationMapping extends Model
 
     public function category(): BelongsTo
     {
-        return $this->belongsTo(Category::class);
+        // withoutGlobalScopes para evitar conflicto con BelongsToTenant de Category
+        // Las categorías pueden ser globales a la empresa (sin branch_id específico)
+        return $this->belongsTo(Category::class)->withoutGlobalScopes();
     }
 
     /**
