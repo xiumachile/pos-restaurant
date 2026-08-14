@@ -13,6 +13,7 @@ class ModuleServiceProvider extends ServiceProvider
         'Recipes',
         'Printers',
         'Fiscal', 'Cashier',
+        'Tax',
         'Inventory', 'Customers', 'Delivery', 'Reports',
         'Integrations', 'I18n', 'Sync',
     ];
