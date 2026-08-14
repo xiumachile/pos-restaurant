@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Shared\Domain\Console\Commands\GenerateDailyReportCommand;
+
+
 use Modules\Orders\Domain\Events\OrderConfirmed;
 use Modules\Recipes\Domain\Listeners\DeductRecipeOnOrderConfirm;
 use Illuminate\Support\ServiceProvider;
@@ -19,6 +22,13 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Registrar comandos Artisan custom
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                GenerateDailyReportCommand::class,
+            ]);
+        }
+
         //
         // Registrar listeners del módulo Recipes (BOM)
         \Illuminate\Support\Facades\Event::listen(

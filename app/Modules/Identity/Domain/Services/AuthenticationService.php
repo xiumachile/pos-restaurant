@@ -31,22 +31,35 @@ class AuthenticationService
 
     /**
      * Autentica con PIN POS + branch_id (terminales).
+     * 
+     * Itera TODOS los usuarios activos de la sucursal y verifica el PIN
+     * contra cada uno hasta encontrar coincidencia.
+     * 
+     * @param int $branchId ID de la sucursal
+     * @param string $pin PIN ingresado por el usuario
+     * @return array Respuesta con token JWT y datos del usuario
+     * @throws InvalidCredentialsException Si el PIN no coincide con ningún usuario
      */
     public function loginWithPin(int $branchId, string $pin): array
     {
-        $user = User::where('branch_id', $branchId)->first();
+        // Obtener TODOS los usuarios activos de la sucursal con pos_pin_hash
+        $users = User::where('branch_id', $branchId)
+            ->where('is_active', true)
+            ->whereNotNull('pos_pin_hash')
+            ->get();
 
-        if (!$user || !$user->verifyPosPin($pin)) {
+        // Iterar y verificar el PIN contra cada usuario
+        $matchedUser = $users->first(function ($user) use ($pin) {
+            return $user->verifyPosPin($pin);
+        });
+
+        if (!$matchedUser) {
             throw InvalidCredentialsException::pin();
         }
 
-        if (!$user->is_active) {
-            throw InvalidCredentialsException::inactive();
-        }
+        $token = JWTAuth::fromUser($matchedUser);
 
-        $token = JWTAuth::fromUser($user);
-
-        return $this->buildResponse($user, $token);
+        return $this->buildResponse($matchedUser, $token);
     }
 
     /**
