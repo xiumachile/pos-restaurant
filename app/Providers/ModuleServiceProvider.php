@@ -11,7 +11,8 @@ class ModuleServiceProvider extends ServiceProvider
         'Identity', 'Companies', 'Branches', 'Catalog', 'Tables',
         'Orders', 'Kitchen', 'Billing', 'Payments',
         'Recipes',
-        'Printers', 'Cashier',
+        'Printers',
+        'Fiscal', 'Cashier',
         'Inventory', 'Customers', 'Delivery', 'Reports',
         'Integrations', 'I18n', 'Sync',
     ];
