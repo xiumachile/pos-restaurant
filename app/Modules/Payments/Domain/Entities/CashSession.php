@@ -118,9 +118,11 @@ class CashSession extends Model
     public function calculateCurrentBalance(): float
     {
         $opening = (float) $this->opening_amount;
+        
+        // Sumar todos los pagos completados de esta sesión
+        // (en el futuro podríamos filtrar por método de pago si es necesario)
         $paymentsTotal = (float) $this->payments()
             ->where('status', 'completed')
-            ->where('payment_method_type', 'cash')
             ->sum('total_amount');
         
         $movementsImpact = $this->movements()
