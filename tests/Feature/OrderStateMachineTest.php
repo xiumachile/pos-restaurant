@@ -10,6 +10,8 @@ use Modules\Orders\Domain\ValueObjects\OrderType;
 use Modules\Orders\Domain\Services\OrderStateMachine;
 use Modules\Orders\Domain\Exceptions\InvalidOrderTransitionException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Modules\Tax\Domain\Entities\Tax;
+use Modules\Tax\Domain\ValueObjects\TaxType;
 
 uses(RefreshDatabase::class);
 
@@ -36,6 +38,17 @@ beforeEach(function () {
     ]);
 
     $this->stateMachine = app(OrderStateMachine::class);
+
+    // Crear Tax default (IVA 19%) para la empresa
+    $this->iva19 = Tax::create([
+        'company_id' => $this->company->id,
+        'name' => 'IVA 19%',
+        'code' => 'IVA',
+        'type' => TaxType::PERCENT,
+        'rate' => 19.00,
+        'is_default' => true,
+        'is_active' => true,
+    ]);
 });
 
 function createOrder(array $overrides = []): Order

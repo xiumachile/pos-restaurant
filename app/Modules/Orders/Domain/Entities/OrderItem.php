@@ -28,6 +28,9 @@ class OrderItem extends Model
         'quantity',
         'notes',
         'subtotal',
+        'tax_amount',
+        'tax_rate_snapshot',
+        'tax_name_snapshot',
     ];
 
     protected function casts(): array
@@ -37,6 +40,8 @@ class OrderItem extends Model
             'product_id' => 'integer',
             'quantity' => 'integer',
             'subtotal' => 'decimal:2',
+            'tax_amount' => 'decimal:2',
+            'tax_rate_snapshot' => 'decimal:4',
         ];
     }
 
@@ -44,6 +49,31 @@ class OrderItem extends Model
     {
         static::saving(function (OrderItem $item) {
             $item->subtotal = $item->unit_price_snapshot * $item->quantity;
+            
+            // Calcular impuesto por línea
+            $tax = null;
+            
+            if ($item->product_id && $item->product) {
+                // Caso 1: Hay producto asociado → usar su impuesto efectivo
+                $tax = $item->product->getEffectiveTax();
+            } else {
+                // Caso 2: Sin producto (item custom, combo, etc.) → usar Tax default de la empresa
+                $tax = \Modules\Tax\Domain\Entities\Tax::where('company_id', $item->company_id)
+                    ->where('is_default', true)
+                    ->where('is_active', true)
+                    ->first();
+            }
+            
+            if ($tax) {
+                $item->tax_amount = $tax->calculate($item->subtotal, $item->quantity);
+                $item->tax_rate_snapshot = $tax->effectiveRate();
+                $item->tax_name_snapshot = $tax->name;
+            } else {
+                // Fallback: sin impuesto configurado
+                $item->tax_amount = 0;
+                $item->tax_rate_snapshot = null;
+                $item->tax_name_snapshot = null;
+            }
         });
     }
 
