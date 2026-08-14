@@ -17,7 +17,7 @@ class TenantContextNotSetException extends Exception
     private ?string $modelClass;
 
     public function __construct(
-        string $message = null,
+        ?string $message = null,
         ?string $modelClass = null,
         int $code = 0,
         ?Throwable $previous = null
