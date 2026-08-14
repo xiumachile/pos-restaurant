@@ -154,8 +154,11 @@ class Order extends Model
     public function recalculateTotals(): void
     {
         $this->subtotal = $this->items()->sum('subtotal');
-        // IVA 19% (configurable en el futuro)
-        $this->tax_amount = round($this->subtotal * 0.19, 2);
+        
+        // Calcular impuesto sumando tax_amount de cada item
+        // (cada item ya tiene su impuesto calculado según su producto/categoría)
+        $this->tax_amount = $this->items()->sum('tax_amount');
+        
         $this->total = $this->subtotal + $this->tax_amount - $this->discount_amount;
     }
 
