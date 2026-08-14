@@ -7,6 +7,8 @@ use App\Shared\Domain\Traits\HasTranslations;
 use App\Shared\Domain\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Modules\Tax\Domain\Entities\Tax;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Category extends Model
@@ -19,6 +21,7 @@ class Category extends Model
     protected $fillable = [
         'company_id',
         'branch_id',
+        'tax_id',
         'name_translations',
         'sort_order',
         'is_active',
@@ -28,6 +31,7 @@ class Category extends Model
         'name_translations' => 'array',
         'sort_order' => 'integer',
         'is_active' => 'boolean',
+        'tax_id' => 'integer',
     ];
 
     protected array $translatableFields = ['name_translations'];
@@ -62,5 +66,33 @@ class Category extends Model
     public function getNameAttribute(): string
     {
         return $this->translate('name_translations', null, 'Sin nombre');
+    }
+
+    /**
+     * Impuesto asociado a la categoría.
+     */
+    public function tax(): BelongsTo
+    {
+        return $this->belongsTo(Tax::class);
+    }
+
+    /**
+     * Obtiene el impuesto efectivo de la categoría.
+     * Herencia: Category.tax -> Tax default de la empresa
+     * 
+     * @return Tax|null Impuesto efectivo o null si no hay ninguno
+     */
+    public function getEffectiveTax(): ?Tax
+    {
+        // 1. Si la categoría tiene tax_id, usarlo
+        if ($this->tax_id && $this->tax) {
+            return $this->tax;
+        }
+
+        // 2. Usar el impuesto por defecto de la empresa
+        return Tax::where('company_id', $this->company_id)
+            ->where('is_default', true)
+            ->where('is_active', true)
+            ->first();
     }
 }

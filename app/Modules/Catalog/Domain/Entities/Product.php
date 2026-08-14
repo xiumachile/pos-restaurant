@@ -7,6 +7,7 @@ use App\Shared\Domain\Traits\HasTranslations;
 use App\Shared\Domain\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Modules\Tax\Domain\Entities\Tax;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -22,6 +23,7 @@ class Product extends Model
         'company_id',
         'branch_id',
         'category_id',
+        'tax_id',
         'sku',
         'name_translations',
         'description_translations',
@@ -50,6 +52,58 @@ class Product extends Model
     {
         return $this->belongsTo(Category::class);
     }
+
+    /**
+     * Impuesto asociado al producto.
+     */
+    public function tax(): BelongsTo
+    {
+        return $this->belongsTo(Tax::class);
+    }
+
+    /**
+     * Obtiene el impuesto efectivo del producto.
+     * Herencia: Product.tax -> Category.tax -> Tax default de la empresa
+     * 
+     * @return Tax|null Impuesto efectivo o null si no hay ninguno
+     */
+    public function getEffectiveTax(): ?Tax
+    {
+        // 1. Si el producto tiene tax_id, usarlo
+        if ($this->tax_id && $this->tax) {
+            return $this->tax;
+        }
+
+        // 2. Si la categoría tiene tax_id, usarlo
+        if ($this->category && $this->category->tax_id && $this->category->tax) {
+            return $this->category->tax;
+        }
+
+        // 3. Usar el impuesto por defecto de la empresa
+        return Tax::where('company_id', $this->company_id)
+            ->where('is_default', true)
+            ->where('is_active', true)
+            ->first();
+    }
+
+    /**
+     * Calcula el impuesto para este producto.
+     * 
+     * @param float $quantity Cantidad de unidades
+     * @return float Monto del impuesto
+     */
+    public function calculateTax(float $quantity = 1): float
+    {
+        $tax = $this->getEffectiveTax();
+        
+        if (!$tax) {
+            return 0.0;
+        }
+
+        $baseAmount = (float) $this->base_price * $quantity;
+        return $tax->calculate($baseAmount, $quantity);
+    }
+
 
     /**
      * Si es combo, tiene un MenuItem asociado.
@@ -96,7 +150,8 @@ class Product extends Model
      */
     public function scopeInCategory($query, $categoryId)
     {
-        return $query->where('category_id', $categoryId);
+        return $query->where('category_id',
+        'tax_id', $categoryId);
     }
 
     /**
