@@ -3,6 +3,7 @@
 namespace Modules\Recipes\Domain\Services;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Modules\Catalog\Domain\Entities\Product;
 use Modules\Recipes\Domain\Entities\ProductRecipe;
 use Modules\Recipes\Domain\Entities\RawIngredient;
@@ -121,4 +122,83 @@ class RecipeService
             ];
         })->toArray();
     }
+
+    /**
+     * Descuenta automáticamente los insumos de las recetas de todos los productos del pedido.
+     * Se ejecuta cuando un pedido es confirmado (OrderConfirmed event).
+     * 
+     * Según Anexo Técnico Recetas v2.0 - Sección 5
+     */
+    public function deductInventoryForOrder(\Modules\Orders\Domain\Entities\Order $order): void
+    {
+        DB::transaction(function () use ($order) {
+            foreach ($order->items as $orderItem) {
+                $this->deductRecipeInventoryForOrderItem($orderItem, $order->branch_id);
+            }
+        });
+    }
+
+    /**
+     * Descuenta los insumos de la receta de un ítem específico del pedido.
+     */
+    private function deductRecipeInventoryForOrderItem($orderItem, int $branchId): void
+    {
+        Log::info('Buscando receta para producto', [
+            'product_id' => $orderItem->product_id,
+            'company_id' => $orderItem->company_id,
+            'branch_id' => $branchId,
+        ]);
+
+        // Buscar la receta del producto (sin Global Scopes de Catalog)
+        $recipe = ProductRecipe::withoutGlobalScopes()
+            ->where('product_id', $orderItem->product_id)
+            ->where('company_id', $orderItem->company_id)
+            ->with(['items.ingredient' => function ($query) use ($branchId) {
+                $query->where('branch_id', $branchId);
+            }])
+            ->first();
+
+        if (!$recipe) {
+            Log::info('Producto sin receta, saltando', [
+                'product_id' => $orderItem->product_id,
+            ]);
+            return;
+        }
+
+        Log::info('Receta encontrada', [
+            'recipe_id' => $recipe->id,
+            'items_count' => $recipe->items->count(),
+        ]);
+
+        foreach ($recipe->items as $recipeItem) {
+            $ingredient = $recipeItem->ingredient;
+            
+            if (!$ingredient) {
+                Log::warning('Ingredient not found in branch', [
+                    'recipe_item_id' => $recipeItem->id,
+                    'branch_id' => $branchId,
+                ]);
+                continue;
+            }
+
+            // Cantidad a descontar = cantidad efectiva * cantidad de platos pedidos
+            $quantityToDeduct = (float) $recipeItem->effective_discount_base_quantity * (int) $orderItem->quantity;
+
+            Log::info('Descontando stock de ingrediente', [
+                'ingredient_id' => $ingredient->id,
+                'ingredient_sku' => $ingredient->sku,
+                'quantity_to_deduct' => $quantityToDeduct,
+                'current_stock' => (float) $ingredient->current_stock_base,
+            ]);
+
+            // Descontar stock (lanza InsufficientIngredientStockException si no hay suficiente)
+            $ingredient->deductStock($quantityToDeduct);
+            
+            Log::info('Stock descontado exitosamente', [
+                'ingredient_id' => $ingredient->id,
+                'new_stock' => (float) $ingredient->fresh()->current_stock_base,
+            ]);
+        }
+    }
+
 }

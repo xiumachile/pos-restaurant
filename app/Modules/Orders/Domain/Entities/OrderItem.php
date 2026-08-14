@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\Catalog\Domain\Entities\MenuItem;
+use Modules\Catalog\Domain\Entities\Product;
 use Modules\Companies\Domain\Entities\Company;
 
 class OrderItem extends Model
@@ -18,6 +19,7 @@ class OrderItem extends Model
     use BelongsToTenant;
 
     protected $fillable = [
+        'product_id',
         'company_id',
         'order_id',
         'menu_item_id',
@@ -32,6 +34,7 @@ class OrderItem extends Model
     {
         return [
             'unit_price_snapshot' => 'decimal:2',
+            'product_id' => 'integer',
             'quantity' => 'integer',
             'subtotal' => 'decimal:2',
         ];
@@ -67,4 +70,10 @@ class OrderItem extends Model
     {
         return $this->hasMany(OrderItemModifier::class);
     }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+
 }
