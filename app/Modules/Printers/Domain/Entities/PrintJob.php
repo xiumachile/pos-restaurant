@@ -116,6 +116,19 @@ class PrintJob extends Model
     /**
      * Scope: trabajos pendientes.
      */
+
+    /**
+     * Accessor para escpos_bytes.
+     * PostgreSQL retorna campos binary como resources, los convertimos a string.
+     */
+    public function getEscposBytesAttribute($value)
+    {
+        if (is_resource($value)) {
+            return stream_get_contents($value);
+        }
+        return $value;
+    }
+
     public function scopePending($query)
     {
         return $query->where('status', self::STATUS_PENDING);

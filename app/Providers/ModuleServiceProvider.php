@@ -10,7 +10,8 @@ class ModuleServiceProvider extends ServiceProvider
     protected array $modules = [
         'Identity', 'Companies', 'Branches', 'Catalog', 'Tables',
         'Orders', 'Kitchen', 'Billing', 'Payments',
-        'Recipes', 'Cashier',
+        'Recipes',
+        'Printers', 'Cashier',
         'Inventory', 'Customers', 'Delivery', 'Reports',
         'Integrations', 'I18n', 'Sync',
     ];
