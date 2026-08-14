@@ -24,7 +24,7 @@ class CompanyScope implements Scope
      * Comandos Artisan que NO requieren contexto de tenant.
      * Solo operaciones de setup de BD.
      */
-    private const ALLOWED_ARTISAN_COMMANDS = [
+    public const ALLOWED_ARTISAN_COMMANDS = [
         'migrate',
         'migrate:fresh',
         'migrate:refresh',
