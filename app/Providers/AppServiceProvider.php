@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use Modules\Orders\Domain\Events\OrderConfirmed;
+use Modules\Recipes\Domain\Listeners\DeductRecipeOnOrderConfirm;
 use Illuminate\Support\ServiceProvider;
 use App\Shared\Application\TenantContext;
 
@@ -18,5 +20,11 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         //
+        // Registrar listeners del módulo Recipes (BOM)
+        \Illuminate\Support\Facades\Event::listen(
+            OrderConfirmed::class,
+            DeductRecipeOnOrderConfirm::class
+        );
+
     }
 }
