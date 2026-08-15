@@ -46,6 +46,9 @@ class LocalDatabaseManager
                 "database.connections.{$this->connectionName}.database" => $this->databasePath,
             ]);
 
+            // Limpiar conexión cacheada para que use la nueva configuración
+            DB::purge($this->connectionName);
+
             // Crear tablas locales
             $this->createLocalSchema();
 
@@ -73,6 +76,7 @@ class LocalDatabaseManager
                 $table->uuid('uuid')->unique();
                 $table->uuid('server_id')->nullable(); // ID en el servidor
                 $table->unsignedBigInteger('branch_id');
+                $table->unsignedBigInteger('waiter_id')->nullable();
                 $table->string('order_number', 50);
                 $table->string('type', 20);
                 $table->string('status', 20);

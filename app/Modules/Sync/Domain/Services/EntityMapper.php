@@ -23,6 +23,7 @@ class EntityMapper
             'uuid' => $order->uuid,
             'server_id' => $order->id,
             'branch_id' => $order->branch_id,
+            'waiter_id' => $order->waiter_id,
             'order_number' => $order->order_number,
             'type' => $order->type?->value ?? 'dine_in',
             'status' => $order->status?->value ?? 'draft',
@@ -47,6 +48,7 @@ class EntityMapper
         return [
             'uuid' => $localData['uuid'] ?? null,
             'branch_id' => $localData['branch_id'] ?? null,
+            'waiter_id' => $localData['waiter_id'] ?? null,
             'order_number' => $localData['order_number'] ?? null,
             'type' => $localData['type'] ?? 'dine_in',
             'status' => $localData['status'] ?? 'draft',

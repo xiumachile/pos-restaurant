@@ -237,6 +237,18 @@ class SyncAdapter
         // No existe: crear nueva orden en el servidor
         $serverData = $this->mapper->localToOrder($localData);
         $serverData['branch_id'] = $branchId;
+        // Asegurar que company_id y branch_id estén presentes
+        if (empty($serverData['company_id'])) {
+            $serverData['company_id'] = DB::table('branches')
+                ->where('id', $branchId)
+                ->value('company_id');
+        }
+        // Asegurar que company_id y branch_id estén presentes
+        if (empty($serverData['company_id'])) {
+            $serverData['company_id'] = DB::table('branches')
+                ->where('id', $branchId)
+                ->value('company_id');
+        }
         $serverData['company_id'] = DB::table('branches')
             ->where('id', $branchId)
             ->value('company_id');
@@ -248,7 +260,7 @@ class SyncAdapter
 
         app()->instance('sync.is_syncing', true);
         try {
-            $order = Order::create($serverData);
+            $order = Order::forceCreate($serverData);
             
             // Importar items si existen
             $localConnection = DB::connection($this->localConnection);
@@ -275,7 +287,7 @@ class SyncAdapter
         $itemData['order_id'] = $order->id;
         $itemData['company_id'] = $order->company_id;
 
-        OrderItem::create($itemData);
+        OrderItem::forceCreate($itemData);
     }
 
     /**
