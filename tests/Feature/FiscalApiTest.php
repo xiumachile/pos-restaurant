@@ -15,8 +15,9 @@ use Modules\Fiscal\Domain\ValueObjects\DteStatus;
 use Modules\Fiscal\Domain\ValueObjects\DteType;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
+use Tests\Traits\InjectsIdempotencyKey;
 
-uses(RefreshDatabase::class);
+uses(RefreshDatabase::class, InjectsIdempotencyKey::class);
 
 beforeEach(function () {
     $this->company = Company::create([

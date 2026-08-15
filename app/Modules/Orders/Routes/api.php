@@ -6,6 +6,7 @@ use Modules\Orders\Interfaces\Controllers\OrderController;
 use Modules\Orders\Interfaces\Controllers\OrderItemController;
 use Modules\Orders\Interfaces\Controllers\OrderTransitionController;
 use App\Shared\Http\Middleware\TenantContextMiddleware;
+use App\Shared\Http\Middleware\IdempotencyKeyMiddleware;
 
 Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class])->group(function () {
     

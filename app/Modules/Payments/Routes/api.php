@@ -5,6 +5,7 @@ use Modules\Payments\Interfaces\Controllers\BillController;
 use Modules\Payments\Interfaces\Controllers\CashSessionController;
 use Modules\Payments\Interfaces\Controllers\PaymentController;
 use App\Shared\Http\Middleware\TenantContextMiddleware;
+use App\Shared\Http\Middleware\IdempotencyKeyMiddleware;
 
 Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class])->group(function () {
     // ============================================

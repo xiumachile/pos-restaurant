@@ -12,8 +12,9 @@ use Modules\Cashier\Domain\ValueObjects\MovementType;
 use Modules\Cashier\Domain\ValueObjects\CashCountType;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
+use Tests\Traits\InjectsIdempotencyKey;
 
-uses(RefreshDatabase::class);
+uses(RefreshDatabase::class, InjectsIdempotencyKey::class);
 
 beforeEach(function () {
     $this->company = Company::create([

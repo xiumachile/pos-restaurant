@@ -6,6 +6,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
+use App\Shared\Http\Middleware\IdempotencyKeyMiddleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -21,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'role' => \App\Shared\Http\Middleware\CheckRole::class,
+            'idempotent' => IdempotencyKeyMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

@@ -16,6 +16,7 @@ class ModuleServiceProvider extends ServiceProvider
         'Tax',
         'Inventory', 'Customers', 'Delivery', 'Reports',
         'Integrations', 'I18n', 'Sync',
+        'Audit',
     ];
 
     public function register(): void {}

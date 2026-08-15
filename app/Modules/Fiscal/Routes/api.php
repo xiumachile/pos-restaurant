@@ -6,8 +6,9 @@ use Modules\Fiscal\Interfaces\Controllers\DteFolioRangeController;
 use Modules\Fiscal\Interfaces\Controllers\DteCertificateController;
 use Modules\Fiscal\Interfaces\Controllers\SalesBookController;
 use App\Shared\Http\Middleware\TenantContextMiddleware;
+use App\Shared\Http\Middleware\IdempotencyKeyMiddleware;
 
-Route::prefix('v1/fiscal')->middleware(['auth:api', TenantContextMiddleware::class])->group(function () {
+Route::prefix('v1/fiscal')->middleware(['auth:api', TenantContextMiddleware::class, 'idempotent'])->group(function () {
     // ============================================
     // DTE Documents
     // ============================================

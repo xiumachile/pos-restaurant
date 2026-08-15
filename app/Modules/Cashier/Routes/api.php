@@ -6,8 +6,9 @@ use Modules\Cashier\Interfaces\Controllers\CashMovementController;
 use Modules\Cashier\Interfaces\Controllers\CashCountController;
 use Modules\Cashier\Interfaces\Controllers\CashierDashboardController;
 use App\Shared\Http\Middleware\TenantContextMiddleware;
+use App\Shared\Http\Middleware\IdempotencyKeyMiddleware;
 
-Route::prefix('v1/cashier')->middleware(['auth:api', TenantContextMiddleware::class])->group(function () {
+Route::prefix('v1/cashier')->middleware(['auth:api', TenantContextMiddleware::class, 'idempotent'])->group(function () {
     // Dashboard
     Route::get('/dashboard', [CashierDashboardController::class, 'index'])
         ->name('cashier.dashboard');
