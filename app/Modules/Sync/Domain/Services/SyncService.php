@@ -9,6 +9,7 @@ use Illuminate\Support\Str;
 use Modules\Sync\Domain\Entities\SyncLog;
 use Modules\Sync\Domain\Entities\SyncQueue;
 use Modules\Sync\Domain\Exceptions\SyncException;
+use Modules\Sync\Domain\Services\ServerDataProvider;
 use Throwable;
 
 /**
@@ -303,6 +304,162 @@ class SyncService
     /**
      * Obtiene estadísticas de sync para una sucursal.
      */
+
+    /**
+     * Descarga cambios del servidor y los aplica al cliente.
+     * 
+     * @param int $branchId ID de la sucursal
+     * @param ResolutionStrategy $conflictStrategy Estrategia para resolver conflictos
+     * @return array Resumen de la operación
+     */
+    public function pullChanges(
+        int $branchId,
+        \Modules\Sync\Domain\Enums\ResolutionStrategy $conflictStrategy = \Modules\Sync\Domain\Enums\ResolutionStrategy::SERVER_WINS
+    ): array {
+        $sessionId = (string) Str::uuid();
+        $startTime = microtime(true);
+
+        $results = [
+            'session_id' => $sessionId,
+            'direction' => 'pull',
+            'processed' => 0,
+            'success' => 0,
+            'conflicts' => 0,
+            'errors' => [],
+        ];
+
+        $serverProvider = new ServerDataProvider();
+        $conflictResolver = new ConflictResolver();
+
+        // Obtener timestamp de última sincronización
+        $lastSync = $serverProvider->getLastSyncTimestamp($branchId);
+
+        // Obtener cambios del servidor
+        $serverChanges = $serverProvider->getChangesSince($branchId, $lastSync);
+
+        foreach ($serverChanges as $change) {
+            $itemStart = microtime(true);
+
+            try {
+                $this->applyServerChange($change, $sessionId, $conflictResolver, $conflictStrategy);
+                $results['processed']++;
+                $results['success']++;
+            } catch (\Throwable $e) {
+                $results['processed']++;
+                $results['errors'][] = [
+                    'entity_type' => $change['entity_type'] ?? null,
+                    'entity_id' => $change['entity_id'] ?? null,
+                    'error' => $e->getMessage(),
+                ];
+
+                Log::error('SyncService: Pull failed', [
+                    'change' => $change,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Confirmar cambios en el servidor
+        if ($results['success'] > 0) {
+            $serverProvider->acknowledgeChanges(
+                $sessionId,
+                collect($serverChanges)->pluck('entity_id')->toArray()
+            );
+        }
+
+        $results['duration_ms'] = (int) ((microtime(true) - $startTime) * 1000);
+
+        return $results;
+    }
+
+    /**
+     * Aplica un cambio del servidor al cliente.
+     */
+    protected function applyServerChange(
+        array $change,
+        string $sessionId,
+        ConflictResolver $conflictResolver,
+        \Modules\Sync\Domain\Enums\ResolutionStrategy $strategy
+    ): void {
+        $entityType = $change['entity_type'];
+        $entityId = $change['entity_id'];
+
+        if (!class_exists($entityType)) {
+            throw new SyncException("Unknown entity type: {$entityType}");
+        }
+
+        $entity = $entityType::find($entityId);
+
+        if (!$entity) {
+            throw new SyncException("Entity not found: {$entityType}::{$entityId}");
+        }
+
+        // Verificar si el cliente tiene cambios pendientes (conflicto potencial)
+        $hasPendingChanges = $entity->sync_status === 'pending' || 
+                             ($entity->sync_status instanceof \Modules\Sync\Domain\ValueObjects\SyncStatus && 
+                              $entity->sync_status->value === 'pending');
+
+        if ($hasPendingChanges) {
+            // Conflicto: el cliente tiene cambios sin sincronizar
+            // Crear un queue item temporal para resolver el conflicto
+            $tempQueueItem = SyncQueue::create([
+                'company_id' => $entity->company_id ?? null,
+                'branch_id' => $entity->branch_id ?? null,
+                'entity_type' => $entityType,
+                'entity_id' => $entityId,
+                'entity_uuid' => $entity->uuid ?? null,
+                'action' => 'update',
+                'payload' => $entity->getDirty() ?: [],
+                'version' => $entity->version ?? 1,
+                'status' => 'pending',
+            ]);
+
+            $resolution = $conflictResolver->resolve($tempQueueItem, $change['data'], $strategy);
+            
+            if (!$resolution['resolved']) {
+                throw new SyncException(
+                    "Conflict not resolved for {$entityType}::{$entityId}",
+                    $entityType,
+                    $entityId
+                );
+            }
+
+            // Limpiar el queue item temporal
+            $tempQueueItem->delete();
+        } else {
+            // Sin conflicto: aplicar cambios directamente
+            app()->instance('sync.is_syncing', true);
+            try {
+                $entity->fill($change['data']);
+                $entity->sync_status = 'synced';
+                $entity->version = $change['version'] ?? ($entity->version + 1);
+                $entity->last_synced_at = now();
+                $entity->save();
+            } finally {
+                app()->instance('sync.is_syncing', false);
+            }
+        }
+
+        // Registrar en sync_log
+        try {
+            SyncLog::create([
+                'uuid' => Str::uuid(),
+                'company_id' => $entity->company_id ?? null,
+                'branch_id' => $entity->branch_id ?? null,
+                'sync_session_id' => $sessionId,
+                'direction' => 'pull',
+                'entity_type' => $entityType,
+                'entity_id' => $entityId,
+                'entity_uuid' => $entity->uuid ?? null,
+                'action' => $change['action'] ?? 'update',
+                'result' => 'success',
+                'synced_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('SyncService: Failed to log pull', ['error' => $e->getMessage()]);
+        }
+    }
+
     public function getSyncStats(int $branchId): array
     {
         return [
