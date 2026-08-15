@@ -277,3 +277,22 @@ test('requiere autorizacion cuando la regla lo indica', function () {
     expect($result->isAllowed())->toBeTrue();
     expect($result->needsAuthorization())->toBeTrue();
 });
+
+test('deniega sustitución si la categoría de la regla fue desactivada', function () {
+    // Desactivar la categoría de bebidas
+    $this->bebidasCategory->is_active = false;
+    $this->bebidasCategory->save();
+
+    // Recargar el validator con la categoría actualizada
+    $this->menuItem->refresh();
+
+    $result = $this->validator->execute(
+        $this->menuItem,
+        $this->cocaCola,
+        $this->jugo, // Jugo es de la categoría bebidas (ahora desactivada)
+        1
+    );
+
+    expect($result->isAllowed())->toBeFalse();
+    expect($result->errorCode)->toBe('category_no_longer_available');
+});
