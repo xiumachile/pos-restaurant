@@ -4,6 +4,7 @@ namespace Modules\Orders\Domain\Entities;
 
 use App\Shared\Domain\Traits\BelongsToTenant;
 use App\Shared\Domain\Traits\HasUuid;
+use App\Shared\Domain\Traits\Syncable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,6 +17,7 @@ class OrderItem extends Model
 {
     use HasFactory;
     use HasUuid;
+    use Syncable;
     use BelongsToTenant;
 
     protected $fillable = [

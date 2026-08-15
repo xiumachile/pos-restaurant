@@ -44,6 +44,15 @@ return [
             'transaction_mode' => 'DEFERRED',
         ],
 
+        
+        'sqlite_local' => [
+            'driver' => 'sqlite',
+            'url' => env('SQLITE_LOCAL_URL'),
+            'database' => env('SQLITE_LOCAL_PATH', database_path('local.sqlite')),
+            'prefix' => '',
+            'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
+        ],
+
         'mysql' => [
             'driver' => 'mysql',
             'url' => env('DB_URL'),
