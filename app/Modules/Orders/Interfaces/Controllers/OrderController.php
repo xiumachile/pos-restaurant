@@ -4,6 +4,7 @@ namespace Modules\Orders\Interfaces\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Modules\Orders\Domain\Entities\Order;
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
@@ -131,15 +132,42 @@ class OrderController extends Controller
         return response()->json(['message' => 'Pedido eliminado correctamente.']);
     }
 
+    /**
+     * Genera número de orden único para la sucursal/día.
+     * 
+     * Usa lockForUpdate() dentro de transacción para prevenir condición de carrera
+     * cuando múltiples garzones crean pedidos simultáneamente.
+     * 
+     * Formato: ORD-{branch_id:3}-{YYYYMMDD}-{secuencia:4}
+     * Ejemplo: ORD-001-20260815-0042
+     */
     protected function generateOrderNumber(int $branchId): string
     {
         $prefix = 'ORD-' . str_pad($branchId, 3, '0', STR_PAD_LEFT);
         $date = now()->format('Ymd');
 
-        $count = Order::where('branch_id', $branchId)
-            ->whereDate('created_at', today())
-            ->count() + 1;
+        return DB::transaction(function () use ($branchId, $date, $prefix) {
+            // Lock pesimista: bloquea las filas hasta que la transacción termine
+            $lastOrder = Order::where('branch_id', $branchId)
+                ->whereDate('created_at', today())
+                ->orderBy('id', 'desc')
+                ->lockForUpdate()
+                ->first();
 
-        return "{$prefix}-{$date}-" . str_pad($count, 4, '0', STR_PAD_LEFT);
+            // Si no hay pedidos hoy, iniciar en 1
+            $nextNumber = $lastOrder ? $this->extractSequence($lastOrder->order_number) + 1 : 1;
+
+            return "{$prefix}-{$date}-" . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+        });
+    }
+
+    /**
+     * Extrae el número de secuencia de un order_number.
+     * Ejemplo: "ORD-001-20260815-0042" -> 42
+     */
+    private function extractSequence(string $orderNumber): int
+    {
+        $parts = explode('-', $orderNumber);
+        return (int) end($parts);
     }
 }
