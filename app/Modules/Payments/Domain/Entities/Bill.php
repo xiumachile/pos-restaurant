@@ -4,6 +4,7 @@ namespace Modules\Payments\Domain\Entities;
 
 use App\Shared\Domain\Traits\BelongsToTenant;
 use App\Shared\Domain\Traits\HasUuid;
+use App\Shared\Domain\Traits\Syncable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -17,6 +18,7 @@ use Modules\Payments\Domain\ValueObjects\BillType;
 class Bill extends Model
 {
     use HasUuid;
+    use Syncable;
     use BelongsToTenant;
     use SoftDeletes;
 

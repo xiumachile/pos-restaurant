@@ -5,6 +5,7 @@ namespace Modules\Tables\Domain\Entities;
 use App\Shared\Domain\Traits\BelongsToTenant;
 use App\Shared\Domain\Traits\HasTranslations;
 use App\Shared\Domain\Traits\HasUuid;
+use App\Shared\Domain\Traits\Syncable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -17,6 +18,7 @@ use Modules\Tables\Domain\ValueObjects\TableStatus;
 class RestaurantTable extends Model
 {
     use HasUuid;
+    use Syncable;
     use BelongsToTenant;
     use HasTranslations;
     use SoftDeletes;

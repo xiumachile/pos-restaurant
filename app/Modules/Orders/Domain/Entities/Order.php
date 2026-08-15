@@ -4,6 +4,7 @@ namespace Modules\Orders\Domain\Entities;
 
 use App\Shared\Domain\Traits\BelongsToTenant;
 use App\Shared\Domain\Traits\HasUuid;
+use App\Shared\Domain\Traits\Syncable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,12 +14,14 @@ use Modules\Companies\Domain\Entities\Company;
 use Modules\Identity\Domain\Entities\User;
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
 use Modules\Orders\Domain\ValueObjects\OrderType;
+use Modules\Sync\Domain\ValueObjects\SyncStatus;
 use Modules\Tables\Domain\Entities\RestaurantTable;
 
 class Order extends Model
 {
     use HasFactory;
     use HasUuid;
+    use Syncable;
     use BelongsToTenant;
 
     protected $fillable = [
@@ -43,6 +46,10 @@ class Order extends Model
         'closed_at',
         'cancelled_at',
         'cancellation_reason',
+        'sync_status',
+        'version',
+        'last_synced_at',
+        'offline_id',
     ];
 
     protected function casts(): array
@@ -50,6 +57,9 @@ class Order extends Model
         return [
             'type' => OrderType::class,
             'status' => OrderStatus::class,
+            'sync_status' => SyncStatus::class,
+            'version' => 'integer',
+            'last_synced_at' => 'datetime',
         'priority' => \Modules\Orders\Domain\ValueObjects\OrderPriority::class,
             'subtotal' => 'decimal:2',
             'tax_amount' => 'decimal:2',
