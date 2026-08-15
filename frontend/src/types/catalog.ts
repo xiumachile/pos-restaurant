@@ -14,6 +14,7 @@ export interface Product {
   name_translations: Record<string, string>;
   description_translations?: Record<string, string>;
   base_price: number;
+  tax_rate: number;
   category_id?: number;
   category?: Category;
   is_combo: boolean;

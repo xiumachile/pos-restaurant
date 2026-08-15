@@ -12,7 +12,8 @@ export const catalogService = {
    */
   async listCategories(): Promise<Category[]> {
     const response = await apiClient.get<ListResponse<Category>>(
-      "/catalog/categories"
+      "/catalog/categories",
+      { params: { active_only: true } }
     );
     const data = response.data as any;
     return Array.isArray(data) ? data : data.data || [];
@@ -22,7 +23,10 @@ export const catalogService = {
    * Lista productos activos
    */
   async listProducts(categoryId?: number): Promise<Product[]> {
-    const params = categoryId ? { category_id: categoryId } : {};
+    const params = {
+      active_only: true,
+      ...(categoryId && { category_id: categoryId }),
+    };
     const response = await apiClient.get<ListResponse<Product>>(
       "/catalog/products",
       { params }
@@ -47,7 +51,7 @@ export const catalogService = {
   async searchProducts(query: string): Promise<Product[]> {
     const response = await apiClient.get<ListResponse<Product>>(
       "/catalog/products",
-      { params: { search: query } }
+      { params: { search: query, active_only: true } }
     );
     const data = response.data as any;
     return Array.isArray(data) ? data : data.data || [];

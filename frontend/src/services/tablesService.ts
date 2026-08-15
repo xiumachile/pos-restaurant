@@ -16,7 +16,6 @@ export const tablesService = {
    */
   async list(): Promise<RestaurantTable[]> {
     const response = await apiClient.get<ListTablesResponse>("/tables");
-    // Backend puede retornar {data: [...]} o [...] directamente
     const data = response.data as any;
     return Array.isArray(data) ? data : data.data || [];
   },
