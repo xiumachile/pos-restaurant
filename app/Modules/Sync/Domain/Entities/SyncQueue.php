@@ -35,7 +35,7 @@ class SyncQueue extends Model
         'attempts',
         'status',
         'error_message',
-        'last_attempt_at',
+                'last_attempt_at',
         'next_attempt_at',
     ];
 
@@ -44,6 +44,8 @@ class SyncQueue extends Model
         return [
             'action' => SyncAction::class,
             'payload' => 'array',
+            'conflict_data' => 'array',
+            'conflict_data' => 'array',
             'version' => 'integer',
             'attempts' => 'integer',
             'last_attempt_at' => 'datetime',
