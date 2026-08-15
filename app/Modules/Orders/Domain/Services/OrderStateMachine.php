@@ -5,6 +5,7 @@ namespace Modules\Orders\Domain\Services;
 use Illuminate\Support\Carbon;
 use Modules\Orders\Domain\Entities\Order;
 use Modules\Orders\Domain\Events\OrderCancelled;
+use Modules\Orders\Domain\Events\OrderDiscountApplied;
 use Modules\Orders\Domain\Events\OrderClosed;
 use Modules\Orders\Domain\Events\OrderConfirmed;
 use Modules\Orders\Domain\Events\OrderPaid;
@@ -72,6 +73,30 @@ class OrderStateMachine
     public function canModifyItems(Order $order): bool
     {
         return $order->isEditable();
+    }
+
+
+    /**
+     * Aplica un descuento a un pedido y dispara el evento para auditoría.
+     */
+    public function applyDiscount(Order $order, float $amount, string $reason): Order
+    {
+        if ($amount <= 0) {
+            throw InvalidOrderTransitionException::fromTo($order->status, $order->status);
+        }
+
+        $order->discount_amount = $amount;
+        
+        // Recalcular totales si el método existe
+        if (method_exists($order, 'recalculateTotals')) {
+            $order->recalculateTotals();
+        }
+        
+        $order->save();
+        
+        OrderDiscountApplied::dispatch($order, $amount, $reason);
+        
+        return $order;
     }
 
     public function canCancel(Order $order): bool

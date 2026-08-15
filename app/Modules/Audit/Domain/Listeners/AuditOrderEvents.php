@@ -1,16 +1,15 @@
 <?php
 
-namespace Modules\Audit\Listeners;
+namespace Modules\Audit\Domain\Listeners;
 
 use Modules\Audit\Domain\Services\AuditService;
-use Modules\Orders\Events\OrderCancelled;
-use Modules\Orders\Events\OrderDiscountApplied;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Modules\Orders\Domain\Events\OrderCancelled;
+use Modules\Orders\Domain\Events\OrderDiscountApplied;
 
 /**
  * Listener que registra eventos de Orders en el audit log.
  */
-class AuditOrderEvents implements ShouldQueue
+class AuditOrderEvents
 {
     public function __construct(
         protected AuditService $auditService
@@ -18,12 +17,13 @@ class AuditOrderEvents implements ShouldQueue
 
     /**
      * Registra cancelación de orden.
+     * OrderCancelled solo tiene $order; el reason está en $order->cancellation_reason
      */
     public function handleOrderCancelled(OrderCancelled $event): void
     {
         $this->auditService->logOrderCancellation(
             order: $event->order,
-            reason: $event->reason ?? 'Sin especificar'
+            reason: $event->order->cancellation_reason ?? 'Sin especificar'
         );
     }
 
@@ -35,7 +35,7 @@ class AuditOrderEvents implements ShouldQueue
         $this->auditService->logDiscountApplied(
             order: $event->order,
             amount: $event->discountAmount,
-            reason: $event->reason ?? 'Descuento manual'
+            reason: $event->reason
         );
     }
 }

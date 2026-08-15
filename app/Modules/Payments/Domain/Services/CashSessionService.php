@@ -7,6 +7,7 @@ use Modules\Payments\Domain\Entities\CashSession;
 use Modules\Payments\Domain\Exceptions\PaymentException;
 use Modules\Payments\Domain\ValueObjects\CashSessionStatus;
 use Modules\Payments\Domain\ValueObjects\PaymentMethodType;
+use Modules\Cashier\Domain\Events\DrawerOpened;
 
 /**
  * Servicio de dominio para gestión de sesiones de caja.
@@ -37,7 +38,7 @@ class CashSessionService
             // Generar número de sesión
             $sessionNumber = sprintf('CS-%s-%s', date('Ymd'), strtoupper(substr(uniqid(), -6)));
 
-            return CashSession::create([
+            $session = CashSession::create([
                 'company_id' => $companyId,
                 'branch_id' => $branchId,
                 'user_id' => $userId,
@@ -47,6 +48,11 @@ class CashSessionService
                 'opening_notes' => $notes,
                 'opened_at' => now(),
             ]);
+
+            // Disparar evento de auditoría
+            DrawerOpened::dispatch($session, $notes ?? 'Apertura de sesión de caja');
+
+            return $session;
         });
     }
 
