@@ -81,7 +81,19 @@ class ValidateComboSubstitution
             );
         }
 
-        // 8. Validar si el reemplazo cumple con al menos una regla
+        // 8. Detectar si TODAS las reglas aplicables tienen categoría inválida
+        // Esto permite dar un mensaje más claro al usuario
+        $allRulesHaveInvalidCategory = $applicableRules->isNotEmpty()
+            && $applicableRules->every(fn($rule) => $rule->hasInvalidCategory());
+
+        if ($allRulesHaveInvalidCategory) {
+            return SubstitutionValidationResult::denied(
+                'category_no_longer_available',
+                'La categoría configurada para las sustituciones ya no está disponible. Contacta al administrador para actualizar las reglas del combo.'
+            );
+        }
+
+        // 9. Validar si el reemplazo cumple con al menos una regla
         $matchedRule = $this->findMatchingRule($applicableRules, $replacementProduct);
 
         if (!$matchedRule) {

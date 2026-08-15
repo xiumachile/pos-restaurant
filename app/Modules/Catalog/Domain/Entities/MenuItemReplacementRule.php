@@ -128,6 +128,10 @@ class MenuItemReplacementRule extends Model
 
     /**
      * Verifica si un producto cumple con esta regla.
+     * 
+     * Para reglas tipo 'allowed_category', la categoría referenciada debe estar
+     * activa (is_active = true). Si la categoría fue desactivada, la regla se
+     * considera inválida y retorna false (fail-closed).
      */
     public function matches(Product $replacement): bool
     {
@@ -138,8 +142,43 @@ class MenuItemReplacementRule extends Model
         return match ($this->rule_type) {
             self::RULE_TYPE_ANY => true,
             self::RULE_TYPE_PRODUCT => $this->allowed_product_id === $replacement->id,
-            self::RULE_TYPE_CATEGORY => $this->allowed_category_id === $replacement->category_id,
+            self::RULE_TYPE_CATEGORY => $this->matchesCategory($replacement),
             default => false,
         };
+    }
+
+    /**
+     * Verifica si el producto de reemplazo coincide con la categoría permitida
+     * y además la categoría está activa.
+     */
+    private function matchesCategory(Product $replacement): bool
+    {
+        if ($this->allowed_category_id === null) {
+            return false;
+        }
+
+        // Si la categoría no está cargada, cargarla
+        $category = $this->allowedCategory;
+        
+        // Si la categoría fue desactivada o eliminada, la regla es inválida
+        if (!$category || !$category->is_active) {
+            return false;
+        }
+
+        return $this->allowed_category_id === $replacement->category_id;
+    }
+
+    /**
+     * Verifica si esta regla tiene una categoría inválida (desactivada o eliminada).
+     * Usado por ValidateComboSubstitution para dar mensajes claros al usuario.
+     */
+    public function hasInvalidCategory(): bool
+    {
+        if ($this->rule_type !== self::RULE_TYPE_CATEGORY || $this->allowed_category_id === null) {
+            return false;
+        }
+
+        $category = $this->allowedCategory;
+        return !$category || !$category->is_active;
     }
 }
