@@ -8,6 +8,7 @@ interface OrderCardProps {
   onPrepare?: (uuid: string) => void;
   onReady?: (uuid: string) => void;
   onServe?: (uuid: string) => void;
+  onTableClick?: (tableUuid: string) => void;
   isTransitioning?: boolean;
 }
 
@@ -22,6 +23,7 @@ export function OrderCard({
   onPrepare,
   onReady,
   onServe,
+  onTableClick,
   isTransitioning = false,
 }: OrderCardProps) {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -111,10 +113,16 @@ export function OrderCard({
         )}
       </div>
 
-      {/* Mesa + área */}
+      {/* Mesa + área (clickable) */}
       <div className="text-sm text-slate-300">
         {order.table_number && (
-          <span className="font-semibold">Mesa {order.table_number}</span>
+          <button
+            onClick={() => order.table_uuid && onTableClick?.(order.table_uuid)}
+            className="font-semibold hover:text-orange-400 transition-colors"
+            title="Ver historial de mesa"
+          >
+            Mesa {order.table_number}
+          </button>
         )}
         {order.area_code && (
           <span className="text-slate-500 ml-2">({order.area_code})</span>

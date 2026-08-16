@@ -9,6 +9,7 @@ interface KitchenColumnProps {
   onPrepare?: (uuid: string) => void;
   onReady?: (uuid: string) => void;
   onServe?: (uuid: string) => void;
+  onTableClick?: (tableUuid: string) => void;
   transitioningUuids?: Set<string>;
 }
 
@@ -40,6 +41,7 @@ export function KitchenColumn({
   onPrepare,
   onReady,
   onServe,
+  onTableClick,
   transitioningUuids = new Set(),
 }: KitchenColumnProps) {
   const config = COLUMN_CONFIG[icon];
@@ -77,6 +79,7 @@ export function KitchenColumn({
               onPrepare={onPrepare}
               onReady={onReady}
               onServe={onServe}
+              onTableClick={onTableClick}
               isTransitioning={transitioningUuids.has(order.uuid)}
             />
           ))

@@ -20,6 +20,7 @@ export interface KitchenOrder {
   status: KitchenOrderStatus;
   priority: OrderPriority;
   table_number: string | null;
+  table_uuid?: string | null;
   area_code: string | null;
   waiter_name: string | null;
   items: KitchenOrderItem[];

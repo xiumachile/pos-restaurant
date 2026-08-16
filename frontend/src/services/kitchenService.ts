@@ -13,6 +13,23 @@ interface KitchenOrderResponse {
   data: KitchenOrder;
 }
 
+export interface TableHistoryResponse {
+  table: {
+    uuid: string;
+    table_number: string;
+    area_code: string;
+    capacity: number;
+  };
+  orders: KitchenOrder[];
+  summary: {
+    total_orders: number;
+    total_items: number;
+    total_amount: number;
+    first_order_at: string | null;
+    last_order_at: string | null;
+  };
+}
+
 export const kitchenService = {
   /**
    * Obtiene la cola de cocina agrupada por zona.
@@ -28,6 +45,16 @@ export const kitchenService = {
    */
   async getStats(): Promise<KitchenStats> {
     const response = await apiClient.get<KitchenStatsResponse>("/kitchen/stats");
+    return (response.data as any).data;
+  },
+
+  /**
+   * Obtiene el historial completo de una mesa del día actual.
+   */
+  async getTableHistory(tableUuid: string): Promise<TableHistoryResponse> {
+    const response = await apiClient.get<{ data: TableHistoryResponse }>(
+      `/kitchen/table-history/${tableUuid}`
+    );
     return (response.data as any).data;
   },
 

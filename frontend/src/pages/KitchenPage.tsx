@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useKitchenQueue, useKitchenStats, useKitchenTransition } from "@/hooks/useKitchenOrders";
 import { KitchenColumn } from "@/components/kitchen/KitchenColumn";
+import { TableHistoryModal } from "@/components/kitchen/TableHistoryModal";
 import { Loader2, RefreshCw, ChefHat } from "lucide-react";
 import type { KitchenOrder } from "@/types/kitchen";
 
@@ -10,6 +11,7 @@ export function KitchenPage() {
   const { prepare, ready, serve } = useKitchenTransition();
 
   const [transitioningUuids, setTransitioningUuids] = useState<Set<string>>(new Set());
+  const [selectedTableUuid, setSelectedTableUuid] = useState<string | null>(null);
 
   // Aplanar todas las órdenes de todas las zonas
   const allOrders = zones.flatMap((zone) => zone.orders);
@@ -35,6 +37,10 @@ export function KitchenPage() {
         return next;
       });
     }
+  };
+
+  const handleTableClick = (tableUuid: string) => {
+    setSelectedTableUuid(tableUuid);
   };
 
   if (isLoading) {
@@ -81,6 +87,7 @@ export function KitchenPage() {
           icon="confirmed"
           orders={confirmed}
           onPrepare={(uuid) => handleTransition(uuid, prepare.mutateAsync)}
+          onTableClick={handleTableClick}
           transitioningUuids={transitioningUuids}
         />
 
@@ -89,6 +96,7 @@ export function KitchenPage() {
           icon="preparing"
           orders={preparing}
           onReady={(uuid) => handleTransition(uuid, ready.mutateAsync)}
+          onTableClick={handleTableClick}
           transitioningUuids={transitioningUuids}
         />
 
@@ -97,9 +105,19 @@ export function KitchenPage() {
           icon="ready"
           orders={readyOrders}
           onServe={(uuid) => handleTransition(uuid, serve.mutateAsync)}
+          onTableClick={handleTableClick}
           transitioningUuids={transitioningUuids}
         />
       </div>
+
+      {/* Modal de historial de mesa */}
+      {selectedTableUuid && (
+        <TableHistoryModal
+          tableUuid={selectedTableUuid}
+          isOpen={!!selectedTableUuid}
+          onClose={() => setSelectedTableUuid(null)}
+        />
+      )}
     </div>
   );
 }
