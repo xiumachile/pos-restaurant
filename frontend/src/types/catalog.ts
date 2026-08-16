@@ -1,6 +1,3 @@
-/**
- * Categoría tal como la retorna el backend.
- */
 export interface Category {
   id: number;
   uuid: string;
@@ -15,10 +12,6 @@ export interface Category {
   tax_id: number | null;
 }
 
-/**
- * Producto tal como la retorna el backend.
- * Nota: base_price y tax_rate vienen como strings ("6500.00") por el cast decimal:2 de Laravel.
- */
 export interface Product {
   id: number;
   uuid: string;
@@ -38,11 +31,10 @@ export interface Product {
   deleted_at: string | null;
   tax_id: number | null;
   category?: Category;
+  /** UUID del MenuItem asociado (requerido por el backend para crear OrderItem) */
+  menu_item_uuid?: string | null;
 }
 
-/**
- * Obtiene el nombre traducido priorizando es-CL → es → zh → primer valor disponible.
- */
 export function getTranslatedName(
   translations: Record<string, string> | null | undefined,
   locale: string = "es"
@@ -59,9 +51,6 @@ export function getTranslatedName(
   );
 }
 
-/**
- * Formatea precio en CLP. Acepta string ("6500.00") o number.
- */
 export function formatPrice(amount: string | number): string {
   const num = typeof amount === "string" ? parseFloat(amount) : amount;
   if (isNaN(num)) return "$0";
@@ -72,9 +61,6 @@ export function formatPrice(amount: string | number): string {
   }).format(num);
 }
 
-/**
- * Convierte el precio string a número.
- */
 export function parsePrice(price: string): number {
   return parseFloat(price) || 0;
 }
