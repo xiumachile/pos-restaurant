@@ -1,5 +1,3 @@
-import type { TableStatus } from "./tables";
-
 export type OrderStatus =
   | "draft"
   | "confirmed"
@@ -66,4 +64,103 @@ export interface AddItemPayload {
   menu_item_uuid: string;
   quantity: number;
   notes?: string;
+}
+
+/**
+ * Item agrupado (suma cantidades del mismo producto entre varias órdenes).
+ */
+export interface AggregatedItem {
+  /** Clave única: menu_item_uuid (para agrupar) */
+  key: string;
+  name: string;
+  totalQuantity: number;
+  unitPrice: number;
+  subtotal: number;
+  /** Notas únicas encontradas */
+  notes: string[];
+  /** Detalles de cada orden origen */
+  sources: {
+    orderUuid: string;
+    orderNumber: string;
+    status: OrderStatus;
+    quantity: number;
+    confirmedAt: string | null;
+  }[];
+}
+
+/**
+ * Resultado de agrupar items de varias órdenes.
+ */
+export interface AggregatedOrders {
+  items: AggregatedItem[];
+  totalQuantity: number;
+  distinctProducts: number;
+  subtotal: number;
+  tax: number;
+  total: number;
+  ordersCount: number;
+}
+
+/**
+ * Agrupa items de varias órdenes por menu_item_uuid.
+ * Suma cantidades del mismo producto, mantiene trazabilidad de órdenes.
+ */
+export function aggregateOrders(orders: Order[]): AggregatedOrders {
+  const itemsMap = new Map<string, AggregatedItem>();
+
+  for (const order of orders) {
+    for (const item of order.items) {
+      const key = item.menu_item_uuid;
+      const existing = itemsMap.get(key);
+
+      if (existing) {
+        existing.totalQuantity += item.quantity;
+        existing.subtotal += item.subtotal;
+        if (item.notes && !existing.notes.includes(item.notes)) {
+          existing.notes.push(item.notes);
+        }
+        existing.sources.push({
+          orderUuid: order.uuid,
+          orderNumber: order.order_number,
+          status: order.status,
+          quantity: item.quantity,
+          confirmedAt: order.confirmed_at,
+        });
+      } else {
+        itemsMap.set(key, {
+          key,
+          name: item.name,
+          totalQuantity: item.quantity,
+          unitPrice: item.unit_price,
+          subtotal: item.subtotal,
+          notes: item.notes ? [item.notes] : [],
+          sources: [
+            {
+              orderUuid: order.uuid,
+              orderNumber: order.order_number,
+              status: order.status,
+              quantity: item.quantity,
+              confirmedAt: order.confirmed_at,
+            },
+          ],
+        });
+      }
+    }
+  }
+
+  const items = Array.from(itemsMap.values());
+  const totalQuantity = items.reduce((sum, i) => sum + i.totalQuantity, 0);
+  const subtotal = orders.reduce((sum, o) => sum + (o.subtotal || 0), 0);
+  const tax = orders.reduce((sum, o) => sum + (o.tax_amount || 0), 0);
+  const total = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+
+  return {
+    items,
+    totalQuantity,
+    distinctProducts: items.length,
+    subtotal,
+    tax,
+    total,
+    ordersCount: orders.length,
+  };
 }
