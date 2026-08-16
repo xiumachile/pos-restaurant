@@ -30,27 +30,31 @@ export interface TableHistoryResponse {
   };
 }
 
+export interface TableTodaySummary {
+  uuid: string;
+  table_number: string;
+  area_code: string;
+  capacity: number;
+  orders_count: number;
+  total_items: number;
+  total_amount: number;
+  last_order_status: string | null;
+  first_order_at: string | null;
+  last_order_at: string | null;
+}
+
 export const kitchenService = {
-  /**
-   * Obtiene la cola de cocina agrupada por zona.
-   */
   async getQueue(): Promise<KitchenZone[]> {
     const response = await apiClient.get<KitchenQueueResponse>("/kitchen/queue");
     const data = response.data as any;
     return Array.isArray(data?.data) ? data.data : [];
   },
 
-  /**
-   * Obtiene estadísticas de la cocina.
-   */
   async getStats(): Promise<KitchenStats> {
     const response = await apiClient.get<KitchenStatsResponse>("/kitchen/stats");
     return (response.data as any).data;
   },
 
-  /**
-   * Obtiene el historial completo de una mesa del día actual.
-   */
   async getTableHistory(tableUuid: string): Promise<TableHistoryResponse> {
     const response = await apiClient.get<{ data: TableHistoryResponse }>(
       `/kitchen/table-history/${tableUuid}`
@@ -58,9 +62,14 @@ export const kitchenService = {
     return (response.data as any).data;
   },
 
-  /**
-   * Marca un pedido como "En preparación" (confirmed → preparing).
-   */
+  async getTablesToday(): Promise<TableTodaySummary[]> {
+    const response = await apiClient.get<{ data: TableTodaySummary[] }>(
+      "/kitchen/tables-today"
+    );
+    const data = response.data as any;
+    return Array.isArray(data?.data) ? data.data : [];
+  },
+
   async prepare(orderUuid: string): Promise<KitchenOrder> {
     const response = await apiClient.post<KitchenOrderResponse>(
       `/orders/${orderUuid}/prepare`
@@ -68,9 +77,6 @@ export const kitchenService = {
     return (response.data as any).data;
   },
 
-  /**
-   * Marca un pedido como "Listo" (preparing → ready).
-   */
   async ready(orderUuid: string): Promise<KitchenOrder> {
     const response = await apiClient.post<KitchenOrderResponse>(
       `/orders/${orderUuid}/ready`
@@ -78,9 +84,6 @@ export const kitchenService = {
     return (response.data as any).data;
   },
 
-  /**
-   * Marca un pedido como "Servido" (ready → served).
-   */
   async serve(orderUuid: string): Promise<KitchenOrder> {
     const response = await apiClient.post<KitchenOrderResponse>(
       `/orders/${orderUuid}/serve`
