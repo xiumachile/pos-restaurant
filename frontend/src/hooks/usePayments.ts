@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { paymentsService } from "@/services/paymentsService";
-import type { PaymentMethod, CashierDashboard, ServedOrder } from "@/types/payments";
+import type { PaymentMethod, CashierDashboard } from "@/types/payments";
+import type { TableBill } from "@/types/tableBill";
 
 const METHODS_KEY = ["payment-methods"];
 const DASHBOARD_KEY = ["cashier", "dashboard"];
-const SERVED_ORDERS_KEY = ["cashier", "served-orders"];
+const TABLES_WITH_BILLS_KEY = ["cashier", "tables-with-bills"];
 
 export function usePaymentMethods() {
   return useQuery<PaymentMethod[], Error>({
@@ -23,10 +24,10 @@ export function useCashierDashboard() {
   });
 }
 
-export function useServedOrders() {
-  return useQuery<ServedOrder[], Error>({
-    queryKey: SERVED_ORDERS_KEY,
-    queryFn: paymentsService.listServedOrders,
+export function useTablesWithBills() {
+  return useQuery<TableBill[], Error>({
+    queryKey: TABLES_WITH_BILLS_KEY,
+    queryFn: paymentsService.listTablesWithBills,
     refetchInterval: 10000,
     staleTime: 3000,
   });
@@ -36,15 +37,20 @@ export function useInvalidateCashier() {
   const queryClient = useQueryClient();
   return () => {
     queryClient.invalidateQueries({ queryKey: DASHBOARD_KEY });
-    queryClient.invalidateQueries({ queryKey: SERVED_ORDERS_KEY });
+    queryClient.invalidateQueries({ queryKey: TABLES_WITH_BILLS_KEY });
   };
 }
 
 export function useOpenSession() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ openingAmount, notes }: { openingAmount: number; notes?: string }) =>
-      paymentsService.openSession(openingAmount, notes),
+    mutationFn: ({
+      openingAmount,
+      notes,
+    }: {
+      openingAmount: number;
+      notes?: string;
+    }) => paymentsService.openSession(openingAmount, notes),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: DASHBOARD_KEY });
     },
@@ -69,23 +75,18 @@ export function useCloseSession() {
   });
 }
 
-export function useCreatePayment() {
+export function useChargeTable() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: paymentsService.createPayment,
+    mutationFn: ({
+      tableUuid,
+      payload,
+    }: {
+      tableUuid: string;
+      payload: any;
+    }) => paymentsService.chargeTable(tableUuid, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: SERVED_ORDERS_KEY });
-      queryClient.invalidateQueries({ queryKey: DASHBOARD_KEY });
-    },
-  });
-}
-
-export function useMarkOrderAsPaid() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: paymentsService.markAsPaid,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: SERVED_ORDERS_KEY });
+      queryClient.invalidateQueries({ queryKey: TABLES_WITH_BILLS_KEY });
       queryClient.invalidateQueries({ queryKey: DASHBOARD_KEY });
     },
   });

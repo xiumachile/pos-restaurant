@@ -3,9 +3,12 @@ import type {
   PaymentMethod,
   CashierDashboard,
   CashSession,
-  ServedOrder,
-  CreatePaymentPayload,
 } from "@/types/payments";
+import type {
+  TableBill,
+  ChargeTablePayload,
+  ChargeTableResponse,
+} from "@/types/tableBill";
 
 interface ListResponse<T> {
   data: T[];
@@ -17,7 +20,7 @@ interface SingleResponse<T> {
 
 export const paymentsService = {
   /**
-   * Lista métodos de pago disponibles para la sucursal.
+   * Lista métodos de pago disponibles.
    */
   async listPaymentMethods(): Promise<PaymentMethod[]> {
     const response = await apiClient.get<ListResponse<PaymentMethod>>(
@@ -28,7 +31,7 @@ export const paymentsService = {
   },
 
   /**
-   * Obtiene el dashboard del cajero (sesión activa + stats).
+   * Dashboard del cajero (sesión + stats).
    */
   async getDashboard(): Promise<CashierDashboard> {
     const response = await apiClient.get<SingleResponse<CashierDashboard>>(
@@ -38,7 +41,7 @@ export const paymentsService = {
   },
 
   /**
-   * Obtiene la sesión de caja actual (si está abierta).
+   * Sesión de caja actual.
    */
   async getCurrentSession(): Promise<CashSession | null> {
     const response = await apiClient.get<SingleResponse<CashSession | null>>(
@@ -48,7 +51,7 @@ export const paymentsService = {
   },
 
   /**
-   * Abre una nueva sesión de caja.
+   * Abrir caja.
    */
   async openSession(openingAmount: number, notes?: string): Promise<CashSession> {
     const response = await apiClient.post<SingleResponse<CashSession>>(
@@ -59,7 +62,7 @@ export const paymentsService = {
   },
 
   /**
-   * Cierra la sesión de caja con arqueo.
+   * Cerrar caja con arqueo.
    */
   async closeSession(
     sessionUuid: string,
@@ -74,30 +77,29 @@ export const paymentsService = {
   },
 
   /**
-   * Registra un pago para un pedido.
+   * Lista mesas con pedidos served esperando cobro.
+   * Cada mesa incluye todos sus pedidos y totales acumulados.
    */
-  async createPayment(payload: CreatePaymentPayload): Promise<any> {
-    const response = await apiClient.post("/billing/payments", payload);
-    return (response.data as any).data;
-  },
-
-  /**
-   * Lista pedidos servidos listos para cobrar.
-   * Usa el endpoint de órdenes filtrado por status=served.
-   */
-  async listServedOrders(): Promise<ServedOrder[]> {
-    const response = await apiClient.get<ListResponse<ServedOrder>>("/orders", {
-      params: { status: "served" },
-    });
+  async listTablesWithBills(): Promise<TableBill[]> {
+    const response = await apiClient.get<ListResponse<TableBill>>(
+      "/cashier/tables-with-bills"
+    );
     const data = response.data as any;
     return Array.isArray(data?.data) ? data.data : [];
   },
 
   /**
-   * Transiciona un pedido de served → paid.
+   * Cobra la cuenta completa de una mesa (todos sus pedidos served).
+   * Crea pagos individuales por cada order, transiciona a paid y libera la mesa.
    */
-  async markAsPaid(orderUuid: string): Promise<any> {
-    const response = await apiClient.post(`/orders/${orderUuid}/pay`);
+  async chargeTable(
+    tableUuid: string,
+    payload: ChargeTablePayload
+  ): Promise<ChargeTableResponse> {
+    const response = await apiClient.post<SingleResponse<ChargeTableResponse>>(
+      `/cashier/tables/${tableUuid}/charge`,
+      payload
+    );
     return (response.data as any).data;
   },
 };

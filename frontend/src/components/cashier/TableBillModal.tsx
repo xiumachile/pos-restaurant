@@ -1,6 +1,11 @@
 import { useState, useMemo } from "react";
-import type { ServedOrder, PaymentMethod } from "@/types/payments";
-import { usePaymentMethods, useCreatePayment, useMarkOrderAsPaid } from "@/hooks/usePayments";
+import type { TableBill } from "@/types/tableBill";
+import type { PaymentMethod } from "@/types/payments";
+import {
+  usePaymentMethods,
+  useChargeTable,
+  useInvalidateCashier,
+} from "@/hooks/usePayments";
 import { formatPrice } from "@/types/catalog";
 import {
   X,
@@ -11,10 +16,13 @@ import {
   Banknote,
   Building2,
   Gift,
+  Receipt,
+  Users,
+  Clock,
 } from "lucide-react";
 
-interface PaymentModalProps {
-  order: ServedOrder;
+interface TableBillModalProps {
+  tableBill: TableBill;
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
@@ -27,52 +35,78 @@ const METHOD_ICONS: Record<string, any> = {
   gift_card: Gift,
 };
 
-export function PaymentModal({ order, isOpen, onClose, onSuccess }: PaymentModalProps) {
+export function TableBillModal({
+  tableBill,
+  isOpen,
+  onClose,
+  onSuccess,
+}: TableBillModalProps) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
-  const [amount, setAmount] = useState<string>(String(order.total));
   const [tipAmount, setTipAmount] = useState<string>("0");
   const [referenceCode, setReferenceCode] = useState("");
   const [receivedAmount, setReceivedAmount] = useState<string>("");
 
   const { data: methods = [], isLoading: loadingMethods } = usePaymentMethods();
-  const createPayment = useCreatePayment();
-  const markAsPaid = useMarkOrderAsPaid();
+  const chargeTable = useChargeTable();
+  const invalidate = useInvalidateCashier();
 
-  const totalWithTip = useMemo(() => {
-    const base = parseFloat(amount) || 0;
+  const grandTotal = useMemo(() => {
     const tip = parseFloat(tipAmount) || 0;
-    return base + tip;
-  }, [amount, tipAmount]);
+    return tableBill.total_amount + tip;
+  }, [tableBill.total_amount, tipAmount]);
 
   const change = useMemo(() => {
     if (!selectedMethod || selectedMethod.type !== "cash") return 0;
     const received = parseFloat(receivedAmount) || 0;
-    return Math.max(0, received - totalWithTip);
-  }, [receivedAmount, totalWithTip, selectedMethod]);
+    return Math.max(0, received - grandTotal);
+  }, [receivedAmount, grandTotal, selectedMethod]);
 
-  const handleSubmit = async () => {
+  // Agrupar items de todos los pedidos por nombre (tipo precuenta)
+  const aggregatedItems = useMemo(() => {
+    const map = new Map<
+      string,
+      { name: string; quantity: number; unitPrice: number; subtotal: number }
+    >();
+    for (const order of tableBill.orders) {
+      for (const item of order.items) {
+        const existing = map.get(item.name);
+        if (existing) {
+          existing.quantity += item.quantity;
+          existing.subtotal += item.subtotal;
+        } else {
+          map.set(item.name, {
+            name: item.name,
+            quantity: item.quantity,
+            unitPrice: item.unit_price,
+            subtotal: item.subtotal,
+          });
+        }
+      }
+    }
+    return Array.from(map.values());
+  }, [tableBill.orders]);
+
+  const handleCharge = async () => {
     if (!selectedMethod) return;
 
     const idempotencyKey = crypto.randomUUID();
 
     try {
-      // 1. Registrar el pago
-      await createPayment.mutateAsync({
-        order_uuid: order.uuid,
-        payment_method_uuid: selectedMethod.uuid,
-        amount: parseFloat(amount),
-        tip_amount: parseFloat(tipAmount) || 0,
-        reference_code: referenceCode || undefined,
-        idempotency_key: idempotencyKey,
+      await chargeTable.mutateAsync({
+        tableUuid: tableBill.table_uuid,
+        payload: {
+          payment_method_uuid: selectedMethod.uuid,
+          amount: tableBill.total_amount,
+          tip_amount: parseFloat(tipAmount) || 0,
+          reference_code: referenceCode || undefined,
+          idempotency_key: idempotencyKey,
+        },
       });
-
-      // 2. Transicionar el pedido a paid
-      await markAsPaid.mutateAsync(order.uuid);
-
+      invalidate();
       onSuccess();
       onClose();
     } catch (e) {
-      console.error("Error al procesar pago:", e);
+      console.error("Error al cobrar mesa:", e);
     }
   };
 
@@ -83,16 +117,25 @@ export function PaymentModal({ order, isOpen, onClose, onSuccess }: PaymentModal
       <div className="fixed inset-0 bg-black/70 z-50" onClick={onClose} />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div
-          className="bg-slate-900 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+          className="bg-slate-900 rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           <div className="sticky top-0 bg-slate-900 flex items-center justify-between p-6 border-b border-slate-700">
             <div>
-              <h2 className="text-2xl font-bold">Cobrar Pedido</h2>
-              <p className="text-sm text-slate-400 mt-1">
-                {order.order_number}
-                {order.table && ` · Mesa ${order.table.table_number}`}
+              <div className="flex items-center gap-2 mb-1">
+                <Receipt size={24} className="text-orange-400" />
+                <h2 className="text-2xl font-bold">
+                  Precuenta · Mesa {tableBill.table_number}
+                </h2>
+              </div>
+              <p className="text-sm text-slate-400 flex items-center gap-3">
+                <span className="flex items-center gap-1">
+                  <Users size={12} /> {tableBill.area_code}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Clock size={12} /> {tableBill.orders_count} pedidos
+                </span>
               </p>
             </div>
             <button
@@ -104,39 +147,70 @@ export function PaymentModal({ order, isOpen, onClose, onSuccess }: PaymentModal
           </div>
 
           <div className="p-6 space-y-6">
-            {/* Resumen del pedido */}
+            {/* Items agrupados tipo precuenta */}
             <div className="bg-slate-800 rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-slate-400 mb-2">
-                Resumen del pedido
+              <h3 className="text-sm font-semibold text-slate-400 mb-3 flex items-center gap-2">
+                <Receipt size={14} />
+                Consumo de la mesa
               </h3>
-              <div className="space-y-1 text-sm">
-                {order.items.map((item) => (
-                  <div key={item.uuid} className="flex justify-between">
-                    <span className="text-slate-300">
-                      {item.quantity}× {item.name}
+              <div className="space-y-1">
+                {aggregatedItems.map((item) => (
+                  <div
+                    key={item.name}
+                    className="flex justify-between py-1.5 border-b border-slate-700/50 last:border-0"
+                  >
+                    <span className="text-slate-200 flex-1">
+                      <span className="font-semibold mr-2">
+                        {item.quantity}×
+                      </span>
+                      {item.name}
                     </span>
-                    <span className="text-slate-200 font-medium">
+                    <span className="text-white font-medium ml-4">
                       {formatPrice(item.subtotal)}
                     </span>
                   </div>
                 ))}
               </div>
-              <div className="mt-3 pt-3 border-t border-slate-700 space-y-1">
+
+              <div className="mt-4 pt-3 border-t border-slate-700 space-y-1">
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Subtotal</span>
-                  <span>{formatPrice(order.subtotal)}</span>
+                  <span className="text-slate-400">
+                    Subtotal ({tableBill.total_items} items)
+                  </span>
+                  <span>{formatPrice(tableBill.subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-400">IVA (19%)</span>
-                  <span>{formatPrice(order.tax_amount)}</span>
+                  <span>{formatPrice(tableBill.tax_amount)}</span>
                 </div>
-                <div className="flex justify-between text-lg font-bold pt-2 border-t border-slate-700">
+                <div className="flex justify-between text-xl font-bold pt-2 border-t border-slate-700">
                   <span>Total</span>
                   <span className="text-orange-400">
-                    {formatPrice(order.total)}
+                    {formatPrice(tableBill.total_amount)}
                   </span>
                 </div>
               </div>
+            </div>
+
+            {/* Propina */}
+            <div>
+              <label className="block text-sm text-slate-400 mb-1">
+                Propina (opcional)
+              </label>
+              <input
+                type="number"
+                value={tipAmount}
+                onChange={(e) => setTipAmount(e.target.value)}
+                step="0.01"
+                min="0"
+                className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-lg font-bold focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+              {parseFloat(tipAmount) > 0 && (
+                <p className="text-sm mt-2 text-orange-300">
+                  Total con propina:{" "}
+                  <strong>{formatPrice(grandTotal)}</strong>
+                </p>
+              )}
             </div>
 
             {/* Método de pago */}
@@ -181,38 +255,9 @@ export function PaymentModal({ order, isOpen, onClose, onSuccess }: PaymentModal
               )}
             </div>
 
-            {/* Monto a pagar + propina */}
+            {/* Detalles según método */}
             {selectedMethod && (
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm text-slate-400 mb-1">
-                      Monto a pagar
-                    </label>
-                    <input
-                      type="number"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      step="0.01"
-                      className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-lg font-bold focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-slate-400 mb-1">
-                      Propina (opcional)
-                    </label>
-                    <input
-                      type="number"
-                      value={tipAmount}
-                      onChange={(e) => setTipAmount(e.target.value)}
-                      step="0.01"
-                      min="0"
-                      className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-lg font-bold focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Referencia para tarjeta/transferencia */}
                 {selectedMethod.requires_reference && (
                   <div>
                     <label className="block text-sm text-slate-400 mb-1">
@@ -229,7 +274,6 @@ export function PaymentModal({ order, isOpen, onClose, onSuccess }: PaymentModal
                   </div>
                 )}
 
-                {/* Recibido + vuelto (solo efectivo) */}
                 {selectedMethod.type === "cash" && (
                   <div className="bg-green-900/20 border border-green-700/40 rounded-lg p-4 space-y-3">
                     <div>
@@ -263,26 +307,16 @@ export function PaymentModal({ order, isOpen, onClose, onSuccess }: PaymentModal
                     )}
                   </div>
                 )}
-
-                {/* Resumen final */}
-                <div className="bg-slate-800 rounded-lg p-3 space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-400">Total a cobrar:</span>
-                    <span className="font-bold text-orange-400">
-                      {formatPrice(totalWithTip)}
-                    </span>
-                  </div>
-                </div>
               </div>
             )}
 
             {/* Error */}
-            {(createPayment.isError || markAsPaid.isError) && (
+            {chargeTable.isError && (
               <div className="bg-red-900/30 border border-red-700 rounded-lg p-3 text-sm text-red-300 flex items-start gap-2">
                 <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
                 <span>
-                  {((createPayment.error || markAsPaid.error) as Error)
-                    .message || "Error al procesar el pago"}
+                  {(chargeTable.error as Error).message ||
+                    "Error al procesar el cobro"}
                 </span>
               </div>
             )}
@@ -291,23 +325,22 @@ export function PaymentModal({ order, isOpen, onClose, onSuccess }: PaymentModal
             <div className="flex gap-3">
               <button
                 onClick={onClose}
-                disabled={createPayment.isPending || markAsPaid.isPending}
+                disabled={chargeTable.isPending}
                 className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
-                onClick={handleSubmit}
+                onClick={handleCharge}
                 disabled={
                   !selectedMethod ||
-                  createPayment.isPending ||
-                  markAsPaid.isPending ||
+                  chargeTable.isPending ||
                   (selectedMethod.type === "cash" &&
-                    (parseFloat(receivedAmount) || 0) < totalWithTip)
+                    (parseFloat(receivedAmount) || 0) < grandTotal)
                 }
                 className="flex-1 px-4 py-3 bg-orange-500 hover:bg-orange-600 rounded-lg font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {createPayment.isPending || markAsPaid.isPending ? (
+                {chargeTable.isPending ? (
                   <>
                     <Loader2 size={18} className="animate-spin" />
                     Procesando...
@@ -315,7 +348,7 @@ export function PaymentModal({ order, isOpen, onClose, onSuccess }: PaymentModal
                 ) : (
                   <>
                     <CheckCircle2 size={18} />
-                    Confirmar Pago
+                    Cobrar {formatPrice(grandTotal)}
                   </>
                 )}
               </button>
