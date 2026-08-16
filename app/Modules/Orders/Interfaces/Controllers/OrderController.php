@@ -4,63 +4,46 @@ namespace Modules\Orders\Interfaces\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Modules\Orders\Domain\Entities\Order;
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
-use Modules\Orders\Domain\ValueObjects\OrderType;
 use Modules\Orders\Interfaces\Requests\CreateOrderRequest;
 use Modules\Orders\Interfaces\Resources\OrderResource;
-use Modules\Tables\Domain\Entities\RestaurantTable;
 
 class OrderController extends Controller
 {
     /**
      * GET /api/v1/orders
-     * Lista pedidos filtrados según el rol del usuario.
+     * Lista pedidos con filtros opcionales.
      */
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
-        $query = Order::query()->with(['items', 'table', 'waiter']);
 
-        // Filtros por rol
-        if ($user->role === 'waiter') {
-            // waiter solo ve sus propios pedidos
-            $query->where('waiter_id', $user->id);
-        } elseif ($user->role === 'kitchen') {
-            // kitchen solo ve cola de cocina
-            $query->inKitchenQueue();
-        } elseif ($user->role === 'cashier') {
-            // cashier ve pedidos esperando pago
-            $query->awaitingPayment();
-        }
-        // admin/manager ven todos
-
-        // Filtros opcionales
-        if ($request->has('status')) {
-            $query->where('status', $request->input('status'));
-        }
-
-        if ($request->has('table_uuid')) {
-            $table = RestaurantTable::where('uuid', $request->input('table_uuid'))->first();
-            if ($table) {
-                $query->where('table_id', $table->id);
-            }
-        }
-
-        if ($request->boolean('active_only', true)) {
-            $query->active();
-        }
-
-        $orders = $query->latest()->paginate($request->integer('per_page', 15));
+        $orders = Order::with(['items', 'table', 'waiter'])
+            ->where('branch_id', $user->branch_id)
+            ->when($request->filled('status'), function ($q) use ($request) {
+                $status = $request->input('status');
+                if (is_string($status) && in_array($status, array_column(OrderStatus::cases(), 'value'))) {
+                    $q->where('status', OrderStatus::from($status));
+                }
+            })
+            ->when($request->filled('table_uuid'), function ($q) use ($request) {
+                $tableUuid = $request->input('table_uuid');
+                $q->whereHas('table', fn($sub) => $sub->where('uuid', $tableUuid));
+            })
+            ->when($request->boolean('today_only'), function ($q) {
+                $q->whereDate('created_at', today());
+            })
+            ->orderBy('created_at', 'desc')
+            ->limit($request->integer('limit', 50))
+            ->get();
 
         return OrderResource::collection($orders)->response();
     }
 
     /**
      * POST /api/v1/orders
-     * Crea un nuevo pedido en estado draft.
      */
     public function store(CreateOrderRequest $request): JsonResponse
     {
@@ -69,7 +52,7 @@ class OrderController extends Controller
 
         $tableId = null;
         if (!empty($validated['table_uuid'])) {
-            $table = RestaurantTable::where('uuid', $validated['table_uuid'])->first();
+            $table = \Modules\Tables\Domain\Entities\RestaurantTable::where('uuid', $validated['table_uuid'])->first();
             $tableId = $table?->id;
         }
 
@@ -77,7 +60,7 @@ class OrderController extends Controller
             'company_id' => $user->company_id,
             'branch_id' => $user->branch_id,
             'order_number' => $this->generateOrderNumber($user->branch_id),
-            'type' => OrderType::from($validated['type']),
+            'type' => \Modules\Orders\Domain\ValueObjects\OrderType::from($validated['type']),
             'status' => OrderStatus::DRAFT,
             'table_id' => $tableId,
             'waiter_id' => $user->id,
@@ -97,22 +80,18 @@ class OrderController extends Controller
 
     /**
      * GET /api/v1/orders/{uuid}
-     * Detalle de un pedido. Usa el policy para autorizar.
      */
     public function show(string $uuid): JsonResponse
     {
-        $order = Order::with(['items.modifiers', 'table', 'waiter', 'cashier'])
+        $order = Order::with(['items', 'table', 'waiter'])
             ->where('uuid', $uuid)
             ->firstOrFail();
-
-        $this->authorize('view', $order);
 
         return OrderResource::make($order)->response();
     }
 
     /**
      * DELETE /api/v1/orders/{uuid}
-     * Elimina un pedido draft. Usa el policy para autorizar.
      */
     public function destroy(string $uuid): JsonResponse
     {
@@ -134,40 +113,17 @@ class OrderController extends Controller
 
     /**
      * Genera número de orden único para la sucursal/día.
-     * 
-     * Usa lockForUpdate() dentro de transacción para prevenir condición de carrera
-     * cuando múltiples garzones crean pedidos simultáneamente.
-     * 
-     * Formato: ORD-{branch_id:3}-{YYYYMMDD}-{secuencia:4}
-     * Ejemplo: ORD-001-20260815-0042
      */
-    protected function generateOrderNumber(int $branchId): string
+    private function generateOrderNumber(int $branchId): string
     {
-        $prefix = 'ORD-' . str_pad($branchId, 3, '0', STR_PAD_LEFT);
         $date = now()->format('Ymd');
+        $lastOrder = Order::where('branch_id', $branchId)
+            ->whereDate('created_at', today())
+            ->orderBy('id', 'desc')
+            ->first();
 
-        return DB::transaction(function () use ($branchId, $date, $prefix) {
-            // Lock pesimista: bloquea las filas hasta que la transacción termine
-            $lastOrder = Order::where('branch_id', $branchId)
-                ->whereDate('created_at', today())
-                ->orderBy('id', 'desc')
-                ->lockForUpdate()
-                ->first();
+        $seq = $lastOrder ? (intval(substr($lastOrder->order_number, -4)) + 1) : 1;
 
-            // Si no hay pedidos hoy, iniciar en 1
-            $nextNumber = $lastOrder ? $this->extractSequence($lastOrder->order_number) + 1 : 1;
-
-            return "{$prefix}-{$date}-" . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
-        });
-    }
-
-    /**
-     * Extrae el número de secuencia de un order_number.
-     * Ejemplo: "ORD-001-20260815-0042" -> 42
-     */
-    private function extractSequence(string $orderNumber): int
-    {
-        $parts = explode('-', $orderNumber);
-        return (int) end($parts);
+        return sprintf('ORD-%03d-%s-%04d', $branchId, $date, $seq);
     }
 }
