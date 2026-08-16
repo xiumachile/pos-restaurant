@@ -202,4 +202,12 @@ class RestaurantTable extends Model
     {
         return $this->translate('area_name_translations', null, 'Sin área');
     }
+
+    /**
+     * Relación con pedidos de esta mesa.
+     */
+    public function orders(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\Modules\Orders\Domain\Entities\Order::class, 'table_id');
+    }
 }
