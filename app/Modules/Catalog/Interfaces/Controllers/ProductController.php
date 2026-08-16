@@ -15,7 +15,7 @@ class ProductController extends Controller
     public function index(Request $request): JsonResponse
     {
         $products = Product::query()
-            ->with('category')
+            ->with(['category', 'menuItem'])
             ->when($request->filled('category_id'), fn($q) => $q->where('category_id', $request->input('category_id')))
             ->when($request->filled('search'), function ($q) use ($request) {
                 $search = $request->input('search');
@@ -29,7 +29,14 @@ class ProductController extends Controller
             ->orderBy('name_translations->es')
             ->get();
 
-        return response()->json(['data' => $products]);
+        // Transformar para incluir menu_item_uuid en cada producto
+        $data = $products->map(function ($product) {
+            $arr = $product->toArray();
+            $arr['menu_item_uuid'] = $product->menuItem?->uuid;
+            return $arr;
+        });
+
+        return response()->json(['data' => $data]);
     }
 
     /**
@@ -37,10 +44,13 @@ class ProductController extends Controller
      */
     public function show(string $uuid): JsonResponse
     {
-        $product = Product::with('category')
+        $product = Product::with(['category', 'menuItem'])
             ->where('uuid', $uuid)
             ->firstOrFail();
 
-        return response()->json(['data' => $product]);
+        $arr = $product->toArray();
+        $arr['menu_item_uuid'] = $product->menuItem?->uuid;
+
+        return response()->json(['data' => $arr]);
     }
 }
