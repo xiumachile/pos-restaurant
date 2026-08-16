@@ -4,12 +4,17 @@ use Illuminate\Support\Facades\Route;
 use Modules\Payments\Interfaces\Controllers\BillController;
 use Modules\Payments\Interfaces\Controllers\CashSessionController;
 use Modules\Payments\Interfaces\Controllers\PaymentController;
+use Modules\Payments\Interfaces\Controllers\PaymentMethodController;
 use App\Shared\Http\Middleware\TenantContextMiddleware;
-use App\Shared\Http\Middleware\IdempotencyKeyMiddleware;
 
 Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class])->group(function () {
     // ============================================
-    // Payments (ruta bajo /billing para evitar conflicto con /orders/{uuid})
+    // Payment Methods
+    // ============================================
+    Route::get('/payment-methods', [PaymentMethodController::class, 'index'])->name('payment-methods.index');
+
+    // ============================================
+    // Payments
     // ============================================
     Route::post('/billing/payments', [PaymentController::class, 'store'])->name('payments.store');
 
@@ -20,7 +25,7 @@ Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class])->g
     Route::get('/orders/{uuid}/bills', [BillController::class, 'index'])->name('orders.bills');
 
     // ============================================
-    // Cash Sessions (Caja)
+    // Cash Sessions
     // ============================================
     Route::post('/cash-sessions/open', [CashSessionController::class, 'open'])->name('cash-sessions.open');
     Route::post('/cash-sessions/{uuid}/close', [CashSessionController::class, 'close'])->name('cash-sessions.close');
