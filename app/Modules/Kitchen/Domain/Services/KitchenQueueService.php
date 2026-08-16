@@ -2,6 +2,7 @@
 
 namespace Modules\Kitchen\Domain\Services;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Modules\Orders\Domain\Entities\Order;
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
@@ -14,13 +15,19 @@ class KitchenQueueService
 {
     /**
      * Obtiene la cola de cocina de una sucursal.
-     * Retorna pedidos confirmed + preparing agrupados por zona.
+     * Retorna pedidos confirmed + preparing + ready agrupados por zona.
      */
     public function getQueue(int $branchId): Collection
     {
         $orders = Order::with(['items.menuItem.product', 'table', 'waiter'])
             ->where('branch_id', $branchId)
-            ->inKitchenQueue()
+            ->where(function (Builder $query) {
+                $query->whereIn('status', [
+                    OrderStatus::CONFIRMED,
+                    OrderStatus::PREPARING,
+                    OrderStatus::READY,
+                ]);
+            })
             ->orderByRaw("CASE priority WHEN 'vip' THEN 1 WHEN 'rush' THEN 2 ELSE 3 END ASC")
             ->orderBy('confirmed_at', 'asc')
             ->get();
