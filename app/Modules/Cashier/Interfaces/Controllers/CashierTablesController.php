@@ -5,6 +5,7 @@ namespace Modules\Cashier\Interfaces\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\Orders\Domain\Entities\Order;
 use Modules\Orders\Domain\Events\OrderPaid;
@@ -14,28 +15,16 @@ use Modules\Payments\Domain\Exceptions\PaymentException;
 use Modules\Payments\Domain\Services\PaymentService;
 use Modules\Tables\Domain\Entities\RestaurantTable;
 
-/**
- * Controlador para gestión de cuentas por mesa en Caja.
- * 
- * En un restaurante, los comensales de una mesa pueden generar múltiples
- * pedidos durante su estadía. Al final, se cobra la CUENTA DE LA MESA
- * (suma de todos los pedidos), no cada pedido individualmente.
- */
 class CashierTablesController extends Controller
 {
     public function __construct(
         private PaymentService $paymentService
     ) {}
 
-    /**
-     * GET /api/v1/cashier/tables-with-bills
-     * Lista mesas que tienen pedidos servidos esperando cobro.
-     */
     public function tablesWithBills(Request $request): JsonResponse
     {
         $branchId = $request->user()->branch_id;
 
-        // Obtener mesas con pedidos served (esperando pago)
         $tableIds = Order::where('branch_id', $branchId)
             ->where('status', OrderStatus::SERVED)
             ->whereNotNull('table_id')
@@ -96,11 +85,6 @@ class CashierTablesController extends Controller
         return response()->json(['data' => $response]);
     }
 
-    /**
-     * POST /api/v1/cashier/tables/{tableUuid}/charge
-     * Cobra la cuenta completa de una mesa (todos los pedidos served).
-     * Crea un pago por cada order y los transiciona a paid.
-     */
     public function chargeTable(Request $request, string $tableUuid): JsonResponse
     {
         $user = $request->user();
@@ -166,28 +150,21 @@ class CashierTablesController extends Controller
 
                 $payments[] = $payment;
 
-                // Transicionar a paid directamente (evitando transiciones intermedias)
                 $order->cashier_id = $user->id;
                 $order->paid_at = now();
                 $order->status = OrderStatus::PAID;
                 $order->save();
 
-                // Disparar evento OrderPaid
                 event(new OrderPaid($order));
             }
 
-            // Liberar la mesa (available)
-            try {
-                if (method_exists($table, 'free')) {
-                    $table->free();
-                    $table->save();
-                } else {
-                    $table->status = 'available';
-                    $table->save();
-                }
-            } catch (\Throwable $e) {
-                Log::warning("No se pudo liberar mesa {$table->table_number}: " . $e->getMessage());
-            }
+            // ✅ FORZAR liberación de mesa con DB directo
+            DB::table('restaurant_tables')
+                ->where('id', $table->id)
+                ->update([
+                    'status' => 'available',
+                    'updated_at' => now(),
+                ]);
 
             return response()->json([
                 'data' => [
