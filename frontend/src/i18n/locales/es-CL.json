@@ -1,0 +1,29 @@
+{
+  "app": {
+    "name": "Wok & Mesa POS",
+    "loading": "Cargando..."
+  },
+  "auth": {
+    "login": "Iniciar sesión",
+    "logout": "Cerrar sesión",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "pin": "PIN",
+    "enter_pin": "Ingrese su PIN"
+  },
+  "table": {
+    "status": {
+      "available": "Disponible",
+      "occupied": "Ocupada",
+      "billing": "Por cobrar",
+      "maintenance": "Mantenimiento"
+    }
+  },
+  "common": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "delete": "Eliminar",
+    "edit": "Editar"
+  }
+}

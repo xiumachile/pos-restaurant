@@ -1,0 +1,29 @@
+{
+  "app": {
+    "name": "锅和桌子收银",
+    "loading": "加载中..."
+  },
+  "auth": {
+    "login": "登录",
+    "logout": "注销",
+    "email": "电子邮件",
+    "password": "密码",
+    "pin": "密码",
+    "enter_pin": "请输入密码"
+  },
+  "table": {
+    "status": {
+      "available": "可用",
+      "occupied": "占用",
+      "billing": "待结账",
+      "maintenance": "维护中"
+    }
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "取消",
+    "confirm": "确认",
+    "delete": "删除",
+    "edit": "编辑"
+  }
+}

@@ -3,19 +3,29 @@
  */
 export type TableStatus = "available" | "occupied" | "billing" | "maintenance";
 
+/**
+ * Mesa individual tal como la retorna el backend (TableResource).
+ */
 export interface RestaurantTable {
-  id: number;
   uuid: string;
   table_number: string;
+  area_code: string;
+  area_name: string;
   capacity: number;
   status: TableStatus;
-  area_code: string;
-  area_name_translations?: Record<string, string> | null;
-  current_order_id?: number | null;
-  company_id: number;
-  branch_id: number;
+  has_active_order: boolean;
+  current_order_id: number | null;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Área con sus mesas (estructura que retorna TableCollection).
+ */
+export interface TablesArea {
+  area_code: string;
+  area_name: string;
+  tables: RestaurantTable[];
 }
 
 export const TABLE_STATUS_LABELS: Record<TableStatus, string> = {
@@ -56,42 +66,8 @@ export const TABLE_STATUS_STYLES: Record<
 };
 
 /**
- * Obtiene el nombre del área con fallbacks seguros.
- * Prioriza es-CL, luego es, luego el area_code.
+ * Aplana el array de áreas a una lista única de mesas (útil para stats/filtros).
  */
-export function getAreaName(table: RestaurantTable): string {
-  const translations = table.area_name_translations;
-  if (!translations || typeof translations !== "object") {
-    return table.area_code || "Sin área";
-  }
-  return (
-    translations["es-CL"] ||
-    translations["es"] ||
-    translations["zh-CN"] ||
-    Object.values(translations)[0] ||
-    table.area_code ||
-    "Sin área"
-  );
-}
-
-/**
- * Agrupa mesas por area_code (defensivo ante datos inconsistentes).
- */
-export function groupTablesByArea(
-  tables: RestaurantTable[]
-): Record<string, { name: string; tables: RestaurantTable[] }> {
-  const groups: Record<string, { name: string; tables: RestaurantTable[] }> = {};
-
-  for (const table of tables) {
-    const code = table.area_code || "OTHER";
-    if (!groups[code]) {
-      groups[code] = {
-        name: getAreaName(table),
-        tables: [],
-      };
-    }
-    groups[code].tables.push(table);
-  }
-
-  return groups;
+export function flattenAreas(areas: TablesArea[]): RestaurantTable[] {
+  return areas.flatMap((area) => area.tables);
 }
