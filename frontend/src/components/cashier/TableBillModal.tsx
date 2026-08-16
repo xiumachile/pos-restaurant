@@ -43,7 +43,6 @@ export function TableBillModal({
 }: TableBillModalProps) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
   const [tipAmount, setTipAmount] = useState<string>("0");
-  const [referenceCode, setReferenceCode] = useState("");
   const [receivedAmount, setReceivedAmount] = useState<string>("");
 
   const { data: methods = [], isLoading: loadingMethods } = usePaymentMethods();
@@ -70,13 +69,8 @@ export function TableBillModal({
       return (parseFloat(receivedAmount) || 0) < grandTotal;
     }
     
-    // Para métodos que requieren referencia: validar que esté llena
-    if (selectedMethod.requires_reference && !referenceCode.trim()) {
-      return true;
-    }
-    
     return false;
-  }, [selectedMethod, chargeTable.isPending, receivedAmount, grandTotal, referenceCode]);
+  }, [selectedMethod, chargeTable.isPending, receivedAmount, grandTotal]);
 
   // Agrupar items de todos los pedidos por nombre
   const aggregatedItems = useMemo(() => {
@@ -115,7 +109,6 @@ export function TableBillModal({
           payment_method_uuid: selectedMethod.uuid,
           amount: tableBill.total_amount,
           tip_amount: parseFloat(tipAmount) || 0,
-          reference_code: referenceCode.trim() || undefined,
           idempotency_key: idempotencyKey,
         },
       });
@@ -275,63 +268,36 @@ export function TableBillModal({
               )}
             </div>
 
-            {/* Detalles según método */}
-            {selectedMethod && (
-              <div className="space-y-4">
-                {selectedMethod.requires_reference && (
-                  <div>
-                    <label className="block text-sm text-slate-400 mb-1">
-                      Código de referencia{" "}
-                      <span className="text-red-400">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={referenceCode}
-                      onChange={(e) => setReferenceCode(e.target.value)}
-                      maxLength={20}
-                      className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      placeholder="Ej: 4521 (últimos 4 dígitos)"
-                      autoFocus
-                    />
-                    {!referenceCode.trim() && (
-                      <p className="text-xs text-amber-400 mt-1">
-                        ⚠️ Requerido para {selectedMethod.name_translations?.es}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {selectedMethod.type === "cash" && (
-                  <div className="bg-green-900/20 border border-green-700/40 rounded-lg p-4 space-y-3">
-                    <div>
-                      <label className="block text-sm text-green-300 mb-1">
-                        Monto recibido del cliente
-                      </label>
-                      <input
-                        type="number"
-                        value={receivedAmount}
-                        onChange={(e) => setReceivedAmount(e.target.value)}
-                        step="0.01"
-                        min="0"
-                        autoFocus
-                        className="w-full px-4 py-3 bg-slate-800 border border-green-700 rounded-lg text-white text-2xl font-bold focus:outline-none focus:ring-2 focus:ring-green-500"
-                        placeholder="0"
-                      />
-                    </div>
-                    {receivedAmount && (
-                      <div className="flex justify-between items-center pt-2 border-t border-green-700/40">
-                        <span className="text-green-300 font-semibold">
-                          Vuelto:
-                        </span>
-                        <span
-                          className={`text-2xl font-bold ${
-                            change >= 0 ? "text-green-400" : "text-red-400"
-                          }`}
-                        >
-                          {formatPrice(change)}
-                        </span>
-                      </div>
-                    )}
+            {/* Monto recibido solo para efectivo */}
+            {selectedMethod?.type === "cash" && (
+              <div className="bg-green-900/20 border border-green-700/40 rounded-lg p-4 space-y-3">
+                <div>
+                  <label className="block text-sm text-green-300 mb-1">
+                    Monto recibido del cliente
+                  </label>
+                  <input
+                    type="number"
+                    value={receivedAmount}
+                    onChange={(e) => setReceivedAmount(e.target.value)}
+                    step="0.01"
+                    min="0"
+                    autoFocus
+                    className="w-full px-4 py-3 bg-slate-800 border border-green-700 rounded-lg text-white text-2xl font-bold focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="0"
+                  />
+                </div>
+                {receivedAmount && (
+                  <div className="flex justify-between items-center pt-2 border-t border-green-700/40">
+                    <span className="text-green-300 font-semibold">
+                      Vuelto:
+                    </span>
+                    <span
+                      className={`text-2xl font-bold ${
+                        change >= 0 ? "text-green-400" : "text-red-400"
+                      }`}
+                    >
+                      {formatPrice(change)}
+                    </span>
                   </div>
                 )}
               </div>
