@@ -37,7 +37,7 @@ class PaymentService
             $order, $paymentMethod, $amount, $idempotencyKey,
             $bill, $cashSession, $userId, $tipAmount, $referenceCode, $notes
         ) {
-            // 1. Verificar idempotencia (retornar pago existente si ya fue procesado)
+            // 1. Verificar idempotencia
             $existing = Payment::where('idempotency_key', $idempotencyKey)->first();
             if ($existing) {
                 return $existing;
@@ -57,18 +57,13 @@ class PaymentService
                 throw PaymentException::invalidPaymentMethod();
             }
 
-            // 4. Validar que requiera referencia si aplica
-            if ($paymentMethod->requires_reference && empty($referenceCode)) {
-                throw PaymentException::invalidPaymentMethod();
-            }
-
-            // 5. Calcular el monto disponible a pagar
+            // 4. Validar monto disponible
             $available = $this->getAvailableAmount($order, $bill);
             if ($amount > $available + 0.01) {
                 throw PaymentException::insufficientAmount($amount, $available);
             }
 
-            // 6. Crear el pago
+            // 5. Crear el pago (reference_code es opcional)
             $totalAmount = Payment::calculateTotal($amount, $tipAmount);
 
             $payment = Payment::create([
@@ -91,12 +86,12 @@ class PaymentService
                 'paid_at' => now(),
             ]);
 
-            // 7. Actualizar el bill si aplica
+            // 6. Actualizar el bill si aplica
             if ($bill) {
                 $bill->registerPaymentAmount($amount);
             }
 
-            // 8. Actualizar el pedido si está completamente pagado
+            // 7. Actualizar el pedido si está completamente pagado
             $this->updateOrderPaymentStatus($order);
 
             return $payment;
@@ -104,34 +99,31 @@ class PaymentService
     }
 
     /**
-     * Verifica si el pedido está en estado pagable.
+     * Verifica si un pedido puede recibir pagos.
      */
-    public function isOrderPayable(Order $order): bool
+    private function isOrderPayable(Order $order): bool
     {
-        $payableStatuses = ['served', 'closed'];
-        return in_array($order->status->value, $payableStatuses);
+        return $order->status->isAwaitingPayment() || $order->status === \Modules\Orders\Domain\ValueObjects\OrderStatus::SERVED;
     }
 
     /**
-     * Obtiene el monto disponible para pagar.
+     * Calcula el monto disponible a pagar (total - ya pagado).
      */
-    public function getAvailableAmount(Order $order, ?Bill $bill = null): float
+    private function getAvailableAmount(Order $order, ?Bill $bill): float
     {
         if ($bill) {
             return (float) $bill->remaining_amount;
         }
 
-        // Calcular el pagado hasta ahora a nivel de pedido
-        $paid = (float) Payment::where('order_id', $order->id)
-            ->whereNull('bill_id')
+        $paidAmount = (float) Payment::where('order_id', $order->id)
             ->completed()
             ->sum('amount');
 
-        return max(0, (float) $order->total - $paid);
+        return (float) $order->total - $paidAmount;
     }
 
     /**
-     * Actualiza el estado de pago del pedido.
+     * Actualiza el estado de pago del pedido si está completamente pagado.
      */
     private function updateOrderPaymentStatus(Order $order): void
     {
