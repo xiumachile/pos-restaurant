@@ -7,8 +7,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Modules\Cashier\Domain\Exceptions\NoOrdersToChargeException;
 use Modules\Orders\Domain\Entities\Order;
-use Modules\Orders\Domain\Events\OrderPaid;
+use Modules\Orders\Domain\Services\OrderStateMachine;
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
 use Modules\Payments\Domain\Entities\PaymentMethod;
 use Modules\Payments\Domain\Exceptions\PaymentException;
@@ -18,7 +19,8 @@ use Modules\Tables\Domain\Entities\RestaurantTable;
 class CashierTablesController extends Controller
 {
     public function __construct(
-        private PaymentService $paymentService
+        private PaymentService $paymentService,
+        private OrderStateMachine $orderStateMachine,
     ) {}
 
     public function tablesWithBills(Request $request): JsonResponse
@@ -102,81 +104,77 @@ class CashierTablesController extends Controller
             ->where('branch_id', $branchId)
             ->firstOrFail();
 
-        $servedOrders = Order::where('table_id', $table->id)
-            ->where('branch_id', $branchId)
-            ->where('status', OrderStatus::SERVED)
-            ->orderBy('created_at', 'asc')
-            ->get();
-
-        if ($servedOrders->isEmpty()) {
-            return response()->json([
-                'error' => 'no_orders_to_charge',
-                'message' => 'La mesa no tiene pedidos servidos para cobrar.',
-            ], 422);
-        }
-
         $paymentMethod = PaymentMethod::forBranch($branchId)
             ->where('uuid', $validated['payment_method_uuid'])
             ->firstOrFail();
 
-        $totalAmount = $servedOrders->sum('total');
-        $totalTip = (float) ($validated['tip_amount'] ?? 0);
-
         try {
-            $payments = [];
-            $baseIdempotencyKey = $validated['idempotency_key'];
+            [$payments, $totalAmount, $totalTip] = DB::transaction(function () use ($table, $branchId, $paymentMethod, $validated, $user) {
 
-            foreach ($servedOrders as $index => $order) {
-                $orderTip = $totalAmount > 0
-                    ? round($totalTip * ($order->total / $totalAmount), 2)
-                    : 0;
+                // lockForUpdate(): si dos cajeros cobran la misma mesa al mismo
+                // tiempo (doble clic, dos terminales), el segundo espera a que
+                // el primero termine la transacción en vez de procesar los
+                // mismos pedidos dos veces.
+                $servedOrders = Order::where('table_id', $table->id)
+                    ->where('branch_id', $branchId)
+                    ->where('status', OrderStatus::SERVED)
+                    ->orderBy('created_at', 'asc')
+                    ->lockForUpdate()
+                    ->get();
 
-                $orderIdempotencyKey = $index === 0
-                    ? $baseIdempotencyKey
-                    : $this->deriveIdempotencyKey($baseIdempotencyKey, $index);
+                if ($servedOrders->isEmpty()) {
+                    throw new NoOrdersToChargeException();
+                }
 
-                $payment = $this->paymentService->registerPayment(
-                    order: $order,
-                    paymentMethod: $paymentMethod,
-                    amount: (float) $order->total,
-                    idempotencyKey: $orderIdempotencyKey,
-                    bill: null,
-                    cashSession: null,
-                    userId: $user->id,
-                    tipAmount: $orderTip,
-                    referenceCode: $validated['reference_code'] ?? null,
-                    notes: $validated['notes'] ?? null
-                );
+                $totalAmount = $servedOrders->sum('total');
+                $totalTip = (float) ($validated['tip_amount'] ?? 0);
 
-                $payments[] = $payment;
+                $payments = [];
+                $baseIdempotencyKey = $validated['idempotency_key'];
 
-                $order->cashier_id = $user->id;
-                $order->paid_at = now();
-                $order->status = OrderStatus::PAID;
-                $order->save();
+                foreach ($servedOrders as $index => $order) {
+                    $orderTip = $totalAmount > 0
+                        ? round($totalTip * ($order->total / $totalAmount), 2)
+                        : 0;
 
-                event(new OrderPaid($order));
-            }
+                    $orderIdempotencyKey = $index === 0
+                        ? $baseIdempotencyKey
+                        : $this->deriveIdempotencyKey($baseIdempotencyKey, $index);
 
-            // ✅ FORZAR liberación de mesa con DB directo
-            DB::table('restaurant_tables')
-                ->where('id', $table->id)
-                ->update([
-                    'status' => 'available',
-                    'updated_at' => now(),
-                ]);
+                    $payment = $this->paymentService->registerPayment(
+                        order: $order,
+                        paymentMethod: $paymentMethod,
+                        amount: (float) $order->total,
+                        idempotencyKey: $orderIdempotencyKey,
+                        bill: null,
+                        cashSession: null,
+                        userId: $user->id,
+                        tipAmount: $orderTip,
+                        referenceCode: $validated['reference_code'] ?? null,
+                        notes: $validated['notes'] ?? null
+                    );
 
+                    $payments[] = $payment;
+
+                    $order->cashier_id = $user->id;
+                    $order->save();
+
+                    // Si CUALQUIER pedido de la mesa falla al pagar, la
+                    // excepción de PaymentService revierte TODO lo que
+                    // llevamos hecho en este loop — ningún pedido queda
+                    // "a medias" pagado mientras otro falla.
+                    $order = $this->orderStateMachine->transition($order, OrderStatus::PAID);
+                    $order = $this->orderStateMachine->transition($order, OrderStatus::CLOSED);
+                }
+
+                return [$payments, $totalAmount, $totalTip];
+            });
+
+        } catch (NoOrdersToChargeException $e) {
             return response()->json([
-                'data' => [
-                    'success' => true,
-                    'orders_charged' => count($payments),
-                    'total_charged' => (float) $totalAmount,
-                    'total_tip' => $totalTip,
-                    'grand_total' => (float) ($totalAmount + $totalTip),
-                    'table_freed' => true,
-                    'table_number' => $table->table_number,
-                ],
-            ]);
+                'error' => 'no_orders_to_charge',
+                'message' => $e->getMessage(),
+            ], 422);
 
         } catch (PaymentException $e) {
             return response()->json([
@@ -184,6 +182,26 @@ class CashierTablesController extends Controller
                 'message' => $e->getMessage(),
             ], 422);
         }
+
+        $table->refresh();
+
+        Log::info('CashierTablesController: mesa cobrada completa', [
+            'table_id' => $table->id,
+            'orders_charged' => count($payments),
+            'final_table_status' => $table->status->value,
+        ]);
+
+        return response()->json([
+            'data' => [
+                'success' => true,
+                'orders_charged' => count($payments),
+                'total_charged' => (float) $totalAmount,
+                'total_tip' => $totalTip,
+                'grand_total' => (float) ($totalAmount + $totalTip),
+                'table_freed' => $table->status->value === 'available',
+                'table_number' => $table->table_number,
+            ],
+        ]);
     }
 
     private function deriveIdempotencyKey(string $baseKey, int $index): string
