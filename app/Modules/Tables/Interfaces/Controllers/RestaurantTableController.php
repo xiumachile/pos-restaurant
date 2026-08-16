@@ -13,12 +13,13 @@ use Modules\Tables\Interfaces\Requests\UpdateTableRequest;
 use Modules\Tables\Interfaces\Requests\UpdateTableStatusRequest;
 use Modules\Tables\Interfaces\Resources\TableCollection;
 use Modules\Tables\Interfaces\Resources\TableResource;
+use Modules\Orders\Domain\Entities\Order;
+use Modules\Orders\Interfaces\Resources\OrderResource;
 
 class RestaurantTableController extends Controller
 {
     /**
      * GET /api/v1/tables
-     * Lista todas las mesas de la sucursal agrupadas por área.
      */
     public function index(Request $request): JsonResponse
     {
@@ -31,7 +32,6 @@ class RestaurantTableController extends Controller
 
     /**
      * POST /api/v1/tables
-     * Crea una nueva mesa en la sucursal.
      */
     public function store(StoreTableRequest $request): JsonResponse
     {
@@ -50,7 +50,6 @@ class RestaurantTableController extends Controller
 
     /**
      * PUT /api/v1/tables/{uuid}
-     * Actualiza una mesa existente.
      */
     public function update(UpdateTableRequest $request, string $uuid): JsonResponse
     {
@@ -68,7 +67,6 @@ class RestaurantTableController extends Controller
 
     /**
      * PUT /api/v1/tables/{uuid}/status
-     * Cambia el estado de la mesa usando la máquina de estados.
      */
     public function updateStatus(UpdateTableStatusRequest $request, string $uuid): JsonResponse
     {
@@ -95,5 +93,25 @@ class RestaurantTableController extends Controller
                 'requested_status' => $newStatus->value,
             ], 422);
         }
+    }
+
+    /**
+     * GET /api/v1/tables/{uuid}/orders
+     * Lista los pedidos activos de una mesa (no closed, no cancelled).
+     */
+    public function orders(string $uuid): JsonResponse
+    {
+        $table = RestaurantTable::where('uuid', $uuid)->firstOrFail();
+
+        $orders = Order::query()
+            ->where('table_id', $table->id)
+            ->whereNotIn('status', ['closed', 'cancelled'])
+            ->with(['items', 'waiter'])
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        return OrderResource::collection($orders)
+            ->response()
+            ->setStatusCode(200);
     }
 }
