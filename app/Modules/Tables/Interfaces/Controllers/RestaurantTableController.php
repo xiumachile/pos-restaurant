@@ -97,7 +97,22 @@ class RestaurantTableController extends Controller
 
     /**
      * GET /api/v1/tables/{uuid}/orders
-     * Lista los pedidos activos de una mesa (no closed, no cancelled).
+     * 
+     * Lista pedidos EN CURSO de una mesa.
+     * 
+     * Estados considerados "en curso":
+     * - draft: recién creado (garzón tomando pedido)
+     * - confirmed: confirmado en cocina
+     * - preparing: en preparación
+     * - ready: listo para servir
+     * - served: servido al cliente, esperando cobro
+     * 
+     * Estados EXCLUIDOS (ya no son "en curso"):
+     * - paid: ya fue cobrado ✅ FIX
+     * - closed: cuenta cerrada
+     * - cancelled: cancelado
+     * 
+     * Esto garantiza que al abrir una mesa pagada, el carrito esté vacío.
      */
     public function orders(string $uuid): JsonResponse
     {
@@ -105,7 +120,7 @@ class RestaurantTableController extends Controller
 
         $orders = Order::query()
             ->where('table_id', $table->id)
-            ->whereNotIn('status', ['closed', 'cancelled'])
+            ->whereNotIn('status', ['paid', 'closed', 'cancelled'])
             ->with(['items', 'waiter'])
             ->orderBy('created_at', 'asc')
             ->get();
