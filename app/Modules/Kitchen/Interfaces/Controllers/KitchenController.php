@@ -161,3 +161,51 @@ class KitchenController extends Controller
         return KitchenOrderResource::make($order)->response();
     }
 }
+
+    /**
+     * GET /api/v1/kitchen/tables-today
+     * Lista todas las mesas que tuvieron actividad hoy (con pedidos).
+     */
+    public function tablesToday(Request $request): JsonResponse
+    {
+        $branchId = $request->user()->branch_id;
+
+        // Obtener IDs de mesas que tuvieron pedidos hoy
+        $tableIds = Order::where('branch_id', $branchId)
+            ->whereDate('created_at', today())
+            ->distinct()
+            ->pluck('table_id');
+
+        // Cargar las mesas con sus pedidos del día
+        $tables = RestaurantTable::with(['orders' => function ($query) {
+            $query->whereDate('created_at', today())
+                ->with(['items'])
+                ->orderBy('created_at', 'asc');
+        }])
+            ->whereIn('id', $tableIds)
+            ->orderBy('area_code')
+            ->orderBy('table_number')
+            ->get();
+
+        $response = $tables->map(function ($table) {
+            $orders = $table->orders;
+            $totalAmount = $orders->sum('total');
+            $totalItems = $orders->sum(fn($o) => $o->items->sum('quantity'));
+            $lastOrderStatus = $orders->last()?->status?->value;
+            
+            return [
+                'uuid' => $table->uuid,
+                'table_number' => $table->table_number,
+                'area_code' => $table->area_code,
+                'capacity' => $table->capacity,
+                'orders_count' => $orders->count(),
+                'total_items' => $totalItems,
+                'total_amount' => (float) $totalAmount,
+                'last_order_status' => $lastOrderStatus,
+                'first_order_at' => $orders->first()?->created_at?->toIso8601String(),
+                'last_order_at' => $orders->last()?->created_at?->toIso8601String(),
+            ];
+        });
+
+        return response()->json(['data' => $response]);
+    }
