@@ -19,8 +19,8 @@ export function useCashierDashboard() {
   return useQuery<CashierDashboard, Error>({
     queryKey: DASHBOARD_KEY,
     queryFn: paymentsService.getDashboard,
-    refetchInterval: 15000,
-    staleTime: 5000,
+    refetchInterval: 30000, // 30s para stats (no crítico)
+    staleTime: 10000,
   });
 }
 
@@ -28,8 +28,13 @@ export function useTablesWithBills() {
   return useQuery<TableBill[], Error>({
     queryKey: TABLES_WITH_BILLS_KEY,
     queryFn: paymentsService.listTablesWithBills,
-    refetchInterval: 10000,
-    staleTime: 3000,
+    // ❌ ELIMINADO refetchInterval (causaba que sobreescribiera invalidateQueries)
+    // Ahora se actualiza solo cuando:
+    // 1. El componente se monta
+    // 2. Se hace invalidateQueries (tras cobro)
+    // 3. El usuario cambia de pestaña/navega
+    staleTime: 0, // Siempre considerar stale para forzar refetch al montar
+    gcTime: 0, // No guardar en cache (siempre fetch fresh)
   });
 }
 
@@ -86,6 +91,7 @@ export function useChargeTable() {
       payload: any;
     }) => paymentsService.chargeTable(tableUuid, payload),
     onSuccess: () => {
+      // Invalidar y forzar refetch inmediato
       queryClient.invalidateQueries({ queryKey: TABLES_WITH_BILLS_KEY });
       queryClient.invalidateQueries({ queryKey: DASHBOARD_KEY });
     },

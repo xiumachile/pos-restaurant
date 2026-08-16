@@ -1,28 +1,29 @@
 import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTables } from "@/hooks/useTables";
+import { useTableOrders } from "@/hooks/useTableOrders";
 import { useCartStore } from "@/stores/useCartStore";
 import { OrderCatalogPanel } from "@/components/orders/OrderCatalogPanel";
 import { OrderCartPanel } from "@/components/orders/OrderCartPanel";
 import { flattenAreas, TABLE_STATUS_LABELS, TABLE_STATUS_STYLES } from "@/types/tables";
 import type { Product } from "@/types/catalog";
-import { ArrowLeft, Users, Loader2 } from "lucide-react";
+import { ArrowLeft, Users, Loader2, AlertCircle } from "lucide-react";
 
 /**
  * Vista de toma de pedido para una mesa específica.
- * Layout: catálogo (izquierda) + pedido en curso (derecha).
+ * Valida que la mesa tenga pedidos activos (no solo paid/closed).
  */
 export function OrderTakingPage() {
   const { tableUuid } = useParams<{ tableUuid: string }>();
   const navigate = useNavigate();
 
   const { data: areas = [], isLoading } = useTables();
+  const { data: activeOrders = [] } = useTableOrders(tableUuid || null);
   const initCart = useCartStore((s) => s.initCart);
   const addItem = useCartStore((s) => s.addItem);
 
   const table = flattenAreas(areas).find((t) => t.uuid === tableUuid);
 
-  // Inicializar carrito al entrar a la mesa
   useEffect(() => {
     if (table) {
       initCart(table.uuid, table.table_number, table.area_name);
@@ -51,6 +52,10 @@ export function OrderTakingPage() {
     );
   }
 
+  // ✅ Validación: si la mesa está disponible, es una nueva cuenta
+  const tableIsFree = table.status === "available" || table.status === "maintenance";
+  const hasActiveOrders = activeOrders.length > 0;
+
   const statusStyle = TABLE_STATUS_STYLES[table.status];
 
   const handleAddProduct = (product: Product) => {
@@ -59,7 +64,6 @@ export function OrderTakingPage() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header con info de la mesa */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-4">
           <button
@@ -79,20 +83,41 @@ export function OrderTakingPage() {
                 {TABLE_STATUS_LABELS[table.status]}
               </span>
             </h1>
-            <p className="text-sm text-slate-400 flex items-center gap-2 mt-0.5">
-              {table.area_name}
+            <p className="text-sm text-slate-400 mt-1 flex items-center gap-3">
               <span className="flex items-center gap-1">
-                <Users size={13} /> {table.capacity}
+                <Users size={14} /> {table.capacity} personas
               </span>
+              <span>·</span>
+              <span>{table.area_name}</span>
+              {hasActiveOrders && (
+                <>
+                  <span>·</span>
+                  <span className="text-blue-400">
+                    {activeOrders.length} pedido{activeOrders.length !== 1 ? "s" : ""} activo{activeOrders.length !== 1 ? "s" : ""}
+                  </span>
+                </>
+              )}
             </p>
           </div>
         </div>
       </div>
 
-      {/* Layout de 2 paneles */}
+      {/* Advertencia si la mesa está libre (nueva cuenta) */}
+      {tableIsFree && (
+        <div className="mb-4 bg-blue-900/20 border border-blue-700/50 rounded-lg p-3 flex items-center gap-2 text-sm text-blue-200">
+          <AlertCircle size={16} className="flex-shrink-0" />
+          <span>
+            Mesa libre. Al enviar un pedido se marcará como <strong>Ocupada</strong>.
+          </span>
+        </div>
+      )}
+
       <div className="flex-1 flex gap-4 overflow-hidden">
         <OrderCatalogPanel onAddProduct={handleAddProduct} />
-        <OrderCartPanel tableUuid={table.uuid} tableNumber={table.table_number} />
+        <OrderCartPanel
+          tableUuid={table.uuid}
+          tableNumber={table.table_number}
+        />
       </div>
     </div>
   );
