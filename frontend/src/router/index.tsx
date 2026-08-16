@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 import { LoginPage } from "@/pages/LoginPage";
+import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuthStore } from "@/store/useAuthStore";
 
 /**
@@ -12,32 +13,90 @@ function ProtectedRoute() {
 }
 
 /**
- * Página principal temporal (Dashboard).
- * Se reemplazará en F13.3 con la vista de mesas.
+ * Página temporal de Dashboard (Mesas).
+ * Se reemplazará en F13.3.3 con la vista real de mesas.
  */
 function DashboardPage() {
-  const { user, clearAuth } = useAuthStore();
   return (
-    <div className="min-h-screen bg-slate-900 text-white p-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <button
-            onClick={() => {
-              clearAuth();
-              window.location.href = "/login";
-            }}
-            className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white"
-          >
-            Cerrar sesión
-          </button>
-        </div>
-        <div className="bg-slate-800 rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Bienvenido, {user?.name}!</h2>
-          <pre className="text-sm text-slate-400 overflow-x-auto">
-            {JSON.stringify(user, null, 2)}
-          </pre>
-        </div>
+    <div>
+      <h1 className="text-3xl font-bold mb-4">Mesas</h1>
+      <div className="bg-slate-800 rounded-lg p-8 text-center">
+        <p className="text-slate-400">
+          🚧 Vista de mesas en construcción (F13.3.3)
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Página temporal de Catálogo.
+ * Se reemplazará en F13.3.4 con la vista real.
+ */
+function CatalogPage() {
+  return (
+    <div>
+      <h1 className="text-3xl font-bold mb-4">Catálogo</h1>
+      <div className="bg-slate-800 rounded-lg p-8 text-center">
+        <p className="text-slate-400">
+          🚧 Vista de catálogo en construcción (F13.3.4)
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Página temporal de Cocina.
+ */
+function KitchenPage() {
+  return (
+    <div>
+      <h1 className="text-3xl font-bold mb-4">Cocina (KDS)</h1>
+      <div className="bg-slate-800 rounded-lg p-8 text-center">
+        <p className="text-slate-400">🚧 En construcción (F13.5)</p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Página temporal de Caja.
+ */
+function CashierPage() {
+  return (
+    <div>
+      <h1 className="text-3xl font-bold mb-4">Caja</h1>
+      <div className="bg-slate-800 rounded-lg p-8 text-center">
+        <p className="text-slate-400">🚧 En construcción (F13.6)</p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Página temporal de Reportes.
+ */
+function ReportsPage() {
+  return (
+    <div>
+      <h1 className="text-3xl font-bold mb-4">Reportes</h1>
+      <div className="bg-slate-800 rounded-lg p-8 text-center">
+        <p className="text-slate-400">🚧 En construcción (F13.7+)</p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Página temporal de Configuración.
+ */
+function SettingsPage() {
+  return (
+    <div>
+      <h1 className="text-3xl font-bold mb-4">Configuración</h1>
+      <div className="bg-slate-800 rounded-lg p-8 text-center">
+        <p className="text-slate-400">🚧 En construcción (F13.8)</p>
       </div>
     </div>
   );
@@ -53,10 +112,16 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       {
-        index: true,
-        element: <DashboardPage />,
+        element: <AppLayout />,
+        children: [
+          { index: true, element: <DashboardPage /> },
+          { path: "catalog", element: <CatalogPage /> },
+          { path: "kitchen", element: <KitchenPage /> },
+          { path: "cashier", element: <CashierPage /> },
+          { path: "reports", element: <ReportsPage /> },
+          { path: "settings", element: <SettingsPage /> },
+        ],
       },
-      // Aquí se agregarán las rutas de mesas, pedidos, cocina, etc.
     ],
   },
 ]);
