@@ -34,8 +34,6 @@ export const ordersService = {
    * - Reserva de stock
    * - Impresión de comanda en cocina
    * - Descuento de recetas
-   *
-   * Solo permitido en estado DRAFT.
    */
   async confirm(orderUuid: string): Promise<Order> {
     const response = await apiClient.post<OrderResponse>(
@@ -45,7 +43,7 @@ export const ordersService = {
   },
 
   /**
-   * Cancela el pedido (solo en estados DRAFT, CONFIRMED, PREPARING, READY).
+   * Cancela el pedido.
    */
   async cancel(orderUuid: string, reason?: string): Promise<Order> {
     const response = await apiClient.post<OrderResponse>(
@@ -68,5 +66,16 @@ export const ordersService = {
   async show(orderUuid: string): Promise<Order> {
     const response = await apiClient.get<OrderResponse>(`/orders/${orderUuid}`);
     return response.data.data;
+  },
+
+  /**
+   * Lista pedidos activos de una mesa (no closed, no cancelled).
+   */
+  async listTableOrders(tableUuid: string): Promise<Order[]> {
+    const response = await apiClient.get<{ data: Order[] }>(
+      `/tables/${tableUuid}/orders`
+    );
+    const data = response.data as any;
+    return Array.isArray(data?.data) ? data.data : [];
   },
 };
