@@ -12,6 +12,7 @@ use Modules\Kitchen\Interfaces\Requests\UpdatePriorityRequest;
 use Modules\Kitchen\Interfaces\Resources\KitchenOrderResource;
 use Modules\Orders\Domain\Entities\Order;
 use Modules\Orders\Domain\ValueObjects\OrderPriority;
+use Modules\Tables\Domain\Entities\RestaurantTable;
 
 class KitchenController extends Controller
 {
@@ -65,6 +66,49 @@ class KitchenController extends Controller
     }
 
     /**
+     * GET /api/v1/kitchen/table-history/{tableUuid}
+     * Historial completo de pedidos de una mesa específica del día actual.
+     * Incluye todos los estados (confirmed, preparing, ready, served, paid, closed).
+     */
+    public function tableHistory(Request $request, string $tableUuid): JsonResponse
+    {
+        $branchId = $request->user()->branch_id;
+        
+        // Buscar la mesa
+        $table = RestaurantTable::where('uuid', $tableUuid)
+            ->where('branch_id', $branchId)
+            ->firstOrFail();
+
+        // Obtener todos los pedidos de esta mesa del día actual
+        $orders = Order::with(['items.menuItem.product', 'waiter'])
+            ->where('table_id', $table->id)
+            ->where('branch_id', $branchId)
+            ->whereDate('created_at', today())
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        // Transformar para el frontend
+        $response = [
+            'table' => [
+                'uuid' => $table->uuid,
+                'table_number' => $table->table_number,
+                'area_code' => $table->area_code,
+                'capacity' => $table->capacity,
+            ],
+            'orders' => KitchenOrderResource::collection($orders)->resolve(),
+            'summary' => [
+                'total_orders' => $orders->count(),
+                'total_items' => $orders->sum(fn($o) => $o->items->sum('quantity')),
+                'total_amount' => $orders->sum('total'),
+                'first_order_at' => $orders->first()?->created_at?->toIso8601String(),
+                'last_order_at' => $orders->last()?->created_at?->toIso8601String(),
+            ],
+        ];
+
+        return response()->json(['data' => $response]);
+    }
+
+    /**
      * POST /api/v1/kitchen/orders/{uuid}/assign-cook
      * Asigna un cocinero responsable al pedido.
      */
@@ -73,7 +117,6 @@ class KitchenController extends Controller
         $validated = $request->validated();
         $order = Order::where('uuid', $uuid)->firstOrFail();
 
-        // Validar que el pedido esté en estado de cocina
         if (!$order->status->isInKitchenQueue()) {
             return response()->json([
                 'error' => 'invalid_state',
@@ -81,13 +124,11 @@ class KitchenController extends Controller
             ], 422);
         }
 
-        // Buscar el cocinero por UUID
         $cook = User::where('uuid', $validated['cook_uuid'])
             ->where('role', 'kitchen')
             ->where('company_id', $order->company_id)
             ->firstOrFail();
 
-        // Asignar el cocinero
         $order->assigned_cook_id = $cook->id;
         $order->save();
 
@@ -105,7 +146,6 @@ class KitchenController extends Controller
         $validated = $request->validated();
         $order = Order::where('uuid', $uuid)->firstOrFail();
 
-        // Solo se puede cambiar prioridad en pedidos activos
         if ($order->status->isFinalState()) {
             return response()->json([
                 'error' => 'invalid_state',

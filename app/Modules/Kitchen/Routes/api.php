@@ -11,6 +11,7 @@ Route::prefix('v1/kitchen')->middleware(['auth:api', TenantContextMiddleware::cl
     Route::get('/queue', [KitchenController::class, 'queue'])->name('kitchen.queue');
     Route::get('/stats', [KitchenController::class, 'stats'])->name('kitchen.stats');
     Route::get('/history', [KitchenController::class, 'history'])->name('kitchen.history');
+    Route::get('/table-history/{tableUuid}', [KitchenController::class, 'tableHistory'])->name('kitchen.table-history');
     
     // Gestión de pedidos por cocina
     Route::post('/orders/{uuid}/assign-cook', [KitchenController::class, 'assignCook'])->name('kitchen.assign-cook');

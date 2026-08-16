@@ -20,6 +20,7 @@ class KitchenOrderResource extends JsonResource
             'status' => $this->status->value,
             'priority' => $this->priority instanceof \Modules\Orders\Domain\ValueObjects\OrderPriority ? $this->priority->value : ($this->priority ?? 'normal'),
             'table_number' => $this->table?->table_number,
+            'table_uuid' => $this->table?->uuid,
             'area_code' => $this->table?->area_code,
             'waiter_name' => $this->waiter?->name,
             'items' => $this->whenLoaded('items', fn() =>
