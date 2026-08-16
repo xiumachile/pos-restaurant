@@ -20,9 +20,9 @@ class ProductController extends Controller
             ->when($request->filled('search'), function ($q) use ($request) {
                 $search = $request->input('search');
                 $q->where(function ($sub) use ($search) {
-                    $sub->where('sku', 'like', "%{$search}%")
-                        ->orWhereRaw("name_translations->>'$.es' LIKE ?", ["%{$search}%"])
-                        ->orWhereRaw("name_translations->>'$.zh' LIKE ?", ["%{$search}%"]);
+                    $sub->where('sku', 'ilike', "%{$search}%")
+                        ->orWhereRaw("name_translations->>'es' ILIKE ?", ["%{$search}%"])
+                        ->orWhereRaw("name_translations->>'zh' ILIKE ?", ["%{$search}%"]);
                 });
             })
             ->when($request->has('active_only'), fn($q) => $q->where('is_active', true))
