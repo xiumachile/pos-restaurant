@@ -1,150 +1,155 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { CartItem, CartTotals } from "@/types/cart";
+import type { CartItem, CartTotals, TableCart } from "@/types/cart";
 import type { Product } from "@/types/catalog";
 import { parsePrice } from "@/types/catalog";
 
-interface CartState {
-  tableId: string | null;
-  tableNumber: string | null;
-  items: CartItem[];
-  createdAt: string | null;
-
-  setTable: (tableId: string, tableNumber: string) => void;
-  clearTable: () => void;
-  addItem: (product: Product, quantity?: number, notes?: string) => void;
-  removeItem: (itemId: string) => void;
-  updateQuantity: (itemId: string, quantity: number) => void;
-  updateNotes: (itemId: string, notes: string) => void;
-  clearCart: () => void;
-
-  getTotals: () => CartTotals;
-  getItemByProductId: (productId: number) => CartItem | undefined;
-}
-
 function generateUUID(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
+}
+
+interface CartState {
+  /** Carritos activos, uno por mesa (key = tableUuid) */
+  carts: Record<string, TableCart>;
+
+  /** Inicializa el carrito de una mesa si no existe */
+  initCart: (tableUuid: string, tableNumber: string, areaName?: string) => void;
+
+  /** Agrega un producto al carrito de una mesa (o incrementa cantidad) */
+  addItem: (tableUuid: string, product: Product, quantity?: number) => void;
+
+  /** Quita un item del carrito */
+  removeItem: (tableUuid: string, itemId: string) => void;
+
+  /** Actualiza cantidad (si llega a 0, elimina el item) */
+  updateQuantity: (tableUuid: string, itemId: string, quantity: number) => void;
+
+  /** Vacía el carrito de una mesa */
+  clearCart: (tableUuid: string) => void;
+
+  /** Obtiene el carrito de una mesa (o null) */
+  getCart: (tableUuid: string) => TableCart | null;
+
+  /** Calcula totales de una mesa */
+  getTotals: (tableUuid: string) => CartTotals;
 }
 
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
-      tableId: null,
-      tableNumber: null,
-      items: [],
-      createdAt: null,
+      carts: {},
 
-      setTable: (tableId, tableNumber) => {
-        set({
-          tableId,
-          tableNumber,
-          createdAt: new Date().toISOString(),
-        });
-      },
-
-      clearTable: () => {
-        set({
-          tableId: null,
-          tableNumber: null,
-          items: [],
-          createdAt: null,
-        });
-      },
-
-      addItem: (product, quantity = 1, notes) => {
+      initCart: (tableUuid, tableNumber, areaName) => {
         set((state) => {
-          const existingItem = state.items.find(
-            (item) => item.product.id === product.id
-          );
-
-          if (existingItem) {
-            return {
-              items: state.items.map((item) =>
-                item.product.id === product.id
-                  ? { ...item, quantity: item.quantity + quantity }
-                  : item
-              ),
-            };
-          } else {
-            const newItem: CartItem = {
-              id: generateUUID(),
-              product,
-              quantity,
-              notes,
-            };
-            return {
-              items: [...state.items, newItem],
-            };
-          }
+          if (state.carts[tableUuid]) return state;
+          return {
+            carts: {
+              ...state.carts,
+              [tableUuid]: {
+                tableUuid,
+                tableNumber,
+                areaName,
+                items: [],
+                createdAt: new Date().toISOString(),
+              },
+            },
+          };
         });
       },
 
-      removeItem: (itemId) => {
-        set((state) => ({
-          items: state.items.filter((item) => item.id !== itemId),
-        }));
+      addItem: (tableUuid, product, quantity = 1) => {
+        set((state) => {
+          const cart = state.carts[tableUuid];
+          if (!cart) return state;
+
+          const existing = cart.items.find((i) => i.product.id === product.id);
+
+          const items = existing
+            ? cart.items.map((i) =>
+                i.product.id === product.id
+                  ? { ...i, quantity: i.quantity + quantity }
+                  : i
+              )
+            : [
+                ...cart.items,
+                { id: generateUUID(), product, quantity },
+              ];
+
+          return {
+            carts: { ...state.carts, [tableUuid]: { ...cart, items } },
+          };
+        });
       },
 
-      updateQuantity: (itemId, quantity) => {
+      removeItem: (tableUuid, itemId) => {
+        set((state) => {
+          const cart = state.carts[tableUuid];
+          if (!cart) return state;
+          return {
+            carts: {
+              ...state.carts,
+              [tableUuid]: {
+                ...cart,
+                items: cart.items.filter((i) => i.id !== itemId),
+              },
+            },
+          };
+        });
+      },
+
+      updateQuantity: (tableUuid, itemId, quantity) => {
         if (quantity <= 0) {
-          get().removeItem(itemId);
+          get().removeItem(tableUuid, itemId);
           return;
         }
-        set((state) => ({
-          items: state.items.map((item) =>
-            item.id === itemId ? { ...item, quantity } : item
-          ),
-        }));
-      },
-
-      updateNotes: (itemId, notes) => {
-        set((state) => ({
-          items: state.items.map((item) =>
-            item.id === itemId ? { ...item, notes } : item
-          ),
-        }));
-      },
-
-      clearCart: () => {
-        set({
-          items: [],
-          tableId: null,
-          tableNumber: null,
-          createdAt: null,
+        set((state) => {
+          const cart = state.carts[tableUuid];
+          if (!cart) return state;
+          return {
+            carts: {
+              ...state.carts,
+              [tableUuid]: {
+                ...cart,
+                items: cart.items.map((i) =>
+                  i.id === itemId ? { ...i, quantity } : i
+                ),
+              },
+            },
+          };
         });
       },
 
-      getTotals: () => {
-        const { items } = get();
-        const subtotal = items.reduce((sum, item) => {
-          const price = parsePrice(item.product.base_price);
-          return sum + price * item.quantity;
-        }, 0);
-
-        const taxRate = 0.19;
-        const tax = subtotal * taxRate;
-        const total = subtotal + tax;
-        const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
-
-        return { subtotal, tax, total, itemCount };
+      clearCart: (tableUuid) => {
+        set((state) => {
+          const { [tableUuid]: _removed, ...rest } = state.carts;
+          return { carts: rest };
+        });
       },
 
-      getItemByProductId: (productId) => {
-        return get().items.find((item) => item.product.id === productId);
+      getCart: (tableUuid) => {
+        return get().carts[tableUuid] ?? null;
+      },
+
+      getTotals: (tableUuid) => {
+        const cart = get().carts[tableUuid];
+        if (!cart) return { subtotal: 0, tax: 0, total: 0, itemCount: 0 };
+
+        const subtotal = cart.items.reduce(
+          (sum, item) => sum + parsePrice(item.product.base_price) * item.quantity,
+          0
+        );
+        const tax = subtotal * 0.19;
+        const itemCount = cart.items.reduce((sum, i) => sum + i.quantity, 0);
+
+        return { subtotal, tax, total: subtotal + tax, itemCount };
       },
     }),
     {
       name: "pos-cart-storage",
-      partialize: (state) => ({
-        tableId: state.tableId,
-        tableNumber: state.tableNumber,
-        items: state.items,
-        createdAt: state.createdAt,
-      }),
     }
   )
 );

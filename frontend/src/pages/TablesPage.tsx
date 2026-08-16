@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTables } from "@/hooks/useTables";
+import { useCartStore } from "@/stores/useCartStore";
 import { TablesGrid } from "@/components/tables/TablesGrid";
 import { TablesStats } from "@/components/tables/TablesStats";
 import { flattenAreas, TABLE_STATUS_LABELS } from "@/types/tables";
@@ -9,18 +11,14 @@ import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
 export function TablesPage() {
   const { data: areas = [], isLoading, error, refetch, isRefetching } = useTables();
   const [statusFilter, setStatusFilter] = useState<TableStatus | "all">("all");
+  const carts = useCartStore((s) => s.carts);
+  const navigate = useNavigate();
 
   const handleTableClick = (table: RestaurantTable) => {
-    console.log("Mesa clickeada:", table);
-    alert(
-      `Mesa ${table.table_number} (${table.area_name})\n` +
-      `Estado: ${TABLE_STATUS_LABELS[table.status]}\n` +
-      `Capacidad: ${table.capacity}\n\n` +
-      `Acción pendiente de implementar en F13.4`
-    );
+    // Navegar a la vista de toma de pedido
+    navigate(`/tables/${table.uuid}`);
   };
 
-  // Filtrar mesas dentro de cada área según el estado seleccionado
   const filteredAreas: TablesArea[] =
     statusFilter === "all"
       ? areas
@@ -64,7 +62,7 @@ export function TablesPage() {
         <div>
           <h1 className="text-3xl font-bold">Mesas</h1>
           <p className="text-slate-400 mt-1">
-            {allTables.length} mesas en {areas.length} áreas
+            {allTables.length} mesas en {areas.length} áreas · Toca una mesa para tomar pedido
           </p>
         </div>
 
@@ -123,13 +121,32 @@ export function TablesPage() {
         </div>
       ) : (
         filteredAreas.map((area) => (
-          <TablesGrid
+          <TablesGridWithCartBadge
             key={area.area_code}
             area={area}
+            carts={carts}
             onTableClick={handleTableClick}
           />
         ))
       )}
     </div>
   );
+}
+
+/**
+ * Wrapper de TablesGrid que muestra badge de items en mesas con carrito activo.
+ */
+import { TablesGrid as BaseTablesGrid } from "@/components/tables/TablesGrid";
+import type { TableCart } from "@/types/cart";
+
+function TablesGridWithCartBadge({
+  area,
+  carts,
+  onTableClick,
+}: {
+  area: TablesArea;
+  carts: Record<string, TableCart>;
+  onTableClick: (table: RestaurantTable) => void;
+}) {
+  return <BaseTablesGrid area={area} onTableClick={onTableClick} cartItems={carts} />;
 }

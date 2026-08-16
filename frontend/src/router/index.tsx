@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 import { LoginPage } from "@/pages/LoginPage";
 import { TablesPage } from "@/pages/TablesPage";
+import { OrderTakingPage } from "@/pages/OrderTakingPage";
 import { CatalogPage } from "@/pages/CatalogPage";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -67,6 +68,7 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           { index: true, element: <TablesPage /> },
+          { path: "tables/:tableUuid", element: <OrderTakingPage /> },
           { path: "catalog", element: <CatalogPage /> },
           { path: "kitchen", element: <KitchenPage /> },
           { path: "cashier", element: <CashierPage /> },

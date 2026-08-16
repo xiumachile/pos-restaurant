@@ -5,7 +5,17 @@ export interface CartItem {
   product: Product;
   quantity: number;
   notes?: string;
-  modifiers?: string[];
+}
+
+/**
+ * Carrito de una mesa específica.
+ */
+export interface TableCart {
+  tableUuid: string;
+  tableNumber: string;
+  areaName?: string;
+  items: CartItem[];
+  createdAt: string;
 }
 
 export interface CartTotals {
