@@ -5,6 +5,7 @@ namespace Modules\Identity\Interfaces\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Modules\Identity\Domain\Entities\User;
 use Modules\Identity\Domain\Exceptions\InvalidCredentialsException;
 use Modules\Identity\Domain\Services\AuthenticationService;
 use Modules\Identity\Interfaces\Requests\LoginRequest;

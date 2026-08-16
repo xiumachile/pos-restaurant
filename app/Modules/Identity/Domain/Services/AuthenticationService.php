@@ -14,7 +14,7 @@ class AuthenticationService
      */
     public function loginWithEmail(string $email, string $password): array
     {
-        $user = User::where('email', $email)->first();
+        $user = User::withoutGlobalScopes()->where('email', $email)->first();
 
         if (!$user || !Hash::check($password, $user->password)) {
             throw InvalidCredentialsException::email();
@@ -43,7 +43,7 @@ class AuthenticationService
     public function loginWithPin(int $branchId, string $pin): array
     {
         // Obtener TODOS los usuarios activos de la sucursal con pos_pin_hash
-        $users = User::where('branch_id', $branchId)
+        $users = User::withoutGlobalScopes()->where('branch_id', $branchId)
             ->where('is_active', true)
             ->whereNotNull('pos_pin_hash')
             ->get();
