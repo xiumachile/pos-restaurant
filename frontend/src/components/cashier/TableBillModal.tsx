@@ -4,7 +4,7 @@ import type { PaymentMethod } from "@/types/payments";
 import {
   usePaymentMethods,
   useChargeTable,
-  useInvalidateCashier,
+  useTablesWithBills,
 } from "@/hooks/usePayments";
 import { formatPrice } from "@/types/catalog";
 import {
@@ -48,7 +48,7 @@ export function TableBillModal({
 
   const { data: methods = [], isLoading: loadingMethods } = usePaymentMethods();
   const chargeTable = useChargeTable();
-  const invalidate = useInvalidateCashier();
+  const { refetch: refetchTables } = useTablesWithBills();
 
   const grandTotal = useMemo(() => {
     const tip = parseFloat(tipAmount) || 0;
@@ -61,7 +61,24 @@ export function TableBillModal({
     return Math.max(0, received - grandTotal);
   }, [receivedAmount, grandTotal, selectedMethod]);
 
-  // Agrupar items de todos los pedidos por nombre (tipo precuenta)
+  // Validar si el botón debe estar deshabilitado
+  const isButtonDisabled = useMemo(() => {
+    if (!selectedMethod || chargeTable.isPending) return true;
+    
+    // Para efectivo: validar monto recibido
+    if (selectedMethod.type === "cash") {
+      return (parseFloat(receivedAmount) || 0) < grandTotal;
+    }
+    
+    // Para métodos que requieren referencia: validar que esté llena
+    if (selectedMethod.requires_reference && !referenceCode.trim()) {
+      return true;
+    }
+    
+    return false;
+  }, [selectedMethod, chargeTable.isPending, receivedAmount, grandTotal, referenceCode]);
+
+  // Agrupar items de todos los pedidos por nombre
   const aggregatedItems = useMemo(() => {
     const map = new Map<
       string,
@@ -87,7 +104,7 @@ export function TableBillModal({
   }, [tableBill.orders]);
 
   const handleCharge = async () => {
-    if (!selectedMethod) return;
+    if (!selectedMethod || isButtonDisabled) return;
 
     const idempotencyKey = crypto.randomUUID();
 
@@ -98,11 +115,14 @@ export function TableBillModal({
           payment_method_uuid: selectedMethod.uuid,
           amount: tableBill.total_amount,
           tip_amount: parseFloat(tipAmount) || 0,
-          reference_code: referenceCode || undefined,
+          reference_code: referenceCode.trim() || undefined,
           idempotency_key: idempotencyKey,
         },
       });
-      invalidate();
+      
+      // Forzar refetch inmediato de la lista de mesas
+      await refetchTables();
+      
       onSuccess();
       onClose();
     } catch (e) {
@@ -147,7 +167,7 @@ export function TableBillModal({
           </div>
 
           <div className="p-6 space-y-6">
-            {/* Items agrupados tipo precuenta */}
+            {/* Items agrupados */}
             <div className="bg-slate-800 rounded-lg p-4">
               <h3 className="text-sm font-semibold text-slate-400 mb-3 flex items-center gap-2">
                 <Receipt size={14} />
@@ -261,7 +281,8 @@ export function TableBillModal({
                 {selectedMethod.requires_reference && (
                   <div>
                     <label className="block text-sm text-slate-400 mb-1">
-                      Código de referencia (últimos 4 dígitos, N° transacción)
+                      Código de referencia{" "}
+                      <span className="text-red-400">*</span>
                     </label>
                     <input
                       type="text"
@@ -269,8 +290,14 @@ export function TableBillModal({
                       onChange={(e) => setReferenceCode(e.target.value)}
                       maxLength={20}
                       className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      placeholder="Ej: 4521"
+                      placeholder="Ej: 4521 (últimos 4 dígitos)"
+                      autoFocus
                     />
+                    {!referenceCode.trim() && (
+                      <p className="text-xs text-amber-400 mt-1">
+                        ⚠️ Requerido para {selectedMethod.name_translations?.es}
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -332,12 +359,7 @@ export function TableBillModal({
               </button>
               <button
                 onClick={handleCharge}
-                disabled={
-                  !selectedMethod ||
-                  chargeTable.isPending ||
-                  (selectedMethod.type === "cash" &&
-                    (parseFloat(receivedAmount) || 0) < grandTotal)
-                }
+                disabled={isButtonDisabled}
                 className="flex-1 px-4 py-3 bg-orange-500 hover:bg-orange-600 rounded-lg font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {chargeTable.isPending ? (
