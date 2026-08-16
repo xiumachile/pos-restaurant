@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useCartStore } from "@/stores/useCartStore";
 import { ordersService } from "@/services/ordersService";
 import { useInvalidateTables } from "@/hooks/useTables";
 import { useTableOrders } from "@/hooks/useTableOrders";
+import { aggregateOrders } from "@/types/orders";
 import { getTranslatedName, formatPrice, parsePrice } from "@/types/catalog";
 import { Plus, Minus, Trash2, Send, ShoppingCart, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { ActiveOrderItems } from "./ActiveOrderItems";
@@ -19,6 +21,7 @@ type FeedbackState =
   | { type: "error"; message: string };
 
 export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) {
+  const navigate = useNavigate();
   const cart = useCartStore((s) => s.carts[tableUuid]);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const removeItem = useCartStore((s) => s.removeItem);
@@ -31,6 +34,10 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
 
   const totals = getTotals(tableUuid);
   const items = cart?.items ?? [];
+
+  const aggregated = aggregateOrders(activeOrders);
+  const previousOrdersTotal = aggregated.total;
+  const grandTotal = previousOrdersTotal + totals.total;
 
   const handleSendOrder = async () => {
     if (items.length === 0) return;
@@ -65,16 +72,21 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
       setFeedback({ type: "loading", message: "Confirmando pedido..." });
       await ordersService.confirm(order.uuid);
 
+      // Limpiar estado local
       clearCart(tableUuid);
       invalidateTables();
       refetchActiveOrders();
 
+      // Mostrar feedback de éxito brevemente
       setFeedback({
         type: "success",
-        message: `✓ Pedido ${order.order_number} enviado a cocina`,
+        message: `✓ Pedido enviado a cocina`,
       });
 
-      setTimeout(() => setFeedback({ type: "idle" }), 3000);
+      // Navegar de vuelta a Mesas después de 1.2 segundos
+      setTimeout(() => {
+        navigate("/");
+      }, 1200);
     } catch (error: any) {
       const message =
         error?.response?.data?.message ||
@@ -87,10 +99,6 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
 
   const isProcessing = feedback.type === "loading";
   const hasActiveOrders = activeOrders.length > 0;
-
-  // Calcular total de pedidos anteriores
-  const previousOrdersTotal = activeOrders.reduce((sum, o) => sum + (o.total || 0), 0);
-  const grandTotal = previousOrdersTotal + totals.total;
 
   return (
     <aside className="w-96 bg-slate-800/50 border border-slate-700 rounded-xl flex flex-col overflow-hidden">
@@ -109,7 +117,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
 
       {/* Scroll container */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
-        {/* Sección azul: pedidos activos (confirmados/en preparación) */}
+        {/* Sección azul: pedidos activos agrupados */}
         <ActiveOrderItems orders={activeOrders} />
 
         {/* Separador si hay ambos */}
@@ -136,9 +144,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
         ) : items.length === 0 && hasActiveOrders ? (
           <div className="text-center py-6 text-slate-500">
             <ShoppingCart size={32} className="mx-auto mb-2 opacity-30" />
-            <p className="text-xs">
-              Agrega más productos al pedido actual.
-            </p>
+            <p className="text-xs">Agrega más productos al pedido actual.</p>
           </div>
         ) : (
           items.map((item) => (
@@ -216,7 +222,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
         {hasActiveOrders ? (
           <>
             <div className="flex justify-between text-xs text-blue-300">
-              <span>Pedidos anteriores</span>
+              <span>Consumo anterior</span>
               <span>{formatPrice(previousOrdersTotal)}</span>
             </div>
             {items.length > 0 && (
