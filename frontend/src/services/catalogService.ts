@@ -3,12 +3,11 @@ import type { Category, Product } from "@/types/catalog";
 
 interface ListResponse<T> {
   data: T[];
-  meta?: any;
 }
 
 export const catalogService = {
   /**
-   * Lista categorías activas
+   * Lista categorías activas.
    */
   async listCategories(): Promise<Category[]> {
     const response = await apiClient.get<ListResponse<Category>>(
@@ -16,44 +15,35 @@ export const catalogService = {
       { params: { active_only: true } }
     );
     const data = response.data as any;
-    return Array.isArray(data) ? data : data.data || [];
+    return Array.isArray(data?.data) ? data.data : [];
   },
 
   /**
-   * Lista productos activos
+   * Lista productos con filtros opcionales.
    */
-  async listProducts(categoryId?: number): Promise<Product[]> {
-    const params = {
-      active_only: true,
-      ...(categoryId && { category_id: categoryId }),
-    };
+  async listProducts(filters?: {
+    categoryId?: number;
+    search?: string;
+  }): Promise<Product[]> {
+    const params: Record<string, any> = { active_only: true };
+    if (filters?.categoryId) params.category_id = filters.categoryId;
+    if (filters?.search && filters.search.trim()) params.search = filters.search.trim();
+
     const response = await apiClient.get<ListResponse<Product>>(
       "/catalog/products",
       { params }
     );
     const data = response.data as any;
-    return Array.isArray(data) ? data : data.data || [];
+    return Array.isArray(data?.data) ? data.data : [];
   },
 
   /**
-   * Obtiene detalle de un producto (incluye componentes si es combo)
+   * Obtiene detalle de un producto.
    */
   async showProduct(uuid: string): Promise<Product> {
     const response = await apiClient.get<{ data: Product }>(
       `/catalog/products/${uuid}`
     );
     return response.data.data;
-  },
-
-  /**
-   * Busca productos por nombre/SKU
-   */
-  async searchProducts(query: string): Promise<Product[]> {
-    const response = await apiClient.get<ListResponse<Product>>(
-      "/catalog/products",
-      { params: { search: query, active_only: true } }
-    );
-    const data = response.data as any;
-    return Array.isArray(data) ? data : data.data || [];
   },
 };

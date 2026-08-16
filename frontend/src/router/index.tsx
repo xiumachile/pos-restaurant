@@ -1,23 +1,13 @@
 import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 import { LoginPage } from "@/pages/LoginPage";
 import { TablesPage } from "@/pages/TablesPage";
+import { CatalogPage } from "@/pages/CatalogPage";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuthStore } from "@/store/useAuthStore";
 
 function ProtectedRoute() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
-}
-
-function CatalogPage() {
-  return (
-    <div>
-      <h1 className="text-3xl font-bold mb-4">Catálogo</h1>
-      <div className="bg-slate-800 rounded-lg p-8 text-center">
-        <p className="text-slate-400">🚧 En construcción (F13.3.4)</p>
-      </div>
-    </div>
-  );
 }
 
 function KitchenPage() {
