@@ -8,6 +8,7 @@ use Modules\Cashier\Interfaces\Controllers\CashierDashboardController;
 use Modules\Cashier\Interfaces\Controllers\CashierTablesController;
 use Modules\Cashier\Interfaces\Controllers\CashierReportController;
 use Modules\Cashier\Interfaces\Controllers\TipPolicyController;
+use Modules\Cashier\Interfaces\Controllers\TipPayoutController;
 use App\Shared\Http\Middleware\TenantContextMiddleware;
 
 // Rutas de Caja que NO necesitan middleware idempotent
@@ -52,6 +53,24 @@ Route::prefix('v1/cashier')->middleware(['auth:api', TenantContextMiddleware::cl
 
     Route::put('/tip-policy', [TipPolicyController::class, 'update'])
         ->name('cashier.tip-policy.update');
+
+    // ============================================
+    // Entregas de propinas
+    // ============================================
+    Route::get('/tip-payouts', [TipPayoutController::class, 'index'])
+        ->name('cashier.tip-payouts.index');
+
+    Route::post('/tip-payouts', [TipPayoutController::class, 'store'])
+        ->name('cashier.tip-payouts.store');
+
+    Route::delete('/tip-payouts/{uuid}', [TipPayoutController::class, 'destroy'])
+        ->name('cashier.tip-payouts.destroy');
+
+    Route::get('/tips/summary', [TipPayoutController::class, 'summary'])
+        ->name('cashier.tips.summary');
+
+    Route::get('/waiters', [TipPayoutController::class, 'waiters'])
+        ->name('cashier.waiters');
 });
 
 // Rutas que SÍ necesitan idempotencia

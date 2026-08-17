@@ -53,6 +53,7 @@ export interface CashReport {
     opening: number;
     sales: number;
     tips: number;
+    tips_paid_out?: number;
     withdrawals: number;
     deposits: number;
     expected: number;
@@ -61,6 +62,12 @@ export interface CashReport {
   };
   movements: CashReportMovement[];
   counts: CashReportCount[];
+  tips?: {
+    total_received: number;
+    total_paid_out: number;
+    pending: number;
+    policy_type: string;
+  };
 }
 
 export interface SessionHistoryItem {

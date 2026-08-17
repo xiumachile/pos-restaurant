@@ -7,6 +7,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Modules\Cashier\Domain\Entities\CashCount;
+use Modules\Cashier\Domain\Entities\TipPayout;
 use Modules\Cashier\Domain\Entities\CashMovement;
 use Modules\Payments\Domain\Entities\CashSession;
 use Modules\Payments\Domain\ValueObjects\CashSessionStatus;
@@ -159,9 +160,31 @@ class CashierReportController extends Controller
         $totalSales = array_sum(array_column($breakdown, 'amount'));
         $totalTips = array_sum(array_column($breakdown, 'tips'));
         $totalTransactions = array_sum(array_column($breakdown, 'count'));
+
+        // Propinas entregadas durante la sesión (salen de caja)
+        $tipPayouts = TipPayout::where('cash_session_id', $session->id)
+            ->valid()
+            ->get();
+
+        $totalTipsPaidOut = (float) $tipPayouts->sum('amount');
+        $cashTipsPaidOut = (float) $tipPayouts->where('payment_method', 'cash')->sum('amount');
+        
+        // Propinas con tarjeta que se entregan en efectivo (salen de caja)
+        // Según política, pueden salir de caja o ir a nómina
+        $policy = \Modules\Cashier\Domain\Entities\TipPolicy::resolveForBranch(
+            $session->company_id, 
+            $session->branch_id
+        );
+        
+        // Si la política es cash_payout, las propinas de tarjeta también salen de caja
+        $cardTipsAsCash = $policy->cardTipsLeaveRegister() 
+            ? (float) $tipPayouts->where('payment_method', 'cash')->sum('amount') 
+            : 0;
+
+        // Esperado en caja: inicial + ventas efectivo - propinas entregadas en efectivo
         $totalCashExpected = (float) $session->opening_amount
             + $breakdown['cash']['amount']
-            + $breakdown['cash']['tips'];
+            - $cashTipsPaidOut;
 
         // Movimientos de caja
         $movements = DB::table('cash_movements')
@@ -223,11 +246,18 @@ class CashierReportController extends Controller
                 'opening' => (float) $session->opening_amount,
                 'sales' => $breakdown['cash']['amount'],
                 'tips' => $breakdown['cash']['tips'],
+                'tips_paid_out' => $cashTipsPaidOut,
                 'withdrawals' => $totalWithdrawals,
                 'deposits' => $totalDeposits,
                 'expected' => $totalCashExpected + $totalDeposits - $totalWithdrawals,
                 'counted' => $session->closing_amount ? (float) $session->closing_amount : null,
                 'difference' => $difference,
+            ],
+            'tips' => [
+                'total_received' => $totalTips,
+                'total_paid_out' => $totalTipsPaidOut,
+                'pending' => max(0, $totalTips - $totalTipsPaidOut),
+                'policy_type' => $policy->policy_type->value,
             ],
             'movements' => $movements,
             'counts' => $counts,

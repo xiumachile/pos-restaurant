@@ -162,6 +162,35 @@ export function CashReportModal({ isOpen, onClose, sessionUuid }: CashReportModa
                   </div>
                 </div>
 
+                {/* Resumen de propinas */}
+                {report.tips && report.tips.total_received > 0 && (
+                  <div className="bg-slate-800/50 rounded-lg p-4">
+                    <h3 className="text-sm font-bold text-slate-300 mb-3">Propinas</h3>
+                    <div className="space-y-1.5 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Recibidas:</span>
+                        <span className="font-semibold text-green-400">
+                          {formatPrice(report.tips.total_received)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Entregadas:</span>
+                        <span className="font-semibold text-blue-400">
+                          {formatPrice(report.tips.total_paid_out)}
+                        </span>
+                      </div>
+                      {report.tips.pending > 0 && (
+                        <div className="flex justify-between pt-1 border-t border-slate-700 text-orange-400">
+                          <span>Pendientes de entregar:</span>
+                          <span className="font-bold">
+                            {formatPrice(report.tips.pending)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Resumen de efectivo */}
                 <div className="bg-slate-800/50 rounded-lg p-4">
                   <h3 className="text-sm font-bold text-slate-300 mb-3">Resumen de efectivo</h3>
@@ -178,6 +207,12 @@ export function CashReportModal({ isOpen, onClose, sessionUuid }: CashReportModa
                       <span>+ Propinas efectivo:</span>
                       <span>{formatPrice(report.cash.tips)}</span>
                     </div>
+                    {report.cash.tips_paid_out > 0 && (
+                      <div className="flex justify-between text-red-400">
+                        <span>- Propinas entregadas:</span>
+                        <span>{formatPrice(report.cash.tips_paid_out)}</span>
+                      </div>
+                    )}
                     {report.cash.deposits > 0 && (
                       <div className="flex justify-between text-blue-400">
                         <span>+ Depósitos:</span>

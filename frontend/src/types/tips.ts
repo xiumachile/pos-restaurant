@@ -15,3 +15,48 @@ export interface TipPolicy {
   is_custom: boolean;
   is_active: boolean;
 }
+
+export interface TipPayout {
+  uuid: string;
+  waiter_name: string;
+  processed_by_name?: string;
+  amount: number;
+  payment_method: string;
+  policy_type: string;
+  notes?: string | null;
+  created_at: string;
+}
+
+export interface TipSummary {
+  policy: {
+    type: string;
+    label: string;
+    card_tip_handling: string;
+  };
+  tips_received: {
+    cash: number;
+    card: number;
+    transfer: number;
+    gift_card: number;
+    total: number;
+  };
+  payouts: {
+    total: number;
+    cash: number;
+    count: number;
+  };
+  pending: number;
+  by_waiter: Array<{
+    waiter_id: number;
+    waiter_name: string;
+    total_amount: number;
+    cash_amount: number;
+    payout_count: number;
+  }>;
+}
+
+export interface Waiter {
+  id: number;
+  name: string;
+  role: string;
+}

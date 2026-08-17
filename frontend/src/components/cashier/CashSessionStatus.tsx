@@ -19,12 +19,14 @@ import {
   Gift,
   List,
   FileText,
+  DollarSign,
   History,
 } from "lucide-react";
 import { SessionSalesModal } from "./SessionSalesModal";
 import { CashReportModal } from "./CashReportModal";
 import { CashCountModal } from "./CashCountModal";
 import { SessionsHistoryPanel } from "./SessionsHistoryPanel";
+import { TipPayoutModal } from "./TipPayoutModal";
 
 interface CashSessionStatusProps {
   session: CashSession | null;
@@ -37,6 +39,7 @@ export function CashSessionStatus({ session }: CashSessionStatusProps) {
   const [showZReport, setShowZReport] = useState(false);
   const [showSalesModal, setShowSalesModal] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showTipPayouts, setShowTipPayouts] = useState(false);
   const [openingAmount, setOpeningAmount] = useState<string>("0");
   const [notes, setNotes] = useState("");
 
@@ -110,6 +113,14 @@ export function CashSessionStatus({ session }: CashSessionStatusProps) {
               >
                 <List size={12} />
                 Ventas
+              </button>
+              <button
+                onClick={() => setShowTipPayouts(true)}
+                className="flex items-center gap-1 px-2.5 py-1 bg-green-500/20 hover:bg-green-500/30 border border-green-700/50 rounded text-green-300 text-xs font-medium transition-colors"
+                title="Entregas de propinas"
+              >
+                <DollarSign size={12} />
+                Propinas
               </button>
               <button
                 onClick={() => setShowXReport(true)}
@@ -306,6 +317,12 @@ export function CashSessionStatus({ session }: CashSessionStatusProps) {
       <SessionsHistoryPanel
         isOpen={showHistory}
         onClose={() => setShowHistory(false)}
+      />
+
+      {/* Entregas de propinas */}
+      <TipPayoutModal
+        isOpen={showTipPayouts}
+        onClose={() => setShowTipPayouts(false)}
       />
     </>
   );

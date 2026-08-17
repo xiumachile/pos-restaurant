@@ -185,3 +185,51 @@ export function useInvalidateCashierReports() {
     queryClient.invalidateQueries({ queryKey: HISTORY_KEY });
   };
 }
+
+import { tipPayoutService } from "@/services/tipService";
+import type { TipPayout, TipSummary } from "@/types/tips";
+
+const TIP_PAYOUTS_KEY = ["cashier", "tip-payouts"];
+const TIP_SUMMARY_KEY = ["cashier", "tips-summary"];
+
+export function useTipPayouts(enabled: boolean = true) {
+  return useQuery<TipPayout[], Error>({
+    queryKey: TIP_PAYOUTS_KEY,
+    queryFn: tipPayoutService.listPayouts,
+    enabled,
+    refetchInterval: 30000,
+  });
+}
+
+export function useTipSummary(enabled: boolean = true) {
+  return useQuery<TipSummary | null, Error>({
+    queryKey: TIP_SUMMARY_KEY,
+    queryFn: tipPayoutService.getSummary,
+    enabled,
+    refetchInterval: 30000,
+  });
+}
+
+export function useCreateTipPayout() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: tipPayoutService.createPayout,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TIP_PAYOUTS_KEY });
+      queryClient.invalidateQueries({ queryKey: TIP_SUMMARY_KEY });
+      queryClient.invalidateQueries({ queryKey: ["cashier", "dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["cashier", "x-report"] });
+    },
+  });
+}
+
+export function useVoidTipPayout() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: tipPayoutService.voidPayout,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TIP_PAYOUTS_KEY });
+      queryClient.invalidateQueries({ queryKey: TIP_SUMMARY_KEY });
+    },
+  });
+}
