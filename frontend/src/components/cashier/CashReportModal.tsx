@@ -207,10 +207,10 @@ export function CashReportModal({ isOpen, onClose, sessionUuid }: CashReportModa
                       <span>+ Propinas efectivo:</span>
                       <span>{formatPrice(report.cash.tips)}</span>
                     </div>
-                    {report.cash.tips_paid_out > 0 && (
+                    {(report.cash.tips_paid_out ?? 0) > 0 && (
                       <div className="flex justify-between text-red-400">
                         <span>- Propinas entregadas:</span>
-                        <span>{formatPrice(report.cash.tips_paid_out)}</span>
+                        <span>{formatPrice(report.cash.tips_paid_out ?? 0)}</span>
                       </div>
                     )}
                     {report.cash.deposits > 0 && (
