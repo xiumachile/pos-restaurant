@@ -68,17 +68,6 @@ export function SplitBillModal({
 
   // Tolerancia de $1 por redondeo (igual que backend)
   const customAmountsValid = Math.abs(customAmountsTotal - orderTotal) <= 1;
-  
-  // DEBUG: Log detallado de la validación
-  console.log("🔍 VALIDACIÓN CUSTOM AMOUNTS:", {
-    customAmounts,
-    customAmountsTotal,
-    orderTotal,
-    difference: customAmountsTotal - orderTotal,
-    absDifference: Math.abs(customAmountsTotal - orderTotal),
-    isValid: customAmountsValid,
-    types: customAmounts.map(a => typeof a),
-  });
 
   // Calcular totales por grupo en "by items" (misma lógica que backend)
   const groupTotals = useMemo(() => {
@@ -122,13 +111,6 @@ export function SplitBillModal({
   }, [orderItems, itemGroups, groupCount, orderSubtotal, orderTotal]);
 
   const handleSplit = async () => {
-    console.log("🚀 INICIANDO SPLIT:", {
-      mode,
-      orderUuid,
-      orderTotal,
-      orderSubtotal,
-    });
-    
     try {
       let payload: any;
 
@@ -158,18 +140,9 @@ export function SplitBillModal({
           Math.round((parseFloat(String(a)) || 0) * 100) / 100
         );
         
-        console.log("🔍 Custom amounts payload:", {
-          raw: customAmounts,
-          normalized: normalizedAmounts,
-          sum: normalizedAmounts.reduce((a, b) => a + b, 0),
-          orderTotal,
-        });
-        
         payload = { type: "custom_amount", amounts: normalizedAmounts };
       }
       
-      console.log("🚀 PAYLOAD FINAL:", payload);
-
       const bills = await splitOrder.mutateAsync({
         orderUuid,
         payload,
@@ -178,21 +151,8 @@ export function SplitBillModal({
       onSuccess(bills);
       onClose();
     } catch (e: any) {
-      console.error("❌ ERROR COMPLETO:", e);
-      console.error("❌ ERROR RESPONSE:", e?.response?.data);
-      console.error("❌ ERROR STATUS:", e?.response?.status);
-      console.error("❌ ERROR MESSAGE:", e?.message);
-      console.error("❌ ERROR HEADERS:", e?.response?.headers);
-      console.error("❌ ERROR CONFIG:", e?.config);
-      
       const errorMsg = e?.response?.data?.message || e?.message || "Error desconocido";
-      const errorDetails = e?.response?.data?.errors ? JSON.stringify(e.response.data.errors, null, 2) : "";
-      
-      alert(`Error al dividir:
-
-${errorMsg}
-
-${errorDetails}`);
+      alert("Error al dividir: " + errorMsg);
     }
   };
 

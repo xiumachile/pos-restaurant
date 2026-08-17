@@ -26,25 +26,10 @@ class BillController extends Controller
     public function split(SplitBillRequest $request, string $uuid): JsonResponse
     {
         // DEBUG: Log del request ANTES de validación
-        \Log::info('SPLIT REQUEST RAW', [
-            'uuid' => $uuid,
-            'raw_input' => $request->all(),
-            'content_type' => $request->header('Content-Type'),
-        ]);
         
         $validated = $request->validated();
         
-        \Log::info('SPLIT REQUEST VALIDATED', [
-            'validated' => $validated,
-        ]);
-        
         $order = Order::where('uuid', $uuid)->with('items')->firstOrFail();
-        
-        \Log::info('SPLIT ORDER LOADED', [
-            'order_uuid' => $order->uuid,
-            'order_total' => $order->total,
-            'items_count' => $order->items->count(),
-        ]);
 
         try {
             $type = $validated['type'];
@@ -59,27 +44,17 @@ class BillController extends Controller
 
             return BillResource::collection($bills)->response();
         } catch (PaymentException $e) {
-            \Log::error('SPLIT PaymentException', ['message' => $e->getMessage()]);
             return response()->json([
                 'error' => 'split_failed',
                 'message' => $e->getMessage(),
             ], 422);
         } catch (\Illuminate\Validation\ValidationException $e) {
-            \Log::error('SPLIT ValidationException', [
-                'message' => $e->getMessage(),
-                'errors' => $e->errors(),
-            ]);
             return response()->json([
                 'error' => 'validation_failed',
                 'message' => $e->getMessage(),
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('SPLIT Exception', [
-                'message' => $e->getMessage(),
-                'class' => get_class($e),
-                'trace' => $e->getTraceAsString(),
-            ]);
             return response()->json([
                 'error' => 'split_failed',
                 'message' => $e->getMessage(),

@@ -65,12 +65,6 @@ class BillingService
                 ]);
             }
 
-            Log::info('splitEqual creado', [
-                'order' => $order->order_number,
-                'parts' => $parts,
-                'total_per_part' => $bills[0]->total,
-            ]);
-
             return $bills;
         });
     }
@@ -93,17 +87,7 @@ class BillingService
             $orderDiscount = (float) $order->discount_amount;
             $orderTotal = (float) $order->total;
 
-            Log::debug('splitByItems inicio', [
-                'order' => $order->order_number,
-                'order_total' => $orderTotal,
-                'order_subtotal' => $orderSubtotal,
-                'order_tax' => $orderTax,
-                'order_discount' => $orderDiscount,
-                'groups_count' => count($groups),
-                'items_count' => $items->count(),
-                'item_ids_in_order' => $items->keys()->toArray(),
-                'groups_raw' => $groups,
-            ]);
+
 
             // Calcular el subtotal total de items agrupados
             $totalGroupedSubtotal = 0;
@@ -172,8 +156,7 @@ class BillingService
                 $calculatedTotal += $groupTotal;
             }
 
-            // TOLERANTE: ajustar siempre la última bill para que cuadre con el total
-            // (no lanzar excepción por diferencia de redondeo)
+            // Ajuste de redondeo: la última bill absorbe diferencia de centavos
             if (count($bills) > 0) {
                 $difference = round($orderTotal - $calculatedTotal, 2);
                 
@@ -181,29 +164,9 @@ class BillingService
                     $lastBill = $bills[count($bills) - 1];
                     $lastBill->total = round((float) $lastBill->total + $difference, 2);
                     $lastBill->remaining_amount = $lastBill->total;
-                    
-                    // Ajustar también tax o subtotal proporcionalmente
-                    if ($orderTax > 0 && abs($difference) > 0.01) {
-                        // Asumir que la diferencia viene del redondeo de IVA
-                        $lastBill->tax_amount = round((float) $lastBill->tax_amount + $difference, 2);
-                    }
-                    
                     $lastBill->save();
-                    
-                    Log::info('splitByItems ajuste de redondeo', [
-                        'order' => $order->order_number,
-                        'difference' => $difference,
-                        'adjusted_bill' => $lastBill->bill_number,
-                        'new_total' => $lastBill->total,
-                    ]);
                 }
             }
-
-            Log::info('splitByItems completado', [
-                'order' => $order->order_number,
-                'bills_count' => count($bills),
-                'order_total' => $orderTotal,
-            ]);
 
             return $bills;
         });
@@ -224,23 +187,9 @@ class BillingService
         $sumAmounts = round(array_sum($amounts), 2);
         $orderTotal = round((float) $order->total, 2);
 
-        Log::debug('splitByAmounts inicio', [
-            'order' => $order->order_number,
-            'amounts' => $amounts,
-            'sum' => $sumAmounts,
-            'order_total' => $orderTotal,
-            'difference' => round($sumAmounts - $orderTotal, 2),
-        ]);
-
         // Tolerancia de $1 por redondeo
         $difference = round($sumAmounts - $orderTotal, 2);
         if (abs($difference) > 1) {
-            Log::warning('splitByAmounts diferencia grande', [
-                'order' => $order->order_number,
-                'sum' => $sumAmounts,
-                'order_total' => $orderTotal,
-                'difference' => $difference,
-            ]);
             throw PaymentException::invalidSplitAmount();
         }
 
@@ -278,13 +227,6 @@ class BillingService
                     'guest_count' => 1,
                 ]);
             }
-
-            Log::info('splitByAmounts creado', [
-                'order' => $order->order_number,
-                'bills_count' => count($bills),
-                'total_assigned' => $assignedTotal,
-                'order_total' => $orderTotal,
-            ]);
 
             return $bills;
         });
