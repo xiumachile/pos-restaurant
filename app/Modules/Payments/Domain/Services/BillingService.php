@@ -3,21 +3,17 @@
 namespace Modules\Payments\Domain\Services;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Modules\Orders\Domain\Entities\Order;
 use Modules\Payments\Domain\Entities\Bill;
 use Modules\Payments\Domain\Exceptions\PaymentException;
 use Modules\Payments\Domain\ValueObjects\BillStatus;
 use Modules\Payments\Domain\ValueObjects\BillType;
 
-/**
- * Servicio de dominio para facturación y Split Bill.
- * Implementa las 3 modalidades de división de cuenta según Arquitectura v1.1 Sección 11.3.
- */
 class BillingService
 {
     /**
-     * Genera sub-cuentas por partes iguales.
-     * Modalidad 1: N personas dividen el total exacto.
+     * Modalidad 1: N partes iguales.
      */
     public function splitEqual(Order $order, int $parts): array
     {
@@ -26,7 +22,6 @@ class BillingService
         }
 
         return DB::transaction(function () use ($order, $parts) {
-            // Cancelar bills anteriores si existen
             $this->cancelExistingBills($order);
 
             $subtotal = (float) $order->subtotal;
@@ -34,13 +29,11 @@ class BillingService
             $discount = (float) $order->discount_amount;
             $total = (float) $order->total;
 
-            // División base con redondeo hacia abajo
             $baseSubtotal = floor(($subtotal / $parts) * 100) / 100;
             $baseTax = floor(($tax / $parts) * 100) / 100;
             $baseDiscount = floor(($discount / $parts) * 100) / 100;
             $baseTotal = floor(($total / $parts) * 100) / 100;
 
-            // Calcular residuos para asignar a la primera bill
             $residualSubtotal = round($subtotal - ($baseSubtotal * $parts), 2);
             $residualTax = round($tax - ($baseTax * $parts), 2);
             $residualDiscount = round($discount - ($baseDiscount * $parts), 2);
@@ -72,16 +65,18 @@ class BillingService
                 ]);
             }
 
+            Log::info('splitEqual creado', [
+                'order' => $order->order_number,
+                'parts' => $parts,
+                'total_per_part' => $bills[0]->total,
+            ]);
+
             return $bills;
         });
     }
 
     /**
-     * Genera sub-cuentas por ítems seleccionados.
      * Modalidad 2: Cada comensal paga lo que consumió.
-     *
-     * @param Order $order
-     * @param array $groups Array de grupos: [['item_ids' => [1,2], 'guest_count' => 2], ...]
      */
     public function splitByItems(Order $order, array $groups): array
     {
@@ -96,8 +91,17 @@ class BillingService
             $orderSubtotal = (float) $order->subtotal;
             $orderTax = (float) $order->tax_amount;
             $orderDiscount = (float) $order->discount_amount;
+            $orderTotal = (float) $order->total;
 
-            // Calcular el total de items agrupados para prorratear impuestos
+            Log::debug('splitByItems inicio', [
+                'order' => $order->order_number,
+                'order_total' => $orderTotal,
+                'order_subtotal' => $orderSubtotal,
+                'order_tax' => $orderTax,
+                'groups_count' => count($groups),
+                'items_count' => $items->count(),
+            ]);
+
             $totalGroupedSubtotal = 0;
             foreach ($groups as $group) {
                 foreach ($group['item_ids'] ?? [] as $itemId) {
@@ -112,6 +116,8 @@ class BillingService
             }
 
             $bills = [];
+            $calculatedTotal = 0;
+
             foreach ($groups as $index => $group) {
                 $groupSubtotal = 0;
                 $itemIds = [];
@@ -122,11 +128,12 @@ class BillingService
                     }
                 }
 
-                // Prorratear impuestos y descuentos según proporción del subtotal
                 $ratio = $groupSubtotal / $totalGroupedSubtotal;
                 $groupTax = round($orderTax * $ratio, 2);
                 $groupDiscount = round($orderDiscount * $ratio, 2);
                 $groupTotal = round($groupSubtotal + $groupTax - $groupDiscount, 2);
+
+                $calculatedTotal += $groupTotal;
 
                 $bills[] = Bill::create([
                     'company_id' => $order->company_id,
@@ -147,16 +154,34 @@ class BillingService
                 ]);
             }
 
+            // Ajuste por redondeo en la última bill
+            $difference = round($orderTotal - $calculatedTotal, 2);
+            if (abs($difference) > 0.001 && count($bills) > 0) {
+                $lastBill = $bills[count($bills) - 1];
+                $lastBill->total = round((float) $lastBill->total + $difference, 2);
+                $lastBill->remaining_amount = $lastBill->total;
+                $lastBill->save();
+                
+                Log::info('splitByItems ajuste redondeo', [
+                    'order' => $order->order_number,
+                    'difference' => $difference,
+                    'adjusted_bill' => $lastBill->bill_number,
+                ]);
+            }
+
+            Log::info('splitByItems creado', [
+                'order' => $order->order_number,
+                'bills_count' => count($bills),
+                'total' => $orderTotal,
+            ]);
+
             return $bills;
         });
     }
 
     /**
-     * Genera sub-cuentas por montos personalizados.
-     * Modalidad 3: Abonos parciales hasta completar la suma.
-     *
-     * @param Order $order
-     * @param array $amounts Array de montos: [25000, 15000, 10000]
+     * Modalidad 3: Montos personalizados por persona.
+     * TOLERANTE: Ajusta la última bill si la suma difiere en centavos.
      */
     public function splitByAmounts(Order $order, array $amounts): array
     {
@@ -164,20 +189,48 @@ class BillingService
             throw PaymentException::invalidSplitAmount();
         }
 
-        $sumAmounts = array_sum($amounts);
-        $orderTotal = (float) $order->total;
+        // Normalizar montos a float
+        $amounts = array_map('floatval', $amounts);
+        $sumAmounts = round(array_sum($amounts), 2);
+        $orderTotal = round((float) $order->total, 2);
 
-        // Validar que la suma de montos no exceda el total (con tolerancia de 0.01)
-        if ($sumAmounts > $orderTotal + 0.01) {
+        Log::debug('splitByAmounts inicio', [
+            'order' => $order->order_number,
+            'amounts' => $amounts,
+            'sum' => $sumAmounts,
+            'order_total' => $orderTotal,
+            'difference' => round($sumAmounts - $orderTotal, 2),
+        ]);
+
+        // Tolerancia de $1 por redondeo
+        $difference = round($sumAmounts - $orderTotal, 2);
+        if (abs($difference) > 1) {
+            Log::warning('splitByAmounts diferencia grande', [
+                'order' => $order->order_number,
+                'sum' => $sumAmounts,
+                'order_total' => $orderTotal,
+                'difference' => $difference,
+            ]);
             throw PaymentException::invalidSplitAmount();
         }
 
-        return DB::transaction(function () use ($order, $amounts) {
+        return DB::transaction(function () use ($order, $amounts, $orderTotal, $sumAmounts) {
             $this->cancelExistingBills($order);
 
             $bills = [];
+            $assignedTotal = 0;
+
             foreach ($amounts as $index => $amount) {
-                $amount = (float) $amount;
+                $amount = round((float) $amount, 2);
+                
+                // La última bill absorbe cualquier diferencia por redondeo
+                $isLast = ($index === count($amounts) - 1);
+                if ($isLast && count($amounts) > 1) {
+                    $amount = round($orderTotal - $assignedTotal, 2);
+                }
+                
+                $assignedTotal += $amount;
+
                 $bills[] = Bill::create([
                     'company_id' => $order->company_id,
                     'branch_id' => $order->branch_id,
@@ -196,36 +249,27 @@ class BillingService
                 ]);
             }
 
+            Log::info('splitByAmounts creado', [
+                'order' => $order->order_number,
+                'bills_count' => count($bills),
+                'total_assigned' => $assignedTotal,
+                'order_total' => $orderTotal,
+            ]);
+
             return $bills;
         });
     }
 
     /**
-     * Calcula la propina según el porcentaje.
-     * Según Arquitectura v1.1 Sección 11.4: configurable pre/post impuesto.
-     */
-    public function calculateTip(float $baseAmount, float $tipPercentage, bool $postTax = false, float $taxAmount = 0): float
-    {
-        $tipBase = $postTax ? ($baseAmount + $taxAmount) : $baseAmount;
-        return round($tipBase * ($tipPercentage / 100), 2);
-    }
-
-    /**
-     * Cancela bills existentes de un pedido (para regenerar split).
+     * Cancela bills existentes de un order.
      */
     private function cancelExistingBills(Order $order): void
     {
-        $existingBills = Bill::where('order_id', $order->id)
-            ->whereIn('status', [BillStatus::OPEN, BillStatus::PARTIAL])
-            ->get();
-
-        foreach ($existingBills as $bill) {
-            // Si ya tiene pagos parciales, no cancelar (validación de negocio)
-            if ((float) $bill->paid_amount > 0) {
-                throw PaymentException::invalidSplitAmount();
-            }
-            $bill->status = BillStatus::CANCELLED;
-            $bill->save();
-        }
+        Bill::where('order_id', $order->id)
+            ->where('status', BillStatus::OPEN)
+            ->update([
+                'status' => BillStatus::CANCELLED,
+                'updated_at' => now(),
+            ]);
     }
 }

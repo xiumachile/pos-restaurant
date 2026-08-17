@@ -35,4 +35,12 @@ class PaymentException extends Exception
     {
         return new self("El método de pago no es válido o está inactivo.");
     }
+
+    public static function splitTotalsMismatch(float $calculated, float $expected): self
+    {
+        return new self(
+            "La suma de las divisiones (\${$calculated}) no coincide con el total del pedido (\${$expected}). Diferencia mayor a $1.",
+            422
+        );
+    }
 }

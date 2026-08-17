@@ -26,6 +26,14 @@ class BillController extends Controller
     public function split(SplitBillRequest $request, string $uuid): JsonResponse
     {
         $validated = $request->validated();
+        
+        // DEBUG: Log completo del request
+        \Log::info('SPLIT REQUEST', [
+            'uuid' => $uuid,
+            'validated' => $validated,
+            'raw_input' => $request->all(),
+        ]);
+        
         $order = Order::where('uuid', $uuid)->with('items')->firstOrFail();
 
         try {
@@ -41,10 +49,20 @@ class BillController extends Controller
 
             return BillResource::collection($bills)->response();
         } catch (PaymentException $e) {
+            \Log::error('SPLIT PaymentException', ['message' => $e->getMessage()]);
             return response()->json([
                 'error' => 'split_failed',
                 'message' => $e->getMessage(),
             ], 422);
+        } catch (\Exception $e) {
+            \Log::error('SPLIT Exception', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'error' => 'split_failed',
+                'message' => $e->getMessage(),
+            ], 500);
         }
     }
 

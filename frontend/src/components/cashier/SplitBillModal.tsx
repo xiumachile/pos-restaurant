@@ -66,25 +66,47 @@ export function SplitBillModal({
     [customAmounts]
   );
 
-  const customAmountsValid = Math.abs(customAmountsTotal - orderTotal) < 0.01;
+  // Tolerancia de $1 por redondeo (igual que backend)
+  const customAmountsValid = Math.abs(customAmountsTotal - orderTotal) <= 1;
 
-  // Calcular totales por grupo en "by items"
+  // Calcular totales por grupo en "by items" (misma lógica que backend)
   const groupTotals = useMemo(() => {
-    const totals: number[] = [];
+    // Primero calcular el total de subtotales agrupados
+    let totalGroupedSubtotal = 0;
     for (let g = 0; g < groupCount; g++) {
-      let subtotal = 0;
       for (const item of orderItems) {
         const groupId = itemGroups[item.uuid];
         if (groupId === g) {
-          subtotal += item.subtotal;
+          totalGroupedSubtotal += item.subtotal;
         }
       }
-      // Prorratear impuesto según proporción del subtotal
-      const tax = orderSubtotal > 0
-        ? ((orderTotal - orderSubtotal) * subtotal) / orderSubtotal
-        : 0;
-      totals.push(subtotal + tax);
     }
+
+    if (totalGroupedSubtotal === 0) {
+      return Array(groupCount).fill(0);
+    }
+
+    // Ahora calcular cada grupo con prorrateo
+    const totals: number[] = [];
+    const orderTax = orderTotal - orderSubtotal;
+    
+    for (let g = 0; g < groupCount; g++) {
+      let groupSubtotal = 0;
+      for (const item of orderItems) {
+        const groupId = itemGroups[item.uuid];
+        if (groupId === g) {
+          groupSubtotal += item.subtotal;
+        }
+      }
+      
+      // Prorratear impuesto según proporción del subtotal (igual que backend)
+      const ratio = groupSubtotal / totalGroupedSubtotal;
+      const groupTax = Math.round(orderTax * ratio * 100) / 100;
+      const groupTotal = Math.round((groupSubtotal + groupTax) * 100) / 100;
+      
+      totals.push(groupTotal);
+    }
+    
     return totals;
   }, [orderItems, itemGroups, groupCount, orderSubtotal, orderTotal]);
 
@@ -113,7 +135,19 @@ export function SplitBillModal({
 
         payload = { type: "by_items", groups };
       } else {
-        payload = { type: "custom_amount", amounts: customAmounts };
+        // Normalizar y redondear montos para evitar errores de precisión
+        const normalizedAmounts = customAmounts.map((a) =>
+          Math.round((parseFloat(String(a)) || 0) * 100) / 100
+        );
+        
+        console.log("🔍 Custom amounts payload:", {
+          raw: customAmounts,
+          normalized: normalizedAmounts,
+          sum: normalizedAmounts.reduce((a, b) => a + b, 0),
+          orderTotal,
+        });
+        
+        payload = { type: "custom_amount", amounts: normalizedAmounts };
       }
 
       const bills = await splitOrder.mutateAsync({
@@ -123,8 +157,12 @@ export function SplitBillModal({
 
       onSuccess(bills);
       onClose();
-    } catch (e) {
-      console.error("Error al dividir:", e);
+    } catch (e: any) {
+      console.error("❌ ERROR COMPLETO:", e);
+      console.error("❌ ERROR RESPONSE:", e?.response?.data);
+      console.error("❌ ERROR STATUS:", e?.response?.status);
+      console.error("❌ ERROR MESSAGE:", e?.message);
+      alert("Error al dividir: " + (e?.response?.data?.message || e?.message || "Error desconocido"));
     }
   };
 
