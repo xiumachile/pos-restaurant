@@ -26,6 +26,9 @@ Route::prefix('v1/cashier')->middleware(['auth:api', TenantContextMiddleware::cl
     // POST sin middleware idempotent (usa idempotency_key propia por cada order)
     Route::post('/tables/{tableUuid}/charge', [CashierTablesController::class, 'chargeTable'])
         ->name('cashier.tables.charge');
+
+    Route::post('/bills/{billUuid}/pay', [CashierTablesController::class, 'payBill'])
+        ->name('cashier.bills.pay');
 });
 
 // Rutas que SÍ necesitan idempotencia

@@ -9,10 +9,12 @@ use Illuminate\Support\Facades\DB;
 use Modules\Orders\Domain\Entities\Order;
 use Modules\Orders\Domain\Events\OrderPaid;
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
+use Modules\Payments\Domain\Entities\Bill;
 use Modules\Payments\Domain\Entities\CashSession;
 use Modules\Payments\Domain\Entities\PaymentMethod;
 use Modules\Payments\Domain\Exceptions\PaymentException;
 use Modules\Payments\Domain\Services\PaymentService;
+use Modules\Payments\Domain\ValueObjects\BillStatus;
 use Modules\Payments\Domain\ValueObjects\CashSessionStatus;
 use Modules\Tables\Domain\Entities\RestaurantTable;
 
@@ -41,7 +43,7 @@ class CashierTablesController extends Controller
             $servedOrders = Order::where('table_id', $table->id)
                 ->where('branch_id', $branchId)
                 ->where('status', OrderStatus::SERVED)
-                ->with(['items', 'waiter'])
+                ->with(['items', 'waiter', 'bills'])
                 ->orderBy('created_at', 'asc')
                 ->get();
 
@@ -78,6 +80,18 @@ class CashierTablesController extends Controller
                         'unit_price' => (float) $item->unit_price_snapshot,
                         'subtotal' => (float) $item->subtotal,
                         'notes' => $item->notes,
+                    ])->values(),
+                    'bills' => $order->bills->map(fn($bill) => [
+                        'uuid' => $bill->uuid,
+                        'bill_number' => $bill->bill_number,
+                        'type' => $bill->type->value,
+                        'subtotal' => (float) $bill->subtotal,
+                        'tax_amount' => (float) $bill->tax_amount,
+                        'total' => (float) $bill->total,
+                        'paid_amount' => (float) $bill->paid_amount,
+                        'remaining_amount' => (float) $bill->remaining_amount,
+                        'status' => $bill->status->value,
+                        'guest_count' => $bill->guest_count,
                     ])->values(),
                 ])->values(),
             ];
@@ -202,5 +216,131 @@ class CashierTablesController extends Controller
             substr($hash, 16, 4),
             substr($hash, 20, 12)
         );
+    }
+
+    /**
+     * POST /api/v1/cashier/bills/{billUuid}/pay
+     * Cobra una sub-cuenta (bill) específica de un order dividido.
+     * Cuando todas las bills del order están paid → order pasa a paid.
+     * Cuando todos los orders de la mesa están paid → mesa se libera.
+     */
+    public function payBill(Request $request, string $billUuid): JsonResponse
+    {
+        $user = $request->user();
+        $branchId = $user->branch_id;
+
+        $validated = $request->validate([
+            'payment_method_uuid' => ['required', 'uuid', 'exists:payment_methods,uuid'],
+            'tip_amount' => ['nullable', 'numeric', 'min:0'],
+            'reference_code' => ['nullable', 'string', 'max:100'],
+            'notes' => ['nullable', 'string', 'max:500'],
+            'idempotency_key' => ['required', 'uuid'],
+        ]);
+
+        $bill = Bill::where('uuid', $billUuid)
+            ->where('branch_id', $branchId)
+            ->firstOrFail();
+
+        if ($bill->status === BillStatus::PAID) {
+            return response()->json([
+                'error' => 'bill_already_paid',
+                'message' => 'Esta sub-cuenta ya fue pagada.',
+            ], 422);
+        }
+
+        if ($bill->remaining_amount <= 0) {
+            return response()->json([
+                'error' => 'bill_fully_paid',
+                'message' => 'Esta sub-cuenta ya está completamente pagada.',
+            ], 422);
+        }
+
+        $paymentMethod = PaymentMethod::forBranch($branchId)
+            ->where('uuid', $validated['payment_method_uuid'])
+            ->firstOrFail();
+
+        $cashSession = CashSession::where('branch_id', $branchId)
+            ->where('status', CashSessionStatus::OPEN)
+            ->first();
+
+        $amountToPay = (float) $bill->remaining_amount;
+        $tipAmount = (float) ($validated['tip_amount'] ?? 0);
+
+        try {
+            $payment = $this->paymentService->registerPayment(
+                order: $bill->order,
+                paymentMethod: $paymentMethod,
+                amount: $amountToPay,
+                idempotencyKey: $validated['idempotency_key'],
+                bill: $bill,
+                cashSession: $cashSession,
+                userId: $user->id,
+                tipAmount: $tipAmount,
+                referenceCode: $validated['reference_code'] ?? null,
+                notes: $validated['notes'] ?? null
+            );
+
+            // Actualizar paid_amount del bill
+            $bill->paid_amount = (float) $bill->paid_amount + $amountToPay;
+            $bill->remaining_amount = (float) $bill->total - (float) $bill->paid_amount;
+            if ($bill->remaining_amount <= 0.01) {
+                $bill->status = BillStatus::PAID;
+            }
+            $bill->save();
+
+            // Verificar si todas las bills del order están pagadas
+            $order = $bill->order;
+            $allBillsPaid = Bill::where('order_id', $order->id)
+                ->whereNotIn('status', [BillStatus::CANCELLED])
+                ->where('status', '!=', BillStatus::PAID)
+                ->count() === 0;
+
+            $orderTransitionedToPaid = false;
+            if ($allBillsPaid && $order->status === OrderStatus::SERVED) {
+                $order->cashier_id = $user->id;
+                $order->paid_at = now();
+                $order->status = OrderStatus::PAID;
+                $order->save();
+                event(new OrderPaid($order));
+                $orderTransitionedToPaid = true;
+
+                // Verificar si todos los orders de la mesa están paid
+                $table = $order->table;
+                if ($table) {
+                    $activeOrdersCount = Order::where('table_id', $table->id)
+                        ->where('branch_id', $branchId)
+                        ->whereIn('status', [OrderStatus::DRAFT, OrderStatus::CONFIRMED, OrderStatus::PREPARING, OrderStatus::READY, OrderStatus::SERVED])
+                        ->count();
+
+                    if ($activeOrdersCount === 0) {
+                        DB::table('restaurant_tables')
+                            ->where('id', $table->id)
+                            ->update([
+                                'status' => 'available',
+                                'updated_at' => now(),
+                            ]);
+                    }
+                }
+            }
+
+            return response()->json([
+                'data' => [
+                    'success' => true,
+                    'bill_uuid' => $bill->uuid,
+                    'bill_paid' => $bill->status === BillStatus::PAID,
+                    'paid_amount' => (float) $bill->paid_amount,
+                    'remaining_amount' => (float) $bill->remaining_amount,
+                    'order_transitioned_to_paid' => $orderTransitionedToPaid,
+                    'amount_paid' => $amountToPay,
+                    'tip_amount' => $tipAmount,
+                ],
+            ]);
+
+        } catch (PaymentException $e) {
+            return response()->json([
+                'error' => 'payment_failed',
+                'message' => $e->getMessage(),
+            ], 422);
+        }
     }
 }
