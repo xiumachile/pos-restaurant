@@ -9,7 +9,11 @@ use Modules\Tables\Domain\ValueObjects\TableStatus;
 
 /**
  * Cuando un pedido se paga, la mesa pasa a billing.
- * Esto indica que la mesa está en proceso de cierre.
+ *
+ * IMPORTANTE: una mesa puede tener varios pedidos servidos pagándose en el
+ * mismo "cobro por mesa". Este listener se dispara una vez por cada pedido
+ * pagado, así que debe ser IDEMPOTENTE: si la mesa ya está en billing,
+ * no hace nada — no es un error.
  */
 class UpdateTableOnPaid
 {
@@ -27,18 +31,20 @@ class UpdateTableOnPaid
             return;
         }
 
-        // Solo mover a billing si está ocupada por este pedido
-        if ($table->status !== TableStatus::Occupied || $table->current_order_id !== $order->id) {
-            Log::warning('UpdateTableOnPaid: Mesa no está ocupada por este pedido', [
+        if ($table->status === TableStatus::Billing) {
+            return;
+        }
+
+        if ($table->status !== TableStatus::Occupied) {
+            Log::warning('UpdateTableOnPaid: Mesa no está ocupada, no se puede mover a billing', [
                 'order_id' => $order->id,
                 'table_id' => $table->id,
                 'current_status' => $table->status->value,
-                'current_order_id' => $table->current_order_id,
             ]);
             return;
         }
 
-        $table->status = TableStatus::Billing;
+        $table->requestBilling();
         $table->save();
 
         Log::info('UpdateTableOnPaid: Mesa en billing', [
