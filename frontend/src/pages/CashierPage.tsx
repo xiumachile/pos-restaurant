@@ -23,7 +23,7 @@ import { formatPrice } from "@/types/catalog";
 export function CashierPage() {
   const { data: dashboard, isLoading: loadingDashboard } = useCashierDashboard();
   const { data: tablesWithBills = [], isLoading: loadingTables } = useTablesWithBills();
-  const [selectedTable, setSelectedTable] = useState<TableBill | null>(null);
+  const [selectedTableUuid, setSelectedTableUuid] = useState<string | null>(null);
 
   const isSessionOpen = !!dashboard?.current_session;
 
@@ -99,7 +99,7 @@ export function CashierPage() {
                 return (
                   <button
                     key={table.table_uuid}
-                    onClick={() => setSelectedTable(table)}
+                    onClick={() => setSelectedTableUuid(table.table_uuid)}
                     disabled={!isSessionOpen}
                     className={`bg-slate-800 rounded-lg p-3.5 border-2 text-left transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed ${
                       isUrgent
@@ -155,12 +155,12 @@ export function CashierPage() {
       </div>
 
       {/* Modal de precuenta + cobro */}
-      {selectedTable && (
+      {selectedTableUuid && (
         <TableBillModal
-          tableBill={selectedTable}
-          isOpen={!!selectedTable}
-          onClose={() => setSelectedTable(null)}
-          onSuccess={() => setSelectedTable(null)}
+          tableUuid={selectedTableUuid}
+          isOpen={!!selectedTableUuid}
+          onClose={() => setSelectedTableUuid(null)}
+          onSuccess={() => setSelectedTableUuid(null)}
         />
       )}
     </div>

@@ -1,10 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type { TableBill, TableBillOrder } from "@/types/tableBill";
 import type { Bill } from "@/types/bills";
 import type { PaymentMethod } from "@/types/payments";
 import {
   usePaymentMethods,
   useChargeTable,
+  useTablesWithBills,
 } from "@/hooks/usePayments";
 import { formatPrice } from "@/types/catalog";
 import {
@@ -29,7 +30,7 @@ import { SplitBillModal } from "./SplitBillModal";
 import { BillPaymentModal } from "./BillPaymentModal";
 
 interface TableBillModalProps {
-  tableBill: TableBill;
+  tableUuid: string; // Solo pasamos el UUID, cargamos datos internamente
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
@@ -43,11 +44,18 @@ const METHOD_ICONS: Record<string, any> = {
 };
 
 export function TableBillModal({
-  tableBill,
+  tableUuid,
   isOpen,
   onClose,
   onSuccess,
 }: TableBillModalProps) {
+  // Cargar datos de la mesa internamente (se actualiza automáticamente)
+  const { data: tablesWithBills = [] } = useTablesWithBills();
+  const tableBill = useMemo(
+    () => tablesWithBills.find((t) => t.table_uuid === tableUuid),
+    [tablesWithBills, tableUuid]
+  );
+
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
   const [tipAmount, setTipAmount] = useState<string>("0");
   const [receivedAmount, setReceivedAmount] = useState<string>("");
@@ -58,22 +66,34 @@ export function TableBillModal({
   const [splittingOrder, setSplittingOrder] = useState<TableBillOrder | null>(null);
   const [payingBill, setPayingBill] = useState<Bill | null>(null);
 
+  // Toast de éxito
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
   const { data: methods = [], isLoading: loadingMethods } = usePaymentMethods();
   const chargeTable = useChargeTable();
 
+  // Auto-ocultar toast
+  useEffect(() => {
+    if (showSuccessToast) {
+      const timer = setTimeout(() => setShowSuccessToast(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [showSuccessToast]);
+
   // Verificar si hay bills en algún order (modo split activo)
   const hasBills = useMemo(
-    () => tableBill.orders.some((o) => o.bills && o.bills.length > 0),
-    [tableBill.orders]
+    () => tableBill?.orders.some((o) => o.bills && o.bills.length > 0) ?? false,
+    [tableBill?.orders]
   );
 
   // Todas las bills de la mesa (planas)
   const allBills = useMemo(
     () =>
-      tableBill.orders.flatMap((o) =>
+      tableBill?.orders.flatMap((o) =>
         (o.bills || []).map((b) => ({ ...b, order_number: o.order_number }))
-      ),
-    [tableBill.orders]
+      ) ?? [],
+    [tableBill?.orders]
   );
 
   const pendingBillsCount = useMemo(
@@ -82,9 +102,10 @@ export function TableBillModal({
   );
 
   const grandTotal = useMemo(() => {
+    if (!tableBill) return 0;
     const tip = parseFloat(tipAmount) || 0;
     return tableBill.total_amount + tip;
-  }, [tableBill.total_amount, tipAmount]);
+  }, [tableBill?.total_amount, tipAmount]);
 
   const change = useMemo(() => {
     if (!selectedMethod || selectedMethod.type !== "cash") return 0;
@@ -93,14 +114,15 @@ export function TableBillModal({
   }, [receivedAmount, grandTotal, selectedMethod]);
 
   const isButtonDisabled = useMemo(() => {
-    if (!selectedMethod || chargeTable.isPending) return true;
+    if (!selectedMethod || chargeTable.isPending || !tableBill) return true;
     if (selectedMethod.type === "cash") {
       return (parseFloat(receivedAmount) || 0) < grandTotal;
     }
     return false;
-  }, [selectedMethod, chargeTable.isPending, receivedAmount, grandTotal]);
+  }, [selectedMethod, chargeTable.isPending, receivedAmount, grandTotal, tableBill]);
 
   const aggregatedItems = useMemo(() => {
+    if (!tableBill) return [];
     const map = new Map<
       string,
       { name: string; quantity: number; unitPrice: number; subtotal: number }
@@ -122,10 +144,10 @@ export function TableBillModal({
       }
     }
     return Array.from(map.values());
-  }, [tableBill.orders]);
+  }, [tableBill?.orders]);
 
   const handleCharge = async () => {
-    if (!selectedMethod || isButtonDisabled) return;
+    if (!selectedMethod || isButtonDisabled || !tableBill) return;
     const idempotencyKey = crypto.randomUUID();
 
     try {
@@ -148,11 +170,34 @@ export function TableBillModal({
   const handlePrint = () => window.print();
 
   const handleOpenSplit = (order: TableBillOrder) => {
+    // Si ya tiene bills, mostrar confirmación
+    if (order.bills && order.bills.length > 0) {
+      const confirmed = window.confirm(
+        `Este pedido ya tiene ${order.bills.length} sub-cuenta(s) creada(s).\n\n¿Deseas eliminarlas y crear nuevas?`
+      );
+      if (!confirmed) return;
+    }
     setSplittingOrder(order);
     setShowSplitModal(true);
   };
 
-  if (!isOpen) return null;
+  const handleSplitSuccess = (bills: Bill[]) => {
+    setShowSplitModal(false);
+    setSplittingOrder(null);
+    // Mostrar toast de éxito
+    setSuccessMessage(`✅ ${bills.length} sub-cuenta(s) creada(s) exitosamente`);
+    setShowSuccessToast(true);
+  };
+
+  // Si la mesa ya no existe (fue cobrada), cerrar el modal
+  useEffect(() => {
+    if (isOpen && tableBill === undefined) {
+      onClose();
+      onSuccess();
+    }
+  }, [isOpen, tableBill, onClose, onSuccess]);
+
+  if (!isOpen || !tableBill) return null;
 
   return (
     <>
@@ -288,19 +333,26 @@ export function TableBillModal({
                           <span className="font-bold text-orange-400">
                             {formatPrice(order.total)}
                           </span>
-                          {!hasBillsThis && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenSplit(order);
-                              }}
-                              className="flex items-center gap-1 px-2 py-1 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-700/50 rounded text-purple-300 text-xs font-medium transition-colors"
-                              title="Dividir este pedido"
-                            >
-                              <Scissors size={11} />
-                              Dividir
-                            </button>
-                          )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenSplit(order);
+                            }}
+                            disabled={hasBillsThis}
+                            className={`flex items-center gap-1 px-2 py-1 border rounded text-xs font-medium transition-colors ${
+                              hasBillsThis
+                                ? "bg-slate-700/50 border-slate-600 text-slate-500 cursor-not-allowed"
+                                : "bg-purple-500/20 hover:bg-purple-500/30 border-purple-700/50 text-purple-300"
+                            }`}
+                            title={
+                              hasBillsThis
+                                ? "Ya tiene sub-cuentas"
+                                : "Dividir este pedido"
+                            }
+                          >
+                            <Scissors size={11} />
+                            {hasBillsThis ? "Ya dividida" : "Dividir"}
+                          </button>
                         </div>
                       </button>
 
@@ -531,6 +583,14 @@ export function TableBillModal({
         </div>
       </div>
 
+      {/* Toast de éxito */}
+      {showSuccessToast && (
+        <div className="fixed top-4 right-4 z-[100] bg-green-500 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-in slide-in-from-top-2">
+          <CheckCircle2 size={18} />
+          <span className="font-medium">{successMessage}</span>
+        </div>
+      )}
+
       {/* Modal de Split */}
       {splittingOrder && (
         <SplitBillModal
@@ -547,10 +607,7 @@ export function TableBillModal({
             setShowSplitModal(false);
             setSplittingOrder(null);
           }}
-          onSuccess={() => {
-            setShowSplitModal(false);
-            setSplittingOrder(null);
-          }}
+          onSuccess={handleSplitSuccess}
         />
       )}
 
