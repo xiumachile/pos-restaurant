@@ -74,6 +74,7 @@ class CashierTablesController extends Controller
                     'waiter_name' => $order->waiter?->name,
                     'served_at' => $order->served_at?->toIso8601String(),
                     'items' => $order->items->map(fn($item) => [
+                        'id' => $item->id,
                         'uuid' => $item->uuid,
                         'name' => $item->name_snapshot,
                         'quantity' => $item->quantity,

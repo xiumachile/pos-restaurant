@@ -1,6 +1,7 @@
 import type { Bill } from "@/types/bills";
 
 export interface TableBillOrderItem {
+  id?: number; // ID numérico (primary key) para split by_items
   uuid: string;
   name: string;
   quantity: number;
