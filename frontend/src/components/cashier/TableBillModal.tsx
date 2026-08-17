@@ -305,11 +305,19 @@ export function TableBillModal({
                       key={order.uuid}
                       className="bg-slate-900/50 rounded-lg border border-slate-700/50"
                     >
-                      <button
+                      <div
+                        role="button"
+                        tabIndex={0}
                         onClick={() =>
                           setExpandedOrderUuid(isExpanded ? null : order.uuid)
                         }
-                        className="w-full p-3 flex items-center justify-between hover:bg-slate-800/50 transition-colors"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setExpandedOrderUuid(isExpanded ? null : order.uuid);
+                          }
+                        }}
+                        className="w-full p-3 flex items-center justify-between hover:bg-slate-800/50 transition-colors cursor-pointer"
                       >
                         <div className="flex items-center gap-2">
                           {isExpanded ? (
@@ -354,7 +362,7 @@ export function TableBillModal({
                             {hasBillsThis ? "Ya dividida" : "Dividir"}
                           </button>
                         </div>
-                      </button>
+                      </div>
 
                       {isExpanded && (
                         <div className="px-3 pb-3 border-t border-slate-700/50 pt-2 space-y-3">
@@ -598,10 +606,7 @@ export function TableBillModal({
           orderNumber={splittingOrder.order_number}
           orderTotal={splittingOrder.total}
           orderSubtotal={splittingOrder.subtotal}
-          orderItems={splittingOrder.items.map((item, idx) => ({
-            ...item,
-            id: idx + 1,
-          }))}
+          orderItems={splittingOrder.items}
           isOpen={showSplitModal}
           onClose={() => {
             setShowSplitModal(false);

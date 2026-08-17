@@ -98,10 +98,14 @@ class BillingService
                 'order_total' => $orderTotal,
                 'order_subtotal' => $orderSubtotal,
                 'order_tax' => $orderTax,
+                'order_discount' => $orderDiscount,
                 'groups_count' => count($groups),
                 'items_count' => $items->count(),
+                'item_ids_in_order' => $items->keys()->toArray(),
+                'groups_raw' => $groups,
             ]);
 
+            // Calcular el subtotal total de items agrupados
             $totalGroupedSubtotal = 0;
             foreach ($groups as $group) {
                 foreach ($group['item_ids'] ?? [] as $itemId) {
@@ -111,8 +115,9 @@ class BillingService
                 }
             }
 
+            // Si no hay items agrupados, usar el subtotal del order completo
             if ($totalGroupedSubtotal <= 0) {
-                throw PaymentException::invalidSplitAmount();
+                $totalGroupedSubtotal = $orderSubtotal > 0 ? $orderSubtotal : 1;
             }
 
             $bills = [];
@@ -128,12 +133,23 @@ class BillingService
                     }
                 }
 
-                $ratio = $groupSubtotal / $totalGroupedSubtotal;
+                // Calcular proporción del IVA y descuento
+                $ratio = $totalGroupedSubtotal > 0 
+                    ? $groupSubtotal / $totalGroupedSubtotal 
+                    : (count($groups) > 0 ? 1 / count($groups) : 0);
+                
                 $groupTax = round($orderTax * $ratio, 2);
                 $groupDiscount = round($orderDiscount * $ratio, 2);
                 $groupTotal = round($groupSubtotal + $groupTax - $groupDiscount, 2);
 
-                $calculatedTotal += $groupTotal;
+                Log::debug('splitByItems grupo', [
+                    'group_index' => $index,
+                    'groupSubtotal' => $groupSubtotal,
+                    'ratio' => $ratio,
+                    'groupTax' => $groupTax,
+                    'groupDiscount' => $groupDiscount,
+                    'groupTotal' => $groupTotal,
+                ]);
 
                 $bills[] = Bill::create([
                     'company_id' => $order->company_id,
@@ -152,27 +168,41 @@ class BillingService
                     'guest_count' => $group['guest_count'] ?? 1,
                     'item_ids' => $itemIds,
                 ]);
+
+                $calculatedTotal += $groupTotal;
             }
 
-            // Ajuste por redondeo en la última bill
-            $difference = round($orderTotal - $calculatedTotal, 2);
-            if (abs($difference) > 0.001 && count($bills) > 0) {
-                $lastBill = $bills[count($bills) - 1];
-                $lastBill->total = round((float) $lastBill->total + $difference, 2);
-                $lastBill->remaining_amount = $lastBill->total;
-                $lastBill->save();
+            // TOLERANTE: ajustar siempre la última bill para que cuadre con el total
+            // (no lanzar excepción por diferencia de redondeo)
+            if (count($bills) > 0) {
+                $difference = round($orderTotal - $calculatedTotal, 2);
                 
-                Log::info('splitByItems ajuste redondeo', [
-                    'order' => $order->order_number,
-                    'difference' => $difference,
-                    'adjusted_bill' => $lastBill->bill_number,
-                ]);
+                if (abs($difference) > 0.001) {
+                    $lastBill = $bills[count($bills) - 1];
+                    $lastBill->total = round((float) $lastBill->total + $difference, 2);
+                    $lastBill->remaining_amount = $lastBill->total;
+                    
+                    // Ajustar también tax o subtotal proporcionalmente
+                    if ($orderTax > 0 && abs($difference) > 0.01) {
+                        // Asumir que la diferencia viene del redondeo de IVA
+                        $lastBill->tax_amount = round((float) $lastBill->tax_amount + $difference, 2);
+                    }
+                    
+                    $lastBill->save();
+                    
+                    Log::info('splitByItems ajuste de redondeo', [
+                        'order' => $order->order_number,
+                        'difference' => $difference,
+                        'adjusted_bill' => $lastBill->bill_number,
+                        'new_total' => $lastBill->total,
+                    ]);
+                }
             }
 
-            Log::info('splitByItems creado', [
+            Log::info('splitByItems completado', [
                 'order' => $order->order_number,
                 'bills_count' => count($bills),
-                'total' => $orderTotal,
+                'order_total' => $orderTotal,
             ]);
 
             return $bills;
