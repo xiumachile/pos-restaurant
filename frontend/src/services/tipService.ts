@@ -63,3 +63,21 @@ export const tipPayoutService = {
     return (response.data as any).data || [];
   },
 };
+
+import type { TipsByWaiterData, GeneratePayoutsResponse } from "@/types/tips";
+
+export const tipWizardService = {
+  async getTipsByWaiter(): Promise<TipsByWaiterData | null> {
+    const response = await apiClient.get<{ data: TipsByWaiterData | null }>(
+      "/cashier/tips/by-waiter"
+    );
+    return (response.data as any).data;
+  },
+
+  async generatePayouts(): Promise<GeneratePayoutsResponse> {
+    const response = await apiClient.post<{ data: GeneratePayoutsResponse }>(
+      "/cashier/tips/generate-payouts"
+    );
+    return (response.data as any).data;
+  },
+};

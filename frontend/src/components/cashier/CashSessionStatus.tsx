@@ -27,6 +27,7 @@ import { CashReportModal } from "./CashReportModal";
 import { CashCountModal } from "./CashCountModal";
 import { SessionsHistoryPanel } from "./SessionsHistoryPanel";
 import { TipPayoutModal } from "./TipPayoutModal";
+import { CashCloseWizard } from "./CashCloseWizard";
 
 interface CashSessionStatusProps {
   session: CashSession | null;
@@ -34,7 +35,7 @@ interface CashSessionStatusProps {
 
 export function CashSessionStatus({ session }: CashSessionStatusProps) {
   const [showOpenModal, setShowOpenModal] = useState(false);
-  const [showCountModal, setShowCountModal] = useState(false);
+  const [showCloseWizard, setShowCloseWizard] = useState(false);
   const [showXReport, setShowXReport] = useState(false);
   const [showZReport, setShowZReport] = useState(false);
   const [showSalesModal, setShowSalesModal] = useState(false);
@@ -80,7 +81,7 @@ export function CashSessionStatus({ session }: CashSessionStatusProps) {
           ? `Arqueo: ${denominationsSummary}`
           : notes,
       });
-      setShowCountModal(false);
+      setShowCloseWizard(false);
       setShowZReport(true); // Mostrar Z-Report tras cerrar
       setNotes("");
       invalidate();
@@ -131,7 +132,7 @@ export function CashSessionStatus({ session }: CashSessionStatusProps) {
                 Reporte X
               </button>
               <button
-                onClick={() => setShowCountModal(true)}
+                onClick={() => setShowCloseWizard(true)}
                 className="flex items-center gap-1 px-2.5 py-1 bg-red-500/20 hover:bg-red-500/30 border border-red-700/50 rounded text-red-300 text-xs font-medium transition-colors"
               >
                 <StopCircle size={12} />
@@ -284,8 +285,8 @@ export function CashSessionStatus({ session }: CashSessionStatusProps) {
       {/* Modal de arqueo por denominaciones */}
       {session && (
         <CashCountModal
-          isOpen={showCountModal}
-          onClose={() => setShowCountModal(false)}
+          isOpen={showCloseWizard}
+          onClose={() => setShowCloseWizard(false)}
           expectedAmount={totalCashExpected}
           onConfirm={handleCountConfirm}
           isLoading={closeSession.isPending}

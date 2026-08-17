@@ -60,3 +60,37 @@ export interface Waiter {
   name: string;
   role: string;
 }
+
+export interface TipByWaiter {
+  waiter_id: number;
+  waiter_name: string;
+  cash: number;
+  card: number;
+  transfer: number;
+  gift_card: number;
+  total: number;
+  already_paid: number;
+  pending: number;
+}
+
+export interface TipsByWaiterData {
+  policy: {
+    type: string;
+    label: string;
+    card_tip_handling: string;
+  };
+  by_waiter: TipByWaiter[];
+  total_pending: number;
+  total_pending_cash: number;
+}
+
+export interface GeneratePayoutsResponse {
+  payouts_created: number;
+  total_amount: number;
+  payouts: Array<{
+    uuid: string;
+    waiter_name: string;
+    amount: number;
+    payment_method: string;
+  }>;
+}
