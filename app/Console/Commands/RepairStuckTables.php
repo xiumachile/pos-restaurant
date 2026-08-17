@@ -5,117 +5,141 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Modules\Orders\Domain\Entities\Order;
-use Modules\Orders\Domain\Services\OrderStateMachine;
-use Modules\Orders\Domain\ValueObjects\OrderStatus;
-use Modules\Tables\Domain\Entities\RestaurantTable;
-use Modules\Tables\Domain\ValueObjects\TableStatus;
 
 /**
- * Repara mesas y pedidos que quedaron atascados por el bug de
- * chargeTable() previo al fix (pedidos en 'paid' que nunca llegaron a
- * 'closed', y mesas en 'occupied'/'billing' que nunca se liberaron).
+ * Repara mesas y pedidos atascados usando solo DB directo
+ * para evitar problemas con scopes de tenant context.
  *
- * IMPORTANTE: correr esto DESPUÉS de desplegar el fix de
- * UpdateTableOnPaid / UpdateTableOnClose / CashierTablesController.
- * Si se corre antes, los pedidos avanzarán a 'closed' pero las mesas
- * seguirán sin liberarse, porque el listener viejo seguiría con el bug.
+ * Uso:
+ *   php artisan tables:repair-stuck              # Aplicar reparación
+ *   php artisan tables:repair-stuck --dry-run    # Solo preview
  */
 class RepairStuckTables extends Command
 {
     protected $signature = 'tables:repair-stuck {--dry-run : Solo mostrar qué se repararía, sin escribir}';
 
-    protected $description = 'Repara pedidos atascados en paid y mesas atascadas en occupied/billing (bug pre-fix de chargeTable)';
+    protected $description = 'Repara pedidos atascados en paid y mesas atascadas en occupied/billing';
 
-    public function handle(OrderStateMachine $orderStateMachine): int
+    public function handle(): int
     {
         $dryRun = $this->option('dry-run');
 
         $this->info($dryRun ? '=== DRY RUN — no se escribe nada ===' : '=== APLICANDO REPARACIÓN ===');
+        $this->newLine();
 
         // -----------------------------------------------------------------
-        // Paso 1: avanzar pedidos 'paid' huérfanos (nunca llegaron a closed)
+        // Paso 1: avanzar pedidos 'paid' → 'closed'
         // -----------------------------------------------------------------
-        $stuckOrders = Order::where('status', OrderStatus::PAID)->get();
+        $this->info('Paso 1: Detectar pedidos stuck en status "paid"...');
 
-        $this->info("Pedidos en 'paid' sin cerrar: {$stuckOrders->count()}");
+        $stuckOrders = DB::table('orders')
+            ->where('status', 'paid')
+            ->get(['id', 'order_number', 'table_id', 'total']);
+
+        $this->info("  Pedidos en 'paid' sin cerrar: {$stuckOrders->count()}");
 
         foreach ($stuckOrders as $order) {
-            $this->line("  - {$order->order_number} (mesa_id={$order->table_id}, total={$order->total})");
+            $tableName = DB::table('restaurant_tables')
+                ->where('id', $order->table_id)
+                ->value('table_number') ?? '?';
+
+            $this->line("    - {$order->order_number} (mesa={$tableName}, total=\${$order->total})");
 
             if ($dryRun) {
                 continue;
             }
 
-            DB::transaction(function () use ($order, $orderStateMachine) {
-                try {
-                    $orderStateMachine->transition($order, OrderStatus::CLOSED);
-                } catch (\Throwable $e) {
-                    Log::error('RepairStuckTables: no se pudo cerrar pedido', [
-                        'order_id' => $order->id,
-                        'order_number' => $order->order_number,
-                        'error' => $e->getMessage(),
+            try {
+                DB::table('orders')
+                    ->where('id', $order->id)
+                    ->update([
+                        'status' => 'closed',
+                        'closed_at' => now(),
+                        'updated_at' => now(),
                     ]);
-                    $this->error("    ERROR: {$e->getMessage()}");
-                }
-            });
+
+                Log::info('RepairStuckTables: pedido cerrado', [
+                    'order_id' => $order->id,
+                    'order_number' => $order->order_number,
+                ]);
+            } catch (\Throwable $e) {
+                $this->error("      ERROR: {$e->getMessage()}");
+                Log::error('RepairStuckTables: error al cerrar pedido', [
+                    'order_id' => $order->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
+        $this->newLine();
+
         // -----------------------------------------------------------------
-        // Paso 2: liberar mesas que sigan atascadas después del paso 1
-        // (cubre también mesas con status=billing/occupied que no tienen
-        // NINGÚN pedido asociado, como Mesa 5 y B4 en el caso reportado)
+        // Paso 2: liberar mesas stuck (occupied/billing sin pedidos activos)
         // -----------------------------------------------------------------
-        $stuckTables = RestaurantTable::whereIn('status', [TableStatus::Occupied, TableStatus::Billing])
-            ->get()
-            ->filter(function (RestaurantTable $table) {
-                $hasActiveOrders = Order::where('table_id', $table->id)
-                    ->whereIn('status', [
-                        OrderStatus::CONFIRMED,
-                        OrderStatus::PREPARING,
-                        OrderStatus::READY,
-                        OrderStatus::SERVED,
-                    ])
-                    ->exists();
+        $this->info('Paso 2: Detectar mesas stuck sin pedidos activos...');
 
-                return !$hasActiveOrders;
-            });
+        $stuckTables = DB::table('restaurant_tables')
+            ->whereIn('status', ['occupied', 'billing'])
+            ->get(['id', 'table_number', 'status']);
 
-        $this->info("Mesas atascadas sin pedidos activos: {$stuckTables->count()}");
-
+        $tablesToFree = [];
         foreach ($stuckTables as $table) {
-            $this->line("  - Mesa {$table->table_number} (status actual: {$table->status->value})");
+            $activeOrdersCount = DB::table('orders')
+                ->where('table_id', $table->id)
+                ->whereIn('status', ['draft', 'confirmed', 'preparing', 'ready', 'served'])
+                ->count();
+
+            if ($activeOrdersCount === 0) {
+                $tablesToFree[] = $table;
+            }
+        }
+
+        $this->info("  Mesas stuck sin pedidos activos: " . count($tablesToFree));
+
+        foreach ($tablesToFree as $table) {
+            $this->line("    - Mesa {$table->table_number} (status actual: {$table->status})");
 
             if ($dryRun) {
                 continue;
             }
 
-            DB::transaction(function () use ($table) {
-                try {
-                    if ($table->status === TableStatus::Occupied) {
-                        $table->requestBilling();
-                    }
-                    $table->free();
-                    $table->save();
+            try {
+                DB::table('restaurant_tables')
+                    ->where('id', $table->id)
+                    ->update([
+                        'status' => 'available',
+                        'updated_at' => now(),
+                    ]);
 
-                    Log::info('RepairStuckTables: mesa liberada', [
-                        'table_id' => $table->id,
-                        'table_number' => $table->table_number,
-                    ]);
-                } catch (\Throwable $e) {
-                    Log::error('RepairStuckTables: no se pudo liberar mesa', [
-                        'table_id' => $table->id,
-                        'table_number' => $table->table_number,
-                        'error' => $e->getMessage(),
-                    ]);
-                    $this->error("    ERROR: {$e->getMessage()}");
-                }
-            });
+                Log::info('RepairStuckTables: mesa liberada', [
+                    'table_id' => $table->id,
+                    'table_number' => $table->table_number,
+                    'previous_status' => $table->status,
+                ]);
+            } catch (\Throwable $e) {
+                $this->error("      ERROR: {$e->getMessage()}");
+                Log::error('RepairStuckTables: error al liberar mesa', [
+                    'table_id' => $table->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        $this->newLine();
+
+        // -----------------------------------------------------------------
+        // Resumen
+        // -----------------------------------------------------------------
+        if (!$dryRun) {
+            $this->info('=== RESUMEN DE REPARACIÓN ===');
+            $this->line("  Pedidos cerrados: {$stuckOrders->count()}");
+            $this->line("  Mesas liberadas: " . count($tablesToFree));
+            $this->newLine();
         }
 
         $this->info($dryRun
-            ? 'Dry run completo. Corre sin --dry-run para aplicar.'
-            : 'Reparación completa.');
+            ? '✅ Dry run completo. Corre sin --dry-run para aplicar los cambios.'
+            : '✅ Reparación completa.');
 
         return self::SUCCESS;
     }
