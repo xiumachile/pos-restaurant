@@ -14,6 +14,9 @@ Route::prefix('v1/cashier')->middleware(['auth:api', TenantContextMiddleware::cl
     Route::get('/dashboard', [CashierDashboardController::class, 'index'])
         ->name('cashier.dashboard');
 
+    Route::get('/session-payments', [CashierDashboardController::class, 'sessionPayments'])
+        ->name('cashier.dashboard');
+
     // ============================================
     // Gestión de cuentas por mesa (cobro por mesa)
     // ============================================

@@ -3,6 +3,7 @@ import type {
   PaymentMethod,
   CashierDashboard,
   CashSession,
+  SessionPaymentsData,
 } from "@/types/payments";
 import type {
   TableBill,
@@ -19,9 +20,6 @@ interface SingleResponse<T> {
 }
 
 export const paymentsService = {
-  /**
-   * Lista métodos de pago disponibles.
-   */
   async listPaymentMethods(): Promise<PaymentMethod[]> {
     const response = await apiClient.get<ListResponse<PaymentMethod>>(
       "/payment-methods"
@@ -30,9 +28,6 @@ export const paymentsService = {
     return Array.isArray(data?.data) ? data.data : [];
   },
 
-  /**
-   * Dashboard del cajero (sesión + stats).
-   */
   async getDashboard(): Promise<CashierDashboard> {
     const response = await apiClient.get<SingleResponse<CashierDashboard>>(
       "/cashier/dashboard"
@@ -41,8 +36,15 @@ export const paymentsService = {
   },
 
   /**
-   * Sesión de caja actual.
+   * Pagos de la sesión abierta con detalle + resumen.
    */
+  async getSessionPayments(): Promise<SessionPaymentsData> {
+    const response = await apiClient.get<SingleResponse<SessionPaymentsData>>(
+      "/cashier/session-payments"
+    );
+    return (response.data as any).data;
+  },
+
   async getCurrentSession(): Promise<CashSession | null> {
     const response = await apiClient.get<SingleResponse<CashSession | null>>(
       "/cash-sessions/current"
@@ -50,9 +52,6 @@ export const paymentsService = {
     return (response.data as any).data;
   },
 
-  /**
-   * Abrir caja.
-   */
   async openSession(openingAmount: number, notes?: string): Promise<CashSession> {
     const response = await apiClient.post<SingleResponse<CashSession>>(
       "/cash-sessions/open",
@@ -61,9 +60,6 @@ export const paymentsService = {
     return (response.data as any).data;
   },
 
-  /**
-   * Cerrar caja con arqueo.
-   */
   async closeSession(
     sessionUuid: string,
     closingAmount: number,
@@ -76,10 +72,6 @@ export const paymentsService = {
     return (response.data as any).data;
   },
 
-  /**
-   * Lista mesas con pedidos served esperando cobro.
-   * Cada mesa incluye todos sus pedidos y totales acumulados.
-   */
   async listTablesWithBills(): Promise<TableBill[]> {
     const response = await apiClient.get<ListResponse<TableBill>>(
       "/cashier/tables-with-bills"
@@ -88,10 +80,6 @@ export const paymentsService = {
     return Array.isArray(data?.data) ? data.data : [];
   },
 
-  /**
-   * Cobra la cuenta completa de una mesa (todos sus pedidos served).
-   * Crea pagos individuales por cada order, transiciona a paid y libera la mesa.
-   */
   async chargeTable(
     tableUuid: string,
     payload: ChargeTablePayload

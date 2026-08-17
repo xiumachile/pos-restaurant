@@ -136,3 +136,36 @@ export interface CreatePaymentPayload {
   notes?: string;
   idempotency_key: string;
 }
+
+export interface SessionPayment {
+  uuid: string;
+  payment_number: string;
+  method_code: string;
+  amount: number;
+  tip_amount: number;
+  total_amount: number;
+  reference_code: string | null;
+  paid_at: string;
+  order_number: string | null;
+  table_number: string | null;
+  cashier_name: string | null;
+}
+
+export interface SessionPaymentsData {
+  session: {
+    uuid: string;
+    session_number: string;
+    opening_amount: number;
+    opened_at: string;
+    user_name: string | null;
+  } | null;
+  payments: SessionPayment[];
+  summary: {
+    by_method: PaymentBreakdown;
+    total_sales: number;
+    total_tips: number;
+    total_grand: number;
+    total_cash_expected: number;
+    transactions_count: number;
+  } | null;
+}

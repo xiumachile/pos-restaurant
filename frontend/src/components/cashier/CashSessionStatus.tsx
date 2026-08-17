@@ -16,7 +16,9 @@ import {
   CreditCard,
   Building2,
   Gift,
+  List,
 } from "lucide-react";
+import { SessionSalesModal } from "./SessionSalesModal";
 
 interface CashSessionStatusProps {
   session: CashSession | null;
@@ -33,6 +35,7 @@ export function CashSessionStatus({ session }: CashSessionStatusProps) {
   const [openingAmount, setOpeningAmount] = useState<string>("0");
   const [closingAmount, setClosingAmount] = useState<string>("");
   const [notes, setNotes] = useState("");
+  const [showSalesModal, setShowSalesModal] = useState(false);
 
   const openSession = useOpenSession();
   const closeSession = useCloseSession();
@@ -89,6 +92,15 @@ export function CashSessionStatus({ session }: CashSessionStatusProps) {
             {session ? "Caja abierta" : "Caja cerrada"}
           </span>
           {session ? (
+            <>
+            <button
+              onClick={() => setShowSalesModal(true)}
+              className="ml-1 flex items-center gap-1 px-2.5 py-1 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-700/50 rounded text-blue-300 text-xs font-medium transition-colors"
+              title="Ver ventas cobradas en esta sesión"
+            >
+              <List size={12} />
+              Ventas
+            </button>
             <button
               onClick={() => setShowCloseModal(true)}
               className="ml-1 flex items-center gap-1 px-2.5 py-1 bg-red-500/20 hover:bg-red-500/30 border border-red-700/50 rounded text-red-300 text-xs font-medium transition-colors"
@@ -96,6 +108,7 @@ export function CashSessionStatus({ session }: CashSessionStatusProps) {
               <StopCircle size={12} />
               Cerrar
             </button>
+            </>
           ) : (
             <button
               onClick={() => setShowOpenModal(true)}
@@ -367,6 +380,12 @@ export function CashSessionStatus({ session }: CashSessionStatusProps) {
           </div>
         </>
       )}
+
+      {/* Modal de ventas de la sesión */}
+      <SessionSalesModal
+        isOpen={showSalesModal}
+        onClose={() => setShowSalesModal(false)}
+      />
     </>
   );
 }

@@ -183,4 +183,114 @@ class CashierDashboardController extends Controller
             ],
         ]);
     }
+
+    /**
+     * GET /api/v1/cashier/session-payments
+     * Lista pagos completados de la sesión de caja abierta con detalle.
+     */
+    public function sessionPayments(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $branchId = $user->branch_id;
+
+        $openSession = CashSession::where('company_id', $user->company_id)
+            ->where('branch_id', $branchId)
+            ->where('status', CashSessionStatus::OPEN)
+            ->first();
+
+        if (!$openSession) {
+            return response()->json([
+                'data' => [
+                    'session' => null,
+                    'payments' => [],
+                    'summary' => null,
+                ],
+            ]);
+        }
+
+        $payments = DB::table('payments')
+            ->leftJoin('orders', 'payments.order_id', '=', 'orders.id')
+            ->leftJoin('restaurant_tables', 'orders.table_id', '=', 'restaurant_tables.id')
+            ->leftJoin('users', 'payments.user_id', '=', 'users.id')
+            ->where('payments.cash_session_id', $openSession->id)
+            ->where('payments.status', 'completed')
+            ->orderBy('payments.paid_at', 'desc')
+            ->select(
+                'payments.uuid',
+                'payments.payment_number',
+                'payments.method_code',
+                'payments.amount',
+                'payments.tip_amount',
+                'payments.total_amount',
+                'payments.reference_code',
+                'payments.paid_at',
+                'orders.order_number',
+                'restaurant_tables.table_number',
+                'users.name as cashier_name'
+            )
+            ->get()
+            ->map(function ($p) {
+                return [
+                    'uuid' => $p->uuid,
+                    'payment_number' => $p->payment_number,
+                    'method_code' => $p->method_code,
+                    'amount' => (float) $p->amount,
+                    'tip_amount' => (float) $p->tip_amount,
+                    'total_amount' => (float) $p->total_amount,
+                    'reference_code' => $p->reference_code,
+                    'paid_at' => $p->paid_at,
+                    'order_number' => $p->order_number,
+                    'table_number' => $p->table_number,
+                    'cashier_name' => $p->cashier_name,
+                ];
+            });
+
+        // Resumen por método
+        $summary = [
+            'cash' => ['amount' => 0.0, 'tips' => 0.0, 'count' => 0],
+            'card' => ['amount' => 0.0, 'tips' => 0.0, 'count' => 0],
+            'transfer' => ['amount' => 0.0, 'tips' => 0.0, 'count' => 0],
+            'gift_card' => ['amount' => 0.0, 'tips' => 0.0, 'count' => 0],
+        ];
+
+        foreach ($payments as $p) {
+            $key = match ($p['method_code']) {
+                'CASH' => 'cash',
+                'CARD' => 'card',
+                'TRANSFER' => 'transfer',
+                'GIFT_CARD' => 'gift_card',
+                default => null,
+            };
+            if ($key) {
+                $summary[$key]['amount'] += $p['amount'];
+                $summary[$key]['tips'] += $p['tip_amount'];
+                $summary[$key]['count']++;
+            }
+        }
+
+        $totalSales = array_sum(array_column($summary, 'amount'));
+        $totalTips = array_sum(array_column($summary, 'tips'));
+
+        return response()->json([
+            'data' => [
+                'session' => [
+                    'uuid' => $openSession->uuid,
+                    'session_number' => $openSession->session_number,
+                    'opening_amount' => (float) $openSession->opening_amount,
+                    'opened_at' => $openSession->opened_at?->toIso8601String(),
+                    'user_name' => $openSession->user?->name,
+                ],
+                'payments' => $payments,
+                'summary' => [
+                    'by_method' => $summary,
+                    'total_sales' => $totalSales,
+                    'total_tips' => $totalTips,
+                    'total_grand' => $totalSales + $totalTips,
+                    'total_cash_expected' => (float) $openSession->opening_amount
+                        + $summary['cash']['amount'] + $summary['cash']['tips'],
+                    'transactions_count' => $payments->count(),
+                ],
+            ],
+        ]);
+    }
 }

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { paymentsService } from "@/services/paymentsService";
-import type { PaymentMethod, CashierDashboard } from "@/types/payments";
+import type { PaymentMethod, CashierDashboard, SessionPaymentsData } from "@/types/payments";
 import type { TableBill } from "@/types/tableBill";
 
 const METHODS_KEY = ["payment-methods"];
@@ -95,5 +95,15 @@ export function useChargeTable() {
       queryClient.invalidateQueries({ queryKey: TABLES_WITH_BILLS_KEY });
       queryClient.invalidateQueries({ queryKey: DASHBOARD_KEY });
     },
+  });
+}
+
+export function useSessionPayments(enabled: boolean = true) {
+  return useQuery<SessionPaymentsData, Error>({
+    queryKey: ["cashier", "session-payments"],
+    queryFn: paymentsService.getSessionPayments,
+    enabled,
+    refetchInterval: 10000,
+    staleTime: 3000,
   });
 }
