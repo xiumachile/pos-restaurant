@@ -5,6 +5,7 @@ import {
   useOpenSession,
   useCloseSession,
   useInvalidateCashier,
+  useTipSummary,
 } from "@/hooks/usePayments";
 import { formatPrice } from "@/types/catalog";
 import {
@@ -47,6 +48,7 @@ export function CashSessionStatus({ session }: CashSessionStatusProps) {
   const openSession = useOpenSession();
   const closeSession = useCloseSession();
   const invalidate = useInvalidateCashier();
+  const { data: tipSummary } = useTipSummary(!!session);
 
   const handleOpen = async () => {
     const amount = parseFloat(openingAmount);

@@ -36,6 +36,7 @@ export function CashCloseWizard({
   expectedAmount,
   pendingTips,
 }: CashCloseWizardProps) {
+  console.log("🔍 CashCloseWizard props:", { pendingTips, expectedAmount });
   const queryClient = useQueryClient();
   const [step, setStep] = useState<WizardStep>(1);
   const [generatedPayouts, setGeneratedPayouts] = useState<any[]>([]);
