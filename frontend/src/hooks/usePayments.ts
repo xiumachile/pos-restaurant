@@ -107,3 +107,40 @@ export function useSessionPayments(enabled: boolean = true) {
     staleTime: 3000,
   });
 }
+
+import { billsService } from "@/services/billsService";
+import type { Bill, SplitPayload, PayBillPayload } from "@/types/bills";
+
+export function useBills(orderUuid: string | null) {
+  return useQuery<Bill[], Error>({
+    queryKey: ["bills", orderUuid],
+    queryFn: () => billsService.listBills(orderUuid!),
+    enabled: !!orderUuid,
+    staleTime: 3000,
+  });
+}
+
+export function useSplitOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ orderUuid, payload }: { orderUuid: string; payload: SplitPayload }) =>
+      billsService.splitOrder(orderUuid, payload),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["bills", variables.orderUuid] });
+      queryClient.invalidateQueries({ queryKey: ["cashier", "tables-with-bills"] });
+    },
+  });
+}
+
+export function usePayBill() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ billUuid, payload }: { billUuid: string; payload: PayBillPayload }) =>
+      billsService.payBill(billUuid, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bills"] });
+      queryClient.invalidateQueries({ queryKey: ["cashier", "tables-with-bills"] });
+      queryClient.invalidateQueries({ queryKey: ["cashier", "dashboard"] });
+    },
+  });
+}

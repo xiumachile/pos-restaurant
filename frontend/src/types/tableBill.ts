@@ -1,3 +1,5 @@
+import type { Bill } from "@/types/bills";
+
 export interface TableBillOrderItem {
   uuid: string;
   name: string;
@@ -17,6 +19,7 @@ export interface TableBillOrder {
   waiter_name: string | null;
   served_at: string | null;
   items: TableBillOrderItem[];
+  bills: Bill[];
 }
 
 export interface TableBill {
