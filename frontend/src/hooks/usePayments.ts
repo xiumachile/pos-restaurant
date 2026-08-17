@@ -144,3 +144,44 @@ export function usePayBill() {
     },
   });
 }
+
+import { cashierService } from "@/services/cashierService";
+import type { CashReport, SessionHistoryItem } from "@/types/cashier";
+
+const X_REPORT_KEY = ["cashier", "x-report"];
+const HISTORY_KEY = ["cashier", "sessions-history"];
+
+export function useXReport(enabled: boolean = false) {
+  return useQuery<CashReport, Error>({
+    queryKey: X_REPORT_KEY,
+    queryFn: cashierService.getXReport,
+    enabled,
+    staleTime: 5000,
+  });
+}
+
+export function useZReport(sessionUuid: string | null, enabled: boolean = false) {
+  return useQuery<CashReport, Error>({
+    queryKey: ["cashier", "z-report", sessionUuid],
+    queryFn: () => cashierService.getZReport(sessionUuid!),
+    enabled: enabled && !!sessionUuid,
+    staleTime: Infinity,
+  });
+}
+
+export function useSessionsHistory(enabled: boolean = true) {
+  return useQuery<SessionHistoryItem[], Error>({
+    queryKey: HISTORY_KEY,
+    queryFn: () => cashierService.getSessionsHistory(),
+    enabled,
+    staleTime: 30000,
+  });
+}
+
+export function useInvalidateCashierReports() {
+  const queryClient = useQueryClient();
+  return () => {
+    queryClient.invalidateQueries({ queryKey: X_REPORT_KEY });
+    queryClient.invalidateQueries({ queryKey: HISTORY_KEY });
+  };
+}

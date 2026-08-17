@@ -6,6 +6,7 @@ use Modules\Cashier\Interfaces\Controllers\CashMovementController;
 use Modules\Cashier\Interfaces\Controllers\CashCountController;
 use Modules\Cashier\Interfaces\Controllers\CashierDashboardController;
 use Modules\Cashier\Interfaces\Controllers\CashierTablesController;
+use Modules\Cashier\Interfaces\Controllers\CashierReportController;
 use App\Shared\Http\Middleware\TenantContextMiddleware;
 
 // Rutas de Caja que NO necesitan middleware idempotent
@@ -29,6 +30,18 @@ Route::prefix('v1/cashier')->middleware(['auth:api', TenantContextMiddleware::cl
 
     Route::post('/bills/{billUuid}/pay', [CashierTablesController::class, 'payBill'])
         ->name('cashier.bills.pay');
+
+    // ============================================
+    // Reportes de caja
+    // ============================================
+    Route::get('/reports/x-report', [CashierReportController::class, 'xReport'])
+        ->name('cashier.reports.x-report');
+
+    Route::get('/reports/z-report/{uuid}', [CashierReportController::class, 'zReport'])
+        ->name('cashier.reports.z-report');
+
+    Route::get('/sessions/history', [CashierReportController::class, 'history'])
+        ->name('cashier.sessions.history');
 });
 
 // Rutas que SÍ necesitan idempotencia
