@@ -5,6 +5,7 @@ import { OrderTakingPage } from "@/pages/OrderTakingPage";
 import { CatalogPage } from "@/pages/CatalogPage";
 import { KitchenPage } from "@/pages/KitchenPage";
 import { CashierPage } from "@/pages/CashierPage";
+import { TipSettingsPage } from "@/pages/settings/TipSettingsPage";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuthStore } from "@/store/useAuthStore";
 
@@ -27,9 +28,28 @@ function ReportsPage() {
 function SettingsPage() {
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-4">Configuración</h1>
-      <div className="bg-slate-800 rounded-lg p-8 text-center">
-        <p className="text-slate-400">🚧 En construcción</p>
+      <h1 className="text-3xl font-bold mb-6">Configuración</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <a
+          href="/settings/tips"
+          className="bg-slate-800 hover:bg-slate-700 rounded-lg p-6 transition-colors border border-slate-700"
+        >
+          <div className="text-2xl mb-2">💰</div>
+          <h2 className="font-bold text-lg mb-1">Propinas</h2>
+          <p className="text-sm text-slate-400">
+            Configura cómo se reparten las propinas
+          </p>
+        </a>
+        <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700/50 opacity-50">
+          <div className="text-2xl mb-2">🖨️</div>
+          <h2 className="font-bold text-lg mb-1">Impresoras</h2>
+          <p className="text-sm text-slate-400">🚧 Próximamente</p>
+        </div>
+        <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700/50 opacity-50">
+          <div className="text-2xl mb-2">👥</div>
+          <h2 className="font-bold text-lg mb-1">Usuarios</h2>
+          <p className="text-sm text-slate-400">🚧 Próximamente</p>
+        </div>
       </div>
     </div>
   );
@@ -54,6 +74,7 @@ export const router = createBrowserRouter([
           { path: "cashier", element: <CashierPage /> },
           { path: "reports", element: <ReportsPage /> },
           { path: "settings", element: <SettingsPage /> },
+          { path: "settings/tips", element: <TipSettingsPage /> },
         ],
       },
     ],

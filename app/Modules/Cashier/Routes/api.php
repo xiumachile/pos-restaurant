@@ -7,6 +7,7 @@ use Modules\Cashier\Interfaces\Controllers\CashCountController;
 use Modules\Cashier\Interfaces\Controllers\CashierDashboardController;
 use Modules\Cashier\Interfaces\Controllers\CashierTablesController;
 use Modules\Cashier\Interfaces\Controllers\CashierReportController;
+use Modules\Cashier\Interfaces\Controllers\TipPolicyController;
 use App\Shared\Http\Middleware\TenantContextMiddleware;
 
 // Rutas de Caja que NO necesitan middleware idempotent
@@ -42,6 +43,15 @@ Route::prefix('v1/cashier')->middleware(['auth:api', TenantContextMiddleware::cl
 
     Route::get('/sessions/history', [CashierReportController::class, 'history'])
         ->name('cashier.sessions.history');
+
+    // ============================================
+    // Configuración de políticas de propinas
+    // ============================================
+    Route::get('/tip-policy', [TipPolicyController::class, 'show'])
+        ->name('cashier.tip-policy.show');
+
+    Route::put('/tip-policy', [TipPolicyController::class, 'update'])
+        ->name('cashier.tip-policy.update');
 });
 
 // Rutas que SÍ necesitan idempotencia
