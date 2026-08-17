@@ -4,7 +4,6 @@ import type { PaymentMethod } from "@/types/payments";
 import {
   usePaymentMethods,
   useChargeTable,
-  useTablesWithBills,
 } from "@/hooks/usePayments";
 import { formatPrice } from "@/types/catalog";
 import {
@@ -19,7 +18,9 @@ import {
   Receipt,
   Users,
   Clock,
+  Printer,
 } from "lucide-react";
+import { PrintablePrecuenta } from "./PrintablePrecuenta";
 
 interface TableBillModalProps {
   tableBill: TableBill;
@@ -47,7 +48,6 @@ export function TableBillModal({
 
   const { data: methods = [], isLoading: loadingMethods } = usePaymentMethods();
   const chargeTable = useChargeTable();
-  const { refetch: refetchTables } = useTablesWithBills();
 
   const grandTotal = useMemo(() => {
     const tip = parseFloat(tipAmount) || 0;
@@ -60,11 +60,9 @@ export function TableBillModal({
     return Math.max(0, received - grandTotal);
   }, [receivedAmount, grandTotal, selectedMethod]);
 
-  // Validar si el botón debe estar deshabilitado
   const isButtonDisabled = useMemo(() => {
     if (!selectedMethod || chargeTable.isPending) return true;
     
-    // Para efectivo: validar monto recibido
     if (selectedMethod.type === "cash") {
       return (parseFloat(receivedAmount) || 0) < grandTotal;
     }
@@ -72,7 +70,6 @@ export function TableBillModal({
     return false;
   }, [selectedMethod, chargeTable.isPending, receivedAmount, grandTotal]);
 
-  // Agrupar items de todos los pedidos por nombre
   const aggregatedItems = useMemo(() => {
     const map = new Map<
       string,
@@ -113,9 +110,6 @@ export function TableBillModal({
         },
       });
       
-      // Forzar refetch inmediato de la lista de mesas
-      await refetchTables();
-      
       onSuccess();
       onClose();
     } catch (e) {
@@ -123,17 +117,25 @@ export function TableBillModal({
     }
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   if (!isOpen) return null;
 
   return (
     <>
+      {/* Componente imprimible (oculto en pantalla, visible al imprimir) */}
+      <div className="hidden">
+        <PrintablePrecuenta tableBill={tableBill} />
+      </div>
+
       <div className="fixed inset-0 bg-black/70 z-50" onClick={onClose} />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div
           className="bg-slate-900 rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
           <div className="sticky top-0 bg-slate-900 flex items-center justify-between p-6 border-b border-slate-700">
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -162,10 +164,19 @@ export function TableBillModal({
           <div className="p-6 space-y-6">
             {/* Items agrupados */}
             <div className="bg-slate-800 rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-slate-400 mb-3 flex items-center gap-2">
-                <Receipt size={14} />
-                Consumo de la mesa
-              </h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-slate-400 flex items-center gap-2">
+                  <Receipt size={14} />
+                  Consumo de la mesa
+                </h3>
+                <button
+                  onClick={handlePrint}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 rounded-lg text-white text-xs font-medium transition-colors"
+                >
+                  <Printer size={14} />
+                  Imprimir Precuenta
+                </button>
+              </div>
               <div className="space-y-1">
                 {aggregatedItems.map((item) => (
                   <div
@@ -205,7 +216,6 @@ export function TableBillModal({
               </div>
             </div>
 
-            {/* Propina */}
             <div>
               <label className="block text-sm text-slate-400 mb-1">
                 Propina (opcional)
@@ -226,7 +236,6 @@ export function TableBillModal({
               )}
             </div>
 
-            {/* Método de pago */}
             <div>
               <h3 className="text-sm font-semibold text-slate-400 mb-3">
                 Método de pago
@@ -268,7 +277,6 @@ export function TableBillModal({
               )}
             </div>
 
-            {/* Monto recibido solo para efectivo */}
             {selectedMethod?.type === "cash" && (
               <div className="bg-green-900/20 border border-green-700/40 rounded-lg p-4 space-y-3">
                 <div>
@@ -303,7 +311,6 @@ export function TableBillModal({
               </div>
             )}
 
-            {/* Error */}
             {chargeTable.isError && (
               <div className="bg-red-900/30 border border-red-700 rounded-lg p-3 text-sm text-red-300 flex items-start gap-2">
                 <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
@@ -314,7 +321,6 @@ export function TableBillModal({
               </div>
             )}
 
-            {/* Botones */}
             <div className="flex gap-3">
               <button
                 onClick={onClose}

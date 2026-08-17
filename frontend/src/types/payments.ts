@@ -21,6 +21,19 @@ export interface PaymentMethod {
   updated_at: string;
 }
 
+export interface PaymentBreakdownItem {
+  amount: number;
+  tips: number;
+  count: number;
+}
+
+export interface PaymentBreakdown {
+  cash: PaymentBreakdownItem;
+  card: PaymentBreakdownItem;
+  transfer: PaymentBreakdownItem;
+  gift_card: PaymentBreakdownItem;
+}
+
 export interface CashSession {
   uuid: string;
   session_number: string;
@@ -42,6 +55,46 @@ export interface CashSession {
     name: string;
     code: string;
   } | null;
+  breakdown?: PaymentBreakdown;
+  total_sales_amount?: number;
+  total_tips?: number;
+  total_transactions?: number;
+  total_cash_expected?: number;
+  total_grand_expected?: number;
+  hours_open?: number;
+  withdrawals_total?: number;
+  deposits_total?: number;
+  movements_count?: number;
+}
+
+export interface CashierDashboard {
+  current_session: CashSession | null;
+  registers: Array<{
+    uuid: string;
+    name: string;
+    code: string;
+    is_available: boolean;
+    is_busy: boolean;
+    current_session_uuid: string | null;
+  }>;
+  statistics_today: {
+    sessions_today: number;
+    sessions_open: number;
+    sessions_closed: number;
+    counts_today: number;
+    discrepant_counts_today: number;
+    movements_today: number;
+    total_withdrawals_today: number;
+    total_deposits_today: number;
+    payments_today?: {
+      cash: number;
+      card: number;
+      transfer: number;
+      gift_card: number;
+      tips: number;
+      total: number;
+    };
+  };
 }
 
 export interface ServedOrder {
@@ -71,28 +124,6 @@ export interface ServedOrder {
   total: number;
   served_at: string;
   created_at: string;
-}
-
-export interface CashierDashboard {
-  current_session: CashSession | null;
-  registers: Array<{
-    uuid: string;
-    name: string;
-    code: string;
-    is_available: boolean;
-    is_busy: boolean;
-    current_session_uuid: string | null;
-  }>;
-  statistics_today: {
-    sessions_today: number;
-    sessions_open: number;
-    sessions_closed: number;
-    counts_today: number;
-    discrepant_counts_today: number;
-    movements_today: number;
-    total_withdrawals_today: number;
-    total_deposits_today: number;
-  };
 }
 
 export interface CreatePaymentPayload {
