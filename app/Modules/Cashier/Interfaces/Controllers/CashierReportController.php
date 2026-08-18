@@ -161,7 +161,7 @@ class CashierReportController extends Controller
         $totalTips = array_sum(array_column($breakdown, 'tips'));
         $totalTransactions = array_sum(array_column($breakdown, 'count'));
 
-        // Propinas entregadas durante la sesión (salen de caja)
+        // Propinas entregadas durante la sesión
         $tipPayouts = TipPayout::where('cash_session_id', $session->id)
             ->valid()
             ->get();
@@ -169,26 +169,27 @@ class CashierReportController extends Controller
         $totalTipsPaidOut = (float) $tipPayouts->sum('amount');
         $cashTipsPaidOut = (float) $tipPayouts->where('payment_method', 'cash')->sum('amount');
         
-        // Propinas con tarjeta que se entregan en efectivo (salen de caja)
-        // Según política, pueden salir de caja o ir a nómina
+        // Política de propinas
         $policy = \Modules\Cashier\Domain\Entities\TipPolicy::resolveForBranch(
             $session->company_id, 
             $session->branch_id
         );
-        
-        // Si la política es cash_payout, las propinas de tarjeta también salen de caja
-        $cardTipsAsCash = $policy->cardTipsLeaveRegister() 
-            ? (float) $tipPayouts->where('payment_method', 'cash')->sum('amount') 
-            : 0;
 
-        // Esperado en caja:
-        // Inicial + Ventas efectivo + Propinas efectivo recibidas - Propinas entregadas
-        // Las propinas efectivo recibidas ENTRAN a caja cuando el cliente paga
-        // Las propinas entregadas SALEN de caja cuando se dan al garzón
-        $totalCashExpected = (float) $session->opening_amount
-            + $breakdown['cash']['amount']        // Ventas efectivo
-            + $breakdown['cash']['tips']           // + Propinas efectivo recibidas
-            - $cashTipsPaidOut;                    // - Propinas entregadas
+        // LÓGICA CORRECTA para Reporte Z:
+        // Si hay TipPayouts en la sesión = propinas YA se entregaron = NO están en caja
+        // Si NO hay TipPayouts = propinas AÚN están en caja
+        $hasPayouts = $tipPayouts->count() > 0;
+        
+        if ($hasPayouts) {
+            // Propinas ya entregadas: esperado = inicial + ventas efectivo (sin propinas)
+            $totalCashExpected = (float) $session->opening_amount
+                + $breakdown['cash']['amount'];  // Solo ventas efectivo
+        } else {
+            // Propinas aún en caja: esperado = inicial + ventas + propinas
+            $totalCashExpected = (float) $session->opening_amount
+                + $breakdown['cash']['amount']   // Ventas efectivo
+                + $breakdown['cash']['tips'];     // + Propinas efectivo (aún en caja)
+        }
 
         // Movimientos de caja
         $movements = DB::table('cash_movements')
