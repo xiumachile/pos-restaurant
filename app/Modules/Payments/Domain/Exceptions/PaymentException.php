@@ -43,4 +43,15 @@ class PaymentException extends Exception
             422
         );
     }
+
+    /**
+     * Excepción cuando hay propinas pendientes de entregar al cerrar caja.
+     */
+    public static function tipsNotDelivered(float $pending): self
+    {
+        return new self(
+            "Hay \${$pending} en propinas pendientes de entregar. Debes entregar todas las propinas antes de cerrar caja.",
+            422
+        );
+    }
 }

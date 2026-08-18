@@ -69,8 +69,18 @@ class CashSessionService
                 throw PaymentException::cashSessionNotOpen();
             }
 
-            // Calcular monto esperado
-            $expected = $session->calculateExpectedAmount();
+            // ═══════════════════════════════════════════════════
+            // VALIDACIÓN: Todas las propinas deben estar entregadas
+            // ═══════════════════════════════════════════════════
+            $pendingTips = $session->calculatePendingTips();
+            if ($pendingTips > 0.01) {
+                throw PaymentException::tipsNotDelivered($pendingTips);
+            }
+
+            // ═══════════════════════════════════════════════════
+            // CÁLCULO NETO: esperado SIN propinas (ya entregadas)
+            // ═══════════════════════════════════════════════════
+            $expected = $session->calculateExpectedAmountForClose();
 
             // Calcular diferencia
             $difference = round($closingAmount - $expected, 2);

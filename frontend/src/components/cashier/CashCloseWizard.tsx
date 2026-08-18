@@ -68,12 +68,11 @@ export function CashCloseWizard({
 
   const hasPendingTips = pendingTips > 0;
 
-  // LÓGICA SIMPLIFICADA:
-  // Las propinas SIEMPRE se entregan antes del cierre (obligatorio)
-  // Por lo tanto, finalExpected = expectedAmount - propinas entregadas
-  const finalExpected = useMemo(() => {
-    return expectedAmount - pendingTips;
-  }, [expectedAmount, pendingTips]);
+  // LÓGICA FINAL:
+  // expectedAmount YA viene NETO (sin propinas) desde el parent
+  // Las propinas se entregan durante el wizard
+  // Por lo tanto, finalExpected = expectedAmount (sin modificaciones)
+  const finalExpected = expectedAmount;
 
   const denominations: DenominationCount[] = useMemo(
     () =>

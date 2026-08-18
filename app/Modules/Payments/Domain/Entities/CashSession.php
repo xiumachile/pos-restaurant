@@ -103,13 +103,48 @@ class CashSession extends Model
     /**
      * Calcula el monto esperado basado en los pagos registrados.
      */
+    /**
+     * Calcula el monto esperado BRUTO (informativo para dashboard).
+     * Incluye propinas porque asume que aún están en caja.
+     */
     public function calculateExpectedAmount(): float
     {
         $totalPayments = (float) $this->payments()
             ->where('status', 'completed')
-            ->sum('total_amount');
+            ->sum('total_amount');  // amount + tip_amount
 
         return (float) $this->opening_amount + $totalPayments;
+    }
+
+    /**
+     * Calcula el monto esperado NETO (para cierre de caja).
+     * EXCLUYE propinas porque al momento de cerrar ya deben estar entregadas.
+     * Solo incluye: opening + ventas (sin propinas)
+     */
+    public function calculateExpectedAmountForClose(): float
+    {
+        $salesOnly = (float) $this->payments()
+            ->where('status', 'completed')
+            ->sum('amount');  // Solo amount, SIN tip_amount
+
+        return (float) $this->opening_amount + $salesOnly;
+    }
+
+    /**
+     * Calcula el total de propinas pendientes de entregar en esta sesión.
+     */
+    public function calculatePendingTips(): float
+    {
+        $totalTips = (float) $this->payments()
+            ->where('status', 'completed')
+            ->where('tip_amount', '>', 0)
+            ->sum('tip_amount');
+
+        $paidOut = (float) \Modules\Cashier\Domain\Entities\TipPayout::where('cash_session_id', $this->id)
+            ->valid()
+            ->sum('amount');
+
+        return round($totalTips - $paidOut, 2);
     }
 
     /**

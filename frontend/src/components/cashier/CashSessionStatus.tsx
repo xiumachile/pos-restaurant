@@ -326,7 +326,7 @@ export function CashSessionStatus({ session }: CashSessionStatusProps) {
         isOpen={showCloseWizard}
         onClose={() => setShowCloseWizard(false)}
         sessionUuid={session?.uuid || ""}
-        expectedAmount={totalCashExpected}
+        expectedAmount={totalCashExpected - (tipSummary?.pending ?? 0)}
         pendingTips={tipSummary?.pending ?? 0}
       />
     </>
