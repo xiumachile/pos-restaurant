@@ -38,14 +38,19 @@ export function CashCloseWizard({
   // Datos en tiempo real del estado de propinas
   const { data: tipSummary } = useTipSummary(isOpen);
   
-  // Usar datos en tiempo real si están disponibles, sino las props
+  // PENDING: propinas que faltan por entregar (para validaciones)
   const realPendingTips = tipSummary?.pending ?? pendingTips;
   const hasPendingTips = realPendingTips > 0;
   
+  // TOTAL RECEIVED: propinas totales recibidas en la sesión
+  // ESTE es el monto que SIEMPRE debemos descontar del esperado
+  // Porque al momento del arqueo las propinas ya no están en caja
+  const totalTipsReceived = tipSummary?.tips_received?.total ?? 0;
+  
   console.log("🔍 CashCloseWizard:", { 
-    pendingTipsFromProps: pendingTips,
-    pendingTipsRealtime: realPendingTips,
     expectedAmount,
+    totalTipsReceived,
+    realPendingTips,
     hasPendingTips
   });
   
@@ -81,11 +86,12 @@ export function CashCloseWizard({
   const closeSession = useCloseSession();
   const invalidate = useInvalidateCashier();
 
-  // LÓGICA DINÁMICA:
-  // expectedAmount es BRUTO (incluye propinas) desde el parent
-  // Descontamos las propinas pendientes EN TIEMPO REAL
-  // Al generar entregas, realPendingTips baja y finalExpected también
-  const finalExpected = expectedAmount - realPendingTips;
+  // LÓGICA CORRECTA:
+  // expectedAmount es BRUTO (inicial + ventas efectivo + propinas)
+  // Las propinas siempre salen de caja antes del arqueo
+  // Por lo tanto, SIEMPRE restamos el TOTAL recibido (no el pendiente)
+  // Esto garantiza consistencia independientemente de cuándo se entregaron
+  const finalExpected = expectedAmount - totalTipsReceived;
 
   const denominations: DenominationCount[] = useMemo(
     () =>
@@ -405,6 +411,9 @@ export function CashCloseWizard({
                     </div>
                     <div className="text-xs text-slate-500 mt-1">
                       Inicial + Ventas efectivo
+                      {totalTipsReceived > 0 && (
+                        <> · -{formatPrice(totalTipsReceived)} propinas</>
+                      )}
                     </div>
                   </div>
                   <div className="text-center">
