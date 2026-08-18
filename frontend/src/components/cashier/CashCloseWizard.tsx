@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { tipWizardService } from "@/services/tipService";
-import { useCloseSession, useInvalidateCashier } from "@/hooks/usePayments";
+import { useCloseSession, useInvalidateCashier, useTipSummary } from "@/hooks/usePayments";
 import { CLP_DENOMINATIONS, type DenominationCount } from "@/types/cashier";
 import { formatPrice } from "@/types/catalog";
 import {
@@ -35,7 +35,19 @@ export function CashCloseWizard({
   expectedAmount,
   pendingTips,
 }: CashCloseWizardProps) {
-  console.log("🔍 CashCloseWizard props:", { pendingTips, expectedAmount });
+  // Datos en tiempo real del estado de propinas
+  const { data: tipSummary } = useTipSummary(isOpen);
+  
+  // Usar datos en tiempo real si están disponibles, sino las props
+  const realPendingTips = tipSummary?.pending ?? pendingTips;
+  const hasPendingTips = realPendingTips > 0;
+  
+  console.log("🔍 CashCloseWizard:", { 
+    pendingTipsFromProps: pendingTips,
+    pendingTipsRealtime: realPendingTips,
+    expectedAmount,
+    hasPendingTips
+  });
   
   const queryClient = useQueryClient();
   const [step, setStep] = useState<WizardStep>(1);
@@ -56,23 +68,24 @@ export function CashCloseWizard({
     mutationFn: tipWizardService.generatePayouts,
     onSuccess: (data) => {
       setGeneratedPayouts(data.payouts);
-      setTipsDelivered(true); // Si generó entregas, asumimos que las entregará
+      setTipsDelivered(true);
       setStep(2);
+      // Invalidar todas las queries de propinas para forzar refetch
       queryClient.invalidateQueries({ queryKey: ["cashier", "tip-payouts"] });
       queryClient.invalidateQueries({ queryKey: ["cashier", "tips-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["tips-by-waiter"] });
+      queryClient.invalidateQueries({ queryKey: ["cashier", "dashboard"] });
     },
   });
 
   const closeSession = useCloseSession();
   const invalidate = useInvalidateCashier();
 
-  const hasPendingTips = pendingTips > 0;
-
-  // LÓGICA FINAL:
-  // expectedAmount YA viene NETO (sin propinas) desde el parent
-  // Las propinas se entregan durante el wizard
-  // Por lo tanto, finalExpected = expectedAmount (sin modificaciones)
-  const finalExpected = expectedAmount;
+  // LÓGICA DINÁMICA:
+  // expectedAmount es BRUTO (incluye propinas) desde el parent
+  // Descontamos las propinas pendientes EN TIEMPO REAL
+  // Al generar entregas, realPendingTips baja y finalExpected también
+  const finalExpected = expectedAmount - realPendingTips;
 
   const denominations: DenominationCount[] = useMemo(
     () =>
@@ -207,8 +220,10 @@ export function CashCloseWizard({
                 {!hasPendingTips ? (
                   <div className="text-center py-8">
                     <CheckCircle2 size={48} className="mx-auto text-green-400 mb-3" />
-                    <h3 className="text-lg font-semibold mb-2">No hay propinas pendientes</h3>
-                    <p className="text-slate-400">Puedes continuar directamente al arqueo.</p>
+                    <h3 className="text-lg font-semibold mb-2">✅ No hay propinas pendientes</h3>
+                    <p className="text-slate-400">
+                      Todas las propinas ya fueron entregadas o no hay propinas en esta sesión.
+                    </p>
                   </div>
                 ) : loadingTips ? (
                   <div className="flex items-center justify-center py-12">
@@ -285,18 +300,28 @@ export function CashCloseWizard({
                   >
                     Cancelar
                   </button>
-                  <button
-                    onClick={handleGeneratePayouts}
-                    disabled={generatePayouts.isPending || !hasPendingTips}
-                    className="flex-1 px-4 py-3 bg-orange-500 hover:bg-orange-600 rounded-lg font-bold text-white disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {generatePayouts.isPending ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                      <DollarSign size={16} />
-                    )}
-                    Generar Entregas
-                  </button>
+                  {hasPendingTips ? (
+                    <button
+                      onClick={handleGeneratePayouts}
+                      disabled={generatePayouts.isPending}
+                      className="flex-1 px-4 py-3 bg-orange-500 hover:bg-orange-600 rounded-lg font-bold text-white disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {generatePayouts.isPending ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <DollarSign size={16} />
+                      )}
+                      Generar Entregas ({formatPrice(realPendingTips)})
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setStep(3)}
+                      className="flex-1 px-4 py-3 bg-green-500 hover:bg-green-600 rounded-lg font-bold text-white flex items-center justify-center gap-2"
+                    >
+                      <CheckCircle2 size={16} />
+                      Continuar al Arqueo
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -378,11 +403,9 @@ export function CashCloseWizard({
                     <div className="text-lg font-bold text-orange-400">
                       {formatPrice(finalExpected)}
                     </div>
-                    {hasPendingTips && (
-                      <div className="text-xs text-slate-500 mt-1">
-                        Propinas ya entregadas
-                      </div>
-                    )}
+                    <div className="text-xs text-slate-500 mt-1">
+                      Inicial + Ventas efectivo
+                    </div>
                   </div>
                   <div className="text-center">
                     <div className="text-xs text-slate-400 mb-1">CONTADO</div>
