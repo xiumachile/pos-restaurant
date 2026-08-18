@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { tipPayoutService } from "@/services/tipService";
+import { tipPayoutService, tipMaxService } from "@/services/tipService";
 import {
   useTipPayouts,
   useTipSummary,
@@ -40,6 +40,25 @@ export function TipPayoutModal({ isOpen, onClose }: TipPayoutModalProps) {
     queryFn: tipPayoutService.listWaiters,
     enabled: isOpen,
   });
+  
+  // Obtener máximos pendientes por garzón
+  const { data: maxByWaiter = [] } = useQuery({
+    queryKey: ["tips-max-by-waiter"],
+    queryFn: tipMaxService.getMaxByWaiter,
+    enabled: isOpen,
+    refetchInterval: 10000,
+  });
+  
+  // Obtener máximo pendiente del garzón seleccionado
+  const selectedMax = useMemo(() => {
+    if (!selectedWaiter) return 0;
+    const found = maxByWaiter.find(m => m.waiter_id === selectedWaiter);
+    return found?.pending ?? 0;
+  }, [selectedWaiter, maxByWaiter]);
+  
+  // Validar que el monto no exceda el máximo
+  const amountValue = parseFloat(amount) || 0;
+  const amountExceedsMax = amountValue > selectedMax && selectedMax > 0;
 
   const createPayout = useCreateTipPayout();
   const voidPayout = useVoidTipPayout();
@@ -165,17 +184,36 @@ export function TipPayoutModal({ isOpen, onClose }: TipPayoutModalProps) {
 
                 <div>
                   <label className="block text-sm text-slate-400 mb-1">
-                    Monto
+                    Monto {selectedMax > 0 && (
+                      <span className="text-xs text-green-400 ml-2">
+                        Máximo: {formatPrice(selectedMax)}
+                      </span>
+                    )}
                   </label>
                   <input
                     type="number"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     min="0.01"
+                    max={selectedMax || undefined}
                     step="0.01"
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-bold focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className={`w-full px-3 py-2 bg-slate-900 border rounded-lg text-white font-bold focus:outline-none focus:ring-2 ${
+                      amountExceedsMax
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-slate-700 focus:ring-orange-500"
+                    }`}
                     placeholder="0"
                   />
+                  {amountExceedsMax && (
+                    <p className="text-xs text-red-400 mt-1">
+                      ⚠️ No puedes entregar más de {formatPrice(selectedMax)}
+                    </p>
+                  )}
+                  {selectedMax === 0 && selectedWaiter && (
+                    <p className="text-xs text-amber-400 mt-1">
+                      ⚠️ Este garzón no tiene propinas pendientes
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -217,7 +255,13 @@ export function TipPayoutModal({ isOpen, onClose }: TipPayoutModalProps) {
                   </button>
                   <button
                     onClick={handleSubmit}
-                    disabled={!selectedWaiter || !amount || createPayout.isPending}
+                    disabled={
+                      !selectedWaiter || 
+                      !amount || 
+                      createPayout.isPending || 
+                      amountExceedsMax ||
+                      selectedMax === 0
+                    }
                     className="flex-1 px-3 py-2 bg-orange-500 hover:bg-orange-600 rounded-lg text-sm font-medium text-white disabled:opacity-50 flex items-center justify-center gap-1"
                   >
                     {createPayout.isPending ? (

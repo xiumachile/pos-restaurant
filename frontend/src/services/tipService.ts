@@ -81,3 +81,12 @@ export const tipWizardService = {
     return (response.data as any).data;
   },
 };
+
+export const tipMaxService = {
+  async getMaxByWaiter(): Promise<Array<{ waiter_id: number; pending: number }>> {
+    const response = await apiClient.get<{ data: Array<{ waiter_id: number; pending: number }> }>(
+      "/cashier/tips/max-by-waiter"
+    );
+    return (response.data as any).data || [];
+  },
+};

@@ -74,7 +74,13 @@ class CashierDashboardController extends Controller
             $totalSalesAmount = array_sum(array_column($breakdown, 'amount'));
             $totalTips = array_sum(array_column($breakdown, 'tips'));
             $totalTransactions = array_sum(array_column($breakdown, 'count'));
-            $totalCashExpected = (float) $openSession->opening_amount + $breakdown['cash']['amount'] + $breakdown['cash']['tips'];
+            
+            // EXPECTED BRUTO: inicial + ventas efectivo + propinas efectivo
+            // Este es el monto MÁXIMO que puede haber en caja (si no se han entregado propinas)
+            // El wizard descontará las propinas al momento del cierre según si fueron entregadas o no
+            $totalCashExpected = (float) $openSession->opening_amount 
+                + $breakdown['cash']['amount'] 
+                + $breakdown['cash']['tips'];
 
             $sessionData = [
                 'uuid' => $openSession->uuid,

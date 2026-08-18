@@ -69,8 +69,17 @@ Route::prefix('v1/cashier')->middleware(['auth:api', TenantContextMiddleware::cl
     Route::get('/tips/summary', [TipPayoutController::class, 'summary'])
         ->name('cashier.tips.summary');
 
+    Route::get('/tips/max-by-waiter', [TipPayoutController::class, 'maxByWaiter'])
+        ->name('cashier.tips.max-by-waiter');
+
     Route::get('/waiters', [TipPayoutController::class, 'waiters'])
         ->name('cashier.waiters');
+
+    Route::get('/tips/by-waiter', [TipPayoutController::class, 'byWaiter'])
+        ->name('cashier.tips.by-waiter');
+
+    Route::post('/tips/generate-payouts', [TipPayoutController::class, 'generatePayouts'])
+        ->name('cashier.tips.generate-payouts');
 });
 
 // Rutas que SÍ necesitan idempotencia

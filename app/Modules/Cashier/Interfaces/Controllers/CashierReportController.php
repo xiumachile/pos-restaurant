@@ -181,10 +181,14 @@ class CashierReportController extends Controller
             ? (float) $tipPayouts->where('payment_method', 'cash')->sum('amount') 
             : 0;
 
-        // Esperado en caja: inicial + ventas efectivo - propinas entregadas en efectivo
+        // Esperado en caja:
+        // Inicial + Ventas efectivo + Propinas efectivo recibidas - Propinas entregadas
+        // Las propinas efectivo recibidas ENTRAN a caja cuando el cliente paga
+        // Las propinas entregadas SALEN de caja cuando se dan al garzón
         $totalCashExpected = (float) $session->opening_amount
-            + $breakdown['cash']['amount']
-            - $cashTipsPaidOut;
+            + $breakdown['cash']['amount']        // Ventas efectivo
+            + $breakdown['cash']['tips']           // + Propinas efectivo recibidas
+            - $cashTipsPaidOut;                    // - Propinas entregadas
 
         // Movimientos de caja
         $movements = DB::table('cash_movements')

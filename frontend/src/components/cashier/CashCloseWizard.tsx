@@ -15,7 +15,6 @@ import {
   Banknote,
   Coins,
   ChevronRight,
-  AlertCircle,
 } from "lucide-react";
 import { PrintableTipVouchers } from "./PrintableTipVouchers";
 
@@ -23,7 +22,7 @@ interface CashCloseWizardProps {
   isOpen: boolean;
   onClose: () => void;
   sessionUuid: string;
-  expectedAmount: number; // Esperado SIN descontar propinas
+  expectedAmount: number; // Esperado BRUTO (incluye propinas)
   pendingTips: number;
 }
 
@@ -37,6 +36,7 @@ export function CashCloseWizard({
   pendingTips,
 }: CashCloseWizardProps) {
   console.log("🔍 CashCloseWizard props:", { pendingTips, expectedAmount });
+  
   const queryClient = useQueryClient();
   const [step, setStep] = useState<WizardStep>(1);
   const [generatedPayouts, setGeneratedPayouts] = useState<any[]>([]);
@@ -44,6 +44,7 @@ export function CashCloseWizard({
   const [counts, setCounts] = useState<Record<number, string>>({});
   const [useDenominations, setUseDenominations] = useState(false);
   const [notes, setNotes] = useState("");
+  const [tipsDelivered, setTipsDelivered] = useState<boolean | null>(null);
 
   const { data: tipsByWaiter, isLoading: loadingTips } = useQuery({
     queryKey: ["tips-by-waiter"],
@@ -55,6 +56,7 @@ export function CashCloseWizard({
     mutationFn: tipWizardService.generatePayouts,
     onSuccess: (data) => {
       setGeneratedPayouts(data.payouts);
+      setTipsDelivered(true); // Si generó entregas, asumimos que las entregará
       setStep(2);
       queryClient.invalidateQueries({ queryKey: ["cashier", "tip-payouts"] });
       queryClient.invalidateQueries({ queryKey: ["cashier", "tips-summary"] });
@@ -66,8 +68,17 @@ export function CashCloseWizard({
 
   const hasPendingTips = pendingTips > 0;
 
-  // Esperado final = esperado sin propinas - propinas entregadas
-  const finalExpected = expectedAmount - pendingTips;
+  // LÓGICA CORRECTA:
+  // expectedAmount es BRUTO (incluye propinas)
+  // Si tipsDelivered = true: descontar propinas (ya las entregó)
+  // Si tipsDelivered = false: mantener bruto (aún tiene propinas en caja)
+  // Si tipsDelivered = null: no permitir continuar
+  const finalExpected = useMemo(() => {
+    if (!hasPendingTips) return expectedAmount; // Sin propinas, esperado = bruto
+    if (tipsDelivered === true) return expectedAmount - pendingTips; // Descontar
+    if (tipsDelivered === false) return expectedAmount; // Mantener bruto
+    return expectedAmount; // Default (aún no respondió)
+  }, [expectedAmount, pendingTips, tipsDelivered, hasPendingTips]);
 
   const denominations: DenominationCount[] = useMemo(
     () =>
@@ -97,14 +108,36 @@ export function CashCloseWizard({
     generatePayouts.mutate();
   };
 
+  const handleContinueToArqueo = () => {
+    // Si hay propinas pero no generó entregas, debe responder si las entregó
+    if (hasPendingTips && generatedPayouts.length === 0) {
+      if (tipsDelivered === null) {
+        alert("Indica si ya entregaste las propinas antes de continuar");
+        return;
+      }
+    }
+    setStep(3);
+  };
+
   const handleConfirmClose = async () => {
+    // Validar que respondió sobre propinas si hay pendientes
+    if (hasPendingTips && tipsDelivered === null) {
+      alert("Indica si ya entregaste las propinas");
+      return;
+    }
+
     const denominationsSummary = denominations
       .filter((d) => d.quantity > 0)
       .map((d) => `${d.quantity}×${d.label}`)
       .join(", ");
 
+    const tipsNote = hasPendingTips 
+      ? (tipsDelivered ? "Propinas entregadas antes del cierre" : "Propinas pendientes en caja")
+      : "Sin propinas pendientes";
+
     const finalNotes = [
       denominationsSummary ? `Arqueo: ${denominationsSummary}` : "",
+      tipsNote,
       notes || "",
     ].filter(Boolean).join(" | ");
 
@@ -336,7 +369,7 @@ export function CashCloseWizard({
                     Imprimir Vouchers
                   </button>
                   <button
-                    onClick={() => setStep(3)}
+                    onClick={handleContinueToArqueo}
                     className="flex-1 px-4 py-3 bg-orange-500 hover:bg-orange-600 rounded-lg font-bold text-white flex items-center justify-center gap-2"
                   >
                     <ChevronRight size={16} />
@@ -349,6 +382,65 @@ export function CashCloseWizard({
             {/* PASO 3: Arqueo */}
             {step === 3 && (
               <div className="space-y-4">
+                {/* Pregunta sobre propinas si hay pendientes y no se generaron automáticamente */}
+                {hasPendingTips && generatedPayouts.length === 0 && (
+                  <div className="bg-amber-900/30 border border-amber-700/40 rounded-lg p-4 space-y-3">
+                    <div className="flex items-start gap-3">
+                      <DollarSign size={20} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <div className="font-semibold text-amber-300">
+                          ¿Ya entregaste las propinas ({formatPrice(pendingTips)})?
+                        </div>
+                        <p className="text-sm text-amber-200/80 mt-1">
+                          Si las entregaste, el monto esperado se reduce. Si aún las tienes, mantenlas en caja.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label
+                        className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                          tipsDelivered === true
+                            ? "border-green-500 bg-green-500/10"
+                            : "border-slate-700 bg-slate-800 hover:border-slate-600"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          checked={tipsDelivered === true}
+                          onChange={() => setTipsDelivered(true)}
+                        />
+                        <div className="flex-1">
+                          <div className="font-semibold">SÍ - Ya las entregué</div>
+                          <div className="text-xs text-slate-400">
+                            Esperado: {formatPrice(expectedAmount - pendingTips)}
+                          </div>
+                        </div>
+                      </label>
+
+                      <label
+                        className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                          tipsDelivered === false
+                            ? "border-orange-500 bg-orange-500/10"
+                            : "border-slate-700 bg-slate-800 hover:border-slate-600"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          checked={tipsDelivered === false}
+                          onChange={() => setTipsDelivered(false)}
+                        />
+                        <div className="flex-1">
+                          <div className="font-semibold">NO - Aún las tengo en caja</div>
+                          <div className="text-xs text-slate-400">
+                            Esperado: {formatPrice(expectedAmount)} (incluye propinas)
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
                 {/* Resumen */}
                 <div className="bg-slate-800/50 rounded-lg p-4 grid grid-cols-3 gap-3">
                   <div className="text-center">
@@ -356,6 +448,13 @@ export function CashCloseWizard({
                     <div className="text-lg font-bold text-orange-400">
                       {formatPrice(finalExpected)}
                     </div>
+                    {hasPendingTips && (
+                      <div className="text-xs text-slate-500 mt-1">
+                        {tipsDelivered === true && "Propinas descontadas"}
+                        {tipsDelivered === false && "Incluye propinas"}
+                        {tipsDelivered === null && "Selecciona arriba"}
+                      </div>
+                    )}
                   </div>
                   <div className="text-center">
                     <div className="text-xs text-slate-400 mb-1">CONTADO</div>
@@ -495,7 +594,11 @@ export function CashCloseWizard({
                   </button>
                   <button
                     onClick={handleConfirmClose}
-                    disabled={closeSession.isPending || total === 0}
+                    disabled={
+                      closeSession.isPending || 
+                      total === 0 || 
+                      (hasPendingTips && generatedPayouts.length === 0 && tipsDelivered === null)
+                    }
                     className="flex-1 px-4 py-3 bg-orange-500 hover:bg-orange-600 rounded-lg font-bold text-white disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {closeSession.isPending ? (
