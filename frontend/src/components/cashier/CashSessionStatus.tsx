@@ -117,14 +117,7 @@ export function CashSessionStatus({ session }: CashSessionStatusProps) {
                 <List size={12} />
                 Ventas
               </button>
-              <button
-                onClick={() => setShowTipPayouts(true)}
-                className="flex items-center gap-1 px-2.5 py-1 bg-green-500/20 hover:bg-green-500/30 border border-green-700/50 rounded text-green-300 text-xs font-medium transition-colors"
-                title="Entregas de propinas"
-              >
-                <DollarSign size={12} />
-                Propinas
-              </button>
+
               <button
                 onClick={() => setShowXReport(true)}
                 className="flex items-center gap-1 px-2.5 py-1 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-700/50 rounded text-purple-300 text-xs font-medium transition-colors"
