@@ -320,6 +320,15 @@ export function CashSessionStatus({ session }: CashSessionStatusProps) {
         isOpen={showTipPayouts}
         onClose={() => setShowTipPayouts(false)}
       />
+
+      {/* Wizard de cierre de caja */}
+      <CashCloseWizard
+        isOpen={showCloseWizard}
+        onClose={() => setShowCloseWizard(false)}
+        sessionUuid={session?.uuid || ""}
+        expectedAmount={totalCashExpected}
+        pendingTips={tipSummary?.pending ?? 0}
+      />
     </>
   );
 }
