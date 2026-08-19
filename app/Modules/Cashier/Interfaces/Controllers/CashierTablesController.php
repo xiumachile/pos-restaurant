@@ -108,6 +108,7 @@ class CashierTablesController extends Controller
 
         $validated = $request->validate([
             'payment_method_uuid' => ['required', 'uuid', 'exists:payment_methods,uuid'],
+            'amount' => ['nullable', 'numeric', 'min:0.01'],
             'tip_amount' => ['nullable', 'numeric', 'min:0'],
             'reference_code' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:500'],
@@ -232,6 +233,7 @@ class CashierTablesController extends Controller
 
         $validated = $request->validate([
             'payment_method_uuid' => ['required', 'uuid', 'exists:payment_methods,uuid'],
+            'amount' => ['nullable', 'numeric', 'min:0.01'],
             'tip_amount' => ['nullable', 'numeric', 'min:0'],
             'reference_code' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:500'],
@@ -256,6 +258,24 @@ class CashierTablesController extends Controller
             ], 422);
         }
 
+        // Determinar monto a pagar:
+        // - Si se provee 'amount', usarlo (para pagos divididos)
+        // - Si no, usar remaining_amount (pago completo, comportamiento legacy)
+        $requestedAmount = isset($validated['amount']) ? (float) $validated['amount'] : null;
+        
+        if ($requestedAmount !== null) {
+            if ($requestedAmount > (float) $bill->remaining_amount + 0.01) {
+                return response()->json([
+                    'error' => 'amount_exceeds_remaining',
+                    'message' => "El monto solicitado (\${$requestedAmount}) excede el pendiente (\${$bill->remaining_amount}).",
+                    'remaining' => (float) $bill->remaining_amount,
+                ], 422);
+            }
+            $amountToPay = $requestedAmount;
+        } else {
+            $amountToPay = (float) $bill->remaining_amount;
+        }
+
         $paymentMethod = PaymentMethod::forBranch($branchId)
             ->where('uuid', $validated['payment_method_uuid'])
             ->firstOrFail();
@@ -264,7 +284,6 @@ class CashierTablesController extends Controller
             ->where('status', CashSessionStatus::OPEN)
             ->first();
 
-        $amountToPay = (float) $bill->remaining_amount;
         $tipAmount = (float) ($validated['tip_amount'] ?? 0);
 
         try {

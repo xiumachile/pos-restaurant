@@ -41,6 +41,7 @@ export type SplitPayload =
 
 export interface PayBillPayload {
   payment_method_uuid: string;
+  amount?: number; // Opcional: si se omite, paga el remaining_amount completo
   tip_amount?: number;
   reference_code?: string;
   notes?: string;
