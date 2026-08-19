@@ -188,6 +188,9 @@ class CashierReportController extends Controller
             + $breakdown['cash']['amount']     // Ventas efectivo
             + $breakdown['cash']['tips']        // Propinas efectivo recibidas
             - $cashTipsPaidOut;                 // Solo salidas físicas (cash)
+        
+        // Resolver política de propinas (necesaria para el array 'tips')
+        $policy = TipPolicy::resolveForBranch($session->company_id, $session->branch_id);
 
         // Movimientos de caja
         $movements = DB::table('cash_movements')
@@ -258,8 +261,8 @@ class CashierReportController extends Controller
             ],
             'tips' => [
                 'total_received' => $totalTips,
-                'total_paid_out' => $totalTipsPaidOut,
-                'pending' => max(0, $totalTips - $totalTipsPaidOut),
+                'total_paid_out' => $cashTipsPaidOut,
+                'pending' => max(0, $totalTips - $cashTipsPaidOut),
                 'policy_type' => $policy->policy_type->value,
             ],
             'movements' => $movements,
