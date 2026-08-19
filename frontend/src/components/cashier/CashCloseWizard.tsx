@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Loader2,
   Banknote,
+  Wallet,
   Coins,
   ChevronRight,
 } from "lucide-react";
@@ -56,7 +57,9 @@ export function CashCloseWizard({
   
   const queryClient = useQueryClient();
   const [step, setStep] = useState<WizardStep>(1);
-  const [generatedPayouts, setGeneratedPayouts] = useState<any[]>([]);
+  const [generatedCashPayouts, setGeneratedCashPayouts] = useState<any[]>([]);
+  const [generatedPayrollItems, setGeneratedPayrollItems] = useState<any[]>([]);
+  const [policyUsed, setPolicyUsed] = useState<string | null>(null);
   const [countedAmount, setCountedAmount] = useState<string>("");
   const [counts, setCounts] = useState<Record<number, string>>({});
   const [useDenominations, setUseDenominations] = useState(false);
@@ -91,7 +94,17 @@ export function CashCloseWizard({
   // Las propinas siempre salen de caja antes del arqueo
   // Por lo tanto, SIEMPRE restamos el TOTAL recibido (no el pendiente)
   // Esto garantiza consistencia independientemente de cuándo se entregaron
-  const finalExpected = expectedAmount - totalTipsReceived;
+  const cardHandling = tipSummary?.policy?.card_tip_handling ?? 'cash_payout';
+  const tipsCash = tipSummary?.tips_received?.cash ?? 0;
+  
+  let finalExpected = expectedAmount;
+  if (cardHandling === 'cash_payout') {
+    finalExpected = expectedAmount - totalTipsReceived;
+  } else if (cardHandling === 'payroll') {
+    finalExpected = expectedAmount;
+  } else if (cardHandling === 'mixed') {
+    finalExpected = expectedAmount - tipsCash;
+  }
 
   const denominations: DenominationCount[] = useMemo(
     () =>
@@ -332,74 +345,251 @@ export function CashCloseWizard({
               </div>
             )}
 
-            {/* PASO 2: Entregar propinas */}
+            {/* PASO 2: Procesar propinas según política */}
             {step === 2 && (
               <div className="space-y-4">
-                <div className="bg-green-900/30 border border-green-700/40 rounded-lg p-4 flex items-start gap-3">
-                  <CheckCircle2 size={20} className="text-green-400 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <div className="font-semibold text-green-300">
-                      Entregas generadas correctamente
-                    </div>
-                    <p className="text-sm text-green-200/80 mt-1">
-                      Entrega físicamente el efectivo a cada garzón y luego continúa al arqueo.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Lista de entregas */}
-                <div className="space-y-2">
-                  {generatedPayouts.map((payout, i) => (
-                    <div
-                      key={payout.uuid}
-                      className="bg-slate-800 rounded-lg p-3 flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-orange-500/20 rounded-full flex items-center justify-center">
-                          <Users size={16} className="text-orange-400" />
+                {/* ═══ POLÍTICA PAYROLL: Todo va a nómina ═══ */}
+                {policyUsed === 'payroll' && (
+                  <>
+                    <div className="bg-blue-900/30 border border-blue-700/40 rounded-lg p-4 flex items-start gap-3">
+                      <Wallet size={20} className="text-blue-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-semibold text-blue-300">
+                          📋 Política Nómina: Propinas registradas para pago por nómina
                         </div>
-                        <div>
-                          <div className="font-semibold text-white">{payout.waiter_name}</div>
-                          <div className="text-xs text-slate-400">
-                            {payout.payment_method === "cash" ? "Efectivo" : payout.payment_method}
-                          </div>
+                        <p className="text-sm text-blue-200/80 mt-1">
+                          No hay entrega física. Las propinas se pagarán junto con el sueldo del garzón.
+                          Imprime el reporte para entregar a Recursos Humanos.
+                        </p>
+                      </div>
+                    </div>
+
+                    {generatedPayrollItems.length > 0 && (
+                      <div className="bg-slate-800 rounded-lg overflow-hidden">
+                        <div className="p-3 bg-blue-700/30 font-semibold text-sm flex items-center gap-2">
+                          <Users size={16} className="text-blue-400" />
+                          Propinas para Nómina
+                        </div>
+                        <div className="space-y-2 p-3">
+                          {generatedPayrollItems.map((item) => (
+                            <div key={item.uuid} className="bg-slate-900/50 rounded-lg p-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="font-semibold text-white">{item.waiter_name}</div>
+                                <span className="font-bold text-blue-400 text-lg">
+                                  {formatPrice(item.amount)}
+                                </span>
+                              </div>
+                              <div className="text-xs text-slate-400 space-y-0.5">
+                                {item.breakdown.card > 0 && (
+                                  <div>• Tarjeta: {formatPrice(item.breakdown.card)}</div>
+                                )}
+                                {item.breakdown.transfer > 0 && (
+                                  <div>• Transferencia: {formatPrice(item.breakdown.transfer)}</div>
+                                )}
+                                {item.breakdown.gift_card > 0 && (
+                                  <div>• Gift Card: {formatPrice(item.breakdown.gift_card)}</div>
+                                )}
+                                {item.breakdown.cash > 0 && (
+                                  <div>• Efectivo: {formatPrice(item.breakdown.cash)}</div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                      <span className="font-bold text-orange-400 text-lg">
-                        {formatPrice(payout.amount)}
+                    )}
+
+                    <div className="bg-blue-900/30 rounded-lg p-4 flex justify-between items-center">
+                      <span className="font-semibold text-blue-200">Total para nómina:</span>
+                      <span className="font-bold text-blue-400 text-xl">
+                        {formatPrice(generatedPayrollItems.reduce((s, p) => s + p.amount, 0))}
                       </span>
                     </div>
-                  ))}
-                </div>
 
-                {/* Total a entregar */}
-                <div className="bg-slate-800 rounded-lg p-4 flex justify-between items-center">
-                  <span className="font-semibold text-slate-300">Total a entregar:</span>
-                  <span className="font-bold text-orange-400 text-xl">
-                    {formatPrice(generatedPayouts.reduce((s, p) => s + p.amount, 0))}
-                  </span>
-                </div>
+                    <div className="flex gap-2 pt-4">
+                      <button
+                        onClick={() => window.print()}
+                        className="flex-1 px-4 py-3 bg-blue-500 hover:bg-blue-600 rounded-lg font-medium flex items-center justify-center gap-2"
+                      >
+                        <Printer size={16} />
+                        Imprimir Reporte Nómina
+                      </button>
+                      <button
+                        onClick={handleContinueToArqueo}
+                        className="flex-1 px-4 py-3 bg-orange-500 hover:bg-orange-600 rounded-lg font-bold text-white flex items-center justify-center gap-2"
+                      >
+                        <ChevronRight size={16} />
+                        Continuar al Arqueo
+                      </button>
+                    </div>
+                  </>
+                )}
 
-                <div className="flex gap-2 pt-4">
-                  <button
-                    onClick={() => window.print()}
-                    className="flex-1 px-4 py-3 bg-blue-500 hover:bg-blue-600 rounded-lg font-medium flex items-center justify-center gap-2"
-                  >
-                    <Printer size={16} />
-                    Imprimir Vouchers
-                  </button>
-                  <button
-                    onClick={handleContinueToArqueo}
-                    className="flex-1 px-4 py-3 bg-orange-500 hover:bg-orange-600 rounded-lg font-bold text-white flex items-center justify-center gap-2"
-                  >
-                    <ChevronRight size={16} />
-                    Ya entregué, continuar
-                  </button>
-                </div>
+                {/* ═══ POLÍTICA MIXED: Efectivo en caja + resto a nómina ═══ */}
+                {policyUsed === 'mixed' && (
+                  <>
+                    <div className="bg-purple-900/30 border border-purple-700/40 rounded-lg p-4">
+                      <div className="font-semibold text-purple-300 mb-1">
+                        🔄 Política Mixta
+                      </div>
+                      <p className="text-sm text-purple-200/80">
+                        Propinas en efectivo se entregan físicamente.
+                        Propinas de tarjeta/transferencia van a nómina.
+                      </p>
+                    </div>
+
+                    {generatedCashPayouts.length > 0 && (
+                      <div className="bg-slate-800 rounded-lg overflow-hidden">
+                        <div className="p-3 bg-green-700/30 font-semibold text-sm flex items-center gap-2">
+                          <Banknote size={16} className="text-green-400" />
+                          Entrega Física (Efectivo)
+                        </div>
+                        <div className="space-y-2 p-3">
+                          {generatedCashPayouts.map((payout) => (
+                            <div
+                              key={payout.uuid}
+                              className="bg-slate-900/50 rounded-lg p-3 flex items-center justify-between"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center">
+                                  <Users size={16} className="text-green-400" />
+                                </div>
+                                <div>
+                                  <div className="font-semibold text-white">{payout.waiter_name}</div>
+                                  <div className="text-xs text-slate-400">Efectivo - sale de caja</div>
+                                </div>
+                              </div>
+                              <span className="font-bold text-green-400 text-lg">
+                                {formatPrice(payout.amount)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="p-3 bg-green-900/20 flex justify-between items-center">
+                          <span className="text-sm text-green-200">Total a entregar físicamente:</span>
+                          <span className="font-bold text-green-400">
+                            {formatPrice(generatedCashPayouts.reduce((s, p) => s + p.amount, 0))}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {generatedPayrollItems.length > 0 && (
+                      <div className="bg-slate-800 rounded-lg overflow-hidden">
+                        <div className="p-3 bg-blue-700/30 font-semibold text-sm flex items-center gap-2">
+                          <Wallet size={16} className="text-blue-400" />
+                          Para Nómina (Tarjeta/Transfer)
+                        </div>
+                        <div className="space-y-2 p-3">
+                          {generatedPayrollItems.map((item) => (
+                            <div key={item.uuid} className="bg-slate-900/50 rounded-lg p-3">
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="font-semibold text-white">{item.waiter_name}</div>
+                                <span className="font-bold text-blue-400">
+                                  {formatPrice(item.amount)}
+                                </span>
+                              </div>
+                              <div className="text-xs text-slate-400">
+                                {item.breakdown.card > 0 && `Tarjeta: ${formatPrice(item.breakdown.card)} `}
+                                {item.breakdown.transfer > 0 && `· Transf: ${formatPrice(item.breakdown.transfer)}`}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="p-3 bg-blue-900/20 flex justify-between items-center">
+                          <span className="text-sm text-blue-200">Total para nómina:</span>
+                          <span className="font-bold text-blue-400">
+                            {formatPrice(generatedPayrollItems.reduce((s, p) => s + p.amount, 0))}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 pt-4">
+                      <button
+                        onClick={() => window.print()}
+                        className="flex-1 px-4 py-3 bg-blue-500 hover:bg-blue-600 rounded-lg font-medium flex items-center justify-center gap-2"
+                      >
+                        <Printer size={16} />
+                        Imprimir Todo
+                      </button>
+                      <button
+                        onClick={handleContinueToArqueo}
+                        className="flex-1 px-4 py-3 bg-orange-500 hover:bg-orange-600 rounded-lg font-bold text-white flex items-center justify-center gap-2"
+                      >
+                        <ChevronRight size={16} />
+                        Ya entregué, continuar
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {/* ═══ POLÍTICA CASH_PAYOUT: Todo en efectivo ═══ */}
+                {policyUsed === 'cash_payout' && (
+                  <>
+                    <div className="bg-green-900/30 border border-green-700/40 rounded-lg p-4 flex items-start gap-3">
+                      <CheckCircle2 size={20} className="text-green-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-semibold text-green-300">
+                          Entregas generadas correctamente
+                        </div>
+                        <p className="text-sm text-green-200/80 mt-1">
+                          Entrega físicamente el efectivo a cada garzón y luego continúa al arqueo.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      {generatedCashPayouts.map((payout) => (
+                        <div
+                          key={payout.uuid}
+                          className="bg-slate-800 rounded-lg p-3 flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-orange-500/20 rounded-full flex items-center justify-center">
+                              <Users size={16} className="text-orange-400" />
+                            </div>
+                            <div>
+                              <div className="font-semibold text-white">{payout.waiter_name}</div>
+                              <div className="text-xs text-slate-400">Efectivo</div>
+                            </div>
+                          </div>
+                          <span className="font-bold text-orange-400 text-lg">
+                            {formatPrice(payout.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="bg-slate-800 rounded-lg p-4 flex justify-between items-center">
+                      <span className="font-semibold text-slate-300">Total a entregar:</span>
+                      <span className="font-bold text-orange-400 text-xl">
+                        {formatPrice(generatedCashPayouts.reduce((s, p) => s + p.amount, 0))}
+                      </span>
+                    </div>
+
+                    <div className="flex gap-2 pt-4">
+                      <button
+                        onClick={() => window.print()}
+                        className="flex-1 px-4 py-3 bg-blue-500 hover:bg-blue-600 rounded-lg font-medium flex items-center justify-center gap-2"
+                      >
+                        <Printer size={16} />
+                        Imprimir Vouchers
+                      </button>
+                      <button
+                        onClick={handleContinueToArqueo}
+                        className="flex-1 px-4 py-3 bg-orange-500 hover:bg-orange-600 rounded-lg font-bold text-white flex items-center justify-center gap-2"
+                      >
+                        <ChevronRight size={16} />
+                        Ya entregué, continuar
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
-            {/* PASO 3: Arqueo */}
+            
             {step === 3 && (
               <div className="space-y-4">
                 {/* Resumen */}

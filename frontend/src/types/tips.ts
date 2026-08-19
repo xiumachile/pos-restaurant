@@ -85,12 +85,35 @@ export interface TipsByWaiterData {
 }
 
 export interface GeneratePayoutsResponse {
-  payouts_created: number;
-  total_amount: number;
-  payouts: Array<{
-    uuid: string;
-    waiter_name: string;
-    amount: number;
-    payment_method: string;
-  }>;
+  policy_used: "cash_payout" | "payroll" | "mixed";
+  cash_payouts: {
+    count: number;
+    total: number;
+    items: Array<{
+      uuid: string;
+      waiter_id: number;
+      waiter_name: string;
+      amount: number;
+      payment_method: string;
+      policy: string;
+    }>;
+  };
+  payroll_items: {
+    count: number;
+    total: number;
+    items: Array<{
+      uuid: string;
+      waiter_id: number;
+      waiter_name: string;
+      amount: number;
+      breakdown: {
+        cash?: number;
+        card?: number;
+        transfer?: number;
+        gift_card?: number;
+      };
+      policy: string;
+    }>;
+  };
+}>;
 }

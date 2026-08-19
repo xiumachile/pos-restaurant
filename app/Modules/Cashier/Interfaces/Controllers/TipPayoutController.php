@@ -445,9 +445,11 @@ class TipPayoutController extends Controller
             ], 422);
         }
 
-        // Calcular propinas pendientes (misma lógica que byWaiter)
+        // Resolver política de propinas
         $policy = TipPolicy::resolveForBranch($user->company_id, $user->branch_id);
+        $cardHandling = $policy->card_tip_handling->value; // cash_payout | payroll | mixed
 
+        // Obtener propinas por garzón y método
         $paymentsWithTips = DB::table('payments')
             ->where('payments.cash_session_id', $openSession->id)
             ->where('payments.status', 'completed')
@@ -462,34 +464,44 @@ class TipPayoutController extends Controller
             ->groupBy('waiter_id')
             ->map(fn($group) => (float) $group->sum('amount'));
 
+        // Agrupar propinas por garzón y método
         $tipsByWaiter = [];
         foreach ($paymentsWithTips as $payment) {
             $waiterId = $payment->waiter_id ?? 0;
             if (!isset($tipsByWaiter[$waiterId])) {
-                $tipsByWaiter[$waiterId] = ['cash' => 0, 'card' => 0, 'transfer' => 0, 'total' => 0];
+                $tipsByWaiter[$waiterId] = ['cash' => 0, 'card' => 0, 'transfer' => 0, 'gift_card' => 0, 'total' => 0];
             }
             $method = strtolower($payment->method_code);
-            if ($method === 'gift_card') $method = 'card';
             if (isset($tipsByWaiter[$waiterId][$method])) {
                 $tipsByWaiter[$waiterId][$method] += (float) $payment->tip_amount;
             }
             $tipsByWaiter[$waiterId]['total'] += (float) $payment->tip_amount;
         }
 
-        $createdPayouts = [];
-        
+        $cashPayouts = [];  // Entregas físicas (salen de caja)
+        $payrollItems = []; // Items para nómina (NO salen de caja)
+
         foreach ($tipsByWaiter as $waiterId => $tips) {
             $alreadyPaid = $paidOutByWaiter->get($waiterId, 0);
-            $pending = $tips['total'] - $alreadyPaid;
-            
-            if ($pending > 0.01 && $waiterId > 0) {
-                // Determinar método de pago según política
-                // Si la política es cash_payout, todo se paga en efectivo
-                // Si es payroll, solo el efectivo se entrega, tarjeta va a nómina
-                $cashAmount = $policy->cardTipsLeaveRegister() 
-                    ? $pending 
-                    : $tips['cash'] - $alreadyPaid;
-                
+            $waiter = User::find($waiterId);
+            $waiterName = $waiter?->name ?? 'Sin asignar';
+
+            $tipsCash = (float) $tips['cash'];
+            $tipsCard = (float) $tips['card'];
+            $tipsTransfer = (float) $tips['transfer'];
+            $tipsGiftCard = (float) $tips['gift_card'] ?? 0;
+            $tipsNonCash = $tipsCard + $tipsTransfer + $tipsGiftCard;
+            $tipsTotal = $tipsCash + $tipsNonCash;
+
+            // ═══════════════════════════════════════════════════════════
+            // POLÍTICAS: Determinar qué sale de caja y qué va a nómina
+            // ═══════════════════════════════════════════════════════════
+
+            if ($cardHandling === 'cash_payout') {
+                // ═══════════════════════════════════════════════════
+                // CASH_PAYOUT: TODO sale físicamente de la caja
+                // ═══════════════════════════════════════════════════
+                $cashAmount = $tipsTotal - $alreadyPaid;
                 if ($cashAmount > 0.01) {
                     $payout = TipPayout::create([
                         'company_id' => $user->company_id,
@@ -500,15 +512,110 @@ class TipPayoutController extends Controller
                         'amount' => round($cashAmount, 2),
                         'payment_method' => 'cash',
                         'policy_type' => $policy->policy_type->value,
-                        'notes' => 'Generado automáticamente en cierre de caja',
+                        'notes' => 'Política cash_payout - Todas las propinas en efectivo',
                     ]);
-                    
-                    $waiter = User::find($waiterId);
-                    $createdPayouts[] = [
+
+                    $cashPayouts[] = [
                         'uuid' => $payout->uuid,
-                        'waiter_name' => $waiter?->name,
+                        'waiter_id' => $waiterId,
+                        'waiter_name' => $waiterName,
                         'amount' => (float) $payout->amount,
-                        'payment_method' => $payout->payment_method,
+                        'payment_method' => 'cash',
+                        'from_cash' => true,
+                        'policy' => $cardHandling,
+                    ];
+                }
+
+            } elseif ($cardHandling === 'payroll') {
+                // ═══════════════════════════════════════════════════
+                // PAYROLL: NADA sale de la caja físicamente
+                // TODAS las propinas van a nómina
+                // ═══════════════════════════════════════════════════
+                $payrollAmount = $tipsTotal - $alreadyPaid;
+                if ($payrollAmount > 0.01) {
+                    $payout = TipPayout::create([
+                        'company_id' => $user->company_id,
+                        'branch_id' => $user->branch_id,
+                        'cash_session_id' => $openSession->id,
+                        'processed_by' => $user->id,
+                        'waiter_id' => $waiterId,
+                        'amount' => round($payrollAmount, 2),
+                        'payment_method' => 'payroll',
+                        'policy_type' => $policy->policy_type->value,
+                        'notes' => 'Política payroll - Va a nómina (NO sale de caja)',
+                    ]);
+
+                    $payrollItems[] = [
+                        'uuid' => $payout->uuid,
+                        'waiter_id' => $waiterId,
+                        'waiter_name' => $waiterName,
+                        'amount' => (float) $payout->amount,
+                        'breakdown' => [
+                            'cash' => $tipsCash,
+                            'card' => $tipsCard,
+                            'transfer' => $tipsTransfer,
+                            'gift_card' => $tipsGiftCard,
+                        ],
+                        'policy' => $cardHandling,
+                    ];
+                }
+
+            } elseif ($cardHandling === 'mixed') {
+                // ═══════════════════════════════════════════════════
+                // MIXED: EFECTIVO sale de caja, resto va a nómina
+                // ═══════════════════════════════════════════════════
+
+                // 1. Efectivo sale físicamente de la caja
+                $cashAmount = $tipsCash - $alreadyPaid;
+                if ($cashAmount > 0.01) {
+                    $payout = TipPayout::create([
+                        'company_id' => $user->company_id,
+                        'branch_id' => $user->branch_id,
+                        'cash_session_id' => $openSession->id,
+                        'processed_by' => $user->id,
+                        'waiter_id' => $waiterId,
+                        'amount' => round($cashAmount, 2),
+                        'payment_method' => 'cash',
+                        'policy_type' => $policy->policy_type->value,
+                        'notes' => 'Política mixed - Propina en efectivo (sale de caja)',
+                    ]);
+
+                    $cashPayouts[] = [
+                        'uuid' => $payout->uuid,
+                        'waiter_id' => $waiterId,
+                        'waiter_name' => $waiterName,
+                        'amount' => (float) $payout->amount,
+                        'payment_method' => 'cash',
+                        'from_cash' => true,
+                        'policy' => $cardHandling,
+                    ];
+                }
+
+                // 2. Resto va a nómina (NO sale de caja)
+                if ($tipsNonCash > 0.01) {
+                    $payrollPayout = TipPayout::create([
+                        'company_id' => $user->company_id,
+                        'branch_id' => $user->branch_id,
+                        'cash_session_id' => $openSession->id,
+                        'processed_by' => $user->id,
+                        'waiter_id' => $waiterId,
+                        'amount' => round($tipsNonCash, 2),
+                        'payment_method' => 'payroll',
+                        'policy_type' => $policy->policy_type->value,
+                        'notes' => 'Política mixed - Tarjeta/transfer va a nómina',
+                    ]);
+
+                    $payrollItems[] = [
+                        'uuid' => $payrollPayout->uuid,
+                        'waiter_id' => $waiterId,
+                        'waiter_name' => $waiterName,
+                        'amount' => (float) $payrollPayout->amount,
+                        'breakdown' => [
+                            'card' => $tipsCard,
+                            'transfer' => $tipsTransfer,
+                            'gift_card' => $tipsGiftCard,
+                        ],
+                        'policy' => $cardHandling,
                     ];
                 }
             }
@@ -516,9 +623,17 @@ class TipPayoutController extends Controller
 
         return response()->json([
             'data' => [
-                'payouts_created' => count($createdPayouts),
-                'total_amount' => array_sum(array_column($createdPayouts, 'amount')),
-                'payouts' => $createdPayouts,
+                'policy_used' => $cardHandling,
+                'cash_payouts' => [
+                    'count' => count($cashPayouts),
+                    'total' => array_sum(array_column($cashPayouts, 'amount')),
+                    'items' => $cashPayouts,
+                ],
+                'payroll_items' => [
+                    'count' => count($payrollItems),
+                    'total' => array_sum(array_column($payrollItems, 'amount')),
+                    'items' => $payrollItems,
+                ],
             ],
         ]);
     }
