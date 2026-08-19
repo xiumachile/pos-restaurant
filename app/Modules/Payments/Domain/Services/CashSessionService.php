@@ -70,17 +70,19 @@ class CashSessionService
             }
 
             // ═══════════════════════════════════════════════════
-            // VALIDACIÓN: Todas las propinas deben estar entregadas
+            // CÁLCULO NETO: esperado con propinas descontadas
             // ═══════════════════════════════════════════════════
-            $pendingTips = $session->calculatePendingTips();
-            if ($pendingTips > 0.01) {
-                throw PaymentException::tipsNotDelivered($pendingTips);
-            }
-
-            // ═══════════════════════════════════════════════════
-            // CÁLCULO NETO: esperado SIN propinas (ya entregadas)
-            // ═══════════════════════════════════════════════════
+            // calculateExpectedAmountForClose() ya incluye:
+            // - ENTRADAS: opening + ventas_efectivo + propinas_efectivo
+            // - SALIDAS: todas las propinas entregadas físicamente
+            // El wizard del frontend obliga a entregar propinas antes del arqueo
             $expected = $session->calculateExpectedAmountForClose();
+            
+            \Log::info('Cierre de caja', [
+                'session' => $session->session_number,
+                'expected' => $expected,
+                'closing_amount' => $closingAmount,
+            ]);
 
             // Calcular diferencia
             $difference = round($closingAmount - $expected, 2);
