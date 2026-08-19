@@ -10,6 +10,7 @@ use Modules\Cashier\Domain\Entities\CashCount;
 use Modules\Cashier\Domain\Entities\TipPayout;
 use Modules\Cashier\Domain\Entities\CashMovement;
 use Modules\Payments\Domain\Entities\CashSession;
+use Modules\Cashier\Domain\Entities\TipPolicy;
 use Modules\Payments\Domain\ValueObjects\CashSessionStatus;
 
 /**

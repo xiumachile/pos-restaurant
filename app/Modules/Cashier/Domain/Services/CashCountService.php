@@ -124,7 +124,7 @@ class CashCountService
 
         return DB::transaction(function () use ($session, $user, $type, $denominations, $reason, $notes) {
             // Calcular monto esperado (apertura + pagos - movimientos)
-            $expectedAmount = $session->calculateCurrentBalance();
+            $expectedAmount = $session->calculateExpectedCashBalance();
 
             // Calcular monto contado desde denominaciones
             $bills = $denominations['bills'] ?? [];

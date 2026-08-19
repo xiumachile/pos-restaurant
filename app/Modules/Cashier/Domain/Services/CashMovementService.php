@@ -143,7 +143,7 @@ class CashMovementService
 
         return DB::transaction(function () use ($session, $user, $type, $amount, $reason, $notes, $authorizer) {
             // Calcular balance actual ANTES del movimiento
-            $currentBalance = $session->calculateCurrentBalance();
+            $currentBalance = $session->calculateExpectedCashBalance();
             
             // Calcular balance después del movimiento
             $impact = $amount * $type->balanceSign();

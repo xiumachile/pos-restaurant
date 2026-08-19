@@ -196,4 +196,39 @@ class CashSession extends Model
     {
         return $this->calculateCurrentBalance() > $maxAmount;
     }
+
+    /**
+     * Calcula el balance esperado de efectivo considerando todos los factores.
+     * Este método unifica la lógica correcta para arqueos y reportes:
+     * - Solo considera ventas en efectivo (CASH)
+     * - Incluye propinas en efectivo
+     * - Resta propinas entregadas físicamente
+     * - Incluye impacto de movimientos de caja (retiros/depósitos)
+     */
+    public function calculateExpectedCashBalance(): float
+    {
+        $cashSales = (float) $this->payments()
+            ->where('status', 'completed')
+            ->where('method_code', 'CASH')
+            ->sum('amount');
+
+        $cashTips = (float) $this->payments()
+            ->where('status', 'completed')
+            ->where('method_code', 'CASH')
+            ->sum('tip_amount');
+
+        $totalTipsPaidOut = (float) \Modules\Cashier\Domain\Entities\TipPayout::where('cash_session_id', $this->id)
+            ->valid()
+            ->sum('amount');
+
+        $movementsImpact = $this->movements()
+            ->get()
+            ->sum(fn($m) => $m->balanceImpact());
+
+        return round(
+            (float) $this->opening_amount + $cashSales + $cashTips - $totalTipsPaidOut + $movementsImpact,
+            2
+        );
+    }
+
 }
