@@ -127,6 +127,20 @@ class CashSession extends Model
      * Esto garantiza consistencia entre lo que muestra el wizard y lo que
      * guarda el backend.
      */
+    /**
+     * Calcula el monto esperado al cierre considerando la política de propinas.
+     * 
+     * Lógica (igual que Z-Report y calculateExpectedCashBalance):
+     * - BRUTO = inicial + ventas_efectivo + propinas_efectivo
+     * - SALIDAS = solo propinas entregadas FÍSICAMENTE (payment_method='cash')
+     * - Las propinas con payment_method='payroll' son registros contables
+     *   que NO representan salidas físicas de la caja
+     * 
+     * Según política:
+     * - cash_payout: todas las propinas salen físicamente (payment_method='cash')
+     * - mixed: efectivo sale físicamente, tarjeta/transfer va a nómina
+     * - payroll: todo va a nómina (nada sale físicamente)
+     */
     public function calculateExpectedAmountForClose(): float
     {
         // BRUTO: inicial + ventas efectivo + propinas efectivo
@@ -142,14 +156,15 @@ class CashSession extends Model
         
         $brutExpected = (float) $this->opening_amount + $cashSales + $cashTips;
         
-        // Restar TODAS las propinas entregadas (no solo las de efectivo)
-        // Porque las propinas de tarjeta/transferencia también se entregan
-        // en efectivo al garzón (según política de propinas)
-        $totalTipsPaidOut = (float) \Modules\Cashier\Domain\Entities\TipPayout::where('cash_session_id', $this->id)
+        // SOLO restar propinas entregadas FÍSICAMENTE (payment_method='cash')
+        // Los TipPayouts con payment_method='payroll' son registros contables
+        // para nómina y NO representan salidas físicas de la caja.
+        $cashTipsPaidOut = (float) \Modules\Cashier\Domain\Entities\TipPayout::where('cash_session_id', $this->id)
             ->valid()
+            ->where('payment_method', 'cash')
             ->sum('amount');
         
-        return round($brutExpected - $totalTipsPaidOut, 2);
+        return round($brutExpected - $cashTipsPaidOut, 2);
     }
 
     /**
