@@ -161,35 +161,32 @@ class CashierReportController extends Controller
         $totalTips = array_sum(array_column($breakdown, 'tips'));
         $totalTransactions = array_sum(array_column($breakdown, 'count'));
 
-        // Propinas entregadas durante la sesión
-        $tipPayouts = TipPayout::where('cash_session_id', $session->id)
+        // ═══════════════════════════════════════════════════════════
+        // PROPINAS ENTREGADAS: Solo las que salieron FÍSICAMENTE de la caja
+        // ═══════════════════════════════════════════════════════════
+        //
+        // IMPORTANTE: Los TipPayouts con payment_method='payroll' son registros
+        // contables que NO representan salidas físicas de caja. Las propinas
+        // que van a nómina QUEDAN en la caja contablemente pero se registran
+        // como "pagadas" para efectos de nómina.
+        //
+        // Solo las propinas entregadas FÍSICAMENTE (payment_method='cash')
+        // salen realmente de la caja.
+        
+        $cashTipsPaidOut = (float) TipPayout::where('cash_session_id', $session->id)
             ->valid()
-            ->get();
+            ->where('payment_method', 'cash')  // Solo salidas físicas
+            ->sum('amount');
 
-        $totalTipsPaidOut = (float) $tipPayouts->sum('amount');
-        $cashTipsPaidOut = (float) $tipPayouts->where('payment_method', 'cash')->sum('amount');
-        
-        // Política de propinas
-        $policy = \Modules\Cashier\Domain\Entities\TipPolicy::resolveForBranch(
-            $session->company_id, 
-            $session->branch_id
-        );
-
-        // LÓGICA CORRECTA para Reporte Z:
-        // Si hay TipPayouts en la sesión = propinas YA se entregaron = NO están en caja
-        // Si NO hay TipPayouts = propinas AÚN están en caja
-        $hasPayouts = $tipPayouts->count() > 0;
-        
-        if ($hasPayouts) {
-            // Propinas ya entregadas: esperado = inicial + ventas efectivo (sin propinas)
-            $totalCashExpected = (float) $session->opening_amount
-                + $breakdown['cash']['amount'];  // Solo ventas efectivo
-        } else {
-            // Propinas aún en caja: esperado = inicial + ventas + propinas
-            $totalCashExpected = (float) $session->opening_amount
-                + $breakdown['cash']['amount']   // Ventas efectivo
-                + $breakdown['cash']['tips'];     // + Propinas efectivo (aún en caja)
-        }
+        // LÓGICA DEL Z-REPORT:
+        // Esperado = inicial + ventas_efectivo + propinas_efectivo - salidas_físicas
+        // 
+        // Las propinas que van a nómina (payment_method='payroll') NO se descuentan
+        // porque físicamente siguen en la caja.
+        $totalCashExpected = (float) $session->opening_amount
+            + $breakdown['cash']['amount']     // Ventas efectivo
+            + $breakdown['cash']['tips']        // Propinas efectivo recibidas
+            - $cashTipsPaidOut;                 // Solo salidas físicas (cash)
 
         // Movimientos de caja
         $movements = DB::table('cash_movements')
