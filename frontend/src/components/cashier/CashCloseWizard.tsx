@@ -75,7 +75,9 @@ export function CashCloseWizard({
   const generatePayouts = useMutation({
     mutationFn: tipWizardService.generatePayouts,
     onSuccess: (data) => {
-      setGeneratedPayouts(data.payouts);
+      setGeneratedCashPayouts(data.cash_payouts?.items || []);
+      setGeneratedPayrollItems(data.payroll_items?.items || []);
+      setPolicyUsed(data.policy_used);
       setTipsDelivered(true);
       setStep(2);
       // Invalidar todas las queries de propinas para forzar refetch
@@ -136,7 +138,7 @@ export function CashCloseWizard({
 
   const handleContinueToArqueo = () => {
     // Si hay propinas pero no generó entregas, debe responder si las entregó
-    if (hasPendingTips && generatedPayouts.length === 0) {
+    if (hasPendingTips && generatedCashPayouts.length === 0) {
       if (tipsDelivered === null) {
         alert("Indica si ya entregaste las propinas antes de continuar");
         return;
@@ -180,9 +182,9 @@ export function CashCloseWizard({
   return (
     <>
       {/* Componente imprimible para vouchers */}
-      {step === 2 && generatedPayouts.length > 0 && (
+      {step === 2 && generatedCashPayouts.length > 0 && (
         <div className="hidden">
-          <PrintableTipVouchers payouts={generatedPayouts} />
+          <PrintableTipVouchers payouts={generatedCashPayouts} />
         </div>
       )}
 

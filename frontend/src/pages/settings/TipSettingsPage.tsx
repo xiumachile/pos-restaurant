@@ -148,9 +148,9 @@ export function TipSettingsPage() {
                   <label className="flex items-center gap-2 text-sm">
                     <input
                       type="radio"
-                      checked={policy.pool_split_method === "equal"}
+                      checked={policy.pool_distribution === "equal"}
                       onChange={() =>
-                        setPolicy({ ...policy, pool_split_method: "equal" })
+                        setPolicy({ ...policy, pool_distribution: "equal" })
                       }
                     />
                     Partes iguales entre garzones
@@ -158,9 +158,9 @@ export function TipSettingsPage() {
                   <label className="flex items-center gap-2 text-sm">
                     <input
                       type="radio"
-                      checked={policy.pool_split_method === "by_hours"}
+                      checked={policy.pool_distribution === "by_hours"}
                       onChange={() =>
-                        setPolicy({ ...policy, pool_split_method: "by_hours" })
+                        setPolicy({ ...policy, pool_distribution: "by_hours" })
                       }
                     />
                     Proporcional a horas trabajadas
@@ -204,7 +204,7 @@ export function TipSettingsPage() {
                     </label>
                     <input
                       type="number"
-                      value={policy.waiter_percentage}
+                      value={String(policy.waiter_percentage ?? "")}
                       onChange={(e) =>
                         setPolicy({
                           ...policy,
@@ -223,7 +223,7 @@ export function TipSettingsPage() {
                     </label>
                     <input
                       type="number"
-                      value={policy.pool_percentage}
+                      value={String(policy.pool_percentage ?? "")}
                       readOnly
                       className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-400"
                     />

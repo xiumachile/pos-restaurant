@@ -1,19 +1,25 @@
-export type TipPolicyType = "waiter_keeps" | "shared_pool" | "percentage_split";
-
-export type CardTipHandling = "cash_payout" | "payroll" | "mixed";
-
-export type PoolSplitMethod = "equal" | "by_hours" | "by_points";
-
 export interface TipPolicy {
-  uuid: string | null;
-  policy_type: TipPolicyType;
-  policy_label?: string;
-  card_tip_handling: CardTipHandling;
-  pool_split_method: PoolSplitMethod;
-  waiter_percentage: number;
-  pool_percentage: number;
-  is_custom: boolean;
+  uuid: string;
+  company_id: number;
+  branch_id?: number | null;
+  policy_type: "waiter_keeps" | "shared_pool" | "percentage_split";
+  policy_label: string;
+  card_tip_handling: "cash_payout" | "payroll" | "mixed";
+  pool_distribution?: "equal" | "by_hours" | "by_points" | null;
+  waiter_percentage?: number | null;
+  pool_percentage?: number | null;
+  effective_from: string;
+  effective_to?: string | null;
   is_active: boolean;
+}
+
+export interface UpdateTipPolicyPayload {
+  policy_type: string;
+  card_tip_handling: string;
+  pool_distribution?: string | null;
+  waiter_percentage?: number | null;
+  pool_percentage?: number | null;
+  apply_to: "company" | "branch";
 }
 
 export interface TipPayout {
@@ -115,5 +121,4 @@ export interface GeneratePayoutsResponse {
       policy: string;
     }>;
   };
-}>;
 }
