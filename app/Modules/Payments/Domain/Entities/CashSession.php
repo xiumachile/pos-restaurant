@@ -118,16 +118,38 @@ class CashSession extends Model
 
     /**
      * Calcula el monto esperado NETO (para cierre de caja).
-     * EXCLUYE propinas porque al momento de cerrar ya deben estar entregadas.
-     * Solo incluye: opening + ventas (sin propinas)
+     * 
+     * Lógica unificada con frontend:
+     * 1. Calcula BRUTO: opening + ventas efectivo + propinas efectivo
+     * 2. Resta TODAS las propinas entregadas (incluye tarjeta/transferencia
+     *    que se entregan en efectivo según política)
+     * 
+     * Esto garantiza consistencia entre lo que muestra el wizard y lo que
+     * guarda el backend.
      */
     public function calculateExpectedAmountForClose(): float
     {
-        $salesOnly = (float) $this->payments()
+        // BRUTO: inicial + ventas efectivo + propinas efectivo
+        $cashSales = (float) $this->payments()
             ->where('status', 'completed')
-            ->sum('amount');  // Solo amount, SIN tip_amount
-
-        return (float) $this->opening_amount + $salesOnly;
+            ->where('method_code', 'CASH')
+            ->sum('amount');
+        
+        $cashTips = (float) $this->payments()
+            ->where('status', 'completed')
+            ->where('method_code', 'CASH')
+            ->sum('tip_amount');
+        
+        $brutExpected = (float) $this->opening_amount + $cashSales + $cashTips;
+        
+        // Restar TODAS las propinas entregadas (no solo las de efectivo)
+        // Porque las propinas de tarjeta/transferencia también se entregan
+        // en efectivo al garzón (según política de propinas)
+        $totalTipsPaidOut = (float) \Modules\Cashier\Domain\Entities\TipPayout::where('cash_session_id', $this->id)
+            ->valid()
+            ->sum('amount');
+        
+        return round($brutExpected - $totalTipsPaidOut, 2);
     }
 
     /**
