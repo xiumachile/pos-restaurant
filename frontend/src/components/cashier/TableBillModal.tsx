@@ -27,7 +27,6 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { PrintablePrecuenta } from "./PrintablePrecuenta";
-import { SplitBillModal } from "./SplitBillModal";
 import { BillPaymentModalV2 } from "./BillPaymentModalV2";
 
 interface TableBillModalProps {
@@ -63,8 +62,6 @@ export function TableBillModal({
   const [expandedOrderUuid, setExpandedOrderUuid] = useState<string | null>(null);
 
   // Modales
-  const [showSplitModal, setShowSplitModal] = useState(false);
-  const [splittingOrder, setSplittingOrder] = useState<TableBillOrder | null>(null);
   const [payingBill, setPayingBill] = useState<Bill | null>(null);
   const [payingBills, setPayingBills] = useState<Bill[] | null>(null);
 
@@ -185,26 +182,6 @@ export function TableBillModal({
   };
 
   const handlePrint = () => window.print();
-
-  const handleOpenSplit = (order: TableBillOrder) => {
-    // Si ya tiene bills, mostrar confirmación
-    if (order.bills && order.bills.length > 0) {
-      const confirmed = window.confirm(
-        `Este pedido ya tiene ${order.bills.length} sub-cuenta(s) creada(s).\n\n¿Deseas eliminarlas y crear nuevas?`
-      );
-      if (!confirmed) return;
-    }
-    setSplittingOrder(order);
-    setShowSplitModal(true);
-  };
-
-  const handleSplitSuccess = (bills: Bill[]) => {
-    setShowSplitModal(false);
-    setSplittingOrder(null);
-    // Mostrar toast de éxito
-    setSuccessMessage(`✅ ${bills.length} sub-cuenta(s) creada(s) exitosamente`);
-    setShowSuccessToast(true);
-  };
 
   // Si la mesa ya no existe (fue cobrada), cerrar el modal
   useEffect(() => {
@@ -358,26 +335,6 @@ export function TableBillModal({
                           <span className="font-bold text-orange-400">
                             {formatPrice(order.total)}
                           </span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenSplit(order);
-                            }}
-                            disabled={hasBillsThis}
-                            className={`flex items-center gap-1 px-2 py-1 border rounded text-xs font-medium transition-colors ${
-                              hasBillsThis
-                                ? "bg-slate-700/50 border-slate-600 text-slate-500 cursor-not-allowed"
-                                : "bg-purple-500/20 hover:bg-purple-500/30 border-purple-700/50 text-purple-300"
-                            }`}
-                            title={
-                              hasBillsThis
-                                ? "Ya tiene sub-cuentas"
-                                : "Dividir este pedido"
-                            }
-                          >
-                            <Scissors size={11} />
-                            {hasBillsThis ? "Ya dividida" : "Dividir"}
-                          </button>
                         </div>
                       </div>
 
@@ -615,23 +572,6 @@ export function TableBillModal({
           <CheckCircle2 size={18} />
           <span className="font-medium">{successMessage}</span>
         </div>
-      )}
-
-      {/* Modal de Split */}
-      {splittingOrder && (
-        <SplitBillModal
-          orderUuid={splittingOrder.uuid}
-          orderNumber={splittingOrder.order_number}
-          orderTotal={splittingOrder.total}
-          orderSubtotal={splittingOrder.subtotal}
-          orderItems={splittingOrder.items}
-          isOpen={showSplitModal}
-          onClose={() => {
-            setShowSplitModal(false);
-            setSplittingOrder(null);
-          }}
-          onSuccess={handleSplitSuccess}
-        />
       )}
 
       {/* Modal de cobro de bill individual */}
