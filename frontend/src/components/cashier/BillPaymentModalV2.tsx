@@ -88,16 +88,32 @@ export function BillPaymentModalV2({
       received: setReceivedInput,
     };
     const setter = setters[activeField];
-    const current = activeField === "amount" ? amountInput : activeField === "tip" ? tipInput : receivedInput;
+    let current = activeField === "amount" ? amountInput : activeField === "tip" ? tipInput : receivedInput;
 
     if (key === "C") {
       setter("");
+      return;
     } else if (key === "⌫") {
       setter(current.slice(0, -1));
+      return;
     } else if (key === ".") {
       if (!current.includes(".")) setter(current + ".");
+      return;
     } else if (key === "000") {
-      setter(current + "000");
+      // Si el campo está en "0" o vacío, iniciar desde cero limpio
+      if (current === "0" || current === "") {
+        setter("000");
+      } else {
+        setter(current + "000");
+      }
+      return;
+    }
+
+    // Dígito normal: si el campo tiene solo "0", reemplazarlo
+    if (current === "0") {
+      setter(key);
+    } else if (current === "" && key === "0") {
+      setter("0");
     } else {
       setter(current + key);
     }
