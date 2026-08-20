@@ -113,6 +113,43 @@ class SyncApiClient {
     const response = await apiClient.get("/sync/health");
     return response.data?.data || response.data;
   }
+
+  /**
+   * Descarga catálogo completo (categorías + productos).
+   * Endpoint: GET /api/v1/catalog/categories y GET /api/v1/catalog/products
+   */
+  async fetchCatalog(): Promise<{
+    categories: any[];
+    products: any[];
+  }> {
+    const [catRes, prodRes] = await Promise.all([
+      apiClient.get("/catalog/categories"),
+      apiClient.get("/catalog/products"),
+    ]);
+
+    return {
+      categories: catRes.data?.data || catRes.data || [],
+      products: prodRes.data?.data || prodRes.data || [],
+    };
+  }
+
+  /**
+   * Descarga mesas de la sucursal.
+   * Endpoint: GET /api/v1/tables
+   */
+  async fetchTables(): Promise<any[]> {
+    const response = await apiClient.get("/tables");
+    return response.data?.data || response.data || [];
+  }
+
+  /**
+   * Descarga métodos de pago.
+   * Endpoint: GET /api/v1/payment-methods
+   */
+  async fetchPaymentMethods(): Promise<any[]> {
+    const response = await apiClient.get("/payment-methods");
+    return response.data?.data || response.data || [];
+  }
 }
 
 export const syncApi = new SyncApiClient();

@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { SyncQueueRepository } from "../db/repositories/SyncQueueRepository";
-import { syncEngine } from "../services/sync/SyncEngine";
 
 export type ConnectionStatus = "online" | "offline" | "syncing" | "error";
 
@@ -28,6 +27,7 @@ interface SyncState {
   setLastError: (error: string | null) => void;
   setLastSyncAt: (timestamp: string) => void;
   triggerSync: () => Promise<void>;
+  triggerFullSync: () => Promise<void>;
   startWorker: (intervalMs?: number) => void;
   stopWorker: () => void;
 }
@@ -57,7 +57,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
   },
 
   /**
-   * Dispara un ciclo de sincronización manual.
+   * Dispara un ciclo de sincronización manual (solo push).
    */
   triggerSync: async () => {
     const { status } = get();
@@ -67,11 +67,31 @@ export const useSyncStore = create<SyncState>((set, get) => ({
     }
 
     try {
+      const { syncEngine } = await import("../services/sync/SyncEngine");
       const stats = await syncEngine.processBatch();
       set({ lastBatchStats: stats });
     } catch (error: any) {
       console.error("[SyncStore] Error en triggerSync:", error);
       set({ lastError: error?.message || "Error en sincronización" });
+    }
+  },
+
+  /**
+   * Dispara sincronización completa: push + pull.
+   */
+  triggerFullSync: async () => {
+    const { status } = get();
+    if (status === "offline") {
+      console.log("[SyncStore] Offline, saltando full sync");
+      return;
+    }
+
+    try {
+      const { syncEngine } = await import("../services/sync/SyncEngine");
+      await syncEngine.triggerFullSync();
+    } catch (error: any) {
+      console.error("[SyncStore] Error en triggerFullSync:", error);
+      set({ lastError: error?.message || "Error en sincronización completa" });
     }
   },
 

@@ -10,7 +10,7 @@ export function SyncStatusIndicator() {
   const pendingCount = useSyncStore((s) => s.pendingCount);
   const lastSyncAt = useSyncStore((s) => s.lastSyncAt);
   const lastError = useSyncStore((s) => s.lastError);
-  const triggerSync = useSyncStore((s) => s.triggerSync);
+  const triggerFullSync = useSyncStore((s) => s.triggerFullSync);
 
   const formatTime = (iso: string | null) => {
     if (!iso) return "nunca";
@@ -59,26 +59,29 @@ export function SyncStatusIndicator() {
   const Icon = config.icon;
 
   return (
-    <div
-      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${config.bg} ${config.border}`}
-      title={lastError ? `Error: ${lastError}` : `Última sync: ${formatTime(lastSyncAt)}`}
-    >
-      <Icon size={16} className={`${config.color} ${status === "syncing" ? "animate-spin" : ""}`} />
-      <span className={`text-xs font-medium ${config.color}`}>{config.label}</span>
-      {pendingCount > 0 && (
-        <span className="bg-orange-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
-          {pendingCount}
-        </span>
-      )}
-      {status === "error" && (
-        <button
-          onClick={triggerSync}
-          className="ml-1 p-1 hover:bg-white/10 rounded transition-colors"
-          title="Reintentar sincronización"
-        >
-          <RefreshCw size={12} className="text-slate-300" />
-        </button>
-      )}
+    <div className="flex items-center gap-2">
+      <div
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${config.bg} ${config.border}`}
+        title={lastError ? `Error: ${lastError}` : `Última sync: ${formatTime(lastSyncAt)}`}
+      >
+        <Icon size={16} className={`${config.color} ${status === "syncing" ? "animate-spin" : ""}`} />
+        <span className={`text-xs font-medium ${config.color}`}>{config.label}</span>
+        {pendingCount > 0 && (
+          <span className="bg-orange-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+            {pendingCount}
+          </span>
+        )}
+      </div>
+      
+      {/* Botón de sincronización manual */}
+      <button
+        onClick={triggerFullSync}
+        disabled={status === "syncing" || status === "offline"}
+        className="p-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        title="Sincronizar ahora (push + pull)"
+      >
+        <RefreshCw size={16} className={status === "syncing" ? "animate-spin" : ""} />
+      </button>
     </div>
   );
 }

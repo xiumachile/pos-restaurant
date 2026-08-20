@@ -2,6 +2,7 @@ import { SyncQueueRepository, type SyncQueueItem } from "../../db/repositories/S
 import { OrderRepository } from "../../db/repositories/OrderRepository";
 import { PaymentRepository } from "../../db/repositories/PaymentRepository";
 import { syncApi } from "../syncApi";
+import { pullEngine } from "./PullEngine";
 import { useSyncStore } from "../../store/useSyncStore";
 
 /**
@@ -218,6 +219,36 @@ export class SyncEngine {
     } catch {
       return null;
     }
+  }
+  /**
+   * Dispara sincronización completa: push (eventos locales) + pull (snapshot cloud).
+   */
+  async triggerFullSync(): Promise<{
+    push: { processed: number; success: number; failed: number };
+    pull: {
+      categories: number;
+      products: number;
+      tables: number;
+      paymentMethods: number;
+    };
+  }> {
+    console.log("[SyncEngine] Sincronización completa: push + pull");
+
+    // 1. Push eventos locales
+    const pushStats = await this.processBatch();
+
+    // 2. Pull snapshot del cloud
+    const pullStats = await pullEngine.pullAll();
+
+    return {
+      push: pushStats,
+      pull: {
+        categories: pullStats.categories,
+        products: pullStats.products,
+        tables: pullStats.tables,
+        paymentMethods: pullStats.paymentMethods,
+      },
+    };
   }
 }
 
