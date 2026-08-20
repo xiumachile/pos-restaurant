@@ -1,8 +1,5 @@
 /**
  * Mock de @tauri-apps/plugin-sql para tests unitarios.
- * Soporta: valores literales mezclados con ? placeholders,
- * agregaciones (COUNT, SUM), WHERE complejo (IS NULL, AND),
- * ORDER BY, LIMIT, CURRENT_TIMESTAMP.
  */
 type Row = Record<string, any>;
 
@@ -14,7 +11,7 @@ class MockDatabase {
   }
 
   /**
-   * Parsea VALUES mezclando ? y literales ('string', 0, CURRENT_TIMESTAMP).
+   * Parsea VALUES mezclando ? y literales.
    */
   private parseValues(valuesStr: string, params: any[]): any[] {
     const result: any[] = [];
@@ -22,6 +19,7 @@ class MockDatabase {
     let current = "";
     let inString = false;
     let stringChar = "";
+    let parenDepth = 0;
 
     const flush = () => {
       const val = current.trim();
@@ -63,7 +61,19 @@ class MockDatabase {
         continue;
       }
 
-      if (char === ",") {
+      if (char === "(") {
+        parenDepth++;
+        current += char;
+        continue;
+      }
+
+      if (char === ")") {
+        parenDepth--;
+        current += char;
+        continue;
+      }
+
+      if (char === "," && parenDepth === 0) {
         flush();
         continue;
       }
@@ -79,7 +89,6 @@ class MockDatabase {
     const q = query.trim().toLowerCase();
     const safeParams = params || [];
 
-    // CREATE TABLE
     if (q.startsWith("create table")) {
       const match = query.match(/create table\s+(?:if not exists\s+)?(\w+)/i);
       if (match && !this.tables.has(match[1])) {
@@ -88,7 +97,6 @@ class MockDatabase {
       return 0;
     }
 
-    // INSERT (soporta OR REPLACE)
     if (q.startsWith("insert")) {
       const match = query.match(
         /insert\s+(?:or\s+replace\s+)?into\s+(\w+)\s*\(([^)]+)\)\s*values\s*\(([\s\S]+)\)/i
@@ -101,7 +109,6 @@ class MockDatabase {
         if (!this.tables.has(tableName)) this.tables.set(tableName, []);
         const rows = this.tables.get(tableName)!;
 
-        // OR REPLACE: eliminar fila con misma PK
         if (q.includes("or replace")) {
           const idx = rows.findIndex((r) => r[cols[0]] === values[0]);
           if (idx >= 0) rows.splice(idx, 1);
@@ -115,7 +122,6 @@ class MockDatabase {
       return 0;
     }
 
-    // UPDATE con SET mixto (? y literales)
     if (q.startsWith("update")) {
       const match = query.match(
         /update\s+(\w+)\s+set\s+([\s\S]+?)(?:\s+where\s+([\s\S]+))?\s*$/i
@@ -126,38 +132,55 @@ class MockDatabase {
         const whereClause = match[3];
         const rows = this.tables.get(tableName) || [];
 
-        // Parsear SET: "col1 = ?, col2 = 'literal', col3 = CURRENT_TIMESTAMP"
-        const setAssignments: Array<{ col: string; value: any }> = [];
+        // Parsear SET respetando paréntesis (para funciones como datetime())
+        const assignments: Array<{ col: string; value: any }> = [];
         let paramIdx = 0;
+        let current = "";
+        let parenDepth = 0;
 
-        for (const assignment of setClause.split(",")) {
-          const [colPart, valPart] = assignment.split("=").map((s) => s.trim());
-          const col = colPart.trim();
-          const val = valPart.trim();
+        for (let i = 0; i <= setClause.length; i++) {
+          const char = setClause[i] || ",";
+          
+          if (char === "(") parenDepth++;
+          if (char === ")") parenDepth--;
+          
+          if (char === "," && parenDepth === 0) {
+            const assignment = current.trim();
+            if (assignment) {
+              const eqIdx = assignment.indexOf("=");
+              if (eqIdx > 0) {
+                const col = assignment.substring(0, eqIdx).trim();
+                const val = assignment.substring(eqIdx + 1).trim();
 
-          let resolvedVal: any;
-          if (val === "?") {
-            resolvedVal = safeParams[paramIdx++];
-          } else if (val === "CURRENT_TIMESTAMP" || val.startsWith("datetime(")) {
-            resolvedVal = new Date().toISOString();
-          } else if ((val.startsWith("'") && val.endsWith("'")) || 
-                     (val.startsWith('"') && val.endsWith('"'))) {
-            resolvedVal = val.slice(1, -1);
-          } else if (/^-?\d+(\.\d+)?$/.test(val)) {
-            resolvedVal = parseFloat(val);
-          } else if (val.toUpperCase() === "NULL") {
-            resolvedVal = null;
+                let resolvedVal: any;
+                if (val === "?") {
+                  resolvedVal = safeParams[paramIdx++];
+                } else if (val === "CURRENT_TIMESTAMP" || val.startsWith("datetime(")) {
+                  resolvedVal = new Date().toISOString();
+                } else if ((val.startsWith("'") && val.endsWith("'")) || 
+                           (val.startsWith('"') && val.endsWith('"'))) {
+                  resolvedVal = val.slice(1, -1);
+                } else if (/^-?\d+(\.\d+)?$/.test(val)) {
+                  resolvedVal = parseFloat(val);
+                } else if (val.toUpperCase() === "NULL") {
+                  resolvedVal = null;
+                } else {
+                  resolvedVal = val;
+                }
+
+                assignments.push({ col, value: resolvedVal });
+              }
+            }
+            current = "";
           } else {
-            resolvedVal = val;
+            current += char;
           }
-
-          setAssignments.push({ col, value: resolvedVal });
         }
 
         let affected = 0;
         for (const row of rows) {
           if (!whereClause || this.matchesWhere(row, whereClause, safeParams.slice(paramIdx))) {
-            for (const { col, value } of setAssignments) {
+            for (const { col, value } of assignments) {
               row[col] = value;
             }
             affected++;
@@ -168,7 +191,6 @@ class MockDatabase {
       return 0;
     }
 
-    // DELETE
     if (q.startsWith("delete")) {
       const match = query.match(/delete from\s+(\w+)(?:\s+where\s+([\s\S]+))?/i);
       if (match) {
@@ -235,7 +257,6 @@ class MockDatabase {
       rows = rows.slice(0, limit);
     }
 
-    // Agregaciones
     const hasCount = /count\s*\(\s*\*\s*\)/i.test(selectClause);
     const hasSum = /sum\s*\(/i.test(selectClause);
 
@@ -262,13 +283,6 @@ class MockDatabase {
     return rows as T[];
   }
 
-  /**
-   * Evalúa WHERE con soporte para:
-   * - =, !=, <, >, <=, >= (con ? o literal)
-   * - IS NULL / IS NOT NULL
-   * - AND (múltiples condiciones)
-   * - Paréntesis y funciones (saltadas, asumidas verdaderas)
-   */
   private matchesWhere(row: Row, whereClause: string, params: any[]): boolean {
     const conditions = whereClause.split(/\s+AND\s+/i);
     let paramIdx = 0;
@@ -276,27 +290,23 @@ class MockDatabase {
     for (const cond of conditions) {
       const trimmed = cond.trim();
 
-      // IS NULL
       if (/\w+\s+IS\s+NULL/i.test(trimmed)) {
         const col = trimmed.match(/(\w+)\s+IS\s+NULL/i)?.[1];
         if (col && row[col] !== null && row[col] !== undefined) return false;
         continue;
       }
 
-      // IS NOT NULL
       if (/\w+\s+IS\s+NOT\s+NULL/i.test(trimmed)) {
         const col = trimmed.match(/(\w+)\s+IS\s+NOT\s+NULL/i)?.[1];
         if (col && (row[col] === null || row[col] === undefined)) return false;
         continue;
       }
 
-      // Condiciones complejas con paréntesis o datetime(): saltar
       if (trimmed.startsWith("(") || trimmed.includes("datetime(")) {
         paramIdx += (trimmed.match(/\?/g) || []).length;
         continue;
       }
 
-      // Comparación estándar
       const match = trimmed.match(/(\w+)\s*(=|!=|<=|>=|<|>|LIKE)\s*(.+)/i);
       if (match) {
         const col = match[1];

@@ -9,7 +9,7 @@ export interface SyncQueueItem {
   entity_local_uuid: string;
   entity_cloud_id: string | null;
   action: "create" | "update" | "delete";
-  payload: string; // JSON string
+  payload: string;
   sync_status: "pending" | "syncing" | "synced" | "failed";
   attempts: number;
   max_attempts: number;
@@ -25,13 +25,10 @@ export interface EnqueuePayload {
   entity_type: SyncQueueItem["entity_type"];
   entity_local_uuid: string;
   action: SyncQueueItem["action"];
-  payload: any; // Will be JSON.stringify'd
+  payload: any;
 }
 
 export class SyncQueueRepository {
-  /**
-   * Agrega un evento a la cola de sincronización.
-   */
   static async enqueue(data: EnqueuePayload): Promise<string> {
     const id = uuidv4();
     const payloadStr = JSON.stringify(data.payload);
@@ -57,22 +54,26 @@ export class SyncQueueRepository {
   }
 
   /**
-   * Obtiene los próximos N eventos pendientes de sincronizar.
+   * Obtiene los próximos N eventos pendientes.
+   * Nota: El filtrado por next_retry_at se hace en JS para compatibilidad con tests.
    */
   static async getPending(limit: number = 50): Promise<SyncQueueItem[]> {
-    return await localDb.select<SyncQueueItem>(
-      `SELECT * FROM sync_queue 
-       WHERE sync_status = 'pending' 
-       AND (next_retry_at IS NULL OR next_retry_at <= CURRENT_TIMESTAMP)
-       ORDER BY created_at ASC 
-       LIMIT ?`,
-      [limit]
+    const allPending = await localDb.select<SyncQueueItem>(
+      "SELECT * FROM sync_queue WHERE sync_status = ? ORDER BY created_at ASC",
+      ["pending"]
     );
+
+    const now = new Date();
+
+    // Filtrar en JS: solo incluir items sin next_retry_at o con next_retry_at <= now
+    const eligible = allPending.filter((item) => {
+      if (!item.next_retry_at) return true;
+      return new Date(item.next_retry_at) <= now;
+    });
+
+    return eligible.slice(0, limit);
   }
 
-  /**
-   * Marca un evento como en proceso de sincronización.
-   */
   static async markAsSyncing(id: string): Promise<void> {
     await localDb.execute(
       `UPDATE sync_queue SET sync_status = 'syncing', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
@@ -80,12 +81,8 @@ export class SyncQueueRepository {
     );
   }
 
-  /**
-   * Marca un evento como sincronizado exitosamente.
-   */
   static async markAsSynced(id: string, cloudId?: string): Promise<void> {
     if (cloudId) {
-      // Actualizar el cloud_id en la entidad correspondiente
       const item = await this.findById(id);
       if (item) {
         const tableMap: Record<string, string> = {
@@ -110,9 +107,6 @@ export class SyncQueueRepository {
     );
   }
 
-  /**
-   * Marca un evento como fallido con backoff exponencial.
-   */
   static async markAsFailed(id: string, error: string): Promise<void> {
     const item = await this.findById(id);
     if (!item) return;
@@ -121,34 +115,31 @@ export class SyncQueueRepository {
     const maxAttempts = item.max_attempts;
 
     if (attempts >= maxAttempts) {
-      // Marcar como fallido permanentemente
       await localDb.execute(
         `UPDATE sync_queue SET sync_status = 'failed', attempts = ?, last_error = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
         [attempts, error, id]
       );
     } else {
-      // Backoff exponencial: 2^attempts * 15 segundos
+      // Backoff exponencial calculado en JS (evita datetime() en SQL para compatibilidad)
       const backoffSeconds = Math.pow(2, attempts) * 15;
+      const nextRetryAt = new Date(Date.now() + backoffSeconds * 1000).toISOString();
+      
       await localDb.execute(
-        `UPDATE sync_queue SET sync_status = 'pending', attempts = ?, last_error = ?, next_retry_at = datetime('now', '+${backoffSeconds} seconds'), updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-        [attempts, error, id]
+        `UPDATE sync_queue SET sync_status = 'pending', attempts = ?, last_error = ?, next_retry_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        [attempts, error, nextRetryAt, id]
       );
     }
   }
 
-  /**
-   * Elimina eventos sincronizados antiguos (más de 7 días).
-   */
   static async cleanupOldSynced(): Promise<number> {
+    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const result = await localDb.execute(
-      `DELETE FROM sync_queue WHERE sync_status = 'synced' AND updated_at < datetime('now', '-7 days')`
+      `DELETE FROM sync_queue WHERE sync_status = 'synced' AND updated_at < ?`,
+      [cutoff]
     );
     return result;
   }
 
-  /**
-   * Busca un evento por ID.
-   */
   private static async findById(id: string): Promise<SyncQueueItem | null> {
     const results = await localDb.select<SyncQueueItem>(
       "SELECT * FROM sync_queue WHERE id = ?",
@@ -157,12 +148,10 @@ export class SyncQueueRepository {
     return results[0] || null;
   }
 
-  /**
-   * Cuenta eventos pendientes.
-   */
   static async countPending(): Promise<number> {
     const results = await localDb.select<{ count: number }>(
-      "SELECT COUNT(*) as count FROM sync_queue WHERE sync_status = 'pending'"
+      "SELECT COUNT(*) as count FROM sync_queue WHERE sync_status = ?",
+      ["pending"]
     );
     return results[0]?.count || 0;
   }

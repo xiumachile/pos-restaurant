@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { SyncQueueRepository } from "../db/repositories/SyncQueueRepository";
+import { syncEngine } from "../services/sync/SyncEngine";
 
 export type ConnectionStatus = "online" | "offline" | "syncing" | "error";
 
@@ -9,7 +10,14 @@ interface SyncState {
   lastSyncAt: string | null;
   pendingCount: number;
   lastError: string | null;
-  
+
+  // Estadísticas del último batch
+  lastBatchStats: {
+    processed: number;
+    success: number;
+    failed: number;
+  } | null;
+
   // Worker state
   isWorkerRunning: boolean;
   workerIntervalId: number | null;
@@ -19,7 +27,8 @@ interface SyncState {
   refreshPendingCount: () => Promise<void>;
   setLastError: (error: string | null) => void;
   setLastSyncAt: (timestamp: string) => void;
-  startWorker: () => void;
+  triggerSync: () => Promise<void>;
+  startWorker: (intervalMs?: number) => void;
   stopWorker: () => void;
 }
 
@@ -28,13 +37,14 @@ export const useSyncStore = create<SyncState>((set, get) => ({
   lastSyncAt: null,
   pendingCount: 0,
   lastError: null,
+  lastBatchStats: null,
   isWorkerRunning: false,
   workerIntervalId: null,
 
   setStatus: (status) => set({ status }),
-  
+
   setLastError: (error) => set({ lastError: error }),
-  
+
   setLastSyncAt: (timestamp) => set({ lastSyncAt: timestamp }),
 
   refreshPendingCount: async () => {
@@ -46,19 +56,36 @@ export const useSyncStore = create<SyncState>((set, get) => ({
     }
   },
 
-  startWorker: () => {
+  /**
+   * Dispara un ciclo de sincronización manual.
+   */
+  triggerSync: async () => {
+    const { status } = get();
+    if (status === "offline") {
+      console.log("[SyncStore] Offline, saltando sync");
+      return;
+    }
+
+    try {
+      const stats = await syncEngine.processBatch();
+      set({ lastBatchStats: stats });
+    } catch (error: any) {
+      console.error("[SyncStore] Error en triggerSync:", error);
+      set({ lastError: error?.message || "Error en sincronización" });
+    }
+  },
+
+  startWorker: (intervalMs = 15000) => {
     const { isWorkerRunning } = get();
     if (isWorkerRunning) return;
 
-    console.log("[SyncStore] Iniciando worker de sincronización (cada 15s)");
-    
+    console.log(`[SyncStore] Iniciando worker (cada ${intervalMs / 1000}s)`);
+
     const intervalId = window.setInterval(async () => {
       const { status } = get();
       if (status === "offline") return;
-      
-      await get().refreshPendingCount();
-      // El procesamiento real del queue irá en el SyncEngine (Día 3)
-    }, 15000);
+      await get().triggerSync();
+    }, intervalMs);
 
     set({ isWorkerRunning: true, workerIntervalId: intervalId });
   },
@@ -76,8 +103,15 @@ export const useSyncStore = create<SyncState>((set, get) => ({
 // Monitor de conectividad del navegador
 if (typeof window !== "undefined") {
   const updateConnectivity = () => {
-    const { setStatus } = useSyncStore.getState();
-    setStatus(navigator.onLine ? "online" : "offline");
+    const { setStatus, triggerSync } = useSyncStore.getState();
+    const isOnline = navigator.onLine;
+    setStatus(isOnline ? "online" : "offline");
+
+    // Al recuperar conexión, disparar sync inmediato
+    if (isOnline) {
+      console.log("[SyncStore] Conectividad restaurada, disparando sync");
+      triggerSync();
+    }
   };
 
   window.addEventListener("online", updateConnectivity);
