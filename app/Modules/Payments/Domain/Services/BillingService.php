@@ -239,18 +239,39 @@ class BillingService
     /**
      * Crea una bill única para un order (sin dividir).
      * Usado cuando se quiere cobrar el order completo con pagos divididos por método.
+     * 
+     * Si ya existe una bill:
+     * - Con total correcto → la retorna tal cual
+     * - Con total = 0 (corrupta) → la elimina y crea una nueva
      */
     public function createSingleBill(Order $order): Bill
     {
         return DB::transaction(function () use ($order) {
-            // Si ya existen bills no canceladas, retornar la primera
+            // Buscar bills existentes no canceladas
             $existing = Bill::where('order_id', $order->id)
                 ->whereNotIn('status', [BillStatus::CANCELLED])
                 ->first();
             
             if ($existing) {
-                return $existing;
+                // Si la bill tiene total correcto, retornarla
+                if ((float) $existing->total > 0 && abs((float) $existing->total - (float) $order->total) < 0.01) {
+                    return $existing;
+                }
+                
+                // Si la bill está corrupta (total=0), eliminarla para recrearla
+                if ((float) $existing->total == 0 && (float) $existing->paid_amount == 0) {
+                    $existing->delete();
+                } else {
+                    // Bill tiene datos pero diferente total - retornar como está
+                    return $existing;
+                }
             }
+
+            // Crear nueva bill con los totales del order
+            $orderTotal = (float) $order->total;
+            $orderSubtotal = (float) $order->subtotal;
+            $orderTax = (float) $order->tax_amount;
+            $orderDiscount = (float) $order->discount_amount;
 
             return Bill::create([
                 'company_id' => $order->company_id,
@@ -258,13 +279,13 @@ class BillingService
                 'order_id' => $order->id,
                 'bill_number' => Bill::generateBillNumber($order->order_number, 1),
                 'type' => BillType::SINGLE,
-                'subtotal' => (float) $order->subtotal,
-                'tax_amount' => (float) $order->tax_amount,
-                'discount_amount' => (float) $order->discount_amount,
+                'subtotal' => $orderSubtotal,
+                'tax_amount' => $orderTax,
+                'discount_amount' => $orderDiscount,
                 'tip_amount' => 0,
-                'total' => (float) $order->total,
+                'total' => $orderTotal,
                 'paid_amount' => 0,
-                'remaining_amount' => (float) $order->total,
+                'remaining_amount' => $orderTotal,
                 'status' => BillStatus::OPEN,
                 'guest_count' => 1,
             ]);
