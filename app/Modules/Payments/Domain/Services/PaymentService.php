@@ -100,10 +100,11 @@ class PaymentService
 
     /**
      * Verifica si un pedido puede recibir pagos.
+     * Acepta cualquier estado cobrable: CONFIRMED, PREPARING, READY, SERVED
      */
     private function isOrderPayable(Order $order): bool
     {
-        return $order->status->isAwaitingPayment() || $order->status === \Modules\Orders\Domain\ValueObjects\OrderStatus::SERVED;
+        return $order->status->isChargeable();
     }
 
     /**
@@ -124,6 +125,7 @@ class PaymentService
 
     /**
      * Actualiza el estado de pago del pedido si está completamente pagado.
+     * Transiciona el order a PAID desde cualquier estado cobrable.
      */
     private function updateOrderPaymentStatus(Order $order): void
     {
@@ -131,9 +133,16 @@ class PaymentService
             ->completed()
             ->sum('amount');
 
-        if ($paidAmount >= (float) $order->total) {
+        if ($paidAmount >= (float) $order->total && $order->status->isChargeable()) {
             $order->paid_at = now();
+            $order->status = \Modules\Orders\Domain\ValueObjects\OrderStatus::PAID;
+            $order->cashier_id = $order->cashier_id ?: auth()->id();
             $order->save();
+            
+            // Disparar evento OrderPaid si existe
+            if (class_exists(\Modules\Orders\Domain\Events\OrderPaid::class)) {
+                event(new \Modules\Orders\Domain\Events\OrderPaid($order));
+            }
         }
     }
 }
