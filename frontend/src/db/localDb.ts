@@ -46,7 +46,8 @@ class LocalDatabase {
   async execute(query: string, params?: unknown[]): Promise<number> {
     const db = await this.getConnection();
     const result = await db.execute(query, params as any);
-    return result;
+    // El plugin retorna QueryResult con rowsAffected
+    return (result as any)?.rowsAffected ?? 0;
   }
 
   /**
@@ -54,7 +55,9 @@ class LocalDatabase {
    */
   async select<T = any>(query: string, params?: unknown[]): Promise<T[]> {
     const db = await this.getConnection();
-    return await db.select<T>(query, params as any);
+    const results = await db.select<T>(query, params as any);
+    // select retorna T[] directamente
+    return (results ?? []) as T[];
   }
 
   /**
