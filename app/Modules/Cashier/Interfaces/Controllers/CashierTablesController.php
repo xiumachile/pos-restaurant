@@ -14,6 +14,7 @@ use Modules\Payments\Domain\Entities\CashSession;
 use Modules\Payments\Domain\Entities\PaymentMethod;
 use Modules\Payments\Domain\Exceptions\PaymentException;
 use Modules\Payments\Domain\Services\PaymentService;
+use Modules\Payments\Domain\Services\BillingService;
 use Modules\Payments\Domain\ValueObjects\BillStatus;
 use Modules\Payments\Domain\ValueObjects\CashSessionStatus;
 use Modules\Tables\Domain\Entities\RestaurantTable;
@@ -21,7 +22,8 @@ use Modules\Tables\Domain\Entities\RestaurantTable;
 class CashierTablesController extends Controller
 {
     public function __construct(
-        private PaymentService $paymentService
+        private PaymentService $paymentService,
+        private BillingService $billingService
     ) {}
 
     public function tablesWithBills(Request $request): JsonResponse
@@ -99,6 +101,49 @@ class CashierTablesController extends Controller
         });
 
         return response()->json(['data' => $response]);
+    }
+
+    /**
+     * POST /api/v1/cashier/tables/{tableUuid}/prepare-bills
+     * Crea una bill única por cada order servido de la mesa.
+     * Usado antes de abrir el modal de pagos divididos.
+     * Si ya existen bills, las retorna sin crear nuevas.
+     */
+    public function prepareBills(Request $request, string $tableUuid): JsonResponse
+    {
+        $user = $request->user();
+        $branchId = $user->branch_id;
+
+        $table = RestaurantTable::where('uuid', $tableUuid)
+            ->where('branch_id', $branchId)
+            ->firstOrFail();
+
+        $servedOrders = Order::where('table_id', $table->id)
+            ->where('branch_id', $branchId)
+            ->where('status', OrderStatus::SERVED)
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        if ($servedOrders->isEmpty()) {
+            return response()->json([
+                'error' => 'no_orders_to_charge',
+                'message' => 'La mesa no tiene pedidos servidos para cobrar.',
+            ], 422);
+        }
+
+        $bills = [];
+        foreach ($servedOrders as $order) {
+            $bill = $this->billingService->createSingleBill($order);
+            $bills[] = $bill;
+        }
+
+        return response()->json([
+            'data' => [
+                'bills' => BillResource::collection($bills),
+                'total_amount' => (float) $servedOrders->sum('total'),
+                'orders_count' => $servedOrders->count(),
+            ],
+        ]);
     }
 
     public function chargeTable(Request $request, string $tableUuid): JsonResponse

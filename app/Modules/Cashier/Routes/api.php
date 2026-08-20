@@ -30,6 +30,9 @@ Route::prefix('v1/cashier')->middleware(['auth:api', TenantContextMiddleware::cl
     Route::post('/tables/{tableUuid}/charge', [CashierTablesController::class, 'chargeTable'])
         ->name('cashier.tables.charge');
 
+    Route::post('/tables/{tableUuid}/prepare-bills', [CashierTablesController::class, 'prepareBills'])
+        ->name('cashier.tables.prepare-bills');
+
     Route::post('/bills/{billUuid}/pay', [CashierTablesController::class, 'payBill'])
         ->name('cashier.bills.pay');
 

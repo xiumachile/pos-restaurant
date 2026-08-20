@@ -235,6 +235,42 @@ class BillingService
     /**
      * Cancela bills existentes de un order.
      */
+
+    /**
+     * Crea una bill única para un order (sin dividir).
+     * Usado cuando se quiere cobrar el order completo con pagos divididos por método.
+     */
+    public function createSingleBill(Order $order): Bill
+    {
+        return DB::transaction(function () use ($order) {
+            // Si ya existen bills no canceladas, retornar la primera
+            $existing = Bill::where('order_id', $order->id)
+                ->whereNotIn('status', [BillStatus::CANCELLED])
+                ->first();
+            
+            if ($existing) {
+                return $existing;
+            }
+
+            return Bill::create([
+                'company_id' => $order->company_id,
+                'branch_id' => $order->branch_id,
+                'order_id' => $order->id,
+                'bill_number' => Bill::generateBillNumber($order->order_number, 1),
+                'type' => BillType::SINGLE,
+                'subtotal' => (float) $order->subtotal,
+                'tax_amount' => (float) $order->tax_amount,
+                'discount_amount' => (float) $order->discount_amount,
+                'tip_amount' => 0,
+                'total' => (float) $order->total,
+                'paid_amount' => 0,
+                'remaining_amount' => (float) $order->total,
+                'status' => BillStatus::OPEN,
+                'guest_count' => 1,
+            ]);
+        });
+    }
+
     private function cancelExistingBills(Order $order): void
     {
         Bill::where('order_id', $order->id)

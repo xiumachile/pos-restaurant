@@ -7,6 +7,7 @@ enum BillType: string
     case EQUAL_SPLIT = 'equal_split';
     case BY_ITEMS = 'by_items';
     case CUSTOM_AMOUNT = 'custom_amount';
+    case SINGLE = 'single';
 
     public function label(): string
     {
@@ -14,6 +15,7 @@ enum BillType: string
             self::EQUAL_SPLIT => 'Partes Iguales',
             self::BY_ITEMS => 'Por Ítems',
             self::CUSTOM_AMOUNT => 'Monto Personalizado',
+            self::SINGLE => 'Cuenta Única',
         };
     }
 
