@@ -33,13 +33,15 @@ interface PendingPayment {
   idempotency_key: string;
 }
 
+type ActiveField = "amount" | "tip" | "received";
+
 const PAYMENT_CONFIG: Record<string, { label: string; icon: any; color: string }> = {
-  CASH: { label: "Efectivo", icon: Banknote, color: "bg-green-600 hover:bg-green-700" },
-  CARD: { label: "Tarjeta", icon: CreditCard, color: "bg-blue-600 hover:bg-blue-700" },
-  TRANSFER: { label: "Transfer", icon: Building2, color: "bg-purple-600 hover:bg-purple-700" },
-  GIFT_CARD: { label: "Gift Card", icon: Gift, color: "bg-amber-600 hover:bg-amber-700" },
-  DEBIT_CARD: { label: "Débito", icon: CreditCard, color: "bg-blue-600 hover:bg-blue-700" },
-  CREDIT_CARD: { label: "Crédito", icon: CreditCard, color: "bg-blue-600 hover:bg-blue-700" },
+  CASH: { label: "Efectivo", icon: Banknote, color: "bg-green-600" },
+  CARD: { label: "Tarjeta", icon: CreditCard, color: "bg-blue-600" },
+  TRANSFER: { label: "Transfer", icon: Building2, color: "bg-purple-600" },
+  GIFT_CARD: { label: "Gift Card", icon: Gift, color: "bg-amber-600" },
+  DEBIT_CARD: { label: "Débito", icon: CreditCard, color: "bg-blue-600" },
+  CREDIT_CARD: { label: "Crédito", icon: CreditCard, color: "bg-blue-600" },
 };
 
 export function BillPaymentModalV2({
@@ -55,6 +57,7 @@ export function BillPaymentModalV2({
   const [amountInput, setAmountInput] = useState<string>("");
   const [tipInput, setTipInput] = useState<string>("0");
   const [receivedInput, setReceivedInput] = useState<string>("");
+  const [activeField, setActiveField] = useState<ActiveField>("amount");
   const [payments, setPayments] = useState<PendingPayment[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
@@ -77,22 +80,39 @@ export function BillPaymentModalV2({
     ? Math.max(0, currentReceived - (currentAmount + currentTip))
     : 0;
 
+  // Teclado escribe en el campo activo
   const handleKeyPress = useCallback((key: string) => {
+    const setters: Record<ActiveField, React.Dispatch<React.SetStateAction<string>>> = {
+      amount: setAmountInput,
+      tip: setTipInput,
+      received: setReceivedInput,
+    };
+    const setter = setters[activeField];
+    const current = activeField === "amount" ? amountInput : activeField === "tip" ? tipInput : receivedInput;
+
     if (key === "C") {
-      setAmountInput("");
+      setter("");
     } else if (key === "⌫") {
-      setAmountInput(prev => prev.slice(0, -1));
+      setter(current.slice(0, -1));
     } else if (key === ".") {
-      if (!amountInput.includes(".")) setAmountInput(prev => prev + ".");
-    } else if (currentAmount === 0 && key === "0") {
-      // no permitir ceros a la izquierda
+      if (!current.includes(".")) setter(current + ".");
+    } else if (key === "000") {
+      setter(current + "000");
     } else {
-      setAmountInput(prev => prev + key);
+      setter(current + key);
     }
-  }, [amountInput, currentAmount]);
+  }, [activeField, amountInput, tipInput, receivedInput]);
 
   const handleFillRemaining = () => {
     setAmountInput(String(Math.floor(remaining)));
+    setActiveField("amount");
+  };
+
+  const handleSelectMethod = (method: PaymentMethod) => {
+    setSelectedMethod(method);
+    // Auto-cambiar al campo amount al seleccionar método
+    setActiveField("amount");
+    // Si ya había monto en el campo, no resetear
   };
 
   const handleAddPayment = () => {
@@ -109,9 +129,11 @@ export function BillPaymentModalV2({
     };
 
     setPayments([...payments, newPayment]);
+    // Resetear campos pero mantener método seleccionado
     setAmountInput("");
     setTipInput("0");
     setReceivedInput("");
+    setActiveField("amount");
   };
 
   const handleRemovePayment = (id: string) => {
@@ -193,9 +215,18 @@ export function BillPaymentModalV2({
 
   if (!isOpen) return null;
 
+  const fieldClass = (field: ActiveField, borderColor: string = "orange") => {
+    const isActive = activeField === field;
+    const colorMap: Record<string, string> = {
+      orange: isActive ? "border-orange-500 bg-orange-500/10" : "border-slate-700 hover:border-slate-600",
+      green: isActive ? "border-green-500 bg-green-500/10" : "border-slate-700 hover:border-slate-600",
+    };
+    return `bg-slate-950 border-2 rounded-lg px-3 py-2 transition-all cursor-pointer ${colorMap[borderColor]}`;
+  };
+
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
-      {/* Header compacto */}
+      {/* Header */}
       <div className="bg-slate-900 border-b border-slate-700 px-4 py-3 flex items-center justify-between flex-shrink-0">
         <div>
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
@@ -205,6 +236,7 @@ export function BillPaymentModalV2({
             {effectiveBills.length === 1
               ? `Cuenta #${effectiveBills[0].bill_number}`
               : `${effectiveBills.length} sub-cuentas`}
+            {" · "}Total: <span className="text-orange-400 font-semibold">{formatPrice(billTotal)}</span>
           </p>
         </div>
         <button
@@ -212,15 +244,15 @@ export function BillPaymentModalV2({
           disabled={isProcessing}
           className="p-2 hover:bg-slate-800 rounded-lg disabled:opacity-50"
         >
-          <X size={24} />
+          <X size={22} />
         </button>
       </div>
 
-      {/* Contenido principal: flex row en desktop, column en mobile */}
+      {/* Contenido principal */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden bg-slate-950">
-        {/* Columna izquierda: Pagos agregados (scrollable) */}
+        {/* Columna izquierda: Pagos agregados */}
         <div className="lg:w-1/2 flex flex-col border-r border-slate-800 overflow-hidden">
-          {/* Resumen de totales */}
+          {/* Resumen */}
           <div className="bg-slate-900 border-b border-slate-800 p-3 grid grid-cols-3 gap-2 flex-shrink-0">
             <div className="text-center">
               <div className="text-[10px] text-slate-500 uppercase">Total</div>
@@ -245,7 +277,7 @@ export function BillPaymentModalV2({
                 <div className="text-5xl mb-3">💰</div>
                 <p className="text-sm">Sin pagos agregados</p>
                 <p className="text-xs mt-1 text-slate-500">
-                  Usa el teclado de la derecha para agregar pagos
+                  Usa el teclado para agregar pagos
                 </p>
               </div>
             ) : (
@@ -291,7 +323,6 @@ export function BillPaymentModalV2({
                   );
                 })}
 
-                {/* Resumen final */}
                 <div className="bg-slate-900 rounded-lg p-3 border border-slate-800 mt-3 space-y-1">
                   <div className="flex justify-between text-xs">
                     <span className="text-slate-400">Subtotal pagos:</span>
@@ -309,7 +340,6 @@ export function BillPaymentModalV2({
               </>
             )}
 
-            {/* Errores */}
             {errors.length > 0 && (
               <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-3 mt-2">
                 <div className="flex items-center gap-2 text-red-300 font-semibold text-xs mb-1">
@@ -324,37 +354,25 @@ export function BillPaymentModalV2({
           </div>
         </div>
 
-        {/* Columna derecha: Teclado numérico fijo */}
+        {/* Columna derecha: Teclado + inputs */}
         <div className="lg:w-1/2 flex flex-col overflow-hidden bg-slate-900">
-          {/* Método seleccionado + Monto */}
-          <div className="p-3 border-b border-slate-800 flex-shrink-0">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-slate-400 uppercase">Monto a pagar</span>
-              {remaining > 0 && (
-                <button
-                  onClick={handleFillRemaining}
-                  className="text-xs px-2 py-1 bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 rounded border border-orange-500/30"
-                >
-                  Usar pendiente
-                </button>
-              )}
-            </div>
-            <div className="bg-slate-950 border-2 border-slate-700 rounded-lg p-3 text-right">
-              <div className="text-4xl font-bold text-white tabular-nums">
-                {amountInput || "0"}
-              </div>
+          {/* Pendiente destacado */}
+          <div className={`p-3 border-b border-slate-800 flex-shrink-0 ${remaining > 0 ? "bg-orange-900/10" : "bg-green-900/10"}`}>
+            <div className="text-[10px] text-slate-400 uppercase">Pendiente por pagar</div>
+            <div className={`text-2xl font-bold ${remaining > 0 ? "text-orange-400" : "text-green-400"}`}>
+              {formatPrice(remaining)}
             </div>
           </div>
 
-          {/* Métodos de pago (fila compacta) */}
+          {/* Métodos de pago */}
           <div className="p-3 border-b border-slate-800 flex-shrink-0">
-            <div className="text-xs text-slate-400 uppercase mb-2">Método de pago</div>
+            <div className="text-[10px] text-slate-400 uppercase mb-2">Método de pago</div>
             <div className="grid grid-cols-4 gap-2">
               {methods.map((method) => {
                 const config = PAYMENT_CONFIG[method.code.toUpperCase()] || {
                   label: method.code,
                   icon: CreditCard,
-                  color: "bg-slate-600 hover:bg-slate-700",
+                  color: "bg-slate-600",
                 };
                 const Icon = config.icon;
                 const isSelected = selectedMethod?.uuid === method.uuid;
@@ -362,7 +380,7 @@ export function BillPaymentModalV2({
                 return (
                   <button
                     key={method.uuid}
-                    onClick={() => setSelectedMethod(method)}
+                    onClick={() => handleSelectMethod(method)}
                     disabled={!method.is_active}
                     className={`relative p-2 rounded-lg border-2 transition-all disabled:opacity-40 flex flex-col items-center gap-1 ${
                       isSelected
@@ -370,7 +388,9 @@ export function BillPaymentModalV2({
                         : "border-slate-700 hover:border-slate-600"
                     }`}
                   >
-                    <Icon size={18} className={isSelected ? "text-orange-400" : "text-slate-400"} />
+                    <div className={`w-8 h-8 rounded-md ${config.color} flex items-center justify-center`}>
+                      <Icon size={16} className="text-white" />
+                    </div>
                     <span className="text-[10px] font-semibold text-center leading-tight">{config.label}</span>
                   </button>
                 );
@@ -378,15 +398,79 @@ export function BillPaymentModalV2({
             </div>
           </div>
 
-          {/* Teclado numérico (ocupa el resto del espacio) */}
-          <div className="flex-1 p-3 grid grid-cols-3 gap-2 overflow-hidden">
-            {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "⌫"].map((key) => (
+          {/* Inputs clickeables */}
+          {selectedMethod && (
+            <div className="p-3 border-b border-slate-800 flex-shrink-0 space-y-2">
+              {/* Monto (grande) */}
+              <div
+                onClick={() => setActiveField("amount")}
+                className={fieldClass("amount", "orange")}
+              >
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] text-slate-400 uppercase">Monto</span>
+                  {remaining > 0 && activeField === "amount" && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleFillRemaining(); }}
+                      className="text-[10px] px-2 py-0.5 bg-orange-500/20 text-orange-300 rounded"
+                    >
+                      Usar pendiente
+                    </button>
+                  )}
+                </div>
+                <div className="text-2xl font-bold text-white text-right tabular-nums">
+                  ${amountInput || "0"}
+                </div>
+              </div>
+
+              {/* Propina + Recibido en fila */}
+              <div className="grid grid-cols-2 gap-2">
+                <div
+                  onClick={() => setActiveField("tip")}
+                  className={fieldClass("tip", "orange")}
+                >
+                  <div className="text-[10px] text-slate-400 uppercase">Propina</div>
+                  <div className="text-lg font-bold text-orange-400 text-right tabular-nums">
+                    ${tipInput || "0"}
+                  </div>
+                </div>
+                {selectedMethod.type === "cash" ? (
+                  <div
+                    onClick={() => setActiveField("received")}
+                    className={fieldClass("received", "green")}
+                  >
+                    <div className="text-[10px] text-slate-400 uppercase">Recibido</div>
+                    <div className="text-lg font-bold text-green-400 text-right tabular-nums">
+                      ${receivedInput || "0"}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-slate-800/50 border-2 border-slate-800 rounded-lg px-3 py-2 flex items-center justify-center">
+                    <span className="text-xs text-slate-500">Sin cambio</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Cambio */}
+              {selectedMethod.type === "cash" && change > 0 && (
+                <div className="flex justify-between items-center bg-green-900/20 border border-green-700/50 rounded px-3 py-1.5">
+                  <span className="text-xs text-green-300">Cambio:</span>
+                  <span className="text-sm font-bold text-green-400">{formatPrice(change)}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Teclado numérico */}
+          <div className="flex-1 p-3 grid grid-cols-3 gap-2 overflow-hidden min-h-0">
+            {["1", "2", "3", "4", "5", "6", "7", "8", "9", "000", "0", "⌫"].map((key) => (
               <button
                 key={key}
                 onClick={() => handleKeyPress(key)}
-                className={`rounded-lg font-bold text-2xl transition-colors active:scale-95 ${
+                className={`rounded-lg font-bold text-xl transition-colors active:scale-95 ${
                   key === "⌫"
                     ? "bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30"
+                    : key === "000"
+                    ? "bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 text-sm"
                     : "bg-slate-800 hover:bg-slate-700 text-white border border-slate-700"
                 }`}
               >
@@ -395,45 +479,13 @@ export function BillPaymentModalV2({
             ))}
           </div>
 
-          {/* Propina + Recibido (compacto) */}
+          {/* Botón Agregar */}
           {selectedMethod && (
-            <div className="p-3 border-t border-slate-800 flex-shrink-0 space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] text-slate-400 uppercase block mb-1">Propina</label>
-                  <input
-                    type="number"
-                    value={tipInput}
-                    onChange={(e) => setTipInput(e.target.value)}
-                    placeholder="0"
-                    className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-orange-500"
-                  />
-                </div>
-                {selectedMethod.type === "cash" && (
-                  <div>
-                    <label className="text-[10px] text-slate-400 uppercase block mb-1">Recibido</label>
-                    <input
-                      type="number"
-                      value={receivedInput}
-                      onChange={(e) => setReceivedInput(e.target.value)}
-                      placeholder="0"
-                      className="w-full bg-slate-950 border border-green-700/50 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-green-500"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {selectedMethod.type === "cash" && change > 0 && (
-                <div className="flex justify-between items-center bg-green-900/20 border border-green-700/50 rounded px-2 py-1.5">
-                  <span className="text-xs text-green-300">Cambio:</span>
-                  <span className="text-sm font-bold text-green-400">{formatPrice(change)}</span>
-                </div>
-              )}
-
+            <div className="p-3 border-t border-slate-800 flex-shrink-0">
               <button
                 onClick={handleAddPayment}
                 disabled={currentAmount <= 0 || currentAmount > remaining + 0.01}
-                className="w-full py-2.5 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-700 disabled:text-slate-500 rounded-lg font-bold text-white text-sm flex items-center justify-center gap-2"
+                className="w-full py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-700 disabled:text-slate-500 rounded-lg font-bold text-white flex items-center justify-center gap-2"
               >
                 + Agregar Pago
               </button>
@@ -442,7 +494,7 @@ export function BillPaymentModalV2({
         </div>
       </div>
 
-      {/* Footer: botones de acción */}
+      {/* Footer */}
       <div className="bg-slate-900 border-t border-slate-700 p-3 flex gap-2 flex-shrink-0">
         <button
           onClick={handleClose}
