@@ -3,12 +3,31 @@ import { SyncQueueRepository } from "../db/repositories/SyncQueueRepository";
 
 export type ConnectionStatus = "online" | "offline" | "syncing" | "error";
 
+export type SyncPhase = 
+  | "idle"
+  | "push-processing"
+  | "push-completing"
+  | "pull-downloading"
+  | "pull-applying"
+  | "completed";
+
+interface SyncProgress {
+  phase: SyncPhase;
+  message: string;
+  current: number;
+  total: number;
+  percentage: number;
+}
+
 interface SyncState {
   // Estado de conexión
   status: ConnectionStatus;
   lastSyncAt: string | null;
   pendingCount: number;
   lastError: string | null;
+
+  // Progreso detallado
+  progress: SyncProgress | null;
 
   // Estadísticas del último batch
   lastBatchStats: {
@@ -26,6 +45,8 @@ interface SyncState {
   refreshPendingCount: () => Promise<void>;
   setLastError: (error: string | null) => void;
   setLastSyncAt: (timestamp: string) => void;
+  setProgress: (progress: SyncProgress | null) => void;
+  updateProgress: (updates: Partial<SyncProgress>) => void;
   triggerSync: () => Promise<void>;
   triggerFullSync: () => Promise<void>;
   startWorker: (intervalMs?: number) => void;
@@ -37,6 +58,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
   lastSyncAt: null,
   pendingCount: 0,
   lastError: null,
+  progress: null,
   lastBatchStats: null,
   isWorkerRunning: false,
   workerIntervalId: null,
@@ -46,6 +68,26 @@ export const useSyncStore = create<SyncState>((set, get) => ({
   setLastError: (error) => set({ lastError: error }),
 
   setLastSyncAt: (timestamp) => set({ lastSyncAt: timestamp }),
+
+  setProgress: (progress) => set({ progress }),
+
+  updateProgress: (updates) => {
+    const current = get().progress;
+    if (current) {
+      set({ progress: { ...current, ...updates } });
+    } else {
+      set({ 
+        progress: {
+          phase: "idle",
+          message: "",
+          current: 0,
+          total: 0,
+          percentage: 0,
+          ...updates,
+        }
+      });
+    }
+  },
 
   refreshPendingCount: async () => {
     try {
