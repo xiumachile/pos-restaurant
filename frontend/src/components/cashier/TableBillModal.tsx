@@ -6,6 +6,7 @@ import {
   usePaymentMethods,
   useChargeTable,
   useTablesWithBills,
+  usePrepareTableBills,
 } from "@/hooks/usePayments";
 import { formatPrice } from "@/types/catalog";
 import {
@@ -27,7 +28,7 @@ import {
 } from "lucide-react";
 import { PrintablePrecuenta } from "./PrintablePrecuenta";
 import { SplitBillModal } from "./SplitBillModal";
-import { BillPaymentModal } from "./BillPaymentModal";
+import { BillPaymentModalV2 } from "./BillPaymentModalV2";
 
 interface TableBillModalProps {
   tableUuid: string; // Solo pasamos el UUID, cargamos datos internamente
@@ -65,6 +66,7 @@ export function TableBillModal({
   const [showSplitModal, setShowSplitModal] = useState(false);
   const [splittingOrder, setSplittingOrder] = useState<TableBillOrder | null>(null);
   const [payingBill, setPayingBill] = useState<Bill | null>(null);
+  const [payingBills, setPayingBills] = useState<Bill[] | null>(null);
 
   // Toast de éxito
   const [showSuccessToast, setShowSuccessToast] = useState(false);
@@ -72,6 +74,7 @@ export function TableBillModal({
 
   const { data: methods = [], isLoading: loadingMethods } = usePaymentMethods();
   const chargeTable = useChargeTable();
+  const prepareTableBills = usePrepareTableBills();
 
   // Auto-ocultar toast
   useEffect(() => {
@@ -146,6 +149,20 @@ export function TableBillModal({
     return Array.from(map.values());
   }, [tableBill?.orders]);
 
+  // Botón "Cobrar con pagos divididos" (nuevo)
+  const handleOpenSplitPayment = async () => {
+    if (!tableBill || prepareTableBills.isPending) return;
+
+    try {
+      const result = await prepareTableBills.mutateAsync(tableBill.table_uuid);
+      setPayingBills(result.bills);
+    } catch (e) {
+      console.error("Error preparando bills:", e);
+      alert("No se pudieron preparar las sub-cuentas. Intenta de nuevo.");
+    }
+  };
+
+  // Botón "Cobrar" tradicional (legacy - pago único)
   const handleCharge = async () => {
     if (!selectedMethod || isButtonDisabled || !tableBill) return;
     const idempotencyKey = crypto.randomUUID();
@@ -550,14 +567,15 @@ export function TableBillModal({
                     Cancelar
                   </button>
                   <button
-                    onClick={handleCharge}
-                    disabled={isButtonDisabled}
-                    className="flex-1 px-4 py-3 bg-orange-500 hover:bg-orange-600 rounded-lg font-bold text-white disabled:opacity-50 flex items-center justify-center gap-2"
+                    onClick={handleOpenSplitPayment}
+                    disabled={!tableBill || prepareTableBills.isPending}
+                    className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-bold text-white disabled:opacity-50 flex items-center justify-center gap-2"
+                    title="Permite pagar con múltiples métodos (efectivo + tarjeta + transferencia)"
                   >
-                    {chargeTable.isPending ? (
+                    {prepareTableBills.isPending ? (
                       <>
                         <Loader2 size={16} className="animate-spin" />
-                        Procesando...
+                        Preparando...
                       </>
                     ) : (
                       <>
@@ -618,13 +636,30 @@ export function TableBillModal({
 
       {/* Modal de cobro de bill individual */}
       {payingBill && (
-        <BillPaymentModal
+        <BillPaymentModalV2
           bill={payingBill}
           isOpen={!!payingBill}
           onClose={() => setPayingBill(null)}
-          onSuccess={() => setPayingBill(null)}
+          onSuccess={() => {
+            setPayingBill(null);
+            setSuccessMessage("✅ Sub-cuenta cobrada correctamente");
+            setShowSuccessToast(true);
+          }}
         />
       )}
+
+      {/* Modal de pagos divididos (nuevo diseño POS) */}
+      <BillPaymentModalV2
+        bills={payingBills}
+        isOpen={payingBills !== null}
+        onClose={() => setPayingBills(null)}
+        onSuccess={() => {
+          setPayingBills(null);
+          setSuccessMessage("✅ Mesa cobrada correctamente");
+          setShowSuccessToast(true);
+          onSuccess();
+        }}
+      />
     </>
   );
 }

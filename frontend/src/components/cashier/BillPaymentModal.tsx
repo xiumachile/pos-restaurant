@@ -17,7 +17,8 @@ import {
 } from "lucide-react";
 
 interface BillPaymentModalProps {
-  bill: Bill;
+  bill?: Bill | null;        // Bill única (legacy)
+  bills?: Bill[] | null;     // Array de bills (pagos divididos)
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
@@ -26,7 +27,7 @@ interface BillPaymentModalProps {
 interface PendingPayment {
   id: string; // UUID local para React key
   payment_method_uuid: string;
-  method_name: string;
+  method_code: string;
   method_type: "cash" | "card" | "transfer" | "gift_card";
   amount: number;
   tip_amount: number;
@@ -41,12 +42,30 @@ const METHOD_ICONS: Record<string, any> = {
   gift_card: Gift,
 };
 
+const PAYMENT_LABELS: Record<string, string> = {
+  CASH: "Efectivo",
+  CARD: "Tarjeta",
+  TRANSFER: "Transferencia",
+  GIFT_CARD: "Gift Card",
+  DEBIT_CARD: "Tarjeta Débito",
+  CREDIT_CARD: "Tarjeta Crédito",
+};
+
+const getPaymentLabel = (code: string): string => {
+  return PAYMENT_LABELS[code.toUpperCase()] || code;
+};
+
 export function BillPaymentModal({
   bill,
+  bills,
   isOpen,
   onClose,
   onSuccess,
 }: BillPaymentModalProps) {
+  // Normalizar: usar bills[] si viene, sino crear array con bill única
+  const effectiveBills = bills && bills.length > 0
+    ? bills
+    : (bill ? [bill] : []);
   // Estado de pagos agregados
   const [payments, setPayments] = useState<PendingPayment[]>([]);
 
@@ -65,8 +84,8 @@ export function BillPaymentModal({
   const invalidate = useInvalidateCashier();
 
   // Cálculos derivados
-  const billTotal = bill.total;
-  const billInitialPending = bill.remaining_amount;
+  const billTotal = effectiveBills.reduce((sum, b) => sum + b.total, 0);
+  const billInitialPending = effectiveBills.reduce((sum, b) => sum + b.remaining_amount, 0);
   const paymentsSum = useMemo(
     () => payments.reduce((sum, p) => sum + p.amount, 0),
     [payments]
@@ -114,7 +133,7 @@ export function BillPaymentModal({
     const newPayment: PendingPayment = {
       id: crypto.randomUUID(),
       payment_method_uuid: selectedMethod.uuid,
-      method_name: selectedMethod.name,
+      method_code: selectedMethod.code,
       method_type: selectedMethod.type as any,
       amount: currentAmount,
       tip_amount: currentTip,
@@ -142,8 +161,9 @@ export function BillPaymentModal({
   };
 
   // Confirmar todos los pagos (envía al backend en secuencia)
+  // Distribuye los pagos entre todas las bills del array effectiveBills
   const handleConfirmAll = async () => {
-    if (!canConfirm) return;
+    if (!canConfirm || effectiveBills.length === 0) return;
 
     setIsProcessing(true);
     setProcessingErrors([]);
@@ -151,24 +171,50 @@ export function BillPaymentModal({
     const errors: string[] = [];
     let successCount = 0;
 
+    // Crear tracking de remaining por cada bill
+    const billsRemaining = effectiveBills.map(b => ({
+      uuid: b.uuid,
+      remaining: b.remaining_amount,
+    }));
+
     for (const payment of payments) {
       try {
-        await payBill.mutateAsync({
-          billUuid: bill.uuid,
-          payload: {
-            amount: payment.amount,
-            payment_method_uuid: payment.payment_method_uuid,
-            tip_amount: payment.tip_amount,
-            idempotency_key: payment.idempotency_key,
-          },
-        });
+        let amountLeft = payment.amount;
+        let tipLeft = payment.tip_amount;
+
+        // Distribuir este pago entre las bills con saldo pendiente
+        while (amountLeft > 0.01) {
+          const nextBill = billsRemaining.find(b => b.remaining > 0.01);
+          if (!nextBill) {
+            errors.push(`${payment.method_code}: No hay bills con saldo pendiente`);
+            break;
+          }
+
+          const amountForBill = Math.min(amountLeft, nextBill.remaining);
+          // La propina se asigna solo a la primera bill donde se aplica este pago
+          const tipForBill = amountLeft === payment.amount ? tipLeft : 0;
+
+          await payBill.mutateAsync({
+            billUuid: nextBill.uuid,
+            payload: {
+              amount: amountForBill,
+              payment_method_uuid: payment.payment_method_uuid,
+              tip_amount: tipForBill,
+              idempotency_key: crypto.randomUUID(),
+            },
+          });
+
+          amountLeft -= amountForBill;
+          tipLeft -= tipForBill;
+          nextBill.remaining -= amountForBill;
+        }
         successCount++;
       } catch (e: any) {
         const msg =
           e?.response?.data?.message ||
           e?.message ||
-          `Error procesando pago ${payment.method_name}`;
-        errors.push(`${payment.method_name} (${formatPrice(payment.amount)}): ${msg}`);
+          `Error procesando pago ${payment.method_code}`;
+        errors.push(`${payment.method_code} (${formatPrice(payment.amount)}): ${msg}`);
       }
     }
 
@@ -219,7 +265,9 @@ export function BillPaymentModal({
                 💳 Cobrar Cuenta
               </h2>
               <p className="text-sm text-slate-400 mt-0.5">
-                Cuenta #{bill.bill_number} · Total: {formatPrice(billTotal)}
+                {effectiveBills.length === 1
+                  ? `Cuenta #${effectiveBills[0].bill_number} · Total: ${formatPrice(billTotal)}`
+                  : `${effectiveBills.length} sub-cuentas · Total: ${formatPrice(billTotal)}`}
               </p>
             </div>
             <button
@@ -281,7 +329,7 @@ export function BillPaymentModal({
                           }`}
                         >
                           <Icon size={20} className={isSelected ? "text-orange-400" : "text-slate-400"} />
-                          <span className="text-xs font-medium text-center">{method.name}</span>
+                          <span className="text-xs font-medium text-center">{getPaymentLabel(method.code)}</span>
                         </button>
                       );
                     })}
@@ -405,7 +453,7 @@ export function BillPaymentModal({
                           <Icon size={18} className="text-orange-400" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-white">{p.method_name}</div>
+                          <div className="font-semibold text-white">{getPaymentLabel(p.method_code)}</div>
                           <div className="text-xs text-slate-400 space-x-2">
                             <span>Monto: {formatPrice(p.amount)}</span>
                             {p.tip_amount > 0 && (

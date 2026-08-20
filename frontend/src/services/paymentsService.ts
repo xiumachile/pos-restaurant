@@ -90,4 +90,20 @@ export const paymentsService = {
     );
     return (response.data as any).data;
   },
+
+  /**
+   * Prepara bills únicas para todos los órdenes servidos de una mesa.
+   * Si ya existen bills, las retorna sin crear nuevas.
+   */
+  async prepareTableBills(tableUuid: string): Promise<{
+    bills: any[];
+    total_amount: number;
+    orders_count: number;
+  }> {
+    const response = await apiClient.post<SingleResponse<any>>(
+      `/cashier/tables/${tableUuid}/prepare-bills`,
+      {}
+    );
+    return (response.data as any).data;
+  },
 };

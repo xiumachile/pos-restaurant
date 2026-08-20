@@ -98,6 +98,18 @@ export function useChargeTable() {
   });
 }
 
+export function usePrepareTableBills() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (tableUuid: string) => paymentsService.prepareTableBills(tableUuid),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TABLES_WITH_BILLS_KEY });
+      queryClient.invalidateQueries({ queryKey: ["bills"] });
+    },
+  });
+}
+
+
 export function useSessionPayments(enabled: boolean = true) {
   return useQuery<SessionPaymentsData, Error>({
     queryKey: ["cashier", "session-payments"],
