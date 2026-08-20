@@ -1,11 +1,6 @@
 import { apiClient } from "./apiClient";
 
-/**
- * Cliente API para endpoints de sincronización y entidades.
- * Centraliza las llamadas HTTP del SyncEngine.
- */
-
-export interface CreateOrderPayload {
+export interface OrderPayload {
   order_number?: string;
   order_type?: string;
   table_id?: string;
@@ -21,7 +16,7 @@ export interface CreateOrderPayload {
   idempotency_key: string;
 }
 
-export interface CreatePaymentPayload {
+export interface PaymentPayload {
   order_id?: string;
   payment_method: string;
   amount: number;
@@ -30,125 +25,86 @@ export interface CreatePaymentPayload {
   idempotency_key: string;
 }
 
-export interface OrderResponse {
-  id?: string;
-  uuid?: string;
-  order_number?: string;
-  [key: string]: any;
-}
-
-export interface PaymentResponse {
-  id?: string;
-  uuid?: string;
-  [key: string]: any;
-}
-
-class SyncApiClient {
-  /**
-   * Crea una orden en el servidor.
-   * Endpoint: POST /api/v1/orders
-   */
-  async createOrder(payload: CreateOrderPayload): Promise<OrderResponse> {
+export class SyncApiClient {
+  async createOrder(payload: OrderPayload): Promise<any> {
     const response = await apiClient.post("/orders", payload, {
-      headers: {
-        "Idempotency-Key": payload.idempotency_key,
-      },
+      headers: { "Idempotency-Key": payload.idempotency_key },
     });
-    return response.data?.data || response.data;
+    return response.data.data;
   }
 
-  /**
-   * Actualiza una orden existente.
-   * Endpoint: PUT /api/v1/orders/{uuid}
-   */
-  async updateOrder(uuid: string, payload: Partial<CreateOrderPayload>): Promise<OrderResponse> {
+  async updateOrder(uuid: string, payload: Partial<OrderPayload>): Promise<any> {
     const response = await apiClient.put(`/orders/${uuid}`, payload);
-    return response.data?.data || response.data;
+    return response.data.data;
   }
 
-  /**
-   * Elimina una orden (soft delete).
-   * Endpoint: DELETE /api/v1/orders/{uuid}
-   */
   async deleteOrder(uuid: string): Promise<void> {
     await apiClient.delete(`/orders/${uuid}`);
   }
 
-  /**
-   * Crea un pago en el servidor.
-   * Endpoint: POST /api/v1/payments
-   */
-  async createPayment(payload: CreatePaymentPayload): Promise<PaymentResponse> {
+  async createPayment(payload: PaymentPayload): Promise<any> {
     const response = await apiClient.post("/payments", payload, {
-      headers: {
-        "Idempotency-Key": payload.idempotency_key,
-      },
+      headers: { "Idempotency-Key": payload.idempotency_key },
     });
-    return response.data?.data || response.data;
+    return response.data.data;
   }
 
-  /**
-   * Actualiza el estado de una mesa.
-   * Endpoint: PATCH /api/v1/tables/{uuid}/status
-   */
   async updateTableStatus(uuid: string, status: string): Promise<any> {
-    const response = await apiClient.patch(`/tables/${uuid}/status`, { status });
-    return response.data?.data || response.data;
+    const response = await apiClient.put(`/tables/${uuid}/status`, { status });
+    return response.data.data;
   }
 
   /**
-   * Obtiene estadísticas de sync del backend.
-   * Endpoint: GET /api/v1/sync/status
+   * Descarga snapshot completo (catálogo, mesas, métodos de pago).
+   * Usado en primera sync o cuando no hay last_pull_at.
    */
-  async getSyncStatus(branchId: string): Promise<any> {
-    const response = await apiClient.get(`/sync/status?branch_id=${branchId}`);
-    return response.data?.data || response.data;
-  }
-
-  /**
-   * Health check del sistema de sincronización.
-   * Endpoint: GET /api/v1/sync/health
-   */
-  async healthCheck(): Promise<any> {
-    const response = await apiClient.get("/sync/health");
-    return response.data?.data || response.data;
-  }
-
-  /**
-   * Descarga catálogo completo (categorías + productos).
-   * Endpoint: GET /api/v1/catalog/categories y GET /api/v1/catalog/products
-   */
-  async fetchCatalog(): Promise<{
-    categories: any[];
-    products: any[];
-  }> {
-    const [catRes, prodRes] = await Promise.all([
+  async fetchCatalog(): Promise<{ categories: any[]; products: any[] }> {
+    const [categoriesRes, productsRes] = await Promise.all([
       apiClient.get("/catalog/categories"),
       apiClient.get("/catalog/products"),
     ]);
-
     return {
-      categories: catRes.data?.data || catRes.data || [],
-      products: prodRes.data?.data || prodRes.data || [],
+      categories: categoriesRes.data.data,
+      products: productsRes.data.data,
     };
   }
 
-  /**
-   * Descarga mesas de la sucursal.
-   * Endpoint: GET /api/v1/tables
-   */
   async fetchTables(): Promise<any[]> {
     const response = await apiClient.get("/tables");
-    return response.data?.data || response.data || [];
+    return response.data.data;
+  }
+
+  async fetchPaymentMethods(): Promise<any[]> {
+    const response = await apiClient.get("/payment-methods");
+    return response.data.data;
   }
 
   /**
-   * Descarga métodos de pago.
-   * Endpoint: GET /api/v1/payment-methods
+   * Descarga cambios incrementales desde last_pull_at.
+   * Más eficiente que fetchCatalog() para syncs frecuentes.
+   * 
+   * @param branchId - ID de la sucursal
+   * @param lastPullAt - ISO 8601 timestamp de última sincronización
+   * @returns Objeto con cambios, total, timestamp y flag incremental
    */
-  async fetchPaymentMethods(): Promise<any[]> {
-    const response = await apiClient.get("/payment-methods");
-    return response.data?.data || response.data || [];
+  async fetchChanges(branchId: string, lastPullAt?: string): Promise<{
+    changes: {
+      categories: any[];
+      products: any[];
+      tables: any[];
+      payment_methods: any[];
+    };
+    total: number;
+    timestamp: string;
+    incremental: boolean;
+  }> {
+    const params: any = { branch_id: branchId };
+    if (lastPullAt) {
+      params.last_pull_at = lastPullAt;
+    }
+
+    const response = await apiClient.get("/sync/changes", { params });
+    return response.data.data;
   }
 }
 

@@ -14,6 +14,10 @@ Route::prefix('v1/sync')->middleware(['auth:api', TenantContextMiddleware::class
     Route::get('/status', [SyncController::class, 'status'])
         ->name('sync.status');
 
+    // Sync incremental: retorna solo cambios desde last_pull_at
+    Route::get('/changes', [SyncController::class, 'changes'])
+        ->name('sync.changes');
+
     // Push y Pull (waiter, manager, admin)
     Route::middleware([CheckRole::class . ':waiter,manager,admin'])->group(function () {
         Route::post('/push', [SyncController::class, 'push'])

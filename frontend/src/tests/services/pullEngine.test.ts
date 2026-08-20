@@ -169,3 +169,127 @@ describe("PullEngine", () => {
     expect(stats.paymentMethods).toBe(0);
   });
 });
+
+describe("PullEngine - Modo Incremental", () => {
+  beforeEach(async () => {
+    await localDb.execute("DELETE FROM sync_state");
+  });
+
+  it("debería usar modo incremental si existe last_pull_at", async () => {
+    // Simular que ya hay una sync previa
+    await localDb.execute(
+      `INSERT INTO sync_state (key, value) VALUES ('last_pull_at', '2026-08-20T16:00:00Z')`
+    );
+
+    (apiClient.get as any)
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            changes: {
+              categories: [],
+              products: [
+                {
+                  uuid: "prod-1",
+                  name_translations: { es: "Producto Actualizado" },
+                  base_price: 2000,
+                  is_active: true,
+                  deleted: false,
+                  updated_at: "2026-08-20T17:00:00Z",
+                },
+              ],
+              tables: [],
+              payment_methods: [],
+            },
+            total: 1,
+            timestamp: "2026-08-20T18:00:00Z",
+            incremental: true,
+          },
+        },
+      });
+
+    const stats = await pullEngine.pullAll();
+
+    expect(stats.success).toBe(true);
+    expect(stats.incremental).toBe(true);
+    expect(stats.products).toBe(1);
+    expect(stats.categories).toBe(0);
+
+    // Verificar que last_pull_at se actualizó
+    const newTimestamp = await pullEngine.getLastPullTimestamp();
+    expect(newTimestamp).toBe("2026-08-20T18:00:00Z");
+  });
+
+  it("debería eliminar registros localmente cuando deleted=true", async () => {
+    // Insertar producto local
+    await localDb.execute(
+      `INSERT INTO local_products (uuid, name_translations, base_price, is_active) 
+       VALUES ('prod-eliminar', '{"es": "Producto Viejo"}', 1000, 1)`
+    );
+
+    // Simular sync previa
+    await localDb.execute(
+      `INSERT INTO sync_state (key, value) VALUES ('last_pull_at', '2026-08-20T16:00:00Z')`
+    );
+
+    // Mock respuesta con deleted=true
+    (apiClient.get as any).mockResolvedValueOnce({
+      data: {
+        data: {
+          changes: {
+            categories: [],
+            products: [
+              {
+                uuid: "prod-eliminar",
+                deleted: true,
+                updated_at: "2026-08-20T17:00:00Z",
+              },
+            ],
+            tables: [],
+            payment_methods: [],
+          },
+          total: 1,
+          timestamp: "2026-08-20T18:00:00Z",
+          incremental: true,
+        },
+      },
+    });
+
+    await pullEngine.pullAll();
+
+    // Verificar que el producto fue eliminado
+    const product = await localDb.selectOne(
+      "SELECT * FROM local_products WHERE uuid = ?",
+      ["prod-eliminar"]
+    );
+    expect(product).toBeNull();
+  });
+
+  it("debería usar snapshot completo si no hay last_pull_at", async () => {
+    // No insertar last_pull_at (primera sync)
+
+    (apiClient.get as any)
+      .mockResolvedValueOnce({
+        data: {
+          data: [
+            { uuid: "cat-1", name_translations: { es: "Categoría 1" }, is_active: true },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          data: [
+            { uuid: "prod-1", name_translations: { es: "Producto 1" }, base_price: 1000, is_active: true },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({ data: { data: [] } })
+      .mockResolvedValueOnce({ data: { data: [] } });
+
+    const stats = await pullEngine.pullAll();
+
+    expect(stats.success).toBe(true);
+    expect(stats.incremental).toBe(false);
+    expect(stats.categories).toBe(1);
+    expect(stats.products).toBe(1);
+  });
+});
