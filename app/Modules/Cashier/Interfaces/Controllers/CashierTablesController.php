@@ -18,6 +18,7 @@ use Modules\Payments\Domain\Services\BillingService;
 use Modules\Payments\Domain\ValueObjects\BillStatus;
 use Modules\Payments\Domain\ValueObjects\CashSessionStatus;
 use Modules\Tables\Domain\Entities\RestaurantTable;
+use Modules\Payments\Interfaces\Resources\BillResource;
 
 class CashierTablesController extends Controller
 {
