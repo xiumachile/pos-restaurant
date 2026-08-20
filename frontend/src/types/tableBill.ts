@@ -35,6 +35,9 @@ export interface TableBill {
   total_amount: number;
   first_order_at: string | null;
   last_order_at: string | null;
+  has_unserved_orders: boolean;
+  unserved_orders_count: number;
+  unserved_items_count: number;
   orders: TableBillOrder[];
 }
 

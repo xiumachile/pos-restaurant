@@ -39,6 +39,7 @@ export function TableBillModal({
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [showPrintWarning, setShowPrintWarning] = useState(false);
+  const [showUnservedWarning, setShowUnservedWarning] = useState(false);
 
   const prepareTableBills = usePrepareTableBills();
 
@@ -108,15 +109,33 @@ export function TableBillModal({
     }
   };
 
-  // Click en Cobrar: verifica si se imprimió
+  // Click en Cobrar: verifica no servidos, luego impresión
   const handleChargeClick = () => {
     if (!tableBill || prepareTableBills.isPending) return;
 
+    // Prioridad 1: advertir si hay productos sin servir
+    if (tableBill.has_unserved_orders) {
+      setShowUnservedWarning(true);
+      return;
+    }
+
+    // Prioridad 2: advertir si no se ha impreso
     if (!isPrinted) {
       setShowPrintWarning(true);
       return;
     }
 
+    proceedToPayment();
+  };
+
+  // Continuar después de advertencia de no servidos (verifica impresión)
+  const handleContinueAfterUnserved = () => {
+    setShowUnservedWarning(false);
+    if (!tableBill) return;
+    if (!isPrinted) {
+      setShowPrintWarning(true);
+      return;
+    }
     proceedToPayment();
   };
 
@@ -229,6 +248,17 @@ export function TableBillModal({
               </div>
             </div>
 
+            {/* Indicador de productos sin servir */}
+            {tableBill.has_unserved_orders && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs bg-red-900/20 border border-red-700/50 text-red-300">
+                <AlertTriangle size={14} />
+                <span>
+                  <strong>{tableBill.unserved_items_count}</strong> producto{tableBill.unserved_items_count !== 1 ? "s" : ""} sin servir
+                  {" "}({tableBill.unserved_orders_count} pedido{tableBill.unserved_orders_count !== 1 ? "s" : ""} en preparación)
+                </span>
+              </div>
+            )}
+
             {/* Indicador de impresión */}
             <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${
               isPrinted
@@ -287,6 +317,72 @@ export function TableBillModal({
           </div>
         </div>
       </div>
+
+      {/* Modal de advertencia: productos sin servir */}
+      {showUnservedWarning && tableBill && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-[60]" />
+          <div className="fixed inset-0 z-[61] flex items-center justify-center p-4">
+            <div className="bg-slate-900 rounded-xl shadow-2xl max-w-sm w-full border-2 border-red-500/50">
+              <div className="p-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                    <AlertTriangle size={24} className="text-red-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Productos sin servir</h3>
+                    <p className="text-sm text-slate-400">
+                      Hay {tableBill.unserved_items_count} producto{tableBill.unserved_items_count !== 1 ? "s" : ""} que aún {tableBill.unserved_items_count !== 1 ? "están" : "está"} en preparación.
+                    </p>
+                  </div>
+                </div>
+                <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-3 space-y-2">
+                  <p className="text-sm text-slate-200">
+                    <strong>{tableBill.unserved_orders_count}</strong> pedido{tableBill.unserved_orders_count !== 1 ? "s" : ""} {tableBill.unserved_orders_count !== 1 ? "están" : "está"} en estados:
+                  </p>
+                  <ul className="text-xs text-slate-300 space-y-1 pl-4">
+                    {tableBill.orders
+                      .filter((o) => o.status !== "served")
+                      .map((o) => (
+                        <li key={o.uuid}>
+                          <strong>#{o.order_number}</strong> ·{" "}
+                          {o.status === "confirmed" && "Confirmado"}
+                          {o.status === "preparing" && "En preparación"}
+                          {o.status === "ready" && "Listo"}
+                          {" "}({o.items.length} ítem{o.items.length !== 1 ? "s" : ""})
+                        </li>
+                      ))}
+                  </ul>
+                  <p className="text-sm text-slate-300 pt-2 border-t border-red-700/30">
+                    Si continúas, se cobrarán <strong>todos</strong> los productos, incluyendo los que aún no han llegado a la mesa.
+                  </p>
+                </div>
+              </div>
+              <div className="border-t border-slate-700 p-4 space-y-2">
+                <button
+                  onClick={() => setShowUnservedWarning(false)}
+                  className="w-full px-4 py-2.5 bg-amber-600 hover:bg-amber-700 rounded-lg font-medium text-white flex items-center justify-center gap-2"
+                >
+                  ⏸️ Esperar a que se sirvan
+                </button>
+                <button
+                  onClick={handleContinueAfterUnserved}
+                  className="w-full px-4 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-medium text-white flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 size={16} />
+                  Cobrar igual
+                </button>
+                <button
+                  onClick={() => setShowUnservedWarning(false)}
+                  className="w-full px-4 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium text-slate-300"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Modal de advertencia: cuenta no impresa */}
       {showPrintWarning && (

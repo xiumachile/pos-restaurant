@@ -77,4 +77,32 @@ enum OrderStatus: string
     {
         return in_array($this, [self::CLOSED, self::CANCELLED]);
     }
+
+    /**
+     * Verifica si el pedido está en estado cobrable (enviado a cocina o servido).
+     * Incluye: CONFIRMED, PREPARING, READY, SERVED
+     * Excluye: DRAFT (borrador), PAID, CLOSED, CANCELLED
+     */
+    public function isChargeable(): bool
+    {
+        return in_array($this, [
+            self::CONFIRMED,
+            self::PREPARING,
+            self::READY,
+            self::SERVED,
+        ]);
+    }
+
+    /**
+     * Retorna los estados considerados cobrables.
+     */
+    public static function chargeableStatuses(): array
+    {
+        return [
+            self::CONFIRMED,
+            self::PREPARING,
+            self::READY,
+            self::SERVED,
+        ];
+    }
 }

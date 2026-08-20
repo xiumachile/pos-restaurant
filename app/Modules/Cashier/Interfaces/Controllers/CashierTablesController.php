@@ -27,12 +27,27 @@ class CashierTablesController extends Controller
         private BillingService $billingService
     ) {}
 
-    public function tablesWithBills(Request $request): JsonResponse
+    
+    /**
+     * Estados de order que se consideran cobrables.
+     * Incluye todos los estados posteriores al envío a cocina.
+     */
+    private function getChargeableStatuses(): array
+    {
+        return [
+            OrderStatus::CONFIRMED,
+            OrderStatus::PREPARING,
+            OrderStatus::READY,
+            OrderStatus::SERVED,
+        ];
+    }
+
+public function tablesWithBills(Request $request): JsonResponse
     {
         $branchId = $request->user()->branch_id;
 
         $tableIds = Order::where('branch_id', $branchId)
-            ->where('status', OrderStatus::SERVED)
+            ->whereIn('status', $this->getChargeableStatuses())
             ->whereNotNull('table_id')
             ->distinct()
             ->pluck('table_id');
@@ -43,31 +58,38 @@ class CashierTablesController extends Controller
             ->get();
 
         $response = $tables->map(function ($table) use ($branchId) {
-            $servedOrders = Order::where('table_id', $table->id)
+            $chargeableOrders = Order::where('table_id', $table->id)
                 ->where('branch_id', $branchId)
-                ->where('status', OrderStatus::SERVED)
+                ->whereIn('status', $this->getChargeableStatuses())
                 ->with(['items', 'waiter', 'bills'])
                 ->orderBy('created_at', 'asc')
                 ->get();
 
-            $totalAmount = $servedOrders->sum('total');
-            $totalItems = $servedOrders->sum(fn($o) => $o->items->sum('quantity'));
-            $totalTax = $servedOrders->sum('tax_amount');
-            $totalSubtotal = $servedOrders->sum('subtotal');
+            $totalAmount = $chargeableOrders->sum('total');
+            $totalItems = $chargeableOrders->sum(fn($o) => $o->items->sum('quantity'));
+            $totalTax = $chargeableOrders->sum('tax_amount');
+            $totalSubtotal = $chargeableOrders->sum('subtotal');
+
+            // Calcular órdenes no servidas (para advertencia)
+            $unservedOrders = $chargeableOrders->filter(fn($o) => $o->status !== OrderStatus::SERVED);
+            $unservedItemsCount = $unservedOrders->sum(fn($o) => $o->items->sum('quantity'));
 
             return [
                 'table_uuid' => $table->uuid,
                 'table_number' => $table->table_number,
                 'area_code' => $table->area_code,
                 'capacity' => $table->capacity,
-                'orders_count' => $servedOrders->count(),
+                'orders_count' => $chargeableOrders->count(),
                 'total_items' => $totalItems,
                 'subtotal' => (float) $totalSubtotal,
                 'tax_amount' => (float) $totalTax,
                 'total_amount' => (float) $totalAmount,
-                'first_order_at' => $servedOrders->first()?->created_at?->toIso8601String(),
-                'last_order_at' => $servedOrders->last()?->created_at?->toIso8601String(),
-                'orders' => $servedOrders->map(fn($order) => [
+                'first_order_at' => $chargeableOrders->first()?->created_at?->toIso8601String(),
+                'last_order_at' => $chargeableOrders->last()?->created_at?->toIso8601String(),
+                'has_unserved_orders' => $unservedOrders->isNotEmpty(),
+                'unserved_orders_count' => $unservedOrders->count(),
+                'unserved_items_count' => (int) $unservedItemsCount,
+                'orders' => $chargeableOrders->map(fn($order) => [
                     'uuid' => $order->uuid,
                     'order_number' => $order->order_number,
                     'status' => $order->status->value,
@@ -119,11 +141,13 @@ class CashierTablesController extends Controller
             ->where('branch_id', $branchId)
             ->firstOrFail();
 
-        $servedOrders = Order::where('table_id', $table->id)
+        $chargeableOrders = Order::where('table_id', $table->id)
             ->where('branch_id', $branchId)
-            ->where('status', OrderStatus::SERVED)
+            ->whereIn('status', $this->getChargeableStatuses())
             ->orderBy('created_at', 'asc')
             ->get();
+
+        $servedOrders = $chargeableOrders; // Mantener variable por compatibilidad
 
         if ($servedOrders->isEmpty()) {
             return response()->json([
@@ -165,11 +189,13 @@ class CashierTablesController extends Controller
             ->where('branch_id', $branchId)
             ->firstOrFail();
 
-        $servedOrders = Order::where('table_id', $table->id)
+        $chargeableOrders = Order::where('table_id', $table->id)
             ->where('branch_id', $branchId)
-            ->where('status', OrderStatus::SERVED)
+            ->whereIn('status', $this->getChargeableStatuses())
             ->orderBy('created_at', 'asc')
             ->get();
+
+        $servedOrders = $chargeableOrders; // Mantener variable por compatibilidad
 
         if ($servedOrders->isEmpty()) {
             return response()->json([
@@ -362,7 +388,7 @@ class CashierTablesController extends Controller
                 ->count() === 0;
 
             $orderTransitionedToPaid = false;
-            if ($allBillsPaid && $order->status === OrderStatus::SERVED) {
+            if ($allBillsPaid && $order->status->isChargeable()) {
                 $order->cashier_id = $user->id;
                 $order->paid_at = now();
                 $order->status = OrderStatus::PAID;
