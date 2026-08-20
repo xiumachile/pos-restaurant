@@ -1,4 +1,4 @@
-import { SyncQueueRepository } from "../../db/repositories/SyncQueueRepository";
+import { SyncQueueRepository, type SyncQueueItem } from "../../db/repositories/SyncQueueRepository";
 import { syncApi } from "../syncApi";
 import { pullEngine } from "./PullEngine";
 import { useSyncStore } from "../../store/useSyncStore";
@@ -7,138 +7,210 @@ import { useToastStore } from "../../store/useToastStore";
 /**
  * SyncEngine: Orquesta la sincronización bidireccional entre
  * SQLite local y PostgreSQL cloud.
- *
- * Flujo completo:
- * 1. Push: Sube eventos locales (sync_queue) al cloud
- * 2. Pull: Descarga snapshot del cloud (catálogo, mesas, métodos)
- * 3. Actualiza estado local con resultados
  */
 export class SyncEngine {
-  private isSyncing = false;
+  private isProcessing = false;
 
   /**
-   * Procesa batch de eventos pendientes en sync_queue.
-   * Solo push (sube eventos locales al cloud).
+   * Procesa batch de eventos pendientes en sync_queue (solo push).
+   * Retorna estadísticas para compatibilidad con tests.
    */
   async processBatch(): Promise<{
     processed: number;
     success: number;
     failed: number;
+    skipped: number;
   }> {
+    if (this.isProcessing) {
+      console.log("[SyncEngine] Ya procesando, saltando batch");
+      return { processed: 0, success: 0, failed: 0, skipped: 1 };
+    }
+
+    this.isProcessing = true;
     const store = useSyncStore.getState();
-    const pendingItems = await SyncQueueRepository.getPending(50);
+    const stats = { processed: 0, success: 0, failed: 0, skipped: 0 };
 
-    if (pendingItems.length === 0) {
-      return { processed: 0, success: 0, failed: 0 };
-    }
+    try {
+      store.setStatus("syncing");
+      
+      const pendingItems = await SyncQueueRepository.getPending(10);
 
-    store.setStatus("syncing");
-    store.setProgress({
-      phase: "push-processing",
-      message: "Subiendo eventos locales...",
-      current: 0,
-      total: pendingItems.length,
-      percentage: 0,
-    });
-
-    let processed = 0;
-    let success = 0;
-    let failed = 0;
-
-    for (const item of pendingItems) {
-      try {
-        store.updateProgress({
-          current: processed + 1,
-          percentage: Math.round(((processed + 1) / pendingItems.length) * 100),
-          message: `Subiendo ${item.entity_type} (${processed + 1}/${pendingItems.length})...`,
-        });
-
-        await this.processQueueItem(item);
-        success++;
-      } catch (error: any) {
-        console.error(`[SyncEngine] Error procesando ${item.id}:`, error);
-        await this.handleSyncError(item, error);
-        failed++;
+      if (pendingItems.length === 0) {
+        store.setStatus("online");
+        this.isProcessing = false;
+        return stats;
       }
-      processed++;
+
+      store.setProgress({
+        phase: "push-processing",
+        message: `Subiendo ${pendingItems.length} eventos...`,
+        current: 0,
+        total: pendingItems.length,
+        percentage: 0,
+      });
+
+      console.log(`[SyncEngine] Procesando ${pendingItems.length} eventos pendientes`);
+
+      for (let i = 0; i < pendingItems.length; i++) {
+        const item = pendingItems[i];
+        try {
+          store.updateProgress({
+            current: i + 1,
+            percentage: Math.round(((i + 1) / pendingItems.length) * 100),
+            message: `Subiendo ${item.entity_type} (${i + 1}/${pendingItems.length})...`,
+          });
+
+          await this.processItem(item);
+          stats.processed++;
+          stats.success++;
+        } catch (error: any) {
+          console.error(`[SyncEngine] Error procesando ${item.id}:`, error);
+          await this.handleFailure(item, error?.message || "Unknown error");
+          stats.processed++;
+          stats.failed++;
+        }
+      }
+
+      store.updateProgress({
+        phase: "push-completing",
+        message: "Finalizando...",
+        percentage: 100,
+      });
+
+      store.setStatus(stats.failed > 0 && stats.success === 0 ? "error" : "online");
+      store.setProgress(null);
+      await store.refreshPendingCount();
+    } catch (error: any) {
+      console.error("[SyncEngine] Error crítico en batch:", error);
+      store.setStatus("error");
+      store.setLastError(error?.message || "Error crítico");
+      store.setProgress(null);
+    } finally {
+      this.isProcessing = false;
     }
 
-    store.updateProgress({
-      phase: "push-completing",
-      message: "Finalizando subida...",
-      percentage: 100,
-    });
-
-    await store.refreshPendingCount();
-    store.setStatus(failed > 0 ? "error" : "online");
-    store.setProgress(null);
-
-    return { processed, success, failed };
+    return stats;
   }
 
   /**
-   * Procesa un item individual de sync_queue.
+   * Procesa un item individual de la cola.
    */
-  private async processQueueItem(item: any): Promise<void> {
+  private async processItem(item: SyncQueueItem): Promise<void> {
     await SyncQueueRepository.markAsSyncing(item.id);
 
-    let response: any;
-    const payload = JSON.parse(item.payload);
+    const payload = this.safeParseJson(item.payload);
+    if (!payload) {
+      throw new Error("Payload inválido");
+    }
+
+    let cloudId: string | null = null;
 
     switch (item.entity_type) {
       case "order":
-        if (item.action === "create") {
-          response = await syncApi.createOrder(payload);
-        } else if (item.action === "update") {
-          response = await syncApi.updateOrder(item.entity_uuid, payload);
-        }
+        cloudId = await this.processOrder(item, payload);
         break;
-
       case "payment":
-        response = await syncApi.createPayment(payload);
+        cloudId = await this.processPayment(item, payload);
         break;
-
       case "table_status":
-        response = await syncApi.updateTableStatus(item.entity_uuid, payload.status);
+        await this.processTableStatus(item, payload);
         break;
-
+      case "cash_session":
+        console.warn("[SyncEngine] cash_session sync no implementado aún");
+        break;
       default:
-        throw new Error(`Tipo de entidad no soportado: ${item.entity_type}`);
+        throw new Error(`Entity type no soportado: ${item.entity_type}`);
     }
 
-    // Marcar como sincronizado
-    const cloudId = response?.uuid || response?.id;
-    await SyncQueueRepository.markAsSynced(item.id, cloudId);
+    await SyncQueueRepository.markAsSynced(item.id, cloudId || undefined);
+    console.log(`[SyncEngine] ✓ ${item.entity_type}/${item.action} synced${cloudId ? ` (cloud: ${cloudId})` : ""}`);
   }
 
-  /**
-   * Maneja errores de sincronización con backoff exponencial.
-   */
-  private async handleSyncError(item: any, error: any): Promise<void> {
-    const maxAttempts = 5;
-    const attempts = (item.attempts || 0) + 1;
+  private async processOrder(item: SyncQueueItem, payload: any): Promise<string | null> {
+    switch (item.action) {
+      case "create": {
+        const response = await syncApi.createOrder({
+          ...payload,
+          idempotency_key: payload.idempotency_key,
+        });
+        const cloudId = response.uuid || response.id;
+        if (cloudId) {
+          const { OrderRepository } = await import("../../db/repositories/OrderRepository");
+          await OrderRepository.markAsSynced(item.entity_local_uuid, String(cloudId));
+        }
+        return cloudId ? String(cloudId) : null;
+      }
+      case "update": {
+        const { OrderRepository } = await import("../../db/repositories/OrderRepository");
+        const order = await OrderRepository.findByLocalUuid(item.entity_local_uuid);
+        if (!order?.cloud_id) {
+          throw new Error("Orden sin cloud_id, no se puede actualizar");
+        }
+        await syncApi.updateOrder(order.cloud_id, payload);
+        return order.cloud_id;
+      }
+      case "delete": {
+        const cloudId = payload.cloud_id || item.entity_cloud_id;
+        if (!cloudId) {
+          throw new Error("No se puede eliminar sin cloud_id");
+        }
+        await syncApi.deleteOrder(cloudId);
+        return cloudId;
+      }
+      default:
+        throw new Error(`Acción no soportada para order: ${item.action}`);
+    }
+  }
 
-    if (attempts >= maxAttempts) {
-      await SyncQueueRepository.markAsFailed(
-        item.id,
-        `Máximo de intentos alcanzado: ${error.message}`
-      );
-    } else {
-      // Backoff exponencial: 15s, 30s, 60s, 120s, 240s
-      const backoffSeconds = Math.pow(2, attempts - 1) * 15;
-      const nextRetryAt = new Date(Date.now() + backoffSeconds * 1000).toISOString();
-      
-      await SyncQueueRepository.markAsFailed(
-        item.id,
-        `${error.message} (intento ${attempts}/${maxAttempts})`
-      );
-      
-      // Actualizar next_retry_at
-      const { localDb } = await import("../../db/localDb");
-      await localDb.execute(
-        "UPDATE sync_queue SET next_retry_at = ? WHERE id = ?",
-        [nextRetryAt, item.id]
-      );
+  private async processPayment(item: SyncQueueItem, payload: any): Promise<string | null> {
+    if (item.action !== "create") {
+      throw new Error(`Acción no soportada para payment: ${item.action}`);
+    }
+
+    let orderId = payload.order_id;
+    if (!orderId && payload.order_local_uuid) {
+      const { OrderRepository } = await import("../../db/repositories/OrderRepository");
+      const order = await OrderRepository.findByLocalUuid(payload.order_local_uuid);
+      if (!order?.cloud_id) {
+        throw new Error("Order padre sin cloud_id, no se puede crear payment");
+      }
+      orderId = order.cloud_id;
+    }
+
+    const response = await syncApi.createPayment({
+      ...payload,
+      order_id: orderId,
+      idempotency_key: payload.idempotency_key,
+    });
+
+    const cloudId = response.uuid || response.id;
+    if (cloudId) {
+      const { PaymentRepository } = await import("../../db/repositories/PaymentRepository");
+      await PaymentRepository.markAsSynced(item.entity_local_uuid, String(cloudId));
+    }
+    return cloudId ? String(cloudId) : null;
+  }
+
+  private async processTableStatus(item: SyncQueueItem, payload: any): Promise<void> {
+    if (item.action !== "update") {
+      throw new Error(`Acción no soportada para table_status: ${item.action}`);
+    }
+    await syncApi.updateTableStatus(item.entity_local_uuid, payload.status);
+  }
+
+  private async handleFailure(item: SyncQueueItem, errorMessage: string): Promise<void> {
+    try {
+      await SyncQueueRepository.markAsFailed(item.id, errorMessage);
+    } catch (e) {
+      console.error("[SyncEngine] No se pudo registrar el fallo:", e);
+    }
+  }
+
+  private safeParseJson(str: string): any {
+    try {
+      return JSON.parse(str);
+    } catch {
+      return null;
     }
   }
 
@@ -147,26 +219,26 @@ export class SyncEngine {
    * Incluye notificaciones toast de progreso.
    */
   async triggerFullSync(): Promise<void> {
-    if (this.isSyncing) {
+    if (this.isProcessing) {
       console.log("[SyncEngine] Ya hay una sincronización en progreso");
       return;
     }
 
-    this.isSyncing = true;
     const store = useSyncStore.getState();
     const toastStore = useToastStore.getState();
 
     try {
       // Fase 1: Push
-      toastStore.info("Iniciando sincronización...");
+      toastStore.addToast("info", "Subiendo cambios locales...");
       const pushStats = await this.processBatch();
 
       if (pushStats.failed > 0) {
-        toastStore.warning(
+        toastStore.addToast(
+          "warning",
           `Push completado con errores: ${pushStats.success} exitosos, ${pushStats.failed} fallidos`
         );
       } else if (pushStats.success > 0) {
-        toastStore.success(`Push completado: ${pushStats.success} eventos subidos`);
+        toastStore.addToast("success", `Push completado: ${pushStats.success} eventos subidos`);
       }
 
       // Fase 2: Pull
@@ -174,12 +246,16 @@ export class SyncEngine {
         phase: "pull-downloading",
         message: "Descargando catálogo...",
         current: 0,
-        total: 100,
+        total: 4,
         percentage: 0,
       });
 
-      toastStore.info("Descargando datos del servidor...");
+      toastStore.addToast("info", "Descargando datos del servidor...");
       const pullStats = await pullEngine.pullAll();
+
+      if (!pullStats.success) {
+        throw new Error(pullStats.error || "Error en pull");
+      }
 
       store.updateProgress({
         phase: "pull-applying",
@@ -193,33 +269,29 @@ export class SyncEngine {
         percentage: 100,
       });
 
-      // Notificación final
-      const totalItems = 
-        pullStats.categories + 
-        pullStats.products + 
-        pullStats.tables + 
+      const totalItems =
+        pullStats.categories +
+        pullStats.products +
+        pullStats.tables +
         pullStats.paymentMethods;
 
-      toastStore.success(
+      toastStore.addToast(
+        "success",
         `Sincronización completada: ${totalItems} elementos actualizados`
       );
 
       store.setLastSyncAt(new Date().toISOString());
       store.setStatus("online");
 
-      // Limpiar progreso después de 2 segundos
       setTimeout(() => {
         store.setProgress(null);
       }, 2000);
-
     } catch (error: any) {
       console.error("[SyncEngine] Error en triggerFullSync:", error);
       store.setStatus("error");
       store.setLastError(error.message);
-      toastStore.error(`Error de sincronización: ${error.message}`);
+      toastStore.addToast("error", `Error de sincronización: ${error.message}`);
       store.setProgress(null);
-    } finally {
-      this.isSyncing = false;
     }
   }
 }

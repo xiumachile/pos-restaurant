@@ -1,84 +1,99 @@
-import { RefreshCw, Wifi, WifiOff, AlertCircle } from "lucide-react";
-import { useSyncStore } from "../../store/useSyncStore";
+import { useSyncStore } from '../../store/useSyncStore';
+import { RefreshCw, Wifi, WifiOff, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export function SyncStatusIndicator() {
   const status = useSyncStore((s) => s.status);
   const pendingCount = useSyncStore((s) => s.pendingCount);
-  const progress = useSyncStore((s) => s.progress);
   const lastSyncAt = useSyncStore((s) => s.lastSyncAt);
+  const progress = useSyncStore((s) => s.progress);
   const triggerFullSync = useSyncStore((s) => s.triggerFullSync);
 
   const getStatusIcon = () => {
-    if (status === "syncing") {
+    if (status === 'syncing' || progress) {
       return <RefreshCw size={16} className="animate-spin text-blue-400" />;
     }
-    if (status === "error") {
+    if (status === 'error') {
       return <AlertCircle size={16} className="text-red-400" />;
     }
-    if (status === "offline") {
-      return <WifiOff size={16} className="text-gray-400" />;
+    if (status === 'offline') {
+      return <WifiOff size={16} className="text-amber-400" />;
     }
-    return <Wifi size={16} className="text-green-400" />;
+    return <CheckCircle2 size={16} className="text-green-400" />;
   };
 
   const getStatusText = () => {
-    if (status === "syncing" && progress) {
-      return progress.message;
+    if (progress) {
+      return `${progress.message} (${progress.percentage}%)`;
     }
-    if (status === "error") {
-      return "Error de sincronización";
+    if (status === 'error') {
+      return 'Error de sincronización';
     }
-    if (status === "offline") {
-      return "Sin conexión";
+    if (status === 'offline') {
+      return 'Sin conexión';
     }
-    return "En línea";
+    return 'En línea';
   };
 
-  const getStatusColor = () => {
-    if (status === "syncing") return "border-blue-500 bg-blue-900/20";
-    if (status === "error") return "border-red-500 bg-red-900/20";
-    if (status === "offline") return "border-gray-500 bg-gray-900/20";
-    return "border-green-500 bg-green-900/20";
+  const getBgColor = () => {
+    if (progress || status === 'syncing') {
+      return 'bg-blue-500/20 border-blue-500/30';
+    }
+    if (status === 'error') {
+      return 'bg-red-500/20 border-red-500/30';
+    }
+    if (status === 'offline') {
+      return 'bg-amber-500/20 border-amber-500/30';
+    }
+    return 'bg-green-500/20 border-green-500/30';
   };
 
-  const formatLastSync = () => {
-    if (!lastSyncAt) return "Nunca";
-    const diff = Date.now() - new Date(lastSyncAt).getTime();
-    const minutes = Math.floor(diff / 60000);
-    if (minutes < 1) return "Justo ahora";
-    if (minutes < 60) return `Hace ${minutes}m`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `Hace ${hours}h`;
-    return `Hace ${Math.floor(hours / 24)}d`;
+  const formatTime = (timestamp: string | null) => {
+    if (!timestamp) return 'Nunca';
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return 'Justo ahora';
+    if (diffMins < 60) return `hace ${diffMins}m`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `hace ${diffHours}h`;
+    return date.toLocaleDateString();
   };
 
   return (
     <div className="flex items-center gap-2">
-      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${getStatusColor()}`}>
+      <div
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${getBgColor()} transition-all`}
+      >
         {getStatusIcon()}
-        <span className="text-sm text-white">{getStatusText()}</span>
-        {status === "syncing" && progress && progress.percentage > 0 && (
-          <span className="text-xs text-blue-300">({progress.percentage}%)</span>
-        )}
-        {pendingCount > 0 && status !== "syncing" && (
-          <span className="bg-amber-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+        <span className="text-sm font-medium text-slate-200">
+          {getStatusText()}
+        </span>
+        {pendingCount > 0 && !progress && (
+          <span className="bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
             {pendingCount}
           </span>
         )}
       </div>
+      
+      {lastSyncAt && !progress && (
+        <span className="text-xs text-slate-400">
+          Última: {formatTime(lastSyncAt)}
+        </span>
+      )}
 
       <button
         onClick={triggerFullSync}
-        disabled={status === "syncing" || status === "offline"}
-        className="p-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed transition-colors"
-        title={status === "offline" ? "Sin conexión" : "Sincronizar ahora"}
+        disabled={status === 'syncing' || !!progress}
+        className="p-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+        title="Sincronizar ahora"
       >
-        <RefreshCw size={16} className={status === "syncing" ? "animate-spin" : ""} />
+        <RefreshCw
+          size={16}
+          className={`text-blue-400 ${status === 'syncing' || progress ? 'animate-spin' : ''}`}
+        />
       </button>
-
-      {lastSyncAt && (
-        <span className="text-xs text-gray-400">{formatLastSync()}</span>
-      )}
     </div>
   );
 }

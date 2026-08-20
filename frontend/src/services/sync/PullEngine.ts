@@ -1,5 +1,5 @@
-import { localDb } from "../../db/localDb";
 import { syncApi } from "../syncApi";
+import { localDb } from "../../db/localDb";
 import { useSyncStore } from "../../store/useSyncStore";
 
 /**
@@ -8,23 +8,22 @@ import { useSyncStore } from "../../store/useSyncStore";
  * Política de resolución de conflictos (Cloud wins):
  * - Catálogo (categorías, productos, métodos de pago): Cloud siempre gana
  * - Mesas: Cloud siempre gana (estados desde servidor son verdad)
- *
- * Estrategia: UPSERT con INSERT OR REPLACE en SQLite
  */
+export interface PullResult {
+  categories: number;
+  products: number;
+  tables: number;
+  paymentMethods: number;
+  success: boolean;
+  error?: string;
+}
+
 export class PullEngine {
   /**
    * Descarga snapshot completo desde el servidor.
-   * Retorna resumen de la operación.
    */
-  async pullAll(): Promise<{
-    categories: number;
-    products: number;
-    tables: number;
-    paymentMethods: number;
-    success: boolean;
-    error?: string;
-  }> {
-    const stats = {
+  async pullAll(): Promise<PullResult> {
+    const stats: PullResult = {
       categories: 0,
       products: 0,
       tables: 0,
@@ -37,38 +36,46 @@ export class PullEngine {
 
       console.log("[PullEngine] Iniciando descarga de snapshot...");
 
-      // 1. Descargar catálogo (paralelo)
-      const [{ categories, products }, tables, paymentMethods] = await Promise.all([
-        syncApi.fetchCatalog(),
+      // 1. Descargar catálogo (una sola llamada que retorna categories + products)
+      const catalog = await syncApi.fetchCatalog();
+      const categories = catalog.categories || [];
+      const products = catalog.products || [];
+
+      // 2. Descargar mesas y métodos de pago en paralelo
+      const [tables, paymentMethods] = await Promise.all([
         syncApi.fetchTables(),
         syncApi.fetchPaymentMethods(),
       ]);
 
       console.log(`[PullEngine] Descargado: ${categories.length} categorías, ${products.length} productos, ${tables.length} mesas, ${paymentMethods.length} métodos`);
 
-      // 2. Upsert categorías en SQLite (Cloud wins)
+      // Emitir progreso
+      const store = useSyncStore.getState();
+      store.updateProgress({
+        phase: "pull-applying",
+        message: "Aplicando cambios locales...",
+        percentage: 90,
+      });
+
+      // 3. Upsert en SQLite (Cloud wins)
       await this.upsertCategories(categories);
       stats.categories = categories.length;
 
-      // 3. Upsert productos en SQLite (Cloud wins)
       await this.upsertProducts(products);
       stats.products = products.length;
 
-      // 4. Upsert mesas en SQLite (Cloud wins)
       await this.upsertTables(tables);
       stats.tables = tables.length;
 
-      // 5. Upsert métodos de pago en SQLite (Cloud wins)
       await this.upsertPaymentMethods(paymentMethods);
       stats.paymentMethods = paymentMethods.length;
 
-      // 6. Actualizar timestamp de último pull
+      // 4. Actualizar timestamp de último pull
       const now = new Date().toISOString();
       await this.updatePullTimestamp(now);
 
       stats.success = true;
       useSyncStore.getState().setStatus("online");
-      useSyncStore.getState().setLastSyncAt(now);
 
       console.log(`[PullEngine] ✓ Snapshot aplicado: ${stats.categories} categorías, ${stats.products} productos, ${stats.tables} mesas, ${stats.paymentMethods} métodos`);
 
@@ -82,9 +89,6 @@ export class PullEngine {
     }
   }
 
-  /**
-   * Upsert categorías (INSERT OR REPLACE).
-   */
   private async upsertCategories(categories: any[]): Promise<void> {
     if (categories.length === 0) return;
 
@@ -99,16 +103,13 @@ export class PullEngine {
           cat.uuid || cat.id,
           JSON.stringify(cat.name_translations || { es: cat.name }),
           cat.sort_order || 0,
-          cat.is_active ? 1 : 0,
+          cat.is_active !== false ? 1 : 0,
           cat.updated_at || new Date().toISOString(),
         ]
       );
     }
   }
 
-  /**
-   * Upsert productos (INSERT OR REPLACE).
-   */
   private async upsertProducts(products: any[]): Promise<void> {
     if (products.length === 0) return;
 
@@ -130,16 +131,13 @@ export class PullEngine {
           prod.tax_rate || 19.0,
           prod.is_combo ? 1 : 0,
           prod.kitchen_zone_id || null,
-          prod.is_active ? 1 : 0,
+          prod.is_active !== false ? 1 : 0,
           prod.updated_at || new Date().toISOString(),
         ]
       );
     }
   }
 
-  /**
-   * Upsert mesas (INSERT OR REPLACE).
-   */
   private async upsertTables(tables: any[]): Promise<void> {
     if (tables.length === 0) return;
 
@@ -163,9 +161,6 @@ export class PullEngine {
     }
   }
 
-  /**
-   * Upsert métodos de pago (INSERT OR REPLACE).
-   */
   private async upsertPaymentMethods(methods: any[]): Promise<void> {
     if (methods.length === 0) return;
 
@@ -180,16 +175,13 @@ export class PullEngine {
           method.uuid || method.id,
           method.code,
           method.type || method.code.toLowerCase(),
-          method.is_active ? 1 : 0,
+          method.is_active !== false ? 1 : 0,
           method.updated_at || new Date().toISOString(),
         ]
       );
     }
   }
 
-  /**
-   * Actualiza timestamp de último pull en sync_state.
-   */
   private async updatePullTimestamp(timestamp: string): Promise<void> {
     await localDb.execute(
       `INSERT OR REPLACE INTO sync_state (key, value, updated_at) 
@@ -198,9 +190,6 @@ export class PullEngine {
     );
   }
 
-  /**
-   * Obtiene timestamp del último pull.
-   */
   async getLastPullTimestamp(): Promise<string | null> {
     const result = await localDb.selectOne<{ value: string }>(
       "SELECT value FROM sync_state WHERE key = 'last_pull_at'"
@@ -209,5 +198,4 @@ export class PullEngine {
   }
 }
 
-// Singleton
 export const pullEngine = new PullEngine();
