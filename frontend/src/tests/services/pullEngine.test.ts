@@ -63,7 +63,13 @@ describe("PullEngine", () => {
       .mockResolvedValueOnce({
         data: {
           data: [
-            { uuid: "table-1", table_number: "1", area_name: "Terraza", capacity: 4, status: "available" },
+            {
+              area_code: "terraza",
+              area_name: "Terraza",
+              tables: [
+                { uuid: "table-1", table_number: "1", area_code: "terraza", area_name: "Terraza", capacity: 4, status: "available" },
+              ],
+            },
           ],
         },
       })
