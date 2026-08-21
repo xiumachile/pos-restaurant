@@ -26,35 +26,56 @@ class OrderItemController extends Controller
 
         $validated = $request->validated();
 
-        // Buscar el MenuItem (sin eager load para evitar problemas con Global Scopes)
-        $menuItem = MenuItem::where('uuid', $validated['menu_item_uuid'])->firstOrFail();
+        // Estrategia 1: Buscar por menu_item_uuid (flujo normal online)
+        $menuItem = null;
+        $product = null;
 
-        // Cargar el producto directamente usando withoutGlobalScopes
-        // Esto evita que el Global Scope BelongsToTenant interfiera
-        $product = Product::withoutGlobalScopes()->find($menuItem->product_id);
+        if (!empty($validated['menu_item_uuid'])) {
+            $menuItem = MenuItem::where('uuid', $validated['menu_item_uuid'])->first();
+            if ($menuItem) {
+                $product = Product::withoutGlobalScopes()->find($menuItem->product_id);
+            }
+        }
+
+        // Estrategia 2: Buscar por product_uuid (flujo offline-first)
+        // Busca el menu_item activo de esta sucursal para ese producto,
+        // o usa el producto directamente si no hay menu_item.
+        if (!$product && !empty($validated['product_uuid'])) {
+            $product = Product::withoutGlobalScopes()
+                ->where('uuid', $validated['product_uuid'])
+                ->first();
+
+            if ($product) {
+                // Intentar encontrar un menu_item para este producto en la sucursal
+                $menuItem = MenuItem::withoutGlobalScopes()
+                    ->where('product_id', $product->id)
+                    ->where('branch_id', $order->branch_id)
+                    ->where('is_active', true)
+                    ->first();
+            }
+        }
 
         if (!$product) {
             return response()->json([
                 'error' => 'product_not_found',
-                'message' => 'El producto asociado al item del menú no existe.',
+                'message' => 'No se encontró el producto ni el item del menú.',
             ], 422);
         }
 
-        // Obtener nombre directamente del JSON de traducciones (español por defecto)
+        // Obtener nombre del JSON de traducciones
         $translations = $product->name_translations ?? [];
         if (is_string($translations)) {
             $translations = json_decode($translations, true) ?? [];
         }
-        
         $productName = $translations['es'] ?? $translations['en'] ?? reset($translations) ?: 'Producto';
 
-        // El precio efectivo es el del MenuItem o del Product como fallback
+        // Precio: menu_item > product (fallback)
         $unitPrice = (float) ($menuItem->base_price ?? $product->base_price);
 
         $item = OrderItem::create([
             'company_id' => $order->company_id,
             'order_id' => $order->id,
-            'menu_item_id' => $menuItem->id,
+            'menu_item_id' => $menuItem?->id,  // nullable si no hay menu_item
             'name_snapshot' => $productName,
             'unit_price_snapshot' => $unitPrice,
             'quantity' => $validated['quantity'],
@@ -62,7 +83,6 @@ class OrderItemController extends Controller
             'subtotal' => $unitPrice * $validated['quantity'],
         ]);
 
-        // Recalcular totales del pedido
         $order->recalculateTotals();
         $order->save();
 
@@ -90,7 +110,6 @@ class OrderItemController extends Controller
 
         $item->delete();
 
-        // Recalcular totales
         $order->recalculateTotals();
         $order->save();
 

@@ -44,7 +44,7 @@ export class SyncApiClient {
     notes?: string | null;
   }): Promise<any> {
     const payload = {
-      menu_item_uuid: item.product_id,  // product_id → menu_item_uuid
+      product_uuid: item.product_id,  // Enviar product_uuid (backend lo resuelve)
       quantity: item.quantity,
       notes: item.notes || null,
     };
