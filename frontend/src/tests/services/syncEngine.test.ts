@@ -47,19 +47,11 @@ describe("SyncEngine", () => {
   });
 
   it("debería sincronizar una orden creada localmente", async () => {
+    // OrderRepository.create() ya encola automáticamente
     const order = await OrderRepository.create({
       company_id: "company-1",
       branch_id: "branch-1",
       order_type: "dine_in",
-    });
-
-    await SyncQueueRepository.enqueue({
-      company_id: "company-1",
-      branch_id: "branch-1",
-      entity_type: "order",
-      entity_local_uuid: order.local_uuid,
-      action: "create",
-      payload: order,
     });
 
     (apiClient.post as any).mockResolvedValueOnce({
@@ -88,14 +80,12 @@ describe("SyncEngine", () => {
       branch_id: "branch-1",
     });
 
-    const queueId = await SyncQueueRepository.enqueue({
-      company_id: "company-1",
-      branch_id: "branch-1",
-      entity_type: "order",
-      entity_local_uuid: order.local_uuid,
-      action: "create",
-      payload: order,
-    });
+    // Buscar el queueId del evento encolado automáticamente
+    const queueItem = await localDb.select<any>(
+      "SELECT id FROM sync_queue WHERE entity_local_uuid = ? LIMIT 1",
+      [order.local_uuid]
+    );
+    const queueId = queueItem[0].id;
 
     (apiClient.post as any).mockRejectedValueOnce(new Error("Network error"));
 
@@ -121,14 +111,12 @@ describe("SyncEngine", () => {
       branch_id: "branch-1",
     });
 
-    const queueId = await SyncQueueRepository.enqueue({
-      company_id: "company-1",
-      branch_id: "branch-1",
-      entity_type: "order",
-      entity_local_uuid: order.local_uuid,
-      action: "create",
-      payload: order,
-    });
+    // Buscar el queueId del evento encolado automáticamente
+    const queueItem = await localDb.select<any>(
+      "SELECT id FROM sync_queue WHERE entity_local_uuid = ? LIMIT 1",
+      [order.local_uuid]
+    );
+    const queueId = queueItem[0].id;
 
     // Simular que ya falló 4 veces (max_attempts = 5)
     await localDb.execute(
@@ -150,6 +138,7 @@ describe("SyncEngine", () => {
   });
 
   it("debería procesar múltiples eventos en secuencia", async () => {
+    // OrderRepository.create() ya encola automáticamente cada uno
     const order1 = await OrderRepository.create({
       company_id: "c1",
       branch_id: "b1",
@@ -157,24 +146,6 @@ describe("SyncEngine", () => {
     const order2 = await OrderRepository.create({
       company_id: "c1",
       branch_id: "b1",
-    });
-
-    await SyncQueueRepository.enqueue({
-      company_id: "c1",
-      branch_id: "b1",
-      entity_type: "order",
-      entity_local_uuid: order1.local_uuid,
-      action: "create",
-      payload: order1,
-    });
-
-    await SyncQueueRepository.enqueue({
-      company_id: "c1",
-      branch_id: "b1",
-      entity_type: "order",
-      entity_local_uuid: order2.local_uuid,
-      action: "create",
-      payload: order2,
     });
 
     (apiClient.post as any)
@@ -198,16 +169,14 @@ describe("SyncEngine", () => {
       branch_id: "branch-1",
     });
 
-    const queueId = await SyncQueueRepository.enqueue({
-      company_id: "company-1",
-      branch_id: "branch-1",
-      entity_type: "order",
-      entity_local_uuid: order.local_uuid,
-      action: "create",
-      payload: order,
-    });
+    // Buscar el queueId del evento encolado automáticamente
+    const queueItem = await localDb.select<any>(
+      "SELECT id FROM sync_queue WHERE entity_local_uuid = ? LIMIT 1",
+      [order.local_uuid]
+    );
+    const queueId = queueItem[0].id;
 
-    // Usar ISO timestamp futuro directamente (el mock no interpreta datetime())
+    // Usar ISO timestamp futuro directamente
     const futureTime = new Date(Date.now() + 3600 * 1000).toISOString();
     await localDb.execute(
       "UPDATE sync_queue SET attempts = 1, next_retry_at = ? WHERE id = ?",

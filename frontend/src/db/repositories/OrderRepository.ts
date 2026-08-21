@@ -1,4 +1,5 @@
 import { localDb } from "../localDb";
+import { SyncQueueRepository } from "./SyncQueueRepository";
 import { v4 as uuidv4 } from "uuid";
 
 export interface LocalOrder {
@@ -87,6 +88,40 @@ export class OrderRepository {
         idempotency_key,
       ]
     );
+
+    // Encolar evento de sincronización
+    const syncPayload = {
+      local_uuid,
+      company_id: payload.company_id,
+      branch_id: payload.branch_id,
+      terminal_id: payload.terminal_id || null,
+      table_id: payload.table_id || null,
+      order_number,
+      order_type: payload.order_type || "dine_in",
+      status: "open",
+      subtotal: 0,
+      discount_total: 0,
+      tax_total: 0,
+      tip_amount: 0,
+      grand_total: 0,
+      guest_count: payload.guest_count || 1,
+      waiter_id: payload.waiter_id || null,
+      waiter_name: payload.waiter_name || null,
+      notes: payload.notes || null,
+      idempotency_key,
+      items: [], // Se actualizarán cuando se agreguen items
+    };
+
+    await SyncQueueRepository.enqueue({
+      company_id: payload.company_id,
+      branch_id: payload.branch_id,
+      entity_type: 'order',
+      entity_local_uuid: local_uuid,
+      action: 'create',
+      payload: syncPayload,
+    });
+
+    console.log(`[OrderRepository] 📤 Pedido encolado para sync: ${local_uuid}`);
 
     return await this.findByLocalUuid(local_uuid) as LocalOrder;
   }
