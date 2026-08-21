@@ -255,4 +255,15 @@ export class OrderRepository {
       [cloudId, localUuid]
     );
   }
+
+  /**
+   * Obtiene todos los items de un pedido.
+   */
+  static async findItemsByOrderUuid(orderLocalUuid: string): Promise<LocalOrderItem[]> {
+    return await localDb.select<LocalOrderItem>(
+      "SELECT * FROM local_order_items WHERE order_local_uuid = ? ORDER BY created_at ASC",
+      [orderLocalUuid]
+    );
+  }
+
 }

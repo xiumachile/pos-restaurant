@@ -129,16 +129,56 @@ export class SyncEngine {
   private async processOrder(item: SyncQueueItem, payload: any): Promise<string | null> {
     switch (item.action) {
       case "create": {
+        // Leer items desde local_order_items (se agregan después del create)
+        const { OrderRepository } = await import("../../db/repositories/OrderRepository");
+        const orderItems = await OrderRepository.findItemsByOrderUuid(item.entity_local_uuid);
+
+        // Construir payload con mapeo correcto de campos
+        // Backend espera: type (no order_type), table_uuid (no table_id)
+        const orderPayload = {
+          type: payload.order_type || payload.type,
+          table_uuid: payload.table_id || payload.table_uuid,
+          notes: payload.notes || null,
+        };
+
+        console.log(`[SyncEngine] 📤 Creando orden (items: ${orderItems.length})...`);
+        console.log("[SyncEngine] Payload:", JSON.stringify(orderPayload, null, 2));
+
         const response = await syncApi.createOrder({
-          ...payload,
+          ...orderPayload,
           idempotency_key: payload.idempotency_key,
         });
+
         const cloudId = response.uuid || response.id;
-        if (cloudId) {
-          const { OrderRepository } = await import("../../db/repositories/OrderRepository");
-          await OrderRepository.markAsSynced(item.entity_local_uuid, String(cloudId));
+        if (!cloudId) {
+          throw new Error("Backend no retornó uuid/id de la orden");
         }
-        return cloudId ? String(cloudId) : null;
+
+        console.log(`[SyncEngine] ✅ Orden creada en cloud: ${cloudId}`);
+        await OrderRepository.markAsSynced(item.entity_local_uuid, String(cloudId));
+
+        // Agregar items uno por uno
+        if (orderItems.length > 0) {
+          console.log(`[SyncEngine] 📤 Agregando ${orderItems.length} items...`);
+
+          for (const orderItem of orderItems) {
+            try {
+              await syncApi.addOrderItem(String(cloudId), {
+                product_id: orderItem.product_id,
+                quantity: orderItem.quantity,
+                notes: orderItem.notes || null,
+              });
+              console.log(`[SyncEngine] ✅ Item agregado: ${orderItem.product_name}`);
+            } catch (itemError: any) {
+              console.error(`[SyncEngine] ❌ Error agregando item ${orderItem.product_name}:`);
+              if (itemError?.response?.data) {
+                console.error("[SyncEngine] Item error:", JSON.stringify(itemError.response.data, null, 2));
+              }
+            }
+          }
+        }
+
+        return String(cloudId);
       }
       case "update": {
         const { OrderRepository } = await import("../../db/repositories/OrderRepository");

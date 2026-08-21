@@ -33,6 +33,26 @@ export class SyncApiClient {
     return response.data.data;
   }
 
+  /**
+   * Agrega un item a una orden existente en el backend.
+   * Backend espera: menu_item_uuid, quantity, notes
+   */
+  async addOrderItem(orderUuid: string, item: {
+    product_id: string;
+    quantity: number;
+    unit_price?: number;
+    notes?: string | null;
+  }): Promise<any> {
+    const payload = {
+      menu_item_uuid: item.product_id,  // product_id → menu_item_uuid
+      quantity: item.quantity,
+      notes: item.notes || null,
+    };
+    
+    const response = await apiClient.post(`/orders/${orderUuid}/items`, payload);
+    return response.data.data;
+  }
+
   async updateOrder(uuid: string, payload: Partial<OrderPayload>): Promise<any> {
     const response = await apiClient.put(`/orders/${uuid}`, payload);
     return response.data.data;
