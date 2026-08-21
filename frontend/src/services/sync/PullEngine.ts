@@ -289,8 +289,20 @@ export class PullEngine {
   }
 
   private getCurrentBranchId(): string {
-    // TODO: Obtener del contexto de autenticación
-    return "1"; // Placeholder
+    try {
+      // Intentar obtener del store de autenticación
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const authModule = require("../store/useAuthStore");
+      const user = authModule.useAuthStore?.getState?.().user;
+      if (user?.branch_id) {
+        return String(user.branch_id);
+      }
+    } catch (error) {
+      // En entorno de tests, require puede fallar
+      console.warn("[PullEngine] No se pudo obtener branch_id del auth store");
+    }
+    // Fallback para tests y primer arranque
+    return "1";
   }
 }
 
