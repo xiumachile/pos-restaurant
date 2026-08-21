@@ -1,45 +1,53 @@
 import { useEffect, useRef } from "react";
 import { useSyncStore } from "../store/useSyncStore";
+import { useAuthStore } from "../store/useAuthStore";
 
 /**
  * Hook que dispara sincronización automática en momentos clave:
- * 1. Al cargar la app (una sola vez, al inicio de sesión)
+ * 1. Cuando el usuario se autentica (primera sync tras login)
  * 2. Al recuperar conectividad (ya está en useSyncStore)
- * 3. Cada N minutos (opcional, configurable)
- *
- * Uso: colocar en AppLayout o componente raíz autenticado.
+ * 3. Cada N minutos (configurable)
  */
 export function useAutoSync(options: {
-  syncOnMount?: boolean;
+  syncOnAuth?: boolean;
   intervalMinutes?: number;
 } = {}) {
   const {
-    syncOnMount = true,
+    syncOnAuth = true,
     intervalMinutes = 5,
   } = options;
 
   const triggerFullSync = useSyncStore((s) => s.triggerFullSync);
   const status = useSyncStore((s) => s.status);
-  const lastSyncAt = useSyncStore((s) => s.lastSyncAt);
-  const hasSyncedOnce = useRef(false);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const userId = useAuthStore((s) => s.user?.id);
+  const hasInitialSyncedRef = useRef(false);
 
-  // Sync al montar (una vez por sesión)
+  // 🔑 Sync al autenticarse (primera vez por sesión)
   useEffect(() => {
-    if (syncOnMount && !hasSyncedOnce.current && status === "online") {
-      console.log("[AutoSync] Sincronización inicial al cargar app");
+    if (syncOnAuth && isAuthenticated && userId && !hasInitialSyncedRef.current && status === "online") {
+      console.log("[AutoSync] 🚀 Primera sync tras login, userId:", userId);
+      hasInitialSyncedRef.current = true;
       triggerFullSync();
-      hasSyncedOnce.current = true;
     }
-  }, [syncOnMount, status, triggerFullSync]);
+  }, [isAuthenticated, userId, status, syncOnAuth, triggerFullSync]);
 
-  // Sync periódico cada N minutos (mientras esté online)
+  // Reset flag al hacer logout
+  useEffect(() => {
+    if (!isAuthenticated) {
+      hasInitialSyncedRef.current = false;
+    }
+  }, [isAuthenticated]);
+
+  // Sync periódico
   useEffect(() => {
     if (!intervalMinutes || intervalMinutes <= 0) return;
 
     const intervalId = window.setInterval(() => {
       const currentStatus = useSyncStore.getState().status;
-      if (currentStatus === "online") {
-        console.log(`[AutoSync] Sincronización periódica (${intervalMinutes}min)`);
+      const currentAuth = useAuthStore.getState().isAuthenticated;
+      if (currentStatus === "online" && currentAuth) {
+        console.log(`[AutoSync] ⏰ Sync periódico (${intervalMinutes}min)`);
         triggerFullSync();
       }
     }, intervalMinutes * 60 * 1000);
@@ -48,7 +56,7 @@ export function useAutoSync(options: {
   }, [intervalMinutes, triggerFullSync]);
 
   return {
-    lastSyncAt,
+    lastSyncAt: useSyncStore((s) => s.lastSyncAt),
     status,
     triggerFullSync,
   };

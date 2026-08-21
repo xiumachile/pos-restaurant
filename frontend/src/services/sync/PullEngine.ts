@@ -1,6 +1,8 @@
 import { syncApi } from "../syncApi";
+import { useAuthStore } from "../../store/useAuthStore";
 import { localDb } from "../../db/localDb";
 import { useSyncStore } from "../../store/useSyncStore";
+import { flattenAreas, type TablesArea } from "../../types/tables";
 
 export interface PullResult {
   categories: number;
@@ -28,6 +30,7 @@ export class PullEngine {
     };
 
     try {
+      console.log("[PullEngine] 🚀 Iniciando pullAll()...");
       useSyncStore.getState().setStatus("syncing");
 
       const lastPullAt = await this.getLastPullTimestamp();
@@ -52,6 +55,7 @@ export class PullEngine {
    * Modo incremental: solo descarga cambios desde last_pull_at.
    */
   private async pullIncremental(branchId: string, lastPullAt: string): Promise<PullResult> {
+    console.log(`[PullEngine] 📥 Modo INCREMENTAL (branch: ${branchId}, desde: ${lastPullAt})`);
     const stats: PullResult = {
       categories: 0,
       products: 0,
@@ -111,6 +115,7 @@ export class PullEngine {
    * Usado en primera sincronización o cuando no hay last_pull_at.
    */
   private async pullFullSnapshot(): Promise<PullResult> {
+    console.log("[PullEngine] 📥 Modo SNAPSHOT COMPLETO (primera sync)");
     const stats: PullResult = {
       categories: 0,
       products: 0,
@@ -130,10 +135,14 @@ export class PullEngine {
     const catalog = await syncApi.fetchCatalog();
     store.updateProgress({ percentage: 25 });
 
-    const [tables, paymentMethods] = await Promise.all([
-      syncApi.fetchTables(),
+    const [tableAreas, paymentMethods] = await Promise.all([
+      syncApi.fetchTables() as Promise<TablesArea[]>,
       syncApi.fetchPaymentMethods(),
     ]);
+
+    // GET /tables devuelve mesas agrupadas por área (TableCollection en el backend).
+    // Hay que aplanarlas antes de insertarlas en local_tables.
+    const tables = flattenAreas(tableAreas);
 
     store.updateProgress({
       phase: "pull-applying",
@@ -290,18 +299,16 @@ export class PullEngine {
 
   private getCurrentBranchId(): string {
     try {
-      // Intentar obtener del store de autenticación
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const authModule = require("../store/useAuthStore");
-      const user = authModule.useAuthStore?.getState?.().user;
+      const user = useAuthStore.getState().user;
       if (user?.branch_id) {
-        return String(user.branch_id);
+        const id = String(user.branch_id);
+        console.log(`[PullEngine] ✅ branch_id obtenido del user: ${id}`);
+        return id;
       }
+      console.warn("[PullEngine] ⚠️ user sin branch_id, usando fallback '1'");
     } catch (error) {
-      // En entorno de tests, require puede fallar
-      console.warn("[PullEngine] No se pudo obtener branch_id del auth store");
+      console.warn("[PullEngine] ⚠️ Error leyendo auth store:", error);
     }
-    // Fallback para tests y primer arranque
     return "1";
   }
 }

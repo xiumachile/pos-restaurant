@@ -2,10 +2,15 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { useSyncWorker } from '../../hooks/useSyncWorker';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import { ToastContainer } from '../system/ToastContainer';
 
 export function AppLayout() {
-  useSyncWorker();
+  useSyncWorker();          // Worker cada 15s (push de eventos locales)
+  useAutoSync({             // Sync al autenticarse + periódica cada 5min
+    syncOnAuth: true,
+    intervalMinutes: 5,
+  });
 
   return (
     <div className="flex h-screen bg-slate-900 overflow-hidden">
