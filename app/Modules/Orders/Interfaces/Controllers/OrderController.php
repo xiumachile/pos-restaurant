@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Modules\Orders\Domain\Entities\Order;
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
 use Modules\Orders\Interfaces\Requests\CreateOrderRequest;
+use Modules\Orders\Interfaces\Requests\UpdateOrderRequest;
 use Modules\Orders\Interfaces\Resources\OrderResource;
 
 class OrderController extends Controller
@@ -77,6 +78,53 @@ class OrderController extends Controller
             ->response()
             ->setStatusCode(201);
     }
+
+
+    /**
+     * PUT /api/v1/orders/{uuid}
+     * Actualiza un pedido existente (last-write-wins).
+     */
+    public function update(UpdateOrderRequest $request, string $uuid): JsonResponse
+    {
+        $order = Order::where('uuid', $uuid)->firstOrFail();
+
+        if (!$order->isEditable()) {
+            return response()->json([
+                'error' => 'order_not_modifiable',
+                'message' => 'No se pueden modificar pedidos ya confirmados.',
+            ], 422);
+        }
+
+        $validated = $request->validated();
+
+        // Actualizar mesa si se proporcionó
+        if (array_key_exists('table_uuid', $validated)) {
+            $table = null;
+            if ($validated['table_uuid']) {
+                $table = \Modules\Tables\Domain\Entities\RestaurantTable::where('uuid', $validated['table_uuid'])->first();
+            }
+            $order->table_id = $table?->id;
+        }
+
+        // Actualizar campos permitidos
+        if (isset($validated['status'])) {
+            $order->status = OrderStatus::from($validated['status']);
+        }
+
+        if (isset($validated['notes'])) {
+            $order->notes = $validated['notes'];
+        }
+
+        if (isset($validated['guest_count'])) {
+            $order->guest_count = $validated['guest_count'];
+        }
+
+        $order->save();
+        $order->load(['items', 'table', 'waiter']);
+
+        return OrderResource::make($order)->response();
+    }
+
 
     /**
      * GET /api/v1/orders/{uuid}

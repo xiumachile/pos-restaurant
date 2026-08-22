@@ -16,6 +16,7 @@ Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class])->g
     Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
     Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
     Route::get('/orders/{uuid}', [OrderController::class, 'show'])->name('orders.show');
+    Route::put('/orders/{uuid}', [OrderController::class, 'update'])->name('orders.update');
     Route::delete('/orders/{uuid}', [OrderController::class, 'destroy'])->name('orders.destroy');
 
     // ============================================
