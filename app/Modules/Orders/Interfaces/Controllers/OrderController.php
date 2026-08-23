@@ -57,12 +57,17 @@ class OrderController extends Controller
             $tableId = $table?->id;
         }
 
+        // Usar status del request si está presente, de lo contrario DRAFT
+        $status = isset($validated['status']) 
+            ? OrderStatus::from($validated['status']) 
+            : OrderStatus::DRAFT;
+
         $order = Order::create([
             'company_id' => $user->company_id,
             'branch_id' => $user->branch_id,
             'order_number' => $this->generateOrderNumber($user->branch_id),
             'type' => \Modules\Orders\Domain\ValueObjects\OrderType::from($validated['type']),
-            'status' => OrderStatus::DRAFT,
+            'status' => $status,
             'table_id' => $tableId,
             'waiter_id' => $user->id,
             'notes' => $validated['notes'] ?? null,

@@ -9,7 +9,6 @@ class CreateOrderRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        // La autorización por rol se refina en el Bloque C
         return true;
     }
 
@@ -19,6 +18,7 @@ class CreateOrderRequest extends FormRequest
             'type' => ['required', Rule::in(['dine_in', 'takeout', 'delivery'])],
             'table_uuid' => ['nullable', 'uuid', 'exists:restaurant_tables,uuid'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'status' => ['nullable', Rule::in(['draft', 'confirmed', 'preparing', 'ready', 'served'])],
         ];
     }
 
@@ -29,6 +29,7 @@ class CreateOrderRequest extends FormRequest
             'type.in' => 'El tipo de pedido debe ser dine_in, takeout o delivery.',
             'table_uuid.exists' => 'La mesa especificada no existe.',
             'table_uuid.uuid' => 'El UUID de la mesa es inválido.',
+            'status.in' => 'El estado del pedido debe ser draft, confirmed, preparing, ready o served.',
         ];
     }
 

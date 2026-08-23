@@ -140,7 +140,7 @@ export class SyncQueueRepository {
     return result;
   }
 
-  private static async findById(id: string): Promise<SyncQueueItem | null> {
+  static async findById(id: string): Promise<SyncQueueItem | null> {
     const results = await localDb.select<SyncQueueItem>(
       "SELECT * FROM sync_queue WHERE id = ?",
       [id]

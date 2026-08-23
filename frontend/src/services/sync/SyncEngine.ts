@@ -65,6 +65,14 @@ export class SyncEngine {
           stats.success++;
         } catch (error: any) {
           console.error(`[SyncEngine] Error procesando ${item.id}:`, error);
+          
+          // Logging detallado para errores 422 (validación)
+          if (error?.response?.status === 422) {
+            console.error("[SyncEngine] ❌ Error de validación (422):");
+            console.error("[SyncEngine] Response data:", error.response.data);
+            console.error("[SyncEngine] Request payload:", item.payload);
+          }
+          
           await this.handleFailure(item, error?.message || "Unknown error");
           stats.processed++;
           stats.failed++;
@@ -135,6 +143,7 @@ export class SyncEngine {
 
         // Construir payload con mapeo correcto de campos
         // Backend espera: type (no order_type), table_uuid (no table_id)
+        // NO enviar status aquí: backend crea en DRAFT por defecto (necesario para agregar items)
         const orderPayload = {
           type: payload.order_type || payload.type,
           table_uuid: payload.table_id || payload.table_uuid,
@@ -157,7 +166,8 @@ export class SyncEngine {
         console.log(`[SyncEngine] ✅ Orden creada en cloud: ${cloudId}`);
         await OrderRepository.markAsSynced(item.entity_local_uuid, String(cloudId));
 
-        // Agregar items uno por uno
+        // Agregar items uno por uno (requiere estado DRAFT)
+        let itemsAdded = 0;
         if (orderItems.length > 0) {
           console.log(`[SyncEngine] 📤 Agregando ${orderItems.length} items...`);
 
@@ -169,12 +179,26 @@ export class SyncEngine {
                 notes: orderItem.notes || null,
               });
               console.log(`[SyncEngine] ✅ Item agregado: ${orderItem.product_name}`);
+              itemsAdded++;
             } catch (itemError: any) {
               console.error(`[SyncEngine] ❌ Error agregando item ${orderItem.product_name}:`);
               if (itemError?.response?.data) {
                 console.error("[SyncEngine] Item error:", JSON.stringify(itemError.response.data, null, 2));
               }
+              // Fallar completamente si un item no se puede agregar
+              throw new Error(`No se pudo agregar item ${orderItem.product_name}: ${itemError?.response?.data?.message || itemError?.message}`);
             }
+          }
+        }
+
+        // IMPORTANTE: Actualizar estado a confirmed DESPUÉS de agregar items
+        if (itemsAdded > 0) {
+          try {
+            await syncApi.updateOrder(String(cloudId), { status: 'confirmed' });
+            console.log(`[SyncEngine] ✅ Estado actualizado a confirmed (${itemsAdded} items)`);
+          } catch (updateError: any) {
+            console.warn(`[SyncEngine] ⚠️ No se pudo actualizar estado:`, updateError?.response?.data || updateError?.message);
+            // No fallar completamente, el pedido ya tiene items
           }
         }
 
@@ -207,22 +231,39 @@ export class SyncEngine {
       throw new Error(`Acción no soportada para payment: ${item.action}`);
     }
 
-    let orderId = payload.order_id;
-    if (!orderId && payload.order_local_uuid) {
+    // Resolver order_uuid desde order_local_uuid (el backend espera order_uuid, no order_id)
+    let orderUuid = payload.order_uuid;
+    if (!orderUuid && payload.order_local_uuid) {
       const { OrderRepository } = await import("../../db/repositories/OrderRepository");
       const order = await OrderRepository.findByLocalUuid(payload.order_local_uuid);
       if (!order?.cloud_id) {
         throw new Error("Order padre sin cloud_id, no se puede crear payment");
       }
-      orderId = order.cloud_id;
+      orderUuid = order.cloud_id;
     }
 
-    const response = await syncApi.createPayment({
-      ...payload,
-      order_id: orderId,
-      idempotency_key: payload.idempotency_key,
-    });
+    if (!orderUuid) {
+      throw new Error("No se pudo resolver order_uuid para el payment");
+    }
 
+    if (!payload.payment_method_uuid) {
+      throw new Error("payment_method_uuid es requerido pero no está en el payload");
+    }
+
+    // Construir payload con el formato que espera el backend (StorePaymentRequest)
+    const paymentPayload = {
+      order_uuid: orderUuid,
+      payment_method_uuid: payload.payment_method_uuid,
+      amount: payload.amount,
+      tip_amount: payload.tip_amount || 0,
+      reference_code: payload.reference_code || null,
+      notes: payload.notes || null,
+      idempotency_key: payload.idempotency_key,
+    };
+
+    console.log("[SyncEngine] 📤 Creando payment:", JSON.stringify(paymentPayload, null, 2));
+
+    const response = await syncApi.createPayment(paymentPayload);
     const cloudId = response.uuid || response.id;
     if (cloudId) {
       const { PaymentRepository } = await import("../../db/repositories/PaymentRepository");

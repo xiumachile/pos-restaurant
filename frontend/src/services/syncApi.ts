@@ -7,6 +7,7 @@ export interface OrderPayload {
   waiter_id?: string;
   guest_count?: number;
   notes?: string;
+  status?: string;
   items?: Array<{
     product_id: string;
     quantity: number;
@@ -17,11 +18,13 @@ export interface OrderPayload {
 }
 
 export interface PaymentPayload {
-  order_id?: string;
-  payment_method: string;
+  order_uuid: string;
+  payment_method_uuid: string;
+  bill_uuid?: string | null;
   amount: number;
   tip_amount?: number;
-  reference_code?: string;
+  reference_code?: string | null;
+  notes?: string | null;
   idempotency_key: string;
 }
 
@@ -63,7 +66,7 @@ export class SyncApiClient {
   }
 
   async createPayment(payload: PaymentPayload): Promise<any> {
-    const response = await apiClient.post("/payments", payload, {
+    const response = await apiClient.post("/billing/payments", payload, {
       headers: { "Idempotency-Key": payload.idempotency_key },
     });
     return response.data.data;
