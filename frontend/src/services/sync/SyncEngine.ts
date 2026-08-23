@@ -174,9 +174,10 @@ export class SyncEngine {
           for (const orderItem of orderItems) {
             try {
               await syncApi.addOrderItem(String(cloudId), {
-                product_id: orderItem.product_id,
+                product_uuid: orderItem.product_id, // Backend espera product_uuid
                 quantity: orderItem.quantity,
                 notes: orderItem.notes || null,
+                idempotency_key: orderItem.local_uuid, // clave estable: dedup en reintentos
               });
               console.log(`[SyncEngine] ✅ Item agregado: ${orderItem.product_name}`);
               itemsAdded++;

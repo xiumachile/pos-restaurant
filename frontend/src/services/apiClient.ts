@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from "uuid";
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
@@ -9,6 +10,19 @@ export const apiClient = axios.create({
     Accept: "application/json",
   },
   timeout: 15000,
+});
+
+// Idempotencia por defecto (Principio #7): toda mutación lleva Idempotency-Key
+// Si el caller ya envía su propia clave estable (createOrder/createPayment), se respeta.
+apiClient.interceptors.request.use((config) => {
+  const method = (config.method || "").toUpperCase();
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+    const headers: any = config.headers || {};
+    if (!headers["Idempotency-Key"]) {
+      headers["Idempotency-Key"] = uuidv4();
+    }
+  }
+  return config;
 });
 
 // Interceptor request: inyectar JWT

@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from "uuid";
 import { apiClient } from "./apiClient";
 
 export interface OrderPayload {
@@ -41,23 +42,24 @@ export class SyncApiClient {
    * Backend espera: menu_item_uuid, quantity, notes
    */
   async addOrderItem(orderUuid: string, item: {
-    product_id: string;
+    product_uuid: string;
     quantity: number;
     unit_price?: number;
     notes?: string | null;
+    idempotency_key?: string;
   }): Promise<any> {
-    const payload = {
-      product_uuid: item.product_id,  // Enviar product_uuid (backend lo resuelve)
-      quantity: item.quantity,
-      notes: item.notes || null,
-    };
-    
-    const response = await apiClient.post(`/orders/${orderUuid}/items`, payload);
+    const { idempotency_key, ...body } = item;
+    const response = await apiClient.post(`/orders/${orderUuid}/items`, body, {
+      headers: { "Idempotency-Key": idempotency_key || uuidv4() },
+    });
     return response.data.data;
   }
+  
 
   async updateOrder(uuid: string, payload: Partial<OrderPayload>): Promise<any> {
-    const response = await apiClient.put(`/orders/${uuid}`, payload);
+    const response = await apiClient.put(`/orders/${uuid}`, payload, {
+      headers: { "Idempotency-Key": uuidv4() },
+    });
     return response.data.data;
   }
 
