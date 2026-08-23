@@ -5,6 +5,7 @@ import { OrderTakingPage } from "@/pages/OrderTakingPage";
 import { CatalogPage } from "@/pages/CatalogPage";
 import { KitchenPage } from "@/pages/KitchenPage";
 import { CashierPage } from "@/pages/CashierPage";
+import { OrdersPage } from "@/pages/OrdersPage";
 import { TipSettingsPage } from "@/pages/settings/TipSettingsPage";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -71,6 +72,7 @@ export const router = createBrowserRouter([
           { path: "tables/:tableUuid", element: <OrderTakingPage /> },
           { path: "catalog", element: <CatalogPage /> },
           { path: "kitchen", element: <KitchenPage /> },
+          { path: "orders", element: <OrdersPage /> },
           { path: "cashier", element: <CashierPage /> },
           { path: "reports", element: <ReportsPage /> },
           { path: "settings", element: <SettingsPage /> },

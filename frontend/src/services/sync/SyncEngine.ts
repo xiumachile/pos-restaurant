@@ -241,6 +241,13 @@ export class SyncEngine {
   private async handleFailure(item: SyncQueueItem, errorMessage: string): Promise<void> {
     try {
       await SyncQueueRepository.markAsFailed(item.id, errorMessage);
+
+      // Si el evento agotó reintentos, reflejar el fallo en el pedido local
+      const updated = await SyncQueueRepository.findById(item.id);
+      if (updated?.sync_status === "failed" && item.entity_type === "order") {
+        const { OrderRepository } = await import("../../db/repositories/OrderRepository");
+        await OrderRepository.markSyncError(item.entity_local_uuid, errorMessage);
+      }
     } catch (e) {
       console.error("[SyncEngine] No se pudo registrar el fallo:", e);
     }

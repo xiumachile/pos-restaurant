@@ -4,6 +4,7 @@ import {
   UtensilsCrossed,
   ChefHat,
   CreditCard,
+  ListOrdered,
   BarChart3,
   Settings,
 } from "lucide-react";
@@ -19,6 +20,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/", label: "Mesas", icon: LayoutGrid, end: true },
   { to: "/catalog", label: "Catálogo", icon: UtensilsCrossed },
   { to: "/kitchen", label: "Cocina", icon: ChefHat },
+  { to: "/orders", label: "Pedidos", icon: ListOrdered },
   { to: "/cashier", label: "Caja", icon: CreditCard },
   { to: "/reports", label: "Reportes", icon: BarChart3 },
   { to: "/settings", label: "Configuración", icon: Settings },

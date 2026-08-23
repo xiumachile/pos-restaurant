@@ -266,4 +266,15 @@ export class OrderRepository {
     );
   }
 
+
+  /**
+   * Marca un pedido como fallido con su error de sincronización.
+   */
+  static async markSyncError(localUuid: string, error: string): Promise<void> {
+    await localDb.execute(
+      "UPDATE local_orders SET sync_status = 'failed', sync_error = ?, updated_at = CURRENT_TIMESTAMP WHERE local_uuid = ?",
+      [error, localUuid]
+    );
+  }
+
 }
