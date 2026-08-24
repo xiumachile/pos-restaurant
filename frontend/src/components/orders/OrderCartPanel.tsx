@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCartStore } from "@/stores/useCartStore";
-import { ordersService } from "@/services/ordersService";
 import { useInvalidateTables } from "@/hooks/useTables";
 import { useTableOrders } from "@/hooks/useTableOrders";
 import { aggregateOrders } from "@/types/orders";
 import { getTranslatedName, formatPrice, parsePrice } from "@/types/catalog";
-import { Plus, Minus, Trash2, Send, ShoppingCart, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { useAuthStore } from "@/store/useAuthStore";
+import { useSyncStore } from "@/store/useSyncStore";
+import { OrderRepository } from "@/db/repositories/OrderRepository";
+import { Plus, Minus, Trash2, Send, ShoppingCart, Loader2, CheckCircle2, AlertCircle, WifiOff } from "lucide-react";
 import { ActiveOrderItems } from "./ActiveOrderItems";
 
 interface OrderCartPanelProps {
@@ -29,6 +31,9 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
   const getTotals = useCartStore((s) => s.getTotals);
   const invalidateTables = useInvalidateTables();
 
+  const user = useAuthStore((s) => s.user);
+  const syncStatus = useSyncStore((s) => s.status);
+
   const { data: activeOrders = [], refetch: refetchActiveOrders } = useTableOrders(tableUuid);
   const [feedback, setFeedback] = useState<FeedbackState>({ type: "idle" });
 
@@ -39,61 +44,83 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
   const previousOrdersTotal = aggregated.total;
   const grandTotal = previousOrdersTotal + totals.total;
 
+  /**
+   * Flujo OFFLINE-FIRST:
+   * 1. Crear pedido en SQLite local (encola order/create automáticamente)
+   * 2. Agregar items locales (encola item/create con idempotency_key estable)
+   * 3. NO llamar confirm() — SyncEngine hace DRAFT → items → UPDATE confirmed
+   * 4. Limpiar carrito local + refrescar UI
+   * 5. Sync automático en background (worker cada 15s o trigger manual)
+   */
   const handleSendOrder = async () => {
-    if (items.length === 0) return;
+    if (items.length === 0 || !user) return;
 
-    const missingMenuItem = items.find((i) => !i.product.menu_item_uuid);
-    if (missingMenuItem) {
-      setFeedback({
-        type: "error",
-        message: `El producto "${getTranslatedName(missingMenuItem.product.name_translations)}" no tiene MenuItem.`,
-      });
-      return;
-    }
-
-    setFeedback({ type: "loading", message: "Creando pedido..." });
+    setFeedback({ type: "loading", message: "💾 Guardando pedido localmente..." });
 
     try {
-      const order = await ordersService.create({
-        type: "dine_in",
-        table_uuid: tableUuid,
+      // 1. Crear pedido local (SQLite + encolado automático)
+      const order = await OrderRepository.create({
+        company_id: String(user.company_id),
+        branch_id: String(user.branch_id),
+        table_id: tableUuid,
+        order_type: "dine_in",
       });
 
-      setFeedback({ type: "loading", message: "Agregando items..." });
+      setFeedback({
+        type: "loading",
+        message: `📦 Agregando ${items.length} items...`,
+      });
 
+      // 2. Agregar items locales (encolado automático con idempotency_key estable)
       for (const item of items) {
-        await ordersService.addItem(order.uuid, {
-          menu_item_uuid: item.product.menu_item_uuid!,
+        await OrderRepository.addItem(order.local_uuid, {
+          product_id: item.product.uuid,
+          product_name: getTranslatedName(item.product.name_translations),
           quantity: item.quantity,
+          unit_price: parsePrice(item.product.base_price),
           notes: item.notes,
         });
       }
 
-      setFeedback({ type: "loading", message: "Confirmando pedido..." });
-      await ordersService.confirm(order.uuid);
-
-      // Limpiar estado local
+      // 3. Limpiar carrito local
       clearCart(tableUuid);
       invalidateTables();
       refetchActiveOrders();
 
-      // Mostrar feedback de éxito brevemente
+      // 4. Disparar sync inmediatamente (no esperar al worker de 15s)
       setFeedback({
-        type: "success",
-        message: `✓ Pedido enviado a cocina`,
+        type: "loading",
+        message: syncStatus === "offline"
+          ? "✓ Guardado offline. Sincronizará al reconectar."
+          : "✓ Guardado. Sincronizando con cocina...",
       });
 
-      // Navegar de vuelta a Mesas después de 1.2 segundos
+      if (syncStatus !== "offline") {
+        try {
+          await useSyncStore.getState().triggerFullSync();
+        } catch (syncErr) {
+          console.warn("[OrderCartPanel] Sync diferida:", syncErr);
+        }
+      }
+
+      // 5. Feedback final
+      setFeedback({
+        type: "success",
+        message: syncStatus === "offline"
+          ? "✓ Pedido guardado (offline)"
+          : "✓ Pedido enviado a cocina",
+      });
+
+      // 6. Navegar a Mesas
       setTimeout(() => {
         navigate("/");
       }, 1200);
     } catch (error: any) {
-      const message =
-        error?.response?.data?.message ||
-        error?.response?.data?.error ||
-        error?.message ||
-        "Error al enviar el pedido";
-      setFeedback({ type: "error", message });
+      console.error("[OrderCartPanel] Error creando pedido:", error);
+      setFeedback({
+        type: "error",
+        message: error?.message || "Error al guardar el pedido",
+      });
     }
   };
 
@@ -108,11 +135,19 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
           <ShoppingCart size={20} className="text-orange-400" />
           <h2 className="text-lg font-bold">Pedido · Mesa {tableNumber}</h2>
         </div>
-        {items.length > 0 && (
-          <span className="px-2 py-0.5 bg-orange-500 text-white text-sm font-bold rounded-full">
-            {totals.itemCount}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {syncStatus === "offline" && (
+            <div className="flex items-center gap-1 px-2 py-0.5 bg-yellow-500/20 border border-yellow-500/40 rounded-full">
+              <WifiOff size={12} className="text-yellow-400" />
+              <span className="text-xs text-yellow-300">Offline</span>
+            </div>
+          )}
+          {items.length > 0 && (
+            <span className="px-2 py-0.5 bg-orange-500 text-white text-sm font-bold rounded-full">
+              {totals.itemCount}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Scroll container */}
