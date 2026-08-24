@@ -1,7 +1,7 @@
 import type { Order } from "@/types/orders";
 import { aggregateOrders } from "@/types/orders";
 import { formatPrice } from "@/types/catalog";
-import { Receipt } from "lucide-react";
+import { Receipt, WifiOff, AlertCircle } from "lucide-react";
 
 interface ActiveOrderItemsProps {
   orders: Order[];
@@ -9,14 +9,21 @@ interface ActiveOrderItemsProps {
 
 /**
  * Vista agrupada tipo precuenta de los pedidos activos de una mesa.
+ * 
+ * Mejoras para offline-first:
+ * - Badge "⏳ Sin sincronizar" en pedidos locales pendientes
+ * - Badge "⚠️ Error sync" en pedidos con sync_status='error'
  * - Agrupa productos iguales de varias órdenes
- * - Muestra cantidad total, precio unitario y subtotal
  * - Totales acumulados al pie
  */
 export function ActiveOrderItems({ orders }: ActiveOrderItemsProps) {
   if (orders.length === 0) return null;
 
   const aggregated = aggregateOrders(orders);
+
+  // Contar pedidos locales pendientes para mostrar banner
+  const localPending = orders.filter((o: any) => o._isLocal && o._syncStatus === "pending").length;
+  const localErrors = orders.filter((o: any) => o._isLocal && o._syncStatus === "error").length;
 
   return (
     <div className="bg-blue-900/10 border border-blue-700/30 rounded-lg p-3 space-y-2">
@@ -27,6 +34,25 @@ export function ActiveOrderItems({ orders }: ActiveOrderItemsProps) {
           Consumo de la mesa
         </span>
       </div>
+
+      {/* Banner de pedidos pendientes de sync */}
+      {localPending > 0 && (
+        <div className="flex items-center gap-2 px-2 py-1.5 bg-yellow-500/10 border border-yellow-500/30 rounded text-xs">
+          <WifiOff size={12} className="text-yellow-400 flex-shrink-0" />
+          <span className="text-yellow-200">
+            {localPending} pedido{localPending > 1 ? "s" : ""} pendiente{localPending > 1 ? "s" : ""} de sincronizar
+          </span>
+        </div>
+      )}
+
+      {localErrors > 0 && (
+        <div className="flex items-center gap-2 px-2 py-1.5 bg-red-500/10 border border-red-500/30 rounded text-xs">
+          <AlertCircle size={12} className="text-red-400 flex-shrink-0" />
+          <span className="text-red-200">
+            {localErrors} pedido{localErrors > 1 ? "s" : ""} con error de sincronización
+          </span>
+        </div>
+      )}
 
       {/* Lista de productos agrupados */}
       <div className="space-y-1">

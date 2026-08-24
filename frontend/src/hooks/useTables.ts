@@ -12,7 +12,7 @@ export function useTables() {
   return useQuery<TablesArea[], Error>({
     queryKey: TABLES_QUERY_KEY,
     queryFn: tablesService.list,
-    refetchInterval: 30000,
+    refetchInterval: 5000,
     staleTime: 10000,
   });
 }

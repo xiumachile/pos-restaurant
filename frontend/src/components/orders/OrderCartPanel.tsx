@@ -84,7 +84,6 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
 
       // 3. Limpiar carrito local
       clearCart(tableUuid);
-      invalidateTables();
       refetchActiveOrders();
 
       // 4. Disparar sync inmediatamente (no esperar al worker de 15s)
@@ -98,9 +97,14 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
       if (syncStatus !== "offline") {
         try {
           await useSyncStore.getState().triggerFullSync();
+          // Forzar refetch de tables DESPUÉS del sync (el backend ya actualizó el status)
+          invalidateTables();
         } catch (syncErr) {
           console.warn("[OrderCartPanel] Sync diferida:", syncErr);
         }
+      } else {
+        // En offline, invalidamos igual porque ya hicimos el update optimista
+        invalidateTables();
       }
 
       // 5. Feedback final

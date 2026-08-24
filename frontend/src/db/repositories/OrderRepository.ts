@@ -121,6 +121,16 @@ export class OrderRepository {
       payload: syncPayload,
     });
 
+    // UPDATE OPTIMISTA: marcar mesa como ocupada inmediatamente
+    // Esto da feedback instantáneo al usuario sin esperar al sync
+    if (payload.table_id) {
+      await localDb.execute(
+        "UPDATE local_tables SET status = 'occupied', current_order_uuid = ?, last_updated = CURRENT_TIMESTAMP WHERE uuid = ?",
+        [local_uuid, payload.table_id]
+      );
+      console.log(`[OrderRepository] 🪑 Mesa ${payload.table_id} marcada como occupied (optimista)`);
+    }
+
     console.log(`[OrderRepository] 📤 Pedido encolado para sync: ${local_uuid}`);
 
     return await this.findByLocalUuid(local_uuid) as LocalOrder;
@@ -236,6 +246,21 @@ export class OrderRepository {
     return await localDb.select<LocalOrder>(
       "SELECT * FROM local_orders WHERE branch_id = ? ORDER BY created_at DESC",
       [branchId]
+    );
+  }
+
+  /**
+   * Obtiene pedidos locales de una mesa que están pendientes de sincronización.
+   * Usado por useTableOrders para fusionar con datos de la nube y cerrar el
+   * ciclo offline-first (un pedido creado offline aparece inmediatamente en la mesa).
+   */
+  static async findPendingByTable(tableUuid: string): Promise<LocalOrder[]> {
+    return await localDb.select<LocalOrder>(
+      `SELECT * FROM local_orders 
+       WHERE table_id = ? 
+         AND sync_status IN ('pending', 'error', 'failed')
+       ORDER BY created_at DESC`,
+      [tableUuid]
     );
   }
 
