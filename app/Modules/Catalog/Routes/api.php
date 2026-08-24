@@ -3,6 +3,8 @@
 use Illuminate\Support\Facades\Route;
 use Modules\Catalog\Interfaces\Controllers\CategoryController;
 use Modules\Catalog\Interfaces\Controllers\ProductController;
+use Modules\Catalog\Interfaces\Controllers\PriceListController;
+use Modules\Catalog\Interfaces\Controllers\ProductPriceController;
 use Modules\Catalog\Interfaces\Controllers\ComboSubstitutionController;
 use Modules\Catalog\Interfaces\Controllers\ComboReplacementRuleController;
 use App\Shared\Http\Middleware\TenantContextMiddleware;
@@ -48,4 +50,20 @@ Route::prefix('v1/catalog')->middleware(['auth:api', TenantContextMiddleware::cl
             Route::delete('/{menuItemUuid}/items/{productUuid}/substitution-policy', [ComboReplacementRuleController::class, 'destroy'])
                 ->name('catalog.combos.substitution-policies.destroy');
         });
+
+    // Listas de precios (lectura para usuarios autenticados)
+    Route::get('/price-lists', [PriceListController::class, 'index'])->name('catalog.price-lists.index');
+
+    // Precios de un producto (lectura)
+    Route::get('/products/{uuid}/prices', [ProductPriceController::class, 'index'])->name('catalog.products.prices.index');
+
+    // Listas de precios y precios de productos (escritura solo admin/manager)
+    Route::middleware([CheckRole::class . ':admin,manager'])->group(function () {
+        Route::post('/price-lists', [PriceListController::class, 'store'])->name('catalog.price-lists.store');
+        Route::put('/price-lists/{uuid}', [PriceListController::class, 'update'])->name('catalog.price-lists.update');
+        Route::delete('/price-lists/{uuid}', [PriceListController::class, 'destroy'])->name('catalog.price-lists.destroy');
+
+        Route::put('/products/{uuid}/prices', [ProductPriceController::class, 'upsert'])->name('catalog.products.prices.upsert');
+        Route::delete('/products/{productUuid}/prices/{priceListUuid}', [ProductPriceController::class, 'destroy'])->name('catalog.products.prices.destroy');
+    });
 });

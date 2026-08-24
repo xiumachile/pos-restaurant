@@ -122,6 +122,41 @@ class Product extends Model
     }
 
     /**
+     * Precios del producto por lista de precios.
+     */
+    public function prices(): HasMany
+    {
+        return $this->hasMany(ProductPrice::class);
+    }
+
+    /**
+     * Resuelve el precio efectivo del producto para una lista de precios.
+     * Jerarquía: lista indicada → lista default de la empresa → base_price.
+     */
+    public function resolvePrice(?PriceList $priceList = null): float
+    {
+        if ($priceList) {
+            $price = $this->prices()->where('price_list_id', $priceList->id)->first();
+            if ($price) {
+                return (float) $price->price;
+            }
+        }
+
+        $defaultList = PriceList::where('company_id', $this->company_id)
+            ->where('is_default', true)
+            ->first();
+
+        if ($defaultList) {
+            $price = $this->prices()->where('price_list_id', $defaultList->id)->first();
+            if ($price) {
+                return (float) $price->price;
+            }
+        }
+
+        return (float) $this->base_price;
+    }
+
+    /**
      * Scope: solo productos activos.
      */
     public function scopeActive($query)
