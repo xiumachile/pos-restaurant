@@ -174,4 +174,127 @@ class PrintJobController extends Controller
             'results' => $results,
         ]);
     }
+
+    /**
+     * POST /api/v1/print-jobs/{uuid}/claim
+     * Reclama un trabajo pendiente para imprimir localmente.
+     * 
+     * @param string $clientId Identificador único del cliente (ej: Tauri device ID)
+     */
+    public function claim(Request $request, string $uuid): JsonResponse
+    {
+        $user = $request->user();
+        $clientId = $request->input('client_id', 'tauri-' . $user->id);
+
+        $job = PrintJob::where('uuid', $uuid)
+            ->where('company_id', $user->company_id)
+            ->where('branch_id', $user->branch_id)
+            ->with(['printer', 'order'])
+            ->firstOrFail();
+
+        if (!$job->isAvailableForClaim()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El trabajo no está disponible para reclamar.',
+                'current_status' => $job->status,
+                'claimed_by' => $job->claimed_by,
+                'claimed_at' => $job->claimed_at?->toIso8601String(),
+            ], 409);
+        }
+
+        $claimed = $job->claim($clientId);
+
+        if (!$claimed) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se pudo reclamar el trabajo (race condition).',
+            ], 409);
+        }
+
+        Log::info('PrintJob reclamado por cliente local', [
+            'job_uuid' => $job->uuid,
+            'client_id' => $clientId,
+            'printer' => $job->printer?->name,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Trabajo reclamado exitosamente.',
+            'job' => new PrintJobResource($job),
+        ]);
+    }
+
+    /**
+     * POST /api/v1/print-jobs/{uuid}/complete
+     * Marca un trabajo como completado exitosamente.
+     */
+    public function complete(Request $request, string $uuid): JsonResponse
+    {
+        $user = $request->user();
+
+        $job = PrintJob::where('uuid', $uuid)
+            ->where('company_id', $user->company_id)
+            ->with('printer')
+            ->firstOrFail();
+
+        if ($job->status === PrintJob::STATUS_COMPLETED) {
+            return response()->json([
+                'success' => true,
+                'message' => 'El trabajo ya estaba completado.',
+            ]);
+        }
+
+        $job->markAsCompleted();
+
+        Log::info('PrintJob completado por cliente local', [
+            'job_uuid' => $job->uuid,
+            'printer' => $job->printer?->name,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Trabajo marcado como completado.',
+            'job_uuid' => $job->uuid,
+            'status' => $job->status,
+            'printed_at' => $job->printed_at?->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * POST /api/v1/print-jobs/{uuid}/fail
+     * Marca un trabajo como fallido.
+     */
+    public function fail(Request $request, string $uuid): JsonResponse
+    {
+        $user = $request->user();
+        $errorMessage = $request->input('error_message', 'Error desconocido del cliente');
+
+        $job = PrintJob::where('uuid', $uuid)
+            ->where('company_id', $user->company_id)
+            ->firstOrFail();
+
+        if ($job->status === PrintJob::STATUS_FAILED) {
+            return response()->json([
+                'success' => true,
+                'message' => 'El trabajo ya estaba marcado como fallido.',
+            ]);
+        }
+
+        $job->markAsFailed($errorMessage);
+
+        Log::warning('PrintJob fallido reportado por cliente local', [
+            'job_uuid' => $job->uuid,
+            'error' => $errorMessage,
+            'attempts' => $job->attempts,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Trabajo marcado como fallido.',
+            'job_uuid' => $job->uuid,
+            'status' => $job->status,
+            'error_message' => $job->error_message,
+            'can_retry' => $job->canRetry(),
+        ]);
+    }
 }

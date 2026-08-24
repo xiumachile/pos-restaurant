@@ -24,7 +24,9 @@ class PrintReceiptOnOrderPaid
         $order->load(['items', 'company', 'branch', 'waiter']);
 
         // Buscar impresora de recibos de la sucursal
-        $receiptPrinter = Printer::where('company_id', $order->company_id)
+        // Usamos withoutGlobalScopes porque el TenantContext puede no estar establecido
+        $receiptPrinter = Printer::withoutGlobalScopes()
+            ->where('company_id', $order->company_id)
             ->where('branch_id', $order->branch_id)
             ->where('type', PrinterType::RECEIPT)
             ->where('is_active', true)

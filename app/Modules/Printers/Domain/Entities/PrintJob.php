@@ -29,6 +29,8 @@ class PrintJob extends Model
         'order_id',
         'escpos_bytes',
         'status',
+        'claimed_by',
+        'claimed_at',
         'attempts',
         'max_attempts',
         'error_message',
@@ -39,6 +41,7 @@ class PrintJob extends Model
         'attempts' => 'integer',
         'max_attempts' => 'integer',
         'printed_at' => 'datetime',
+        'claimed_at' => 'datetime',
     ];
 
     // Estados
@@ -70,6 +73,55 @@ class PrintJob extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
+    }
+
+    /**
+     * Verifica si el job está disponible para ser reclamado.
+     * Un job está disponible si:
+     * - Está en estado pending
+     * - No está reclamado, O fue reclamado hace más de 5 minutos (timeout)
+     */
+    public function isAvailableForClaim(): bool
+    {
+        if ($this->status !== self::STATUS_PENDING) {
+            return false;
+        }
+        
+        if (!$this->claimed_at) {
+            return true;
+        }
+        
+        // Timeout de 5 minutos para reclamar
+        return $this->claimed_at->lt(now()->subMinutes(5));
+    }
+
+    /**
+     * Reclama el trabajo para un cliente específico.
+     */
+    public function claim(string $clientId): bool
+    {
+        if (!$this->isAvailableForClaim()) {
+            return false;
+        }
+
+        $this->claimed_by = $clientId;
+        $this->claimed_at = now();
+        $this->status = self::STATUS_PRINTING;
+        $this->attempts += 1;
+        $this->save();
+
+        return true;
+    }
+
+    /**
+     * Libera el claim (útil si el cliente falla antes de imprimir).
+     */
+    public function releaseClaim(): void
+    {
+        $this->claimed_by = null;
+        $this->claimed_at = null;
+        $this->status = self::STATUS_PENDING;
+        $this->save();
     }
 
     /**
@@ -120,10 +172,15 @@ class PrintJob extends Model
     /**
      * Accessor para escpos_bytes.
      * PostgreSQL retorna campos binary como resources, los convertimos a string.
+     * Rebobinamos el stream antes de leerlo porque puede haber sido leído antes.
      */
     public function getEscposBytesAttribute($value)
     {
         if (is_resource($value)) {
+            // Rebobinar el stream en caso de que ya haya sido leído
+            if (ftell($value) !== 0) {
+                rewind($value);
+            }
             return stream_get_contents($value);
         }
         return $value;

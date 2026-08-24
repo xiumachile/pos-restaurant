@@ -39,7 +39,10 @@ class PrintKitchenOnOrderConfirm
         ]);
 
         // Obtener todas las impresoras de cocina activas para esta sucursal
-        $kitchenPrinters = Printer::where('company_id', $companyId)
+        // Usamos withoutGlobalScopes porque el TenantContext puede no estar establecido
+        // en eventos asíncronos, y ya filtramos manualmente por company_id/branch_id
+        $kitchenPrinters = Printer::withoutGlobalScopes()
+            ->where('company_id', $companyId)
             ->where('branch_id', $branchId)
             ->where('is_active', true)
             ->whereIn('type', [PrinterType::KITCHEN, PrinterType::BAR])
@@ -53,7 +56,8 @@ class PrintKitchenOnOrderConfirm
         }
 
         // Obtener mappings de esta sucursal
-        $mappings = PrinterStationMapping::where('branch_id', $branchId)
+        $mappings = PrinterStationMapping::withoutGlobalScopes()
+            ->where('branch_id', $branchId)
             ->where('is_active', true)
             ->with('printer')
             ->get();

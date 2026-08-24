@@ -10,6 +10,7 @@ enum ConnectionType: string
     case TCP = 'tcp';           // TCP/IP socket (puerto 9100)
     case USB = 'usb';           // USB local (/dev/usb/lp0)
     case BLUETOOTH = 'bluetooth'; // Bluetooth (MAC address)
+    case SERIAL = 'serial';     // Puerto serie (COM1, /dev/ttyS0)
 
     public function label(): string
     {
@@ -17,6 +18,7 @@ enum ConnectionType: string
             self::TCP => 'TCP/IP',
             self::USB => 'USB',
             self::BLUETOOTH => 'Bluetooth',
+            self::SERIAL => 'Serial',
         };
     }
 
@@ -33,6 +35,6 @@ enum ConnectionType: string
      */
     public function requiresDevicePath(): bool
     {
-        return in_array($this, [self::USB, self::BLUETOOTH]);
+        return in_array($this, [self::USB, self::BLUETOOTH, self::SERIAL]);
     }
 }

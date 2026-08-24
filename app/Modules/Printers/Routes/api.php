@@ -29,6 +29,13 @@ Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class])->g
     // ============================================
     Route::get('/print-jobs', [PrintJobController::class, 'index'])->name('print-jobs.index');
     Route::get('/print-jobs/{uuid}', [PrintJobController::class, 'show'])->name('print-jobs.show');
+    
+    // Endpoints para POS local (Tauri) - arquitectura híbrida
+    Route::post('/print-jobs/{uuid}/claim', [PrintJobController::class, 'claim'])->name('print-jobs.claim');
+    Route::post('/print-jobs/{uuid}/complete', [PrintJobController::class, 'complete'])->name('print-jobs.complete');
+    Route::post('/print-jobs/{uuid}/fail', [PrintJobController::class, 'fail'])->name('print-jobs.fail');
+    
+    // Endpoints legacy (mantener para compatibilidad)
     Route::post('/print-jobs/{uuid}/retry', [PrintJobController::class, 'retry'])->name('print-jobs.retry');
     Route::post('/print-jobs/process', [PrintJobController::class, 'process'])->name('print-jobs.process');
 });
