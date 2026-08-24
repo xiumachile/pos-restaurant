@@ -5,7 +5,11 @@ namespace Modules\Catalog\Interfaces\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Modules\Catalog\Domain\Entities\Category;
 use Modules\Catalog\Domain\Entities\Product;
+use Modules\Catalog\Interfaces\Requests\CreateProductRequest;
+use Modules\Catalog\Interfaces\Requests\UpdateProductRequest;
+use Modules\Orders\Domain\Entities\OrderItem;
 
 class ProductController extends Controller
 {
@@ -36,7 +40,10 @@ class ProductController extends Controller
             return $arr;
         });
 
-        return response()->json(['data' => $data]);
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+        ]);
     }
 
     /**
@@ -51,6 +58,83 @@ class ProductController extends Controller
         $arr = $product->toArray();
         $arr['menu_item_uuid'] = $product->menuItem?->uuid;
 
-        return response()->json(['data' => $arr]);
+        return response()->json([
+            'success' => true,
+            'data' => $arr,
+        ]);
+    }
+
+    /**
+     * POST /api/v1/catalog/products
+     */
+    public function store(CreateProductRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+        $user = $request->user();
+
+        // Resolver category_id desde UUID
+        $category = Category::where('uuid', $data['category_id'])->firstOrFail();
+        $data['category_id'] = $category->id;
+
+        $data['company_id'] = $user->company_id;
+        $data['branch_id'] = $user->branch_id;
+
+        $product = Product::create($data);
+
+        return response()->json([
+            'success' => true,
+            'data' => $product->load(['category', 'menuItem']),
+        ], 201);
+    }
+
+    /**
+     * PUT /api/v1/catalog/products/{uuid}
+     */
+    public function update(UpdateProductRequest $request, string $uuid): JsonResponse
+    {
+        $product = Product::where('uuid', $uuid)->firstOrFail();
+        $data = $request->validated();
+
+        // Resolver category_id si viene
+        if (isset($data['category_id'])) {
+            $category = Category::where('uuid', $data['category_id'])->firstOrFail();
+            $data['category_id'] = $category->id;
+        }
+
+        $product->update($data);
+
+        return response()->json([
+            'success' => true,
+            'data' => $product->fresh(['category', 'menuItem']),
+        ]);
+    }
+
+    /**
+     * DELETE /api/v1/catalog/products/{uuid}
+     */
+    public function destroy(string $uuid): JsonResponse
+    {
+        $product = Product::where('uuid', $uuid)->firstOrFail();
+
+        // Validar que no tenga órdenes activas
+        $activeOrders = OrderItem::where('product_id', $product->id)
+            ->whereHas('order', function ($q) {
+                $q->whereIn('status', ['pending', 'confirmed', 'preparing', 'ready']);
+            })
+            ->exists();
+
+        if ($activeOrders) {
+            return response()->json([
+                'success' => false,
+                'error' => 'No se puede eliminar un producto con órdenes activas.',
+            ], 422);
+        }
+
+        $product->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Producto eliminado correctamente.',
+        ]);
     }
 }

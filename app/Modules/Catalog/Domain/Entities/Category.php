@@ -21,6 +21,8 @@ class Category extends Model
     protected $fillable = [
         'company_id',
         'branch_id',
+        'parent_id',
+        'depth',
         'tax_id',
         'name_translations',
         'sort_order',
@@ -29,6 +31,8 @@ class Category extends Model
 
     protected $casts = [
         'name_translations' => 'array',
+        'parent_id' => 'integer',
+        'depth' => 'integer',
         'sort_order' => 'integer',
         'is_active' => 'boolean',
         'tax_id' => 'integer',
@@ -42,6 +46,22 @@ class Category extends Model
     public function products(): HasMany
     {
         return $this->hasMany(Product::class);
+    }
+
+    /**
+     * Categoría padre (para subcategorías).
+     */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(Category::class, 'parent_id');
+    }
+
+    /**
+     * Subcategorías hijas.
+     */
+    public function children(): HasMany
+    {
+        return $this->hasMany(Category::class, 'parent_id');
     }
 
     /**

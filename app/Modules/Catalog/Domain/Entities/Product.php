@@ -150,8 +150,7 @@ class Product extends Model
      */
     public function scopeInCategory($query, $categoryId)
     {
-        return $query->where('category_id',
-        'tax_id', $categoryId);
+        return $query->where('category_id', $categoryId);
     }
 
     /**
