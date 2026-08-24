@@ -44,9 +44,23 @@ class UpdateProductRequest extends FormRequest
             'base_price' => 'sometimes|numeric|min:0',
             'tax_rate' => 'nullable|numeric|min:0|max:100',
             'is_combo' => 'boolean',
-            'kitchen_zone_id' => 'nullable|integer|exists:kitchen_zones,id',
+            'kitchen_zone_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('kitchen_zones', 'id')->where(function ($query) {
+                    $query->where('company_id', $this->user()->company_id)
+                          ->where('branch_id', $this->user()->branch_id);
+                }),
+            ],
             'is_active' => 'boolean',
-            'tax_id' => 'nullable|integer|exists:taxes,id',
+            'tax_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('taxes', 'id')->where(function ($query) {
+                    $query->where('company_id', $this->user()->company_id)
+                          ->whereNull('deleted_at');
+                }),
+            ],
         ];
     }
 }

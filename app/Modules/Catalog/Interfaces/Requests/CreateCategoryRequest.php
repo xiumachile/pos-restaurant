@@ -29,7 +29,14 @@ class CreateCategoryRequest extends FormRequest
             ],
             'sort_order' => 'nullable|integer|min:0',
             'is_active' => 'boolean',
-            'tax_id' => 'nullable|integer|exists:taxes,id',
+            'tax_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('taxes', 'id')->where(function ($query) {
+                    $query->where('company_id', $this->user()->company_id)
+                          ->whereNull('deleted_at');
+                }),
+            ],
         ];
     }
 }
