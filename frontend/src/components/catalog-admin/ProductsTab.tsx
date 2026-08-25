@@ -20,6 +20,7 @@ import { useProductPrices } from "@/hooks/useProductPrices";
 import type { Product, Category } from "@/types/catalog";
 import type { PriceList, ProductPrice } from "@/services/priceListService";
 import { getTranslatedName, formatPrice } from "@/types/catalog";
+import { RecipeSection } from "./RecipeSection";
 
 export function ProductsTab() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -258,6 +259,7 @@ function ProductFormModal({ product, categories, onClose }: ProductFormModalProp
   );
   const [isCombo, setIsCombo] = useState(product?.is_combo ?? false);
   const [isActive, setIsActive] = useState(product?.is_active ?? true);
+  const [hasRecipe, setHasRecipe] = useState(false);
 
   // Estado para precios por lista de precios (solo en modo edición)
   const [priceEditorState, setPriceEditorState] = useState<PriceEditorState>({});
@@ -416,6 +418,17 @@ function ProductFormModal({ product, categories, onClose }: ProductFormModalProp
             payload: { prices: changedPrices },
           });
           setSaveStatus(`✅ ${changedPrices.length} precio(s) actualizado(s)`);
+        }
+
+        // 3. Guardar receta si está habilitada
+        if (hasRecipe && typeof (window as any).__saveRecipe === "function") {
+          setSaveStatus("Guardando receta...");
+          const recipeResult = await (window as any).__saveRecipe();
+          if (!recipeResult.saved) {
+            setSaveStatus("⚠️ Producto guardado, pero error al guardar receta");
+          } else {
+            setSaveStatus("✅ Producto y receta guardados");
+          }
         }
       }
 
@@ -634,7 +647,27 @@ function ProductFormModal({ product, categories, onClose }: ProductFormModalProp
               />
               <span className="text-sm text-slate-300">Producto activo</span>
             </label>
+            {product && (
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={hasRecipe}
+                  onChange={(e) => setHasRecipe(e.target.checked)}
+                  className="w-4 h-4 accent-orange-500"
+                />
+                <span className="text-sm text-slate-300">🧾 Tiene receta</span>
+              </label>
+            )}
           </div>
+
+          {/* Sección 5: Receta (ingredientes y costos) — solo en modo edición */}
+          {product && hasRecipe && (
+            <RecipeSection
+              product={product}
+              enabled={hasRecipe}
+              onSave={() => {}}
+            />
+          )}
 
           {/* Status */}
           {saveStatus && (
