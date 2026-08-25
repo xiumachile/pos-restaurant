@@ -5,6 +5,7 @@ use Modules\Catalog\Interfaces\Controllers\CategoryController;
 use Modules\Catalog\Interfaces\Controllers\ProductController;
 use Modules\Catalog\Interfaces\Controllers\PriceListController;
 use Modules\Catalog\Interfaces\Controllers\ProductPriceController;
+use Modules\Catalog\Interfaces\Controllers\MenuController;
 use Modules\Catalog\Interfaces\Controllers\ComboSubstitutionController;
 use Modules\Catalog\Interfaces\Controllers\ComboReplacementRuleController;
 use App\Shared\Http\Middleware\TenantContextMiddleware;
@@ -50,6 +51,23 @@ Route::prefix('v1/catalog')->middleware(['auth:api', TenantContextMiddleware::cl
             Route::delete('/{menuItemUuid}/items/{productUuid}/substitution-policy', [ComboReplacementRuleController::class, 'destroy'])
                 ->name('catalog.combos.substitution-policies.destroy');
         });
+
+    
+    // Cartas/Menús — lectura para todos los usuarios autenticados
+    // (los meseros necesitan GET /menus/active para cargar la carta automáticamente)
+    // IMPORTANTE: /menus/active debe ir ANTES de /menus/{uuid} para evitar colisión
+    Route::get('/menus', [MenuController::class, 'index'])->name('catalog.menus.index');
+    Route::get('/menus/active', [MenuController::class, 'active'])->name('catalog.menus.active');
+    Route::get('/menus/{uuid}', [MenuController::class, 'show'])->name('catalog.menus.show');
+
+    // Cartas/Menús — escritura solo admin/manager
+    Route::middleware([CheckRole::class . ':admin,manager'])->group(function () {
+        Route::post('/menus', [MenuController::class, 'store'])->name('catalog.menus.store');
+        Route::put('/menus/{uuid}', [MenuController::class, 'update'])->name('catalog.menus.update');
+        Route::delete('/menus/{uuid}', [MenuController::class, 'destroy'])->name('catalog.menus.destroy');
+        Route::put('/menus/{uuid}/activations', [MenuController::class, 'upsertActivations'])->name('catalog.menus.activations.upsert');
+        Route::put('/menus/{uuid}/products', [MenuController::class, 'assignProducts'])->name('catalog.menus.products.assign');
+    });
 
     // Listas de precios (lectura para usuarios autenticados)
     Route::get('/price-lists', [PriceListController::class, 'index'])->name('catalog.price-lists.index');
