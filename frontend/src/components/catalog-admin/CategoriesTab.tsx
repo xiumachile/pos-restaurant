@@ -171,7 +171,7 @@ function CategoryFormModal({ category, onClose }: CategoryFormModalProps) {
               value={nameEs}
               onChange={(e) => setNameEs(e.target.value)}
               required
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 [color-scheme:dark]"
             />
           </div>
 
@@ -184,7 +184,7 @@ function CategoryFormModal({ category, onClose }: CategoryFormModalProps) {
               min="0"
               value={sortOrder}
               onChange={(e) => setSortOrder(parseInt(e.target.value) || 0)}
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 [color-scheme:dark]"
             />
           </div>
 

@@ -251,7 +251,7 @@ function MenuFormModal({ menu, priceLists, onClose }: MenuFormModalProps) {
               onChange={(e) => setName(e.target.value)}
               required
               placeholder="Ej: Carta Comedor, Happy Hour"
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 [color-scheme:dark]"
             />
           </div>
 
@@ -262,7 +262,7 @@ function MenuFormModal({ menu, priceLists, onClose }: MenuFormModalProps) {
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
               placeholder="Descripción opcional..."
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none [color-scheme:dark]"
             />
           </div>
 
@@ -274,7 +274,7 @@ function MenuFormModal({ menu, priceLists, onClose }: MenuFormModalProps) {
               value={priceListId}
               onChange={(e) => setPriceListId(e.target.value)}
               required
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 [color-scheme:dark]"
             >
               <option value="">Selecciona una lista...</option>
               {priceLists.map((list) => (

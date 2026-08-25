@@ -250,7 +250,7 @@ function PriceListFormModal({ list, onClose }: PriceListFormModalProps) {
               onChange={(e) => setDisplayName(e.target.value)}
               required
               placeholder="Ej: Precio Comedor"
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 [color-scheme:dark]"
             />
           </div>
 
@@ -263,7 +263,7 @@ function PriceListFormModal({ list, onClose }: PriceListFormModalProps) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Se genera automáticamente si se deja vacío"
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono"
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono [color-scheme:dark]"
             />
             <p className="text-xs text-slate-500 mt-1">
               Ej: precio_comedor, precio_delivery
@@ -277,7 +277,7 @@ function PriceListFormModal({ list, onClose }: PriceListFormModalProps) {
             <select
               value={channelType}
               onChange={(e) => setChannelType(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 [color-scheme:dark]"
             >
               {CHANNEL_TYPES.map((channel) => (
                 <option key={channel.value} value={channel.value}>
