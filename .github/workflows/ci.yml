@@ -11,6 +11,21 @@ jobs:
     name: Backend (Pest)
     runs-on: ubuntu-latest
     
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: pos_restaurant
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -19,7 +34,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: mbstring, zip, bcmath, intl, pdo_sqlite
+          extensions: mbstring, zip, bcmath, intl, pdo_pgsql
           coverage: none
       
       - name: Install Composer dependencies
@@ -31,11 +46,32 @@ jobs:
       - name: Generate app key
         run: php artisan key:generate
       
+      - name: Create test database
+        run: |
+          PGPASSWORD=secret psql -h 127.0.0.1 -U postgres -c "CREATE DATABASE pos_restaurant_test;"
+        env:
+          PGPASSWORD: secret
+      
+      - name: Run migrations
+        run: php artisan migrate --force
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: pos_restaurant_test
+          DB_USERNAME: postgres
+          DB_PASSWORD: secret
+      
       - name: Run Pest tests
         run: ./vendor/bin/pest --parallel
         env:
-          DB_CONNECTION: sqlite
-          DB_DATABASE: ':memory:'
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: pos_restaurant_test
+          DB_USERNAME: postgres
+          DB_PASSWORD: secret
+          APP_ENV: testing
 
   frontend:
     name: Frontend (Vitest)
