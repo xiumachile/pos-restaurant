@@ -7,4 +7,5 @@ return [
     App\Providers\OrderEventServiceProvider::class,
     App\Providers\HorizonServiceProvider::class,
     Modules\Tables\Providers\EventServiceProvider::class,
+    Modules\Payments\Providers\PaymentsServiceProvider::class,
 ];
