@@ -4,6 +4,7 @@ namespace Modules\Catalog\Domain\Services;
 
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Modules\Branches\Domain\Contracts\BranchQueryServiceInterface;
 use Modules\Catalog\Domain\Entities\Menu;
 use Modules\Catalog\Domain\Entities\MenuActivation;
 
@@ -17,9 +18,17 @@ use Modules\Catalog\Domain\Entities\MenuActivation;
  * 3. Si tampoco hay default, retorna null (el caller decide cómo manejarlo).
  * 
  * Usa JOIN en lugar de whereHas para evitar problemas con BelongsToTenant.
+ * 
+ * F1.4b: Refactorizado para usar BranchQueryServiceInterface
+ * en lugar de acceder directamente a DB::table('branches').
  */
 class MenuResolutionService
 {
+    public function __construct(
+        private BranchQueryServiceInterface $branchQueryService
+    ) {
+    }
+
     /**
      * Resuelve la carta activa para el contexto dado.
      *
@@ -30,7 +39,10 @@ class MenuResolutionService
      */
     public function resolve(int $branchId, string $channelType, ?Carbon $now = null): ?Menu
     {
-        $now = $now ?? Carbon::now($this->getBranchTimezone($branchId));
+        // USAR EL SERVICIO en lugar de DB::table('branches')
+        $timezone = $this->branchQueryService->getTimezoneByBranchId($branchId);
+        $now = $now ?? Carbon::now($timezone);
+        
         $dayOfWeek = $now->dayOfWeekIso; // 1=lunes ... 7=domingo
         $time = $now->format('H:i:s');
 
@@ -74,20 +86,5 @@ class MenuResolutionService
             ->value('id');
 
         return $defaultMenuId ? Menu::find($defaultMenuId) : null;
-    }
-
-    /**
-     * Obtiene la timezone de la sucursal (fallback a America/Santiago).
-     */
-    private function getBranchTimezone(int $branchId): string
-    {
-        static $cache = [];
-        if (!isset($cache[$branchId])) {
-            $timezone = DB::table('branches')
-                ->where('id', $branchId)
-                ->value('timezone');
-            $cache[$branchId] = $timezone ?: 'America/Santiago';
-        }
-        return $cache[$branchId];
     }
 }
