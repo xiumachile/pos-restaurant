@@ -39,3 +39,8 @@ interface BranchQueryServiceInterface
      */
     public function findByCode(string $code): ?Branch;
 }
+
+    /**
+     * Obtener company_id de una sucursal (para Sync).
+     */
+    public function getCompanyIdByBranchId(int $branchId): ?int;

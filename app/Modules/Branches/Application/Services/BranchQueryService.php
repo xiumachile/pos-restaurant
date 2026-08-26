@@ -29,3 +29,8 @@ class BranchQueryService implements BranchQueryServiceInterface
         return Branch::where('code', $code)->first();
     }
 }
+
+    public function getCompanyIdByBranchId(int $branchId): ?int
+    {
+        return Branch::where('id', $branchId)->value('company_id');
+    }

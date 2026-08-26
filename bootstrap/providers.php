@@ -9,4 +9,6 @@ return [
     Modules\Tables\Providers\EventServiceProvider::class,
     Modules\Payments\Providers\PaymentsServiceProvider::class,
     Modules\Branches\Providers\BranchesServiceProvider::class,
+    Modules\Catalog\Providers\CatalogServiceProvider::class,
+    Modules\Tables\Providers\TablesServiceProvider::class,
 ];
