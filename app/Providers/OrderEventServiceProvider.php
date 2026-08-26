@@ -14,13 +14,15 @@ use Modules\Orders\Domain\Events\OrderClosed;
 use Modules\Orders\Domain\Events\OrderConfirmed;
 use Modules\Orders\Domain\Events\OrderPaid;
 use Modules\Orders\Domain\Events\OrderReady;
-use Modules\Orders\Domain\Listeners\UpdateTableOnCancel;
-use Modules\Orders\Domain\Listeners\UpdateTableOnClose;
-use Modules\Orders\Domain\Listeners\UpdateTableOnConfirm;
-use Modules\Orders\Domain\Listeners\UpdateTableOnPaid;
 use Modules\Inventory\Domain\Listeners\ReserveStockOnOrderConfirm;
 use Modules\Inventory\Domain\Listeners\ReturnStockOnOrderCancel;
 
+/**
+ * EventServiceProvider de Orders.
+ * 
+ * F2.2: Eliminado UpdateTableOn* (movido a Tables/EventServiceProvider en F1.2a)
+ * Los listeners de Tables ahora viven en su propio módulo, respetando encapsulamiento.
+ */
 class OrderEventServiceProvider extends ServiceProvider
 {
     /**
@@ -30,7 +32,6 @@ class OrderEventServiceProvider extends ServiceProvider
      */
     protected $listen = [
         OrderConfirmed::class => [
-            UpdateTableOnConfirm::class,
             BroadcastOrderEvents::class . '@handleOrderConfirmed',
             ReserveStockOnOrderConfirm::class,
         ],
@@ -38,14 +39,12 @@ class OrderEventServiceProvider extends ServiceProvider
             BroadcastOrderEvents::class . '@handleOrderReady',
         ],
         OrderPaid::class => [
-            UpdateTableOnPaid::class,
             BroadcastOrderEvents::class . '@handleOrderPaid',
         ],
         OrderClosed::class => [
-            UpdateTableOnClose::class,
+            // Vacío: Tables escucha OrderClosed en su propio provider
         ],
         OrderCancelled::class => [
-            UpdateTableOnCancel::class,
             BroadcastOrderEvents::class . '@handleOrderCancelled',
             ReturnStockOnOrderCancel::class,
             AuditOrderEvents::class . '@handleOrderCancelled',

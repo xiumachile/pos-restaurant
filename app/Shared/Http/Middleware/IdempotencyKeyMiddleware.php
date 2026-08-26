@@ -22,8 +22,8 @@ class IdempotencyKeyMiddleware
 
     public function handle(Request $request, Closure $next): SymfonyResponse
     {
-        // F2.1: Desactivar idempotencia en testing para simplificar tests
-        if (app()->environment('testing')) {
+        // F2.1: Desactivar idempotencia en testing (excepto en IdempotencyTest)
+        if (app()->environment('testing') && !$this->isTestingMiddleware($request)) {
             return $next($request);
         }
 
@@ -86,6 +86,16 @@ class IdempotencyKeyMiddleware
         }
 
         return $response;
+    }
+
+    /**
+     * Detecta si el request actual está probando específicamente este middleware.
+     * Se activa cuando el endpoint es /api/v1/test-idempotent (usado por IdempotencyTest).
+     */
+    protected function isTestingMiddleware(Request $request): bool
+    {
+        return $request->is('api/v1/test-idempotent*')
+            || $request->is('test-idempotent*');
     }
 
     protected function isValidUuid(string $uuid): bool
