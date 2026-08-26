@@ -43,7 +43,7 @@ describe("Repositorios locales", () => {
       expect(order.local_uuid).toMatch(/^[a-f0-9-]{36}$/);
       expect(order.idempotency_key).toMatch(/^[a-f0-9-]{36}$/);
       expect(order.order_number).toContain("TEMP-");
-      expect(order.status).toBe("open");
+      expect(order.status).toBe("confirmed");
       expect(order.sync_status).toBe("pending");
       expect(order.waiter_name).toBe("Juan");
     });
