@@ -11,21 +11,6 @@ jobs:
     name: Backend (Pest)
     runs-on: ubuntu-latest
     
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_DB: pos_restaurant_test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -34,7 +19,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: pdo_pgsql, mbstring, zip, bcmath, intl
+          extensions: mbstring, zip, bcmath, intl, pdo_sqlite
           coverage: none
       
       - name: Install Composer dependencies
@@ -46,26 +31,9 @@ jobs:
       - name: Generate app key
         run: php artisan key:generate
       
-      - name: Run migrations
-        run: php artisan migrate --force
-        env:
-          DB_CONNECTION: pgsql
-          DB_HOST: 127.0.0.1
-          DB_PORT: 5432
-          DB_DATABASE: pos_restaurant_test
-          DB_USERNAME: postgres
-          DB_PASSWORD: postgres
-      
       - name: Run Pest tests
         run: ./vendor/bin/pest --parallel
-        env:
-          DB_CONNECTION: pgsql
-          DB_HOST: 127.0.0.1
-          DB_PORT: 5432
-          DB_DATABASE: pos_restaurant_test
-          DB_USERNAME: postgres
-          DB_PASSWORD: postgres
-          APP_ENV: testing
+        # phpunit.xml ya configura SQLite en memoria, no sobreescribir variables de DB
 
   frontend:
     name: Frontend (Vitest)
