@@ -5,7 +5,11 @@ namespace Modules\Tables\Interfaces\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Modules\Tables\Domain\Entities\RestaurantTable;
+use Modules\Tables\Application\Queries\GetActiveOrdersForTableQuery;
+use Modules\Tables\Application\Queries\GetAllTablesQuery;
+use Modules\Tables\Application\UseCases\ChangeTableStatusUseCase;
+use Modules\Tables\Application\UseCases\CreateTableUseCase;
+use Modules\Tables\Application\UseCases\UpdateTableUseCase;
 use Modules\Tables\Domain\Exceptions\InvalidTableStatusTransition;
 use Modules\Tables\Domain\ValueObjects\TableStatus;
 use Modules\Tables\Interfaces\Requests\StoreTableRequest;
@@ -13,20 +17,38 @@ use Modules\Tables\Interfaces\Requests\UpdateTableRequest;
 use Modules\Tables\Interfaces\Requests\UpdateTableStatusRequest;
 use Modules\Tables\Interfaces\Resources\TableCollection;
 use Modules\Tables\Interfaces\Resources\TableResource;
-use Modules\Orders\Domain\Entities\Order;
 use Modules\Orders\Interfaces\Resources\OrderResource;
 
+/**
+ * Controller de mesas.
+ * 
+ * RESPONSABILIDAD:
+ * - Recibir requests HTTP
+ * - Delegar a Application Services
+ * - Retornar responses JSON
+ * 
+ * NO DEBE:
+ * - Contener lógica de negocio
+ * - Acceder directamente a modelos (excepto para queries simples)
+ * - Manejar transacciones de base de datos
+ */
 class RestaurantTableController extends Controller
 {
+    public function __construct(
+        private GetAllTablesQuery $getAllTablesQuery,
+        private CreateTableUseCase $createTableUseCase,
+        private UpdateTableUseCase $updateTableUseCase,
+        private ChangeTableStatusUseCase $changeTableStatusUseCase,
+        private GetActiveOrdersForTableQuery $getActiveOrdersForTableQuery
+    ) {
+    }
+
     /**
      * GET /api/v1/tables
      */
-    public function index(Request $request): JsonResponse
+    public function index(): JsonResponse
     {
-        $tables = RestaurantTable::query()
-            ->ordered()
-            ->get();
-
+        $tables = $this->getAllTablesQuery->execute();
         return (new TableCollection($tables))->response();
     }
 
@@ -35,14 +57,13 @@ class RestaurantTableController extends Controller
      */
     public function store(StoreTableRequest $request): JsonResponse
     {
-        $table = RestaurantTable::create([
+        $table = $this->createTableUseCase->execute([
             'company_id' => $request->user()->company_id,
             'branch_id' => $request->user()->branch_id,
             'area_code' => $request->area_code,
             'area_name_translations' => $request->area_name_translations,
             'table_number' => $request->table_number,
             'capacity' => $request->capacity,
-            'status' => TableStatus::Available->value,
         ]);
 
         return (new TableResource($table))->response()->setStatusCode(201);
@@ -53,15 +74,7 @@ class RestaurantTableController extends Controller
      */
     public function update(UpdateTableRequest $request, string $uuid): JsonResponse
     {
-        $table = RestaurantTable::where('uuid', $uuid)->firstOrFail();
-
-        $table->update($request->only([
-            'area_code',
-            'area_name_translations',
-            'table_number',
-            'capacity',
-        ]));
-
+        $table = $this->updateTableUseCase->execute($uuid, $request->validated());
         return (new TableResource($table))->response();
     }
 
@@ -70,18 +83,12 @@ class RestaurantTableController extends Controller
      */
     public function updateStatus(UpdateTableStatusRequest $request, string $uuid): JsonResponse
     {
-        $table = RestaurantTable::where('uuid', $uuid)->firstOrFail();
-        $newStatus = TableStatus::from($request->status);
-
         try {
-            match ($newStatus) {
-                TableStatus::Occupied => $table->occupy($request->current_order_id),
-                TableStatus::Billing => $table->requestBilling(),
-                TableStatus::Available => $table->hasActiveOrder() ? $table->free() : $table->enable(),
-                TableStatus::Maintenance => $table->setMaintenance(),
-            };
-
-            $table->save();
+            $table = $this->changeTableStatusUseCase->execute(
+                $uuid,
+                $request->status,
+                $request->current_order_id
+            );
 
             return (new TableResource($table))->response();
 
@@ -89,41 +96,18 @@ class RestaurantTableController extends Controller
             return response()->json([
                 'error' => 'invalid_status_transition',
                 'message' => $e->getMessage(),
-                'current_status' => $table->status->value,
-                'requested_status' => $newStatus->value,
+                'current_status' => $request->current_status ?? 'unknown',
+                'requested_status' => $request->status,
             ], 422);
         }
     }
 
     /**
      * GET /api/v1/tables/{uuid}/orders
-     * 
-     * Lista pedidos EN CURSO de una mesa.
-     * 
-     * Estados considerados "en curso":
-     * - draft: recién creado (garzón tomando pedido)
-     * - confirmed: confirmado en cocina
-     * - preparing: en preparación
-     * - ready: listo para servir
-     * - served: servido al cliente, esperando cobro
-     * 
-     * Estados EXCLUIDOS (ya no son "en curso"):
-     * - paid: ya fue cobrado ✅ FIX
-     * - closed: cuenta cerrada
-     * - cancelled: cancelado
-     * 
-     * Esto garantiza que al abrir una mesa pagada, el carrito esté vacío.
      */
     public function orders(string $uuid): JsonResponse
     {
-        $table = RestaurantTable::where('uuid', $uuid)->firstOrFail();
-
-        $orders = Order::query()
-            ->where('table_id', $table->id)
-            ->whereNotIn('status', ['paid', 'closed', 'cancelled'])
-            ->with(['items', 'waiter'])
-            ->orderBy('created_at', 'asc')
-            ->get();
+        $orders = $this->getActiveOrdersForTableQuery->execute($uuid);
 
         return OrderResource::collection($orders)
             ->response()
