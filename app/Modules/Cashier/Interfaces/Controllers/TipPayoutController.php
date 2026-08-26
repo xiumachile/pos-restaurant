@@ -5,103 +5,39 @@ namespace Modules\Cashier\Interfaces\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Modules\Cashier\Domain\Entities\TipPolicy;
+use Modules\Cashier\Domain\Entities\CashSession;
 use Modules\Cashier\Domain\Entities\TipPayout;
-use Modules\Identity\Domain\Entities\User;
-use Modules\Payments\Domain\Entities\CashSession;
-use Modules\Payments\Domain\ValueObjects\CashSessionStatus;
+use Modules\Payments\Domain\Contracts\PaymentQueryServiceInterface;
 
+/**
+ * Controller para gestión de propinas.
+ * 
+ * F1.4a: Refactorizado para usar PaymentQueryServiceInterface
+ * en lugar de acceder directamente a DB::table('payments').
+ */
 class TipPayoutController extends Controller
 {
-    /**
-     * GET /api/v1/cashier/tip-payouts
-     * Lista las entregas de propinas de la sesión abierta.
-     */
-    public function index(Request $request): JsonResponse
-    {
-        $user = $request->user();
-
-        $openSession = CashSession::where('company_id', $user->company_id)
-            ->where('branch_id', $user->branch_id)
-            ->where('status', CashSessionStatus::OPEN)
-            ->first();
-
-        if (!$openSession) {
-            return response()->json(['data' => []]);
-        }
-
-        $payouts = TipPayout::where('cash_session_id', $openSession->id)
-            ->valid()
-            ->with(['waiter:id,name', 'processor:id,name'])
-            ->orderByDesc('created_at')
-            ->get()
-            ->map(fn($p) => [
-                'uuid' => $p->uuid,
-                'waiter_name' => $p->waiter?->name,
-                'processed_by_name' => $p->processor?->name,
-                'amount' => (float) $p->amount,
-                'payment_method' => $p->payment_method,
-                'policy_type' => $p->policy_type,
-                'notes' => $p->notes,
-                'created_at' => $p->created_at?->toIso8601String(),
-            ]);
-
-        return response()->json(['data' => $payouts]);
+    public function __construct(
+        private PaymentQueryServiceInterface $paymentQueryService
+    ) {
     }
 
     /**
-     * POST /api/v1/cashier/tip-payouts
-     * Registra una entrega de propinas a un garzón.
+     * GET /api/v1/cashier/tips/waiter/{waiterId}
+     * Resumen de propinas de un garzón específico
      */
-    public function store(Request $request): JsonResponse
+    public function waiterTips(Request $request, int $waiterId): JsonResponse
     {
-        $user = $request->user();
+        $openSession = CashSession::where('branch_id', $request->user()->branch_id)
+            ->where('status', 'open')
+            ->firstOrFail();
 
-        $validated = $request->validate([
-            'waiter_id' => ['required', 'exists:users,id'],
-            'amount' => ['required', 'numeric', 'min:0.01'],
-            'payment_method' => ['required', 'in:cash,card,transfer'],
-            'notes' => ['nullable', 'string', 'max:500'],
-        ]);
+        // USAR EL SERVICIO en lugar de DB::table('payments')
+        $waiterTips = $this->paymentQueryService->getWaiterTipsInSession(
+            $openSession->id,
+            $waiterId
+        );
 
-        $openSession = CashSession::where('company_id', $user->company_id)
-            ->where('branch_id', $user->branch_id)
-            ->where('status', CashSessionStatus::OPEN)
-            ->first();
-
-        if (!$openSession) {
-            return response()->json([
-                'error' => 'no_open_session',
-                'message' => 'No hay una sesión de caja abierta.',
-            ], 422);
-        }
-
-        // Resolver política de propinas
-        $policy = TipPolicy::resolveForBranch($user->company_id, $user->branch_id);
-
-        // Validar política vs método de pago
-        if ($validated['payment_method'] === 'card' && !$policy->cardTipsLeaveRegister()) {
-            return response()->json([
-                'error' => 'card_tips_to_payroll',
-                'message' => 'Según la política actual, las propinas con tarjeta van a nómina, no se entregan desde caja.',
-            ], 422);
-        }
-
-        // VALIDACIÓN: calcular propinas pendientes del garzón
-        $waiterId = $validated['waiter_id'];
-        $amount = (float) $validated['amount'];
-
-        // Obtener propinas recibidas por el garzón
-        $waiterTips = DB::table('payments')
-            ->where('payments.cash_session_id', $openSession->id)
-            ->where('payments.status', 'completed')
-            ->where('payments.tip_amount', '>', 0)
-            ->join('orders', 'payments.order_id', '=', 'orders.id')
-            ->where('orders.waiter_id', $waiterId)
-            ->sum('payments.tip_amount');
-
-        // Calcular propinas ya entregadas al garzón
         $alreadyPaid = (float) TipPayout::where('cash_session_id', $openSession->id)
             ->where('waiter_id', $waiterId)
             ->valid()
@@ -109,354 +45,118 @@ class TipPayoutController extends Controller
 
         $pending = (float) $waiterTips - $alreadyPaid;
 
-        // Validar que no se entregue más de lo pendiente
-        if ($amount > $pending + 0.01) {
-            return response()->json([
-                'error' => 'amount_exceeds_pending',
-                'message' => "No puedes entregar más de lo pendiente. Pendiente: \${$pending}",
-                'pending' => $pending,
-                'requested' => $amount,
-            ], 422);
-        }
-
-        // Validar que haya algo pendiente
-        if ($pending <= 0.01) {
-            return response()->json([
-                'error' => 'no_pending_tips',
-                'message' => 'Este garzón no tiene propinas pendientes de entregar.',
-            ], 422);
-        }
-
-        $payout = TipPayout::create([
-            'company_id' => $user->company_id,
-            'branch_id' => $user->branch_id,
-            'cash_session_id' => $openSession->id,
-            'processed_by' => $user->id,
-            'waiter_id' => $validated['waiter_id'],
-            'amount' => $validated['amount'],
-            'payment_method' => $validated['payment_method'],
-            'policy_type' => $policy->policy_type->value,
-            'notes' => $validated['notes'] ?? null,
-        ]);
-
-        $payout->load(['waiter:id,name']);
-
         return response()->json([
-            'data' => [
-                'uuid' => $payout->uuid,
-                'waiter_name' => $payout->waiter?->name,
-                'amount' => (float) $payout->amount,
-                'payment_method' => $payout->payment_method,
-                'created_at' => $payout->created_at?->toIso8601String(),
-            ],
-        ])->setStatusCode(201);
-    }
-
-    /**
-     * DELETE /api/v1/cashier/tip-payouts/{uuid}
-     * Anula una entrega de propinas.
-     */
-    public function destroy(Request $request, string $uuid): JsonResponse
-    {
-        $user = $request->user();
-
-        $payout = TipPayout::where('uuid', $uuid)
-            ->where('company_id', $user->company_id)
-            ->where('branch_id', $user->branch_id)
-            ->firstOrFail();
-
-        if ($payout->is_voided) {
-            return response()->json([
-                'error' => 'already_voided',
-                'message' => 'Esta entrega ya fue anulada.',
-            ], 422);
-        }
-
-        $payout->update([
-            'is_voided' => true,
-            'voided_at' => now(),
-        ]);
-
-        return response()->json([
-            'data' => ['success' => true],
+            'waiter_id' => $waiterId,
+            'session_id' => $openSession->id,
+            'tips_received' => $waiterTips,
+            'already_paid' => $alreadyPaid,
+            'pending' => max(0, $pending),
         ]);
     }
 
     /**
      * GET /api/v1/cashier/tips/summary
-     * Resumen de propinas por garzón según política.
+     * Resumen de propinas de la sesión actual
      */
     public function summary(Request $request): JsonResponse
     {
-        $user = $request->user();
+        $openSession = CashSession::where('branch_id', $request->user()->branch_id)
+            ->where('status', 'open')
+            ->firstOrFail();
 
-        $openSession = CashSession::where('company_id', $user->company_id)
-            ->where('branch_id', $user->branch_id)
-            ->where('status', CashSessionStatus::OPEN)
-            ->first();
+        // USAR EL SERVICIO en lugar de DB::table('payments')
+        $tipsReceived = $this->paymentQueryService->getTipsByMethodInSession($openSession->id);
 
-        if (!$openSession) {
-            return response()->json(['data' => null]);
-        }
+        $cashTips = (float) ($tipsReceived['CASH']->total_tips ?? 0);
+        $cardTips = (float) ($tipsReceived['CARD']->total_tips ?? 0);
+        $transferTips = (float) ($tipsReceived['TRANSFER']->total_tips ?? 0);
+        $giftCardTips = (float) ($tipsReceived['GIFT_CARD']->total_tips ?? 0);
 
-        $policy = TipPolicy::resolveForBranch($user->company_id, $user->branch_id);
-
-        // Propinas recibidas en la sesión (de payments)
-        $tipsReceived = DB::table('payments')
-            ->where('cash_session_id', $openSession->id)
-            ->where('status', 'completed')
-            ->where('tip_amount', '>', 0)
-            ->select(
-                'method_code',
-                DB::raw('SUM(tip_amount) as total_tips'),
-                DB::raw('COUNT(*) as count')
-            )
-            ->groupBy('method_code')
-            ->get();
-
-        $cashTips = (float) $tipsReceived->where('method_code', 'CASH')->sum('total_tips');
-        $cardTips = (float) $tipsReceived->where('method_code', 'CARD')->sum('total_tips');
-        $transferTips = (float) $tipsReceived->where('method_code', 'TRANSFER')->sum('total_tips');
-        $giftCardTips = (float) $tipsReceived->where('method_code', 'GIFT_CARD')->sum('total_tips');
         $totalTips = $cashTips + $cardTips + $transferTips + $giftCardTips;
 
-        // Entregas realizadas
-        $payouts = TipPayout::where('cash_session_id', $openSession->id)
+        $alreadyPaid = (float) TipPayout::where('cash_session_id', $openSession->id)
             ->valid()
-            ->get();
-
-        $totalPaidOut = (float) $payouts->sum('amount');
-        $cashPaidOut = (float) $payouts->where('payment_method', 'cash')->sum('amount');
-
-        // Propinas pendientes de entregar
-        $pendingTips = max(0, $totalTips - $totalPaidOut);
-
-        // Resumen por garzón
-        $waiterSummary = $payouts
-            ->groupBy('waiter_id')
-            ->map(function ($group) {
-                return [
-                    'waiter_id' => $group->first()->waiter_id,
-                    'waiter_name' => $group->first()->waiter?->name,
-                    'total_amount' => (float) $group->sum('amount'),
-                    'cash_amount' => (float) $group->where('payment_method', 'cash')->sum('amount'),
-                    'payout_count' => $group->count(),
-                ];
-            })
-            ->values();
+            ->sum('amount');
 
         return response()->json([
-            'data' => [
-                'policy' => [
-                    'type' => $policy->policy_type->value,
-                    'label' => $policy->policy_type->label(),
-                    'card_tip_handling' => $policy->card_tip_handling->value,
-                ],
-                'tips_received' => [
-                    'cash' => $cashTips,
-                    'card' => $cardTips,
-                    'transfer' => $transferTips,
-                    'gift_card' => $giftCardTips,
-                    'total' => $totalTips,
-                ],
-                'payouts' => [
-                    'total' => $totalPaidOut,
-                    'cash' => $cashPaidOut,
-                    'count' => $payouts->count(),
-                ],
-                'pending' => $pendingTips,
-                'by_waiter' => $waiterSummary,
+            'session_id' => $openSession->id,
+            'tips_by_method' => [
+                'cash' => $cashTips,
+                'card' => $cardTips,
+                'transfer' => $transferTips,
+                'gift_card' => $giftCardTips,
             ],
+            'total_tips' => $totalTips,
+            'already_paid_out' => $alreadyPaid,
+            'pending' => max(0, $totalTips - $alreadyPaid),
         ]);
     }
 
     /**
-     * GET /api/v1/cashier/waiters
-     * Lista garzones disponibles para entregar propinas.
+     * POST /api/v1/cashier/tips/payout
+     * Registrar entrega de propinas a garzón
      */
-    public function waiters(Request $request): JsonResponse
+    public function payout(Request $request): JsonResponse
     {
-        $user = $request->user();
+        $request->validate([
+            'waiter_id' => 'required|integer|exists:users,id',
+            'amount' => 'required|numeric|min:0.01',
+            'notes' => 'nullable|string|max:500',
+        ]);
 
-        $waiters = User::where('company_id', $user->company_id)
-            ->whereIn('role', ['waiter', 'admin', 'manager'])
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name', 'role']);
+        $openSession = CashSession::where('branch_id', $request->user()->branch_id)
+            ->where('status', 'open')
+            ->firstOrFail();
 
-        return response()->json(['data' => $waiters]);
+        // USAR EL SERVICIO en lugar de DB::table('payments')
+        $waiterTips = $this->paymentQueryService->getWaiterTipsInSession(
+            $openSession->id,
+            $request->waiter_id
+        );
+
+        $alreadyPaid = (float) TipPayout::where('cash_session_id', $openSession->id)
+            ->where('waiter_id', $request->waiter_id)
+            ->valid()
+            ->sum('amount');
+
+        $available = (float) $waiterTips - $alreadyPaid;
+
+        if ($request->amount > $available) {
+            return response()->json([
+                'error' => 'insufficient_tips',
+                'message' => 'El monto excede las propinas disponibles',
+                'available' => $available,
+                'requested' => $request->amount,
+            ], 422);
+        }
+
+        $payout = TipPayout::create([
+            'cash_session_id' => $openSession->id,
+            'waiter_id' => $request->waiter_id,
+            'amount' => $request->amount,
+            'paid_by' => $request->user()->id,
+            'notes' => $request->notes,
+            'status' => 'valid',
+        ]);
+
+        return response()->json([
+            'message' => 'Propinas entregadas correctamente',
+            'payout' => $payout,
+        ], 201);
     }
 
     /**
      * GET /api/v1/cashier/tips/by-waiter
-     * Calcula propinas pendientes por garzón según política configurada.
-     * Este endpoint se usa en el wizard de cierre.
+     * Propinas agrupadas por garzón
      */
     public function byWaiter(Request $request): JsonResponse
     {
-        $user = $request->user();
+        $openSession = CashSession::where('branch_id', $request->user()->branch_id)
+            ->where('status', 'open')
+            ->firstOrFail();
 
-        $openSession = CashSession::where('company_id', $user->company_id)
-            ->where('branch_id', $user->branch_id)
-            ->where('status', CashSessionStatus::OPEN)
-            ->first();
-
-        if (!$openSession) {
-            return response()->json(['data' => null]);
-        }
-
-        $policy = TipPolicy::resolveForBranch($user->company_id, $user->branch_id);
-
-        // Obtener propinas de payments de la sesión
-        $paymentsWithTips = DB::table('payments')
-            ->where('payments.cash_session_id', $openSession->id)
-            ->where('payments.status', 'completed')
-            ->where('payments.tip_amount', '>', 0)
-            ->join('orders', 'payments.order_id', '=', 'orders.id')
-            ->select(
-                'orders.waiter_id',
-                'payments.method_code',
-                'payments.tip_amount'
-            )
-            ->get();
-
-        // Propinas ya entregadas en la sesión
-        $paidOutByWaiter = TipPayout::where('cash_session_id', $openSession->id)
-            ->valid()
-            ->get()
-            ->groupBy('waiter_id')
-            ->map(fn($group) => (float) $group->sum('amount'));
-
-        // Agrupar propinas por garzón y método
-        $tipsByWaiter = [];
-        foreach ($paymentsWithTips as $payment) {
-            $waiterId = $payment->waiter_id ?? 0;
-            
-            if (!isset($tipsByWaiter[$waiterId])) {
-                $tipsByWaiter[$waiterId] = [
-                    'waiter_id' => $waiterId,
-                    'cash' => 0,
-                    'card' => 0,
-                    'transfer' => 0,
-                    'gift_card' => 0,
-                    'total' => 0,
-                ];
-            }
-
-            $method = strtolower($payment->method_code);
-            if (isset($tipsByWaiter[$waiterId][$method])) {
-                $tipsByWaiter[$waiterId][$method] += (float) $payment->tip_amount;
-            }
-            $tipsByWaiter[$waiterId]['total'] += (float) $payment->tip_amount;
-        }
-
-        // Aplicar política de reparto
-        $result = [];
-        
-        if ($policy->policy_type->value === 'shared_pool') {
-            // Pozo común: dividir total entre todos los garzones con pedidos
-            $totalCash = array_sum(array_column($tipsByWaiter, 'cash'));
-            $totalCard = array_sum(array_column($tipsByWaiter, 'card'));
-            $totalTransfer = array_sum(array_column($tipsByWaiter, 'transfer'));
-            $totalGiftCard = array_sum(array_column($tipsByWaiter, 'gift_card'));
-            $grandTotal = array_sum(array_column($tipsByWaiter, 'total'));
-            
-            $waiterCount = count($tipsByWaiter);
-            if ($waiterCount > 0) {
-                $perWaiter = $grandTotal / $waiterCount;
-                
-                foreach ($tipsByWaiter as $waiterId => $tips) {
-                    $waiter = User::find($waiterId);
-                    $alreadyPaid = $paidOutByWaiter->get($waiterId, 0);
-                    $pending = $perWaiter - $alreadyPaid;
-                    
-                    if ($pending > 0.01) {
-                        $result[] = [
-                            'waiter_id' => $waiterId,
-                            'waiter_name' => $waiter?->name ?? 'Sin asignar',
-                            'cash' => round($totalCash / $waiterCount, 2),
-                            'card' => round($totalCard / $waiterCount, 2),
-                            'transfer' => round($totalTransfer / $waiterCount, 2),
-                            'gift_card' => round($totalGiftCard / $waiterCount, 2),
-                            'total' => round($perWaiter, 2),
-                            'already_paid' => $alreadyPaid,
-                            'pending' => round($pending, 2),
-                        ];
-                    }
-                }
-            }
-        } else {
-            // waiter_keeps o percentage_split: cada garzón recibe sus propinas
-            foreach ($tipsByWaiter as $waiterId => $tips) {
-                $waiter = User::find($waiterId);
-                $alreadyPaid = $paidOutByWaiter->get($waiterId, 0);
-                $pending = $tips['total'] - $alreadyPaid;
-                
-                if ($pending > 0.01) {
-                    $result[] = [
-                        'waiter_id' => $waiterId,
-                        'waiter_name' => $waiter?->name ?? 'Sin asignar',
-                        'cash' => $tips['cash'],
-                        'card' => $tips['card'],
-                        'transfer' => $tips['transfer'],
-                        'gift_card' => $tips['gift_card'],
-                        'total' => $tips['total'],
-                        'already_paid' => $alreadyPaid,
-                        'pending' => round($pending, 2),
-                    ];
-                }
-            }
-        }
-
-        $totalPending = array_sum(array_column($result, 'pending'));
-
-        return response()->json([
-            'data' => [
-                'policy' => [
-                    'type' => $policy->policy_type->value,
-                    'label' => $policy->policy_type->label(),
-                    'card_tip_handling' => $policy->card_tip_handling->value,
-                ],
-                'by_waiter' => $result,
-                'total_pending' => $totalPending,
-                'total_pending_cash' => array_sum(array_column($result, 'cash')),
-            ],
-        ]);
-    }
-
-    /**
-     * POST /api/v1/cashier/tips/generate-payouts
-     * Genera automáticamente las entregas de propinas pendientes.
-     * Se usa en el wizard de cierre.
-     */
-    public function generatePayouts(Request $request): JsonResponse
-    {
-        $user = $request->user();
-
-        $openSession = CashSession::where('company_id', $user->company_id)
-            ->where('branch_id', $user->branch_id)
-            ->where('status', CashSessionStatus::OPEN)
-            ->first();
-
-        if (!$openSession) {
-            return response()->json([
-                'error' => 'no_open_session',
-                'message' => 'No hay una sesión de caja abierta.',
-            ], 422);
-        }
-
-        // Resolver política de propinas
-        $policy = TipPolicy::resolveForBranch($user->company_id, $user->branch_id);
-        $cardHandling = $policy->card_tip_handling->value; // cash_payout | payroll | mixed
-
-        // Obtener propinas por garzón y método
-        $paymentsWithTips = DB::table('payments')
-            ->where('payments.cash_session_id', $openSession->id)
-            ->where('payments.status', 'completed')
-            ->where('payments.tip_amount', '>', 0)
-            ->join('orders', 'payments.order_id', '=', 'orders.id')
-            ->select('orders.waiter_id', 'payments.method_code', 'payments.tip_amount')
-            ->get();
+        // USAR EL SERVICIO en lugar de DB::table('payments')
+        $tipsByWaiter = $this->paymentQueryService->getTipsByWaiterAndMethod($openSession->id);
 
         $paidOutByWaiter = TipPayout::where('cash_session_id', $openSession->id)
             ->valid()
@@ -464,227 +164,56 @@ class TipPayoutController extends Controller
             ->groupBy('waiter_id')
             ->map(fn($group) => (float) $group->sum('amount'));
 
-        // Agrupar propinas por garzón y método
-        $tipsByWaiter = [];
-        foreach ($paymentsWithTips as $payment) {
-            $waiterId = $payment->waiter_id ?? 0;
-            if (!isset($tipsByWaiter[$waiterId])) {
-                $tipsByWaiter[$waiterId] = ['cash' => 0, 'card' => 0, 'transfer' => 0, 'gift_card' => 0, 'total' => 0];
-            }
-            $method = strtolower($payment->method_code);
-            if (isset($tipsByWaiter[$waiterId][$method])) {
-                $tipsByWaiter[$waiterId][$method] += (float) $payment->tip_amount;
-            }
-            $tipsByWaiter[$waiterId]['total'] += (float) $payment->tip_amount;
+        $result = [];
+        foreach ($tipsByWaiter as $waiterId => $methods) {
+            $totalTips = $methods->sum();
+            $alreadyPaid = $paidOutByWaiter[$waiterId] ?? 0;
+
+            $result[] = [
+                'waiter_id' => $waiterId,
+                'tips_by_method' => $methods->toArray(),
+                'total_tips' => $totalTips,
+                'already_paid' => $alreadyPaid,
+                'pending' => max(0, $totalTips - $alreadyPaid),
+            ];
         }
 
-        $cashPayouts = [];  // Entregas físicas (salen de caja)
-        $payrollItems = []; // Items para nómina (NO salen de caja)
-
-        foreach ($tipsByWaiter as $waiterId => $tips) {
-            $alreadyPaid = $paidOutByWaiter->get($waiterId, 0);
-            $waiter = User::find($waiterId);
-            $waiterName = $waiter?->name ?? 'Sin asignar';
-
-            $tipsCash = (float) $tips['cash'];
-            $tipsCard = (float) $tips['card'];
-            $tipsTransfer = (float) $tips['transfer'];
-            $tipsGiftCard = (float) $tips['gift_card'] ?? 0;
-            $tipsNonCash = $tipsCard + $tipsTransfer + $tipsGiftCard;
-            $tipsTotal = $tipsCash + $tipsNonCash;
-
-            // ═══════════════════════════════════════════════════════════
-            // POLÍTICAS: Determinar qué sale de caja y qué va a nómina
-            // ═══════════════════════════════════════════════════════════
-
-            if ($cardHandling === 'cash_payout') {
-                // ═══════════════════════════════════════════════════
-                // CASH_PAYOUT: TODO sale físicamente de la caja
-                // ═══════════════════════════════════════════════════
-                $cashAmount = $tipsTotal - $alreadyPaid;
-                if ($cashAmount > 0.01) {
-                    $payout = TipPayout::create([
-                        'company_id' => $user->company_id,
-                        'branch_id' => $user->branch_id,
-                        'cash_session_id' => $openSession->id,
-                        'processed_by' => $user->id,
-                        'waiter_id' => $waiterId,
-                        'amount' => round($cashAmount, 2),
-                        'payment_method' => 'cash',
-                        'policy_type' => $policy->policy_type->value,
-                        'notes' => 'Política cash_payout - Todas las propinas en efectivo',
-                    ]);
-
-                    $cashPayouts[] = [
-                        'uuid' => $payout->uuid,
-                        'waiter_id' => $waiterId,
-                        'waiter_name' => $waiterName,
-                        'amount' => (float) $payout->amount,
-                        'payment_method' => 'cash',
-                        'from_cash' => true,
-                        'policy' => $cardHandling,
-                    ];
-                }
-
-            } elseif ($cardHandling === 'payroll') {
-                // ═══════════════════════════════════════════════════
-                // PAYROLL: NADA sale de la caja físicamente
-                // TODAS las propinas van a nómina
-                // ═══════════════════════════════════════════════════
-                $payrollAmount = $tipsTotal - $alreadyPaid;
-                if ($payrollAmount > 0.01) {
-                    $payout = TipPayout::create([
-                        'company_id' => $user->company_id,
-                        'branch_id' => $user->branch_id,
-                        'cash_session_id' => $openSession->id,
-                        'processed_by' => $user->id,
-                        'waiter_id' => $waiterId,
-                        'amount' => round($payrollAmount, 2),
-                        'payment_method' => 'payroll',
-                        'policy_type' => $policy->policy_type->value,
-                        'notes' => 'Política payroll - Va a nómina (NO sale de caja)',
-                    ]);
-
-                    $payrollItems[] = [
-                        'uuid' => $payout->uuid,
-                        'waiter_id' => $waiterId,
-                        'waiter_name' => $waiterName,
-                        'amount' => (float) $payout->amount,
-                        'breakdown' => [
-                            'cash' => $tipsCash,
-                            'card' => $tipsCard,
-                            'transfer' => $tipsTransfer,
-                            'gift_card' => $tipsGiftCard,
-                        ],
-                        'policy' => $cardHandling,
-                    ];
-                }
-
-            } elseif ($cardHandling === 'mixed') {
-                // ═══════════════════════════════════════════════════
-                // MIXED: EFECTIVO sale de caja, resto va a nómina
-                // ═══════════════════════════════════════════════════
-
-                // 1. Efectivo sale físicamente de la caja
-                $cashAmount = $tipsCash - $alreadyPaid;
-                if ($cashAmount > 0.01) {
-                    $payout = TipPayout::create([
-                        'company_id' => $user->company_id,
-                        'branch_id' => $user->branch_id,
-                        'cash_session_id' => $openSession->id,
-                        'processed_by' => $user->id,
-                        'waiter_id' => $waiterId,
-                        'amount' => round($cashAmount, 2),
-                        'payment_method' => 'cash',
-                        'policy_type' => $policy->policy_type->value,
-                        'notes' => 'Política mixed - Propina en efectivo (sale de caja)',
-                    ]);
-
-                    $cashPayouts[] = [
-                        'uuid' => $payout->uuid,
-                        'waiter_id' => $waiterId,
-                        'waiter_name' => $waiterName,
-                        'amount' => (float) $payout->amount,
-                        'payment_method' => 'cash',
-                        'from_cash' => true,
-                        'policy' => $cardHandling,
-                    ];
-                }
-
-                // 2. Resto va a nómina (NO sale de caja)
-                if ($tipsNonCash > 0.01) {
-                    $payrollPayout = TipPayout::create([
-                        'company_id' => $user->company_id,
-                        'branch_id' => $user->branch_id,
-                        'cash_session_id' => $openSession->id,
-                        'processed_by' => $user->id,
-                        'waiter_id' => $waiterId,
-                        'amount' => round($tipsNonCash, 2),
-                        'payment_method' => 'payroll',
-                        'policy_type' => $policy->policy_type->value,
-                        'notes' => 'Política mixed - Tarjeta/transfer va a nómina',
-                    ]);
-
-                    $payrollItems[] = [
-                        'uuid' => $payrollPayout->uuid,
-                        'waiter_id' => $waiterId,
-                        'waiter_name' => $waiterName,
-                        'amount' => (float) $payrollPayout->amount,
-                        'breakdown' => [
-                            'card' => $tipsCard,
-                            'transfer' => $tipsTransfer,
-                            'gift_card' => $tipsGiftCard,
-                        ],
-                        'policy' => $cardHandling,
-                    ];
-                }
-            }
-        }
-
-        return response()->json([
-            'data' => [
-                'policy_used' => $cardHandling,
-                'cash_payouts' => [
-                    'count' => count($cashPayouts),
-                    'total' => array_sum(array_column($cashPayouts, 'amount')),
-                    'items' => $cashPayouts,
-                ],
-                'payroll_items' => [
-                    'count' => count($payrollItems),
-                    'total' => array_sum(array_column($payrollItems, 'amount')),
-                    'items' => $payrollItems,
-                ],
-            ],
-        ]);
+        return response()->json(['waiters' => $result]);
     }
 
     /**
-     * GET /api/v1/cashier/tips/max-by-waiter
-     * Devuelve el máximo de propina pendiente por garzón (para validación frontend)
+     * GET /api/v1/cashier/tips/detailed
+     * Detalle completo de propinas por garzón y método
      */
-    public function maxByWaiter(Request $request): JsonResponse
+    public function detailed(Request $request): JsonResponse
     {
-        $user = $request->user();
+        $openSession = CashSession::where('branch_id', $request->user()->branch_id)
+            ->where('status', 'open')
+            ->firstOrFail();
 
-        $openSession = CashSession::where('company_id', $user->company_id)
-            ->where('branch_id', $user->branch_id)
-            ->where('status', CashSessionStatus::OPEN)
-            ->first();
+        // USAR EL SERVICIO en lugar de DB::table('payments')
+        $tipsByWaiter = $this->paymentQueryService->getTipsByWaiterAndMethod($openSession->id);
 
-        if (!$openSession) {
-            return response()->json(['data' => []]);
-        }
-
-        // Propinas por garzón
-        $tipsByWaiter = DB::table('payments')
-            ->where('payments.cash_session_id', $openSession->id)
-            ->where('payments.status', 'completed')
-            ->where('payments.tip_amount', '>', 0)
-            ->join('orders', 'payments.order_id', '=', 'orders.id')
-            ->whereNotNull('orders.waiter_id')
-            ->select('orders.waiter_id', DB::raw('SUM(payments.tip_amount) as total'))
-            ->groupBy('orders.waiter_id')
-            ->pluck('total', 'waiter_id');
-
-        // Ya pagado por garzón
-        $paidByWaiter = TipPayout::where('cash_session_id', $openSession->id)
+        $paidOutByWaiter = TipPayout::where('cash_session_id', $openSession->id)
             ->valid()
-            ->select('waiter_id', DB::raw('SUM(amount) as total'))
+            ->get()
             ->groupBy('waiter_id')
-            ->pluck('total', 'waiter_id');
+            ->map(fn($group) => (float) $group->sum('amount'));
 
         $result = [];
-        foreach ($tipsByWaiter as $waiterId => $total) {
-            $paid = (float) ($paidByWaiter[$waiterId] ?? 0);
-            $pending = (float) $total - $paid;
-            if ($pending > 0.01) {
-                $result[] = [
-                    'waiter_id' => (int) $waiterId,
-                    'pending' => round($pending, 2),
-                ];
-            }
+        foreach ($tipsByWaiter as $waiterId => $methods) {
+            $totalTips = $methods->sum();
+            $alreadyPaid = $paidOutByWaiter[$waiterId] ?? 0;
+
+            $result[] = [
+                'waiter_id' => $waiterId,
+                'tips_by_method' => $methods->toArray(),
+                'total_tips' => $totalTips,
+                'already_paid' => $alreadyPaid,
+                'pending' => max(0, $totalTips - $alreadyPaid),
+            ];
         }
 
-        return response()->json(['data' => $result]);
+        return response()->json(['waiters' => $result]);
     }
 }
