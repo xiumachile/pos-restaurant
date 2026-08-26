@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
     branches: [main]
 
@@ -57,7 +57,7 @@ jobs:
           DB_PASSWORD: postgres
       
       - name: Run Pest tests
-        run: ./vendor/bin/pest
+        run: ./vendor/bin/pest --parallel
         env:
           DB_CONNECTION: pgsql
           DB_HOST: 127.0.0.1
@@ -65,6 +65,7 @@ jobs:
           DB_DATABASE: pos_restaurant_test
           DB_USERNAME: postgres
           DB_PASSWORD: postgres
+          APP_ENV: testing
 
   frontend:
     name: Frontend (Vitest)
