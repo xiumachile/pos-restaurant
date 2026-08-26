@@ -33,7 +33,9 @@ jobs:
       
       - name: Run Pest tests
         run: ./vendor/bin/pest --parallel
-        # phpunit.xml ya configura SQLite en memoria, no sobreescribir variables de DB
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
 
   frontend:
     name: Frontend (Vitest)
