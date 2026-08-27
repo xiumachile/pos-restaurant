@@ -6,14 +6,17 @@ use App\Http\Controllers\Controller;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Modules\Cashier\Domain\Entities\CashSession;
+use Modules\Cashier\Domain\Entities\CashCount;
+use Modules\Cashier\Domain\Entities\CashRegister;
 use Modules\Payments\Domain\Contracts\PaymentQueryServiceInterface;
+use Modules\Payments\Domain\Entities\CashSession;
+use Modules\Payments\Domain\ValueObjects\CashSessionStatus;
 
 /**
  * Controller para dashboard de caja.
  * 
- * F1.4a: Refactorizado para usar PaymentQueryServiceInterface
- * en lugar de acceder directamente a DB::table('payments').
+ * F1.4a: Usa PaymentQueryServiceInterface en lugar de DB::table('payments').
+ * F2.3: Estructura JSON alineada con tests.
  */
 class CashierDashboardController extends Controller
 {
@@ -29,61 +32,68 @@ class CashierDashboardController extends Controller
     public function index(Request $request): JsonResponse
     {
         $branchId = $request->user()->branch_id;
-        $openSession = CashSession::where('branch_id', $branchId)
-            ->where('status', 'open')
+
+        // Sesión actual
+        $currentSession = CashSession::where('branch_id', $branchId)
+            ->where('status', CashSessionStatus::OPEN)
             ->first();
 
-        if (!$openSession) {
-            return response()->json([
-                'session_open' => false,
-                'message' => 'No hay sesión de caja abierta',
-            ]);
+        // Cajas registradoras de la sucursal
+        $registers = CashRegister::where('branch_id', $branchId)
+            ->where('is_active', true)
+            ->get()
+            ->map(function ($register) {
+                return [
+                    'uuid' => $register->uuid,
+                    'name' => $register->name,
+                    'code' => $register->code,
+                    'is_active' => $register->is_active,
+                ];
+            });
+
+        // Estadísticas del día
+        $todayStart = Carbon::today()->startOfDay();
+        $todayEnd = Carbon::today()->endOfDay();
+
+        $sessionsToday = CashSession::where('branch_id', $branchId)
+            ->whereBetween('opened_at', [$todayStart, $todayEnd])
+            ->count();
+
+        $sessionsOpen = CashSession::where('branch_id', $branchId)
+            ->where('status', CashSessionStatus::OPEN)
+            ->count();
+
+        $countsToday = CashCount::whereHas('session', function ($q) use ($branchId, $todayStart, $todayEnd) {
+            $q->where('branch_id', $branchId)
+              ->whereBetween('opened_at', [$todayStart, $todayEnd]);
+        })->count();
+
+        // Balance de la sesión actual
+        $currentBalance = 0;
+        $sessionData = null;
+        if ($currentSession) {
+            $paymentsByMethod = $this->paymentQueryService->getPaymentsByMethodInSession($currentSession->id);
+            $totalPayments = $paymentsByMethod->sum('total_amount');
+            $currentBalance = (float) $currentSession->opening_amount + (float) $totalPayments;
+
+            $sessionData = [
+                'uuid' => $currentSession->uuid,
+                'session_number' => $currentSession->session_number,
+                'opening_amount' => (float) $currentSession->opening_amount,
+                'current_balance' => $currentBalance,
+            ];
         }
 
-        // USAR EL SERVICIO en lugar de DB::table('payments')
-        $paymentsByMethod = $this->paymentQueryService->getPaymentsByMethodInSession($openSession->id);
-
-        $sessionPayments = [
-            'cash' => [
-                'amount' => (float) ($paymentsByMethod['CASH']->total_amount ?? 0),
-                'count' => (int) ($paymentsByMethod['CASH']->count ?? 0),
-            ],
-            'card' => [
-                'amount' => (float) ($paymentsByMethod['CARD']->total_amount ?? 0),
-                'count' => (int) ($paymentsByMethod['CARD']->count ?? 0),
-            ],
-            'transfer' => [
-                'amount' => (float) ($paymentsByMethod['TRANSFER']->total_amount ?? 0),
-                'count' => (int) ($paymentsByMethod['TRANSFER']->count ?? 0),
-            ],
-        ];
-
-        // Pagos del día
-        $todayStart = Carbon::today()->startOfDay()->toDateTimeString();
-        $todayEnd = Carbon::today()->endOfDay()->toDateTimeString();
-
-        // USAR EL SERVICIO en lugar de DB::table('payments')
-        $todayPayments = $this->paymentQueryService->getDailyPaymentsByMethod(
-            $branchId,
-            $todayStart,
-            $todayEnd
-        );
-
-        $dailyTotals = [
-            'cash' => (float) ($todayPayments['CASH']->total_amount ?? 0),
-            'card' => (float) ($todayPayments['CARD']->total_amount ?? 0),
-            'transfer' => (float) ($todayPayments['TRANSFER']->total_amount ?? 0),
-        ];
-
         return response()->json([
-            'session_open' => true,
-            'session' => [
-                'id' => $openSession->id,
-                'opened_at' => $openSession->opened_at,
-                'opening_amount' => (float) $openSession->opening_amount,
+            'data' => [
+                'current_session' => $sessionData,
+                'registers' => $registers,
+                'statistics_today' => [
+                    'sessions_today' => $sessionsToday,
+                    'sessions_open' => $sessionsOpen,
+                    'counts_today' => $countsToday,
+                ],
             ],
-            'session_payments' => $sessionPayments,
-            'daily_totals' => $dailyTotals,
         ]);
     }
 }

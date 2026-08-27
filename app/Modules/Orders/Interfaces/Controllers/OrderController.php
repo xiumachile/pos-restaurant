@@ -136,9 +136,12 @@ class OrderController extends Controller
      */
     public function show(string $uuid): JsonResponse
     {
-        $order = Order::with(['items', 'table', 'waiter'])
-            ->where('uuid', $uuid)
+        $order = Order::with(["items", "table", "waiter"])
+            ->where("uuid", $uuid)
             ->firstOrFail();
+
+        // F2.3: Agregar autorización de policy
+        $this->authorize("view", $order);
 
         return OrderResource::make($order)->response();
     }
@@ -167,6 +170,17 @@ class OrderController extends Controller
     /**
      * Genera número de orden único para la sucursal/día.
      */
+    /**
+     * Extrae la secuencia numérica de un order_number.
+     * Ejemplo: "ORD-001-20260815-0042" → 42
+     */
+    private function extractSequence(string $orderNumber): int
+    {
+        $parts = explode("-", $orderNumber);
+        return (int) end($parts);
+    }
+
+
     private function generateOrderNumber(int $branchId): string
     {
         $date = now()->format('Ymd');

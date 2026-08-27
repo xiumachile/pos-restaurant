@@ -7,7 +7,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\Cashier\Domain\Entities\CashCount;
 use Modules\Cashier\Domain\Entities\CashMovement;
-use Modules\Cashier\Domain\Entities\CashSession;
+use Modules\Payments\Domain\Entities\CashSession;
 use Modules\Payments\Domain\Contracts\PaymentQueryServiceInterface;
 
 /**

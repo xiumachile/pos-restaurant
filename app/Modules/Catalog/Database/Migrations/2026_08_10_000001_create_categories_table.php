@@ -40,7 +40,11 @@ return new class extends Migration
         });
 
         // Índice GIN para búsquedas en traducciones JSONB
-        DB::statement('CREATE INDEX idx_categories_name_translations ON categories USING gin (name_translations)');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('CREATE INDEX idx_categories_name_translations ON categories USING gin (name_translations)');
+        } else {
+            DB::statement('CREATE INDEX idx_categories_name_translations ON categories (name_translations)');
+        }
     }
 
     public function down(): void

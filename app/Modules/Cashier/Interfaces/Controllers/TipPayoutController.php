@@ -5,7 +5,7 @@ namespace Modules\Cashier\Interfaces\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Modules\Cashier\Domain\Entities\CashSession;
+use Modules\Payments\Domain\Entities\CashSession;
 use Modules\Cashier\Domain\Entities\TipPayout;
 use Modules\Payments\Domain\Contracts\PaymentQueryServiceInterface;
 

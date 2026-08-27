@@ -3,6 +3,7 @@
 namespace Modules\Payments\Interfaces\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StorePaymentRequest extends FormRequest
 {
@@ -38,6 +39,29 @@ class StorePaymentRequest extends FormRequest
             'tip_amount.min' => 'La propina no puede ser negativa.',
             'idempotency_key.required' => 'El Idempotency-Key es requerido.',
             'idempotency_key.uuid' => 'El Idempotency-Key debe ser un UUID válido.',
+            'reference_code.required_if' => 'El código de referencia es requerido para pagos con tarjeta.',
         ];
+    }
+
+    /**
+     * F2.3: Validación condicional para reference_code en pagos con tarjeta.
+     */
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            $paymentMethodUuid = $this->input('payment_method_uuid');
+            $referenceCode = $this->input('reference_code');
+
+            if (!$paymentMethodUuid) {
+                return;
+            }
+
+            // Buscar el método de pago
+            $paymentMethod = \Modules\Payments\Domain\Entities\PaymentMethod::where('uuid', $paymentMethodUuid)->first();
+
+            if ($paymentMethod && $paymentMethod->requires_reference && empty($referenceCode)) {
+                $validator->errors()->add('reference_code', 'El código de referencia es requerido para este método de pago.');
+            }
+        });
     }
 }
