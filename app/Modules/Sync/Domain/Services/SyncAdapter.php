@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\Orders\Domain\Entities\Order;
 use Modules\Orders\Domain\Entities\OrderItem;
+use Modules\Branches\Domain\Contracts\BranchQueryServiceInterface;
 
 /**
  * Adaptador de sincronización entre Postgres (servidor) y SQLite (local).
@@ -21,14 +22,17 @@ class SyncAdapter
 {
     protected LocalDatabaseManager $localDb;
     protected EntityMapper $mapper;
+    protected BranchQueryServiceInterface $branchQuery;
     protected string $localConnection = 'sqlite_local';
 
     public function __construct(
         ?LocalDatabaseManager $localDb = null,
-        ?EntityMapper $mapper = null
+        ?EntityMapper $mapper = null,
+        ?BranchQueryServiceInterface $branchQuery = null
     ) {
         $this->localDb = $localDb ?? new LocalDatabaseManager();
         $this->mapper = $mapper ?? new EntityMapper();
+        $this->branchQuery = $branchQuery ?? app(BranchQueryServiceInterface::class);
     }
 
     /**
@@ -237,21 +241,10 @@ class SyncAdapter
         // No existe: crear nueva orden en el servidor
         $serverData = $this->mapper->localToOrder($localData);
         $serverData['branch_id'] = $branchId;
-        // Asegurar que company_id y branch_id estén presentes
+        // F3.1: Obtener company_id vía contrato (evita DB::table cross-module)
         if (empty($serverData['company_id'])) {
-            $serverData['company_id'] = DB::table('branches')
-                ->where('id', $branchId)
-                ->value('company_id');
+            $serverData['company_id'] = $this->branchQuery->getCompanyIdByBranchId($branchId);
         }
-        // Asegurar que company_id y branch_id estén presentes
-        if (empty($serverData['company_id'])) {
-            $serverData['company_id'] = DB::table('branches')
-                ->where('id', $branchId)
-                ->value('company_id');
-        }
-        $serverData['company_id'] = DB::table('branches')
-            ->where('id', $branchId)
-            ->value('company_id');
 
         // Generar order_number si no existe
         if (empty($serverData['order_number'])) {
