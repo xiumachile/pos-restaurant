@@ -3,6 +3,7 @@
 namespace Modules\Sync\Domain\Services;
 
 use Illuminate\Database\Connection;
+use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\Sync\Domain\Entities\SchemaVersion;
@@ -131,16 +132,16 @@ class SchemaVersionManager
             try {
                 $migration = require $path;
 
-                if (!is_callable($migration)) {
+                if (!($migration instanceof Migration)) {
                     throw new \RuntimeException(
-                        "Migration {$id} must return a callable"
+                        "Migration {$id} must return an instance of Migration"
                     );
                 }
 
                 $connection->beginTransaction();
 
                 try {
-                    $migration($connection);
+                    $migration->up();
 
                     $checksum = hash_file('sha256', $path);
                     SchemaVersion::record(
