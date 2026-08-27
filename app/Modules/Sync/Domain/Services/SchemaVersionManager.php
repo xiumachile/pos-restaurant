@@ -3,7 +3,6 @@
 namespace Modules\Sync\Domain\Services;
 
 use Illuminate\Database\Connection;
-use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\Sync\Domain\Entities\SchemaVersion;
@@ -32,7 +31,7 @@ class SchemaVersionManager
     ) {
         $this->connectionName = $connectionName;
         $this->migrationsPath = $migrationsPath
-            ?? base_path('app/Modules/Sync/Database/Migrations');
+            ?? base_path('app/Modules/Sync/Database/ClientMigrations');
     }
 
     /**
@@ -56,7 +55,6 @@ class SchemaVersionManager
                 return '0.0.0';
             }
 
-            // La versión es el ID de la última migración aplicada
             $lastMigration = end($applied);
             return $this->extractVersionFromId($lastMigration->migrationId);
         } catch (\Throwable $e) {
@@ -113,6 +111,11 @@ class SchemaVersionManager
     /**
      * Aplica todas las migraciones pendientes.
      *
+     * Las migraciones son callables que reciben la conexión como parámetro.
+     * Esto evita el problema de $connection hardcoded en las clases Migration
+     * de Laravel, que ejecutaban la migración en el path de config/database.php
+     * en lugar del path dinámico configurado por los tests.
+     *
      * @return array Resultado con conteos y errores
      */
     public function applyPendingMigrations(): array
@@ -135,16 +138,19 @@ class SchemaVersionManager
             try {
                 $migration = require $path;
 
-                if (!($migration instanceof Migration)) {
+                if (!is_callable($migration)) {
                     throw new \RuntimeException(
-                        "Migration {$id} must return an instance of Migration"
+                        "Migration {$id} must return a callable that accepts a Connection"
                     );
                 }
 
                 $connection->beginTransaction();
 
                 try {
-                    $migration->up();
+                    // Ejecutar migración pasando la conexión EXPLÍCITAMENTE
+                    // Esto asegura que se ejecute en el path dinámico,
+                    // no en el path de config/database.php
+                    $migration($connection);
 
                     $checksum = hash_file('sha256', $path);
                     SchemaVersion::record(
@@ -161,6 +167,7 @@ class SchemaVersionManager
 
                     Log::info('SchemaVersionManager: migration applied', [
                         'migration_id' => $id,
+                        'connection' => $this->connectionName,
                     ]);
                 } catch (\Throwable $e) {
                     $connection->rollBack();
@@ -175,6 +182,7 @@ class SchemaVersionManager
                 Log::error('SchemaVersionManager: migration failed', [
                     'migration_id' => $id,
                     'error' => $e->getMessage(),
+                    'connection' => $this->connectionName,
                 ]);
 
                 // Detener en el primer error para evitar estados inconsistentes
@@ -187,23 +195,18 @@ class SchemaVersionManager
 
     /**
      * Verifica si la versión local es compatible con la del servidor.
-     *
-     * Política actual: compatible si versiones son iguales (major.minor).
-     * En el futuro podemos soportar n-1 para backward compatibility.
      */
     public function isCompatibleWith(string $serverVersion): bool
     {
         $localVersion = $this->getCurrentVersion();
 
         if ($localVersion === '0.0.0') {
-            // Schema no inicializado, será compatible después de aplicar migraciones
             return true;
         }
 
         $localParts = explode('.', $localVersion);
         $serverParts = explode('.', $serverVersion);
 
-        // Compatible si major.minor coinciden
         return ($localParts[0] ?? '0') === ($serverParts[0] ?? '0')
             && ($localParts[1] ?? '0') === ($serverParts[1] ?? '0');
     }
