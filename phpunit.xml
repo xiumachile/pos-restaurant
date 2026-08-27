@@ -41,5 +41,6 @@
         <server name="SESSION_DRIVER" value="array"/>
         <server name="TELESCOPE_ENABLED" value="false"/>
         <server name="PHP_MEMORY_LIMIT" value="512M"/>
+        <server name="SQLITE_LOCAL_PATH" value=":memory:"/>
     </php>
 </phpunit>

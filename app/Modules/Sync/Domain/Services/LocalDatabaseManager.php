@@ -39,23 +39,39 @@ class LocalDatabaseManager
     public function initialize(): bool
     {
         try {
-            // Crear el archivo SQLite si no existe
+            // 1. Crear directorio si no existe
+            $directory = dirname($this->databasePath);
+            if (!is_dir($directory)) {
+                if (!mkdir($directory, 0775, true) && !is_dir($directory)) {
+                    Log::error('LocalDatabaseManager: Failed to create directory', [
+                        'directory' => $directory,
+                    ]);
+                    return false;
+                }
+            }
+
+            // 2. Crear el archivo SQLite si no existe
             if (!file_exists($this->databasePath)) {
-                touch($this->databasePath);
+                if (!touch($this->databasePath)) {
+                    Log::error('LocalDatabaseManager: Failed to create SQLite file', [
+                        'path' => $this->databasePath,
+                    ]);
+                    return false;
+                }
                 Log::info('LocalDatabaseManager: SQLite file created', [
                     'path' => $this->databasePath,
                 ]);
             }
 
-            // Configurar la conexión dinámicamente
+            // 3. Configurar la conexión dinámicamente
             config([
                 "database.connections.{$this->connectionName}.database" => $this->databasePath,
             ]);
 
-            // Limpiar conexión cacheada
+            // 4. Limpiar conexión cacheada
             DB::purge($this->connectionName);
 
-            // Aplicar migraciones pendientes (F3.2)
+            // 5. Aplicar migraciones pendientes (F3.2)
             $migrationResult = $this->schemaManager->applyPendingMigrations();
 
             Log::info('LocalDatabaseManager: migrations applied', [
@@ -75,6 +91,8 @@ class LocalDatabaseManager
         } catch (\Throwable $e) {
             Log::error('LocalDatabaseManager: Initialization failed', [
                 'error' => $e->getMessage(),
+                'path' => $this->databasePath,
+                'trace' => $e->getTraceAsString(),
             ]);
             return false;
         }
