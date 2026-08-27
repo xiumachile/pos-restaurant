@@ -18,20 +18,28 @@
         </include>
     </source>
     <php>
-        <env name="APP_ENV" value="testing"/>
-        <env name="APP_KEY" value="base64:2fl+Ktvkfl+Fuz4Qp/A75G2RTiWVA/ZoKZvp6fiiM10="/>
-        <env name="APP_URL" value="http://localhost"/>
-        <env name="JWT_SECRET" value="test-jwt-secret-key-for-testing-only-32chars!"/>
-        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
-        <env name="BCRYPT_ROUNDS" value="4"/>
-        <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
-        <env name="MAIL_MAILER" value="array"/>
-        <env name="PULSE_ENABLED" value="false"/>
-        <env name="QUEUE_CONNECTION" value="sync"/>
-        <env name="SESSION_DRIVER" value="array"/>
-        <env name="TELESCOPE_ENABLED" value="false"/>
-        <env name="PHP_MEMORY_LIMIT" value="512M"/>
+        <env name="BROADCAST_CONNECTION" value="pusher"/>
+        <env name="PUSHER_APP_ID" value="test-app-id"/>
+        <env name="PUSHER_APP_KEY" value="test-key"/>
+        <env name="PUSHER_APP_SECRET" value="test-secret"/>
+        <server name="APP_ENV" value="testing"/>
+        <server name="APP_KEY" value="base64:2fl+Ktvkfl+Fuz4Qp/A75G2RTiWVA/ZoKZvp6fiiM10="/>
+        <server name="APP_URL" value="http://localhost"/>
+        <server name="JWT_SECRET" value="test-jwt-secret-key-for-testing-only-32chars!"/>
+        <server name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <server name="BCRYPT_ROUNDS" value="4"/>
+        <server name="CACHE_STORE" value="array"/>
+        <server name="DB_CONNECTION" value="pgsql"/>
+        <server name="DB_HOST" value="127.0.0.1"/>
+        <server name="DB_PORT" value="5432"/>
+        <server name="DB_DATABASE" value="pos_restaurant_test"/>
+        <server name="DB_USERNAME" value="postgres"/>
+        <server name="DB_PASSWORD" value="secret"/>
+        <server name="MAIL_MAILER" value="array"/>
+        <server name="PULSE_ENABLED" value="false"/>
+        <server name="QUEUE_CONNECTION" value="sync"/>
+        <server name="SESSION_DRIVER" value="array"/>
+        <server name="TELESCOPE_ENABLED" value="false"/>
+        <server name="PHP_MEMORY_LIMIT" value="512M"/>
     </php>
 </phpunit>
