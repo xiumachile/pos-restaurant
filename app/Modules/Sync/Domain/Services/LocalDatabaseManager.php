@@ -29,7 +29,8 @@ class LocalDatabaseManager
         ?SchemaVersionManager $schemaManager = null
     ) {
         $this->databasePath = $databasePath ?? database_path('local.sqlite');
-        $this->schemaManager = $schemaManager ?? new SchemaVersionManager();
+        // Pasar connectionName al SchemaVersionManager para que use la misma conexión
+        $this->schemaManager = $schemaManager ?? new SchemaVersionManager($this->connectionName);
     }
 
     /**

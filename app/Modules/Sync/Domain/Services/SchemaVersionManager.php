@@ -23,11 +23,14 @@ class SchemaVersionManager
 {
     public const SCHEMA_VERSION = '1.0.0';
 
-    protected string $connectionName = 'sqlite_local';
+    protected string $connectionName;
     protected string $migrationsPath;
 
-    public function __construct(?string $migrationsPath = null)
-    {
+    public function __construct(
+        string $connectionName = 'sqlite_local',
+        ?string $migrationsPath = null
+    ) {
+        $this->connectionName = $connectionName;
         $this->migrationsPath = $migrationsPath
             ?? base_path('app/Modules/Sync/Database/Migrations');
     }
