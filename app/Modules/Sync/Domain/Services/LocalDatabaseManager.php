@@ -3,32 +3,37 @@
 namespace Modules\Sync\Domain\Services;
 
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
 
 /**
  * Gestiona la base de datos local SQLite para modo offline.
- * 
+ *
  * Responsabilidades:
  * - Inicializar la BD local con el esquema necesario
  * - Gestionar la conexión dinámica entre Postgres y SQLite
+ * - Aplicar migraciones de schema versionadas (F3.2)
  * - Proveer métodos para verificar el estado de la BD local
- * 
- * En producción, este manager se usa en el cliente desktop (Tauri)
- * para tener una copia local de los datos críticos.
+ *
+ * F3.2: Refactorizado para usar SchemaVersionManager en lugar de
+ *       crear el schema manualmente. Esto permite aplicar cambios
+ *       incrementales y detectar incompatibilidades.
  */
 class LocalDatabaseManager
 {
     protected string $connectionName = 'sqlite_local';
     protected ?string $databasePath;
+    protected SchemaVersionManager $schemaManager;
 
-    public function __construct(?string $databasePath = null)
-    {
+    public function __construct(
+        ?string $databasePath = null,
+        ?SchemaVersionManager $schemaManager = null
+    ) {
         $this->databasePath = $databasePath ?? database_path('local.sqlite');
+        $this->schemaManager = $schemaManager ?? new SchemaVersionManager();
     }
 
     /**
-     * Inicializa la base de datos local con el esquema mínimo.
+     * Inicializa la BD local y aplica migraciones pendientes.
      */
     public function initialize(): bool
     {
@@ -46,11 +51,24 @@ class LocalDatabaseManager
                 "database.connections.{$this->connectionName}.database" => $this->databasePath,
             ]);
 
-            // Limpiar conexión cacheada para que use la nueva configuración
+            // Limpiar conexión cacheada
             DB::purge($this->connectionName);
 
-            // Crear tablas locales
-            $this->createLocalSchema();
+            // Aplicar migraciones pendientes (F3.2)
+            $migrationResult = $this->schemaManager->applyPendingMigrations();
+
+            Log::info('LocalDatabaseManager: migrations applied', [
+                'applied' => $migrationResult['applied'],
+                'migrations' => $migrationResult['migrations_applied'],
+                'errors' => count($migrationResult['errors']),
+            ]);
+
+            if (!empty($migrationResult['errors'])) {
+                Log::error('LocalDatabaseManager: some migrations failed', [
+                    'errors' => $migrationResult['errors'],
+                ]);
+                return false;
+            }
 
             return true;
         } catch (\Throwable $e) {
@@ -62,120 +80,54 @@ class LocalDatabaseManager
     }
 
     /**
-     * Crea el esquema local para modo offline.
-     */
-    protected function createLocalSchema(): void
-    {
-        $connection = DB::connection($this->connectionName);
-        $schema = $connection->getSchemaBuilder();
-
-        // Tabla local de órdenes (copia simplificada)
-        if (!$schema->hasTable('local_orders')) {
-            $schema->create('local_orders', function ($table) {
-                $table->id();
-                $table->uuid('uuid')->unique();
-                $table->uuid('server_id')->nullable(); // ID en el servidor
-                $table->unsignedBigInteger('branch_id');
-                $table->unsignedBigInteger('waiter_id')->nullable();
-                $table->string('order_number', 50);
-                $table->string('type', 20);
-                $table->string('status', 20);
-                $table->decimal('subtotal', 14, 2)->default(0);
-                $table->decimal('tax_amount', 14, 2)->default(0);
-                $table->decimal('discount_amount', 14, 2)->default(0);
-                $table->decimal('total', 14, 2)->default(0);
-                $table->text('notes')->nullable();
-                $table->unsignedInteger('version')->default(1);
-                $table->string('sync_status', 20)->default('pending');
-                $table->timestamp('last_synced_at')->nullable();
-                $table->timestamps();
-
-                $table->index(['branch_id', 'sync_status']);
-                $table->index('sync_status');
-            });
-        }
-
-        // Tabla local de items de orden
-        if (!$schema->hasTable('local_order_items')) {
-            $schema->create('local_order_items', function ($table) {
-                $table->id();
-                $table->uuid('uuid')->unique();
-                $table->uuid('server_id')->nullable();
-                $table->unsignedBigInteger('local_order_id');
-                $table->string('name_snapshot', 255);
-                $table->decimal('unit_price_snapshot', 14, 2);
-                $table->unsignedInteger('quantity')->default(1);
-                $table->decimal('subtotal', 14, 2);
-                $table->decimal('tax_amount', 14, 2)->default(0);
-                $table->text('notes')->nullable();
-                $table->string('sync_status', 20)->default('pending');
-                $table->timestamps();
-
-                $table->index('local_order_id');
-                $table->index('sync_status');
-            });
-        }
-
-        // Tabla de metadatos de sync
-        if (!$schema->hasTable('local_sync_metadata')) {
-            $schema->create('local_sync_metadata', function ($table) {
-                $table->id();
-                $table->string('key', 100)->unique();
-                $table->text('value')->nullable();
-                $table->timestamps();
-            });
-        }
-
-        Log::info('LocalDatabaseManager: Local schema created');
-    }
-
-    /**
-     * Verifica si la BD local está disponible.
+     * Verifica si la BD local está lista para usarse.
      */
     public function isAvailable(): bool
     {
         try {
-            return file_exists($this->databasePath) && is_writable($this->databasePath);
-        } catch (\Throwable $e) {
-            return false;
-        }
-    }
-
-    /**
-     * Obtiene el tamaño de la BD local en bytes.
-     */
-    public function getDatabaseSize(): int
-    {
-        if (!file_exists($this->databasePath)) {
-            return 0;
-        }
-
-        return filesize($this->databasePath);
-    }
-
-    /**
-     * Limpia la BD local (elimina todos los datos).
-     */
-    public function clear(): bool
-    {
-        try {
-            if (file_exists($this->databasePath)) {
-                unlink($this->databasePath);
+            if (!file_exists($this->databasePath)) {
+                return false;
             }
-            return $this->initialize();
-        } catch (\Throwable $e) {
-            Log::error('LocalDatabaseManager: Clear failed', [
-                'error' => $e->getMessage(),
+
+            config([
+                "database.connections.{$this->connectionName}.database" => $this->databasePath,
             ]);
+
+            DB::purge($this->connectionName);
+
+            $connection = DB::connection($this->connectionName);
+            $schema = $connection->getSchemaBuilder();
+
+            // Verificar que existan las tablas críticas
+            return $schema->hasTable('schema_versions')
+                && $schema->hasTable('local_orders')
+                && $schema->hasTable('sync_queue');
+        } catch (\Throwable $e) {
             return false;
         }
     }
 
     /**
-     * Obtiene la ruta de la BD local.
+     * Retorna la versión actual del schema local.
      */
-    public function getDatabasePath(): string
+    public function getSchemaVersion(): string
     {
-        return $this->databasePath;
+        return $this->schemaManager->getCurrentVersion();
+    }
+
+    /**
+     * Retorna el manager de schema (para casos avanzados).
+     */
+    public function getSchemaManager(): SchemaVersionManager
+    {
+        return $this->schemaManager;
+    }
+
+    /**
+     * Verifica compatibilidad con la versión del servidor.
+     */
+    public function isCompatibleWithServer(string $serverVersion): bool
+    {
+        return $this->schemaManager->isCompatibleWith($serverVersion);
     }
 }
