@@ -11,7 +11,7 @@ export interface LocalOrder {
   table_id: string | null;
   order_number: string;
   order_type: "dine_in" | "take_out" | "delivery";
-  status: 'confirmed' | "confirmed" | "preparing" | "ready" | "served" | "paid" | "cancelled";
+  status: "confirmed" | "preparing" | "ready" | "served" | "paid" | "cancelled";
   subtotal: number;
   discount_total: number;
   tax_total: number;
@@ -80,7 +80,7 @@ export class OrderRepository {
         payload.table_id || null,
         order_number,
         payload.order_type || "dine_in",
-        "open",
+        "confirmed",
         payload.guest_count || 1,
         payload.waiter_id || null,
         payload.waiter_name || null,
