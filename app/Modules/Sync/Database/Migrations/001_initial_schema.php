@@ -4,139 +4,104 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Migración 001: Schema inicial para BD local SQLite.
+ * 
+ * Refactoriza el schema hardcodeado en LocalDatabaseManager::createLocalSchema()
+ * al sistema de migraciones versionadas.
+ * 
+ * Tablas creadas:
+ * - local_orders: Órdenes locales (copia simplificada del servidor)
+ * - local_order_items: Items de órdenes locales
+ * - local_sync_metadata: Metadatos de sincronización
+ * - schema_versions: Registro de migraciones aplicadas (NUEVO en F3.2)
+ */
 return new class extends Migration
 {
-    /**
-     * The database connection that should be used by the migration.
-     *
-     * @var string
-     */
     protected $connection = 'sqlite_local';
 
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         // =========================================
-        // Tabla de órdenes locales
+        // Tabla local de órdenes (copia simplificada)
         // =========================================
         if (!Schema::connection($this->connection)->hasTable('local_orders')) {
             Schema::connection($this->connection)->create('local_orders', function (Blueprint $table) {
                 $table->id();
                 $table->uuid('uuid')->unique();
-                $table->uuid('server_id')->nullable();
+                $table->uuid('server_id')->nullable(); // ID en el servidor
                 $table->unsignedBigInteger('branch_id');
                 $table->unsignedBigInteger('waiter_id')->nullable();
                 $table->string('order_number', 50);
-                $table->string('status', 30)->default('confirmed');
-                $table->decimal('subtotal', 10, 2)->default(0);
-                $table->decimal('tax_total', 10, 2)->default(0);
-                $table->decimal('grand_total', 10, 2)->default(0);
-                $table->integer('guest_count')->default(1);
+                $table->string('type', 20);
+                $table->string('status', 20);
+                $table->decimal('subtotal', 14, 2)->default(0);
+                $table->decimal('tax_amount', 14, 2)->default(0);
+                $table->decimal('discount_amount', 14, 2)->default(0);
+                $table->decimal('total', 14, 2)->default(0);
+                $table->text('notes')->nullable();
+                $table->unsignedInteger('version')->default(1);
                 $table->string('sync_status', 20)->default('pending');
-                $table->string('idempotency_key', 100)->nullable();
+                $table->timestamp('last_synced_at')->nullable();
                 $table->timestamps();
 
-                $table->index('branch_id');
+                $table->index(['branch_id', 'sync_status']);
                 $table->index('sync_status');
             });
         }
 
         // =========================================
-        // Tabla de items de orden locales
+        // Tabla local de items de orden
         // =========================================
         if (!Schema::connection($this->connection)->hasTable('local_order_items')) {
             Schema::connection($this->connection)->create('local_order_items', function (Blueprint $table) {
                 $table->id();
                 $table->uuid('uuid')->unique();
-                $table->uuid('order_uuid');
-                $table->unsignedBigInteger('product_id');
-                $table->string('product_name', 200);
-                $table->integer('quantity');
-                $table->decimal('unit_price', 10, 2);
-                $table->decimal('subtotal', 10, 2);
-                $table->string('kitchen_status', 20)->default('pending');
+                $table->uuid('server_id')->nullable();
+                $table->unsignedBigInteger('local_order_id');
+                $table->string('name_snapshot', 255);
+                $table->decimal('unit_price_snapshot', 14, 2);
+                $table->unsignedInteger('quantity')->default(1);
+                $table->decimal('subtotal', 14, 2);
+                $table->decimal('tax_amount', 14, 2)->default(0);
+                $table->text('notes')->nullable();
+                $table->string('sync_status', 20)->default('pending');
                 $table->timestamps();
 
-                $table->index('order_uuid');
+                $table->index('local_order_id');
+                $table->index('sync_status');
             });
         }
 
         // =========================================
-        // Tabla de mesas locales
+        // Tabla de metadatos de sync
         // =========================================
-        if (!Schema::connection($this->connection)->hasTable('local_tables')) {
-            Schema::connection($this->connection)->create('local_tables', function (Blueprint $table) {
+        if (!Schema::connection($this->connection)->hasTable('local_sync_metadata')) {
+            Schema::connection($this->connection)->create('local_sync_metadata', function (Blueprint $table) {
                 $table->id();
-                $table->uuid('uuid')->unique();
-                $table->string('name', 50);
-                $table->string('status', 20)->default('available');
-                $table->integer('capacity')->default(4);
-                $table->uuid('current_order_uuid')->nullable();
-                $table->timestamps();
-
-                $table->index('status');
-            });
-        }
-
-        // =========================================
-        // Tabla de métodos de pago locales
-        // =========================================
-        if (!Schema::connection($this->connection)->hasTable('local_payment_methods')) {
-            Schema::connection($this->connection)->create('local_payment_methods', function (Blueprint $table) {
-                $table->id();
-                $table->uuid('uuid')->unique();
-                $table->string('name', 100);
-                $table->string('type', 30);
-                $table->boolean('is_active')->default(true);
-                $table->timestamps();
-            });
-        }
-
-        // =========================================
-        // Cola de sincronización
-        // =========================================
-        if (!Schema::connection($this->connection)->hasTable('sync_queue')) {
-            Schema::connection($this->connection)->create('sync_queue', function (Blueprint $table) {
-                $table->id();
-                $table->uuid('uuid')->unique();
-                $table->string('entity_type', 50);
-                $table->uuid('entity_uuid');
-                $table->string('action', 20);
-                $table->text('payload')->nullable();
-                $table->string('status', 20)->default('pending');
-                $table->integer('attempts')->default(0);
-                $table->text('last_error')->nullable();
-                $table->timestamp('next_retry_at')->nullable();
-                $table->timestamps();
-
-                $table->index(['status', 'next_retry_at']);
-                $table->index(['entity_type', 'entity_uuid']);
-            });
-        }
-
-        // =========================================
-        // Estado de sincronización
-        // =========================================
-        if (!Schema::connection($this->connection)->hasTable('sync_state')) {
-            Schema::connection($this->connection)->create('sync_state', function (Blueprint $table) {
-                $table->string('key', 100)->primary();
+                $table->string('key', 100)->unique();
                 $table->text('value')->nullable();
-                $table->timestamp('updated_at');
+                $table->timestamps();
+            });
+        }
+
+        // =========================================
+        // Tabla de versiones de schema (NUEVO en F3.2)
+        // =========================================
+        if (!Schema::connection($this->connection)->hasTable('schema_versions')) {
+            Schema::connection($this->connection)->create('schema_versions', function (Blueprint $table) {
+                $table->string('migration_id', 100)->primary();
+                $table->timestamp('applied_at');
+                $table->string('checksum', 64)->nullable();
+                $table->text('description')->nullable();
             });
         }
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::connection($this->connection)->dropIfExists('sync_state');
-        Schema::connection($this->connection)->dropIfExists('sync_queue');
-        Schema::connection($this->connection)->dropIfExists('local_payment_methods');
-        Schema::connection($this->connection)->dropIfExists('local_tables');
+        Schema::connection($this->connection)->dropIfExists('schema_versions');
+        Schema::connection($this->connection)->dropIfExists('local_sync_metadata');
         Schema::connection($this->connection)->dropIfExists('local_order_items');
         Schema::connection($this->connection)->dropIfExists('local_orders');
     }
