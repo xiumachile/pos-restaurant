@@ -132,3 +132,65 @@ class LocalDatabaseManager
         return $this->schemaManager->isCompatibleWith($serverVersion);
     }
 }
+
+    /**
+     * Retorna el tamaño del archivo SQLite en bytes.
+     * 
+     * Restaurado en F3.2 fix: método necesario para SyncController::health()
+     * y tests de LocalDatabaseTest.
+     */
+    public function getDatabaseSize(): int
+    {
+        if (!file_exists($this->databasePath)) {
+            return 0;
+        }
+
+        return filesize($this->databasePath);
+    }
+
+    /**
+     * Limpia completamente la BD local (elimina el archivo SQLite).
+     * 
+     * Restaurado en F3.2 fix: método necesario para tests de LocalDatabaseTest.
+     */
+    public function clear(): bool
+    {
+        try {
+            // Cerrar la conexión primero
+            DB::purge($this->connectionName);
+
+            // Eliminar el archivo
+            if (file_exists($this->databasePath)) {
+                unlink($this->databasePath);
+            }
+
+            // Eliminar archivos WAL y SHM si existen
+            if (file_exists($this->databasePath . '-wal')) {
+                unlink($this->databasePath . '-wal');
+            }
+            if (file_exists($this->databasePath . '-shm')) {
+                unlink($this->databasePath . '-shm');
+            }
+
+            Log::info('LocalDatabaseManager: Database cleared', [
+                'path' => $this->databasePath,
+            ]);
+
+            return true;
+        } catch (\Throwable $e) {
+            Log::error('LocalDatabaseManager: Clear failed', [
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Retorna la ruta del archivo SQLite.
+     * 
+     * Restaurado en F3.2 fix: método necesario para tests de LocalDatabaseTest.
+     */
+    public function getDatabasePath(): string
+    {
+        return $this->databasePath;
+    }
