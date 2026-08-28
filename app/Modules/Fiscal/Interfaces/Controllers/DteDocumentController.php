@@ -6,20 +6,23 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Modules\Fiscal\Domain\Entities\DteCertificate;
 use Modules\Fiscal\Domain\Entities\DteDocument;
-use Modules\Fiscal\Domain\Services\DteIssuingService;
-use Modules\Fiscal\Domain\Services\DteSendingService;
-use Modules\Fiscal\Domain\ValueObjects\DteStatus;
+use Modules\Fiscal\Domain\Exceptions\NoFoliosAvailableException;
+use Modules\Fiscal\Domain\Services\DteDocumentManagementService;
 use Modules\Fiscal\Interfaces\Requests\IssueDteRequest;
 use Modules\Fiscal\Interfaces\Resources\DteDocumentResource;
 use Modules\Orders\Domain\Entities\Order;
 
+/**
+ * Controller para gestión de DTEs (Documentos Tributarios Electrónicos).
+ * 
+ * Refactorizado en S3: toda la lógica de negocio delegada a DteDocumentManagementService.
+ * Este controller solo orquesta HTTP: valida inputs, delega al service, retorna JSON.
+ */
 class DteDocumentController extends Controller
 {
     public function __construct(
-        private DteIssuingService $issuingService,
-        private DteSendingService $sendingService
+        private DteDocumentManagementService $dteService
     ) {}
 
     /**
@@ -29,29 +32,9 @@ class DteDocumentController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
+        $filters = $request->only(['dte_type', 'status', 'start_date', 'end_date', 'limit']);
 
-        $query = DteDocument::where('company_id', $user->company_id)
-            ->where('branch_id', $user->branch_id)
-            ->with(['order'])
-            ->orderByDesc('issue_date')
-            ->orderByDesc('folio');
-
-        // Filtros
-        if ($dteType = $request->query('dte_type')) {
-            $query->where('dte_type', (int) $dteType);
-        }
-        if ($status = $request->query('status')) {
-            $query->where('sii_status', $status);
-        }
-        if ($startDate = $request->query('start_date')) {
-            $query->whereDate('issue_date', '>=', $startDate);
-        }
-        if ($endDate = $request->query('end_date')) {
-            $query->whereDate('issue_date', '<=', $endDate);
-        }
-
-        $limit = (int) $request->query('limit', 50);
-        $dtes = $query->limit(min($limit, 200))->get();
+        $dtes = $this->dteService->listDtes($user, $filters);
 
         return DteDocumentResource::collection($dtes)->response();
     }
@@ -69,58 +52,23 @@ class DteDocumentController extends Controller
             ->where('company_id', $user->company_id)
             ->firstOrFail();
 
-        // Verificar que el pedido esté pagado
-        if ($order->status->value !== 'paid') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Solo se pueden emitir DTEs para pedidos pagados.',
-                'order_status' => $order->status->value,
-            ], 422);
-        }
-
-        // Verificar que no exista DTE para este pedido
-        $existingDte = DteDocument::where('order_id', $order->id)
-            ->where('company_id', $user->company_id)
-            ->whereNotIn('sii_status', [DteStatus::CANCELLED, DteStatus::REJECTED])
-            ->first();
-
-        if ($existingDte) {
-            return response()->json([
-                'success' => false,
-                'message' => 'El pedido ya tiene un DTE emitido.',
-                'existing_dte' => $existingDte->identifier(),
-            ], 422);
-        }
-
         try {
             $environment = $validated['environment'] ?? 'certification';
             $receiverRut = $validated['receiver_rut'] ?? null;
             $receiverName = $validated['receiver_business_name'] ?? null;
 
-            $dte = $this->issuingService->issueForOrder(
-                $order,
-                $receiverRut,
-                $receiverName,
-                $environment
-            );
-
-            // Enviar al SII
-            $certificate = DteCertificate::where('company_id', $user->company_id)
-                ->where('environment', $environment)
-                ->where('is_active', true)
-                ->where('valid_until', '>=', now())
-                ->first();
-
-            if ($certificate) {
-                $this->sendingService->send($dte, $certificate, $environment);
-                $dte->refresh();
-            }
+            $dte = $this->dteService->issueDte($order, $user, $environment, $receiverRut, $receiverName);
 
             return DteDocumentResource::make($dte)
                 ->response()
                 ->setStatusCode(201);
 
-        } catch (\Modules\Fiscal\Domain\Exceptions\NoFoliosAvailableException $e) {
+        } catch (NoFoliosAvailableException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\DomainException $e) {
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -161,35 +109,28 @@ class DteDocumentController extends Controller
     public function cancel(Request $request, string $uuid): JsonResponse
     {
         $user = $request->user();
+        $reason = $request->input('reason', 'Anulación solicitada por usuario');
 
         $dte = DteDocument::where('uuid', $uuid)
             ->where('company_id', $user->company_id)
             ->firstOrFail();
 
-        $reason = $request->input('reason', 'Anulación solicitada por usuario');
-
         try {
-            $nc = $this->issuingService->issueCancellationNote($dte, $reason);
-
-            // Enviar NC al SII
-            $certificate = DteCertificate::where('company_id', $user->company_id)
-                ->where('is_active', true)
-                ->where('valid_until', '>=', now())
-                ->first();
-
-            if ($certificate) {
-                $this->sendingService->send($nc, $certificate, 'certification');
-                $nc->refresh();
-            }
+            $result = $this->dteService->cancelDte($dte, $user, $reason);
 
             return response()->json([
                 'success' => true,
                 'message' => 'DTE anulado correctamente con Nota de Crédito.',
-                'original_dte' => $dte->identifier(),
-                'cancellation_note' => $nc->identifier(),
-                'nc_status' => $nc->sii_status->value,
+                'original_dte' => $result['original_dte'],
+                'cancellation_note' => $result['cancellation_note'],
+                'nc_status' => $result['nc_status'],
             ]);
 
+        } catch (\DomainException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -210,33 +151,21 @@ class DteDocumentController extends Controller
             ->where('company_id', $user->company_id)
             ->firstOrFail();
 
-        if (!$dte->sii_status->canBeResent()) {
+        try {
+            $result = $this->dteService->resendDte($dte, $user);
+
+            return response()->json([
+                'success' => $result['sent'],
+                'message' => $result['sent'] ? 'DTE reenviado exitosamente.' : 'Error al reenviar DTE.',
+                'dte_status' => $result['dte_status'],
+                'track_id' => $result['track_id'],
+            ]);
+
+        } catch (\DomainException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'El DTE no puede ser reenviado en estado: ' . $dte->sii_status->label(),
+                'message' => $e->getMessage(),
             ], 422);
         }
-
-        $certificate = DteCertificate::where('company_id', $user->company_id)
-            ->where('is_active', true)
-            ->where('valid_until', '>=', now())
-            ->first();
-
-        if (!$certificate) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No hay certificado válido para reenviar.',
-            ], 422);
-        }
-
-        $sent = $this->sendingService->send($dte, $certificate, 'certification');
-        $dte->refresh();
-
-        return response()->json([
-            'success' => $sent,
-            'message' => $sent ? 'DTE reenviado exitosamente.' : 'Error al reenviar DTE.',
-            'dte_status' => $dte->sii_status->value,
-            'track_id' => $dte->track_id,
-        ]);
     }
 }
