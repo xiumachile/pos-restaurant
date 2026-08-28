@@ -9,12 +9,17 @@ use Modules\Recipes\Domain\Entities\ProductRecipe;
 use Modules\Recipes\Domain\Entities\RawIngredient;
 use Modules\Recipes\Domain\Entities\RecipeItem;
 use Modules\Recipes\Domain\Exceptions\InsufficientIngredientStockException;
+use App\Shared\Application\TenantContext;
 
 /**
  * Servicio de dominio para gestión de Fichas Técnicas (BOM).
  */
 class RecipeService
 {
+    public function __construct(
+        protected TenantContext $tenantContext
+    ) {}
+
     /**
      * Crea una ficha técnica para un producto con sus ingredientes.
      *
@@ -43,6 +48,9 @@ class RecipeService
 
             foreach ($ingredients as $ingredientData) {
                 $ingredient = RawIngredient::findOrFail($ingredientData['raw_ingredient_id']);
+                
+                // S1.3: Validar ownership del ingrediente
+                $this->validateIngredientOwnership($ingredient);
 
                 RecipeItem::createWithCalculation(
                     recipeId: $recipe->id,
@@ -74,6 +82,9 @@ class RecipeService
             // Agregar nuevos ingredientes
             foreach ($ingredients as $ingredientData) {
                 $ingredient = RawIngredient::findOrFail($ingredientData['raw_ingredient_id']);
+                
+                // S1.3: Validar ownership del ingrediente
+                $this->validateIngredientOwnership($ingredient);
 
                 RecipeItem::createWithCalculation(
                     recipeId: $recipe->id,
@@ -201,4 +212,17 @@ class RecipeService
         }
     }
 
+    /**
+     * S1.3: Valida que el ingrediente pertenezca al tenant del usuario.
+     */
+    private function validateIngredientOwnership(RawIngredient $ingredient): void
+    {
+        if (!$this->tenantContext->hasCompany()) {
+            throw new \RuntimeException('TenantContext no establecido');
+        }
+
+        if ($ingredient->company_id !== $this->tenantContext->companyId()) {
+            abort(403, 'No autorizado para acceder a este ingrediente');
+        }
+    }
 }

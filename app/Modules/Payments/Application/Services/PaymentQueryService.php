@@ -5,17 +5,30 @@ namespace Modules\Payments\Application\Services;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Modules\Payments\Domain\Contracts\PaymentQueryServiceInterface;
+use App\Shared\Application\TenantContext;
 
 /**
  * Implementación del servicio de consultas de pagos.
  * 
  * F1.4a: Esta clase encapsula toda la lógica de consulta a la tabla payments,
  * permitiendo que otros módulos obtengan información sin conocer la estructura interna.
+ * 
+ * S1.3: Defensa en profundidad - valida que todos los IDs pertenezcan al tenant
+ * del usuario autenticado antes de ejecutar queries.
  */
 class PaymentQueryService implements PaymentQueryServiceInterface
 {
+    private TenantContext $tenantContext;
+
+    public function __construct(TenantContext $tenantContext)
+    {
+        $this->tenantContext = $tenantContext;
+    }
+
     public function getPaymentsByMethodInSession(int $cashSessionId): Collection
     {
+        $this->validateSessionOwnership($cashSessionId);
+
         return DB::table('payments')
             ->where('cash_session_id', $cashSessionId)
             ->where('status', 'completed')
@@ -32,6 +45,8 @@ class PaymentQueryService implements PaymentQueryServiceInterface
 
     public function getWaiterTipsInSession(int $cashSessionId, int $waiterId): float
     {
+        $this->validateSessionOwnership($cashSessionId);
+
         return (float) DB::table('payments')
             ->where('payments.cash_session_id', $cashSessionId)
             ->where('payments.status', 'completed')
@@ -43,6 +58,8 @@ class PaymentQueryService implements PaymentQueryServiceInterface
 
     public function getTipsByMethodInSession(int $cashSessionId): Collection
     {
+        $this->validateSessionOwnership($cashSessionId);
+
         return DB::table('payments')
             ->where('cash_session_id', $cashSessionId)
             ->where('status', 'completed')
@@ -59,6 +76,8 @@ class PaymentQueryService implements PaymentQueryServiceInterface
 
     public function getTipsByWaiterAndMethod(int $cashSessionId): Collection
     {
+        $this->validateSessionOwnership($cashSessionId);
+
         $payments = DB::table('payments')
             ->where('payments.cash_session_id', $cashSessionId)
             ->where('payments.status', 'completed')
@@ -77,6 +96,8 @@ class PaymentQueryService implements PaymentQueryServiceInterface
 
     public function getDailyPaymentsByMethod(int $branchId, string $dateStart, string $dateEnd): Collection
     {
+        $this->validateBranchOwnership($branchId);
+
         return DB::table('payments')
             ->join('cash_sessions', 'payments.cash_session_id', '=', 'cash_sessions.id')
             ->where('cash_sessions.branch_id', $branchId)
@@ -95,9 +116,53 @@ class PaymentQueryService implements PaymentQueryServiceInterface
 
     public function getAllPaymentsInSession(int $cashSessionId): Collection
     {
+        $this->validateSessionOwnership($cashSessionId);
+
         return DB::table('payments')
             ->where('cash_session_id', $cashSessionId)
             ->where('status', 'completed')
             ->get();
+    }
+
+    /**
+     * Valida que la sesión de caja pertenezca al tenant del usuario.
+     * 
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException
+     */
+    private function validateSessionOwnership(int $cashSessionId): void
+    {
+        if (!$this->tenantContext->hasCompany()) {
+            throw new \RuntimeException('TenantContext no establecido');
+        }
+
+        $exists = DB::table('cash_sessions')
+            ->where('id', $cashSessionId)
+            ->where('company_id', $this->tenantContext->companyId())
+            ->exists();
+
+        if (!$exists) {
+            abort(403, 'No autorizado para acceder a esta sesión de caja');
+        }
+    }
+
+    /**
+     * Valida que la sucursal pertenezca al tenant del usuario.
+     * 
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException
+     */
+    private function validateBranchOwnership(int $branchId): void
+    {
+        if (!$this->tenantContext->hasCompany()) {
+            throw new \RuntimeException('TenantContext no establecido');
+        }
+
+        $exists = DB::table('branches')
+            ->where('id', $branchId)
+            ->where('company_id', $this->tenantContext->companyId())
+            ->exists();
+
+        if (!$exists) {
+            abort(403, 'No autorizado para acceder a esta sucursal');
+        }
     }
 }

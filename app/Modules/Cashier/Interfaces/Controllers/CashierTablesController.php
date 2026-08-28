@@ -252,6 +252,14 @@ public function tablesWithBills(Request $request): JsonResponse
                 event(new OrderPaid($order));
             }
 
+            // S1.3: Validación defensiva - verificar que la mesa pertenezca al tenant
+            if ($table->company_id !== $user->company_id || $table->branch_id !== $user->branch_id) {
+                return response()->json([
+                    'error' => 'unauthorized',
+                    'message' => 'No autorizado para actualizar esta mesa',
+                ], 403);
+            }
+
             DB::table('restaurant_tables')
                 ->where('id', $table->id)
                 ->update([
@@ -405,6 +413,11 @@ public function tablesWithBills(Request $request): JsonResponse
                         ->count();
 
                     if ($activeOrdersCount === 0) {
+                        // S1.3: Validación defensiva - verificar que la mesa pertenezca al tenant
+                        if ($table->company_id !== $user->company_id || $table->branch_id !== $user->branch_id) {
+                            throw new \Exception('No autorizado para actualizar esta mesa');
+                        }
+
                         DB::table('restaurant_tables')
                             ->where('id', $table->id)
                             ->update([

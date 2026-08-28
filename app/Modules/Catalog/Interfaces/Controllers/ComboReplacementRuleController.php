@@ -3,6 +3,7 @@
 namespace Modules\Catalog\Interfaces\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Shared\Application\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use InvalidArgumentException;
@@ -22,11 +23,15 @@ use Modules\Branches\Domain\Entities\Branch;
  * - GET    /{menuItemUuid}/substitution-policies
  * - PUT    /{menuItemUuid}/items/{productUuid}/substitution-policy
  * - DELETE /{menuItemUuid}/items/{productUuid}/substitution-policy
+ * 
+ * S1.3: Defensa en profundidad - valida que todas las entities pertenezcan
+ * al tenant del usuario autenticado antes de operar.
  */
 class ComboReplacementRuleController extends Controller
 {
     public function __construct(
-        protected SetComboItemSubstitutionPolicy $setPolicyUseCase
+        protected SetComboItemSubstitutionPolicy $setPolicyUseCase,
+        protected TenantContext $tenantContext
     ) {}
 
     /**
@@ -37,21 +42,22 @@ class ComboReplacementRuleController extends Controller
      */
     public function index(string $menuItemUuid): JsonResponse
     {
-        // Sin global scopes: admin/manager pueden ver cualquier combo
         $menuItem = MenuItem::withoutGlobalScopes()
             ->where('uuid', $menuItemUuid)
             ->with('components.product')
             ->firstOrFail();
 
+        // S1.3: Validar que el menuItem pertenezca al tenant
+        $this->validateMenuItemOwnership($menuItem);
+
         $items = $menuItem->components->map(function (MenuItemProduct $component) use ($menuItem) {
-            // Cargar el producto explícitamente si el eager load falló
             $product = $component->product;
             if (!$product) {
                 $product = Product::withoutGlobalScopes()->find($component->product_id);
             }
 
             if (!$product) {
-                return null; // Skip productos sin relación
+                return null;
             }
 
             $policy = $this->resolveEffectivePolicy($menuItem, $component);
@@ -90,9 +96,16 @@ class ComboReplacementRuleController extends Controller
         $menuItem = MenuItem::withoutGlobalScopes()
             ->where('uuid', $menuItemUuid)
             ->firstOrFail();
+        
+        // S1.3: Validar ownership del menuItem
+        $this->validateMenuItemOwnership($menuItem);
+
         $targetProduct = Product::withoutGlobalScopes()
             ->where('uuid', $productUuid)
             ->firstOrFail();
+        
+        // S1.3: Validar ownership del producto
+        $this->validateProductOwnership($targetProduct);
 
         try {
             $allowedCategoryUuid = $request->input('allowed_category_id');
@@ -103,6 +116,10 @@ class ComboReplacementRuleController extends Controller
                 $category = Category::withoutGlobalScopes()
                     ->where('uuid', $allowedCategoryUuid)
                     ->firstOrFail();
+                
+                // S1.3: Validar ownership de la categoría
+                $this->validateCategoryOwnership($category);
+                
                 $allowedCategoryId = $category->id;
                 $categoryName = $category->name_translations['es'] ?? 'N/A';
             }
@@ -113,6 +130,10 @@ class ComboReplacementRuleController extends Controller
                 $branch = Branch::withoutGlobalScopes()
                     ->where('uuid', $branchUuid)
                     ->firstOrFail();
+                
+                // S1.3: Validar ownership de la sucursal
+                $this->validateBranchOwnership($branch);
+                
                 $branchId = $branch->id;
             }
 
@@ -163,9 +184,16 @@ class ComboReplacementRuleController extends Controller
         $menuItem = MenuItem::withoutGlobalScopes()
             ->where('uuid', $menuItemUuid)
             ->firstOrFail();
+        
+        // S1.3: Validar ownership del menuItem
+        $this->validateMenuItemOwnership($menuItem);
+
         $targetProduct = Product::withoutGlobalScopes()
             ->where('uuid', $productUuid)
             ->firstOrFail();
+        
+        // S1.3: Validar ownership del producto
+        $this->validateProductOwnership($targetProduct);
 
         $branchUuid = $request->input('branch_id');
         $branchId = null;
@@ -173,6 +201,10 @@ class ComboReplacementRuleController extends Controller
             $branch = Branch::withoutGlobalScopes()
                 ->where('uuid', $branchUuid)
                 ->firstOrFail();
+            
+            // S1.3: Validar ownership de la sucursal
+            $this->validateBranchOwnership($branch);
+            
             $branchId = $branch->id;
         }
 
@@ -256,5 +288,61 @@ class ComboReplacementRuleController extends Controller
             'requires_authorization' => $rule->requires_authorization,
             'scope' => $scope,
         ];
+    }
+
+    /**
+     * S1.3: Valida que el MenuItem pertenezca al tenant del usuario.
+     */
+    private function validateMenuItemOwnership(MenuItem $menuItem): void
+    {
+        if (!$this->tenantContext->hasCompany()) {
+            throw new \RuntimeException('TenantContext no establecido');
+        }
+
+        if ($menuItem->company_id !== $this->tenantContext->companyId()) {
+            abort(403, 'No autorizado para acceder a este combo');
+        }
+    }
+
+    /**
+     * S1.3: Valida que el Product pertenezca al tenant del usuario.
+     */
+    private function validateProductOwnership(Product $product): void
+    {
+        if (!$this->tenantContext->hasCompany()) {
+            throw new \RuntimeException('TenantContext no establecido');
+        }
+
+        if ($product->company_id !== $this->tenantContext->companyId()) {
+            abort(403, 'No autorizado para acceder a este producto');
+        }
+    }
+
+    /**
+     * S1.3: Valida que la Category pertenezca al tenant del usuario.
+     */
+    private function validateCategoryOwnership(Category $category): void
+    {
+        if (!$this->tenantContext->hasCompany()) {
+            throw new \RuntimeException('TenantContext no establecido');
+        }
+
+        if ($category->company_id !== $this->tenantContext->companyId()) {
+            abort(403, 'No autorizado para acceder a esta categoría');
+        }
+    }
+
+    /**
+     * S1.3: Valida que la Branch pertenezca al tenant del usuario.
+     */
+    private function validateBranchOwnership(Branch $branch): void
+    {
+        if (!$this->tenantContext->hasCompany()) {
+            throw new \RuntimeException('TenantContext no establecido');
+        }
+
+        if ($branch->company_id !== $this->tenantContext->companyId()) {
+            abort(403, 'No autorizado para acceder a esta sucursal');
+        }
     }
 }

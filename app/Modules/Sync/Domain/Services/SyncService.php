@@ -394,6 +394,24 @@ class SyncService
             throw new SyncException("Entity not found: {$entityType}::{$entityId}");
         }
 
+        // S1.3: Validación defensiva - verificar que la entidad pertenezca al tenant
+        // El servidor ya filtra por tenant, pero validamos como defensa en profundidad
+        if (isset($change['data']['company_id']) && property_exists($entity, 'company_id')) {
+            if ($entity->company_id !== $change['data']['company_id']) {
+                throw new SyncException(
+                    "Entity {$entityType}::{$entityId} does not belong to company {$change['data']['company_id']}"
+                );
+            }
+        }
+        
+        if (isset($change['data']['branch_id']) && property_exists($entity, 'branch_id')) {
+            if ($entity->branch_id !== $change['data']['branch_id']) {
+                throw new SyncException(
+                    "Entity {$entityType}::{$entityId} does not belong to branch {$change['data']['branch_id']}"
+                );
+            }
+        }
+
         // Verificar si el cliente tiene cambios pendientes (conflicto potencial)
         $hasPendingChanges = $entity->sync_status === 'pending' || 
                              ($entity->sync_status instanceof \Modules\Sync\Domain\ValueObjects\SyncStatus && 
