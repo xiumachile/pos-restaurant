@@ -242,3 +242,51 @@ test('sin autenticación no se puede suscribir a canales privados', function () 
 
     $response->assertStatus(401);
 });
+
+// ============================================
+// Gaps completados S2 - Cross-tenant y roles faltantes
+// ============================================
+
+test('waiter NO puede suscribirse a canal waiters de otra empresa', function () {
+    $waiter = createBroadcastUser('waiter', $this->companyA, $this->branchA1);
+    $response = $this->actingAs($waiter, 'api')
+        ->postJson("/api/broadcasting/auth", [
+            'channel_name' => 'private-waiters.' . $this->branchB->id,
+            'socket_id' => '123.456789',
+        ]);
+
+    $response->assertStatus(403);
+});
+
+test('cashier NO puede suscribirse a canal waiters', function () {
+    $cashier = createBroadcastUser('cashier', $this->companyA, $this->branchA1);
+    $response = $this->actingAs($cashier, 'api')
+        ->postJson("/api/broadcasting/auth", [
+            'channel_name' => 'private-waiters.' . $this->branchA1->id,
+            'socket_id' => '123.456789',
+        ]);
+
+    $response->assertStatus(403);
+});
+
+test('manager NO puede suscribirse a canal dashboard de otra empresa', function () {
+    $manager = createBroadcastUser('manager', $this->companyA, $this->branchA1);
+    $response = $this->actingAs($manager, 'api')
+        ->postJson("/api/broadcasting/auth", [
+            'channel_name' => 'private-dashboard.' . $this->companyB->id,
+            'socket_id' => '123.456789',
+        ]);
+
+    $response->assertStatus(403);
+});
+
+test('cashier NO puede suscribirse a canal dashboard', function () {
+    $cashier = createBroadcastUser('cashier', $this->companyA, $this->branchA1);
+    $response = $this->actingAs($cashier, 'api')
+        ->postJson("/api/broadcasting/auth", [
+            'channel_name' => 'private-dashboard.' . $this->companyA->id,
+            'socket_id' => '123.456789',
+        ]);
+
+    $response->assertStatus(403);
+});
