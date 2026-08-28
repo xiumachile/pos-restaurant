@@ -6,22 +6,38 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\Catalog\Domain\Entities\Category;
+use Modules\Catalog\Domain\Services\CategoryManagementService;
 use Modules\Catalog\Interfaces\Requests\CreateCategoryRequest;
 use Modules\Catalog\Interfaces\Requests\UpdateCategoryRequest;
 
+/**
+ * Controller para gestión de categorías.
+ *
+ * Refactorizado en S5: toda la lógica de negocio delegada a
+ * CategoryManagementService.
+ *
+ * Este controller solo orquesta HTTP:
+ * - valida inputs mediante Form Requests
+ * - delega al servicio de dominio
+ * - retorna respuestas JSON
+ */
 class CategoryController extends Controller
 {
+    public function __construct(
+        private CategoryManagementService $categoryService
+    ) {
+    }
+
     /**
      * GET /api/v1/catalog/categories
      */
     public function index(Request $request): JsonResponse
     {
-        $categories = Category::query()
-            ->with('parent')
-            ->when($request->has('active_only'), fn($q) => $q->where('is_active', true))
-            ->orderBy('sort_order')
-            ->orderBy('name_translations->es')
-            ->get();
+        $activeOnly = $request->has('active_only') ? true : null;
+
+        $categories = $this->categoryService->listCategories(
+            $activeOnly
+        );
 
         return response()->json([
             'success' => true,
@@ -37,7 +53,7 @@ class CategoryController extends Controller
         $category = Category::with('parent')
             ->where('uuid', $uuid)
             ->firstOrFail();
-        
+
         return response()->json([
             'success' => true,
             'data' => $category,
@@ -49,89 +65,52 @@ class CategoryController extends Controller
      */
     public function store(CreateCategoryRequest $request): JsonResponse
     {
-        $data = $request->validated();
-        $user = $request->user();
+        try {
+            $category = $this->categoryService->createCategory(
+                $request->validated(),
+                $request->user()
+            );
 
-        // Resolver parent_id si viene
-        $parentId = null;
-        $depth = 0;
-        
-        if (!empty($data['parent_id'])) {
-            $parent = Category::where('uuid', $data['parent_id'])->firstOrFail();
-            
-            // Validar profundidad máxima (2 niveles: raíz + subcategoría)
-            if ($parent->depth >= 1) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'No se permiten más de 2 niveles de categorías.',
-                ], 422);
-            }
-            
-            $parentId = $parent->id;
-            $depth = $parent->depth + 1;
+            return response()->json([
+                'success' => true,
+                'data' => $category->load('parent'),
+            ], 201);
+        } catch (\DomainException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], 422);
         }
-
-        $category = Category::create([
-            'company_id' => $user->company_id,
-            'branch_id' => $user->branch_id,
-            'parent_id' => $parentId,
-            'depth' => $depth,
-            'name_translations' => $data['name_translations'],
-            'sort_order' => $data['sort_order'] ?? 0,
-            'is_active' => $data['is_active'] ?? true,
-            'tax_id' => $data['tax_id'] ?? null,
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'data' => $category->load('parent'),
-        ], 201);
     }
 
     /**
      * PUT /api/v1/catalog/categories/{uuid}
      */
-    public function update(UpdateCategoryRequest $request, string $uuid): JsonResponse
-    {
-        $category = Category::where('uuid', $uuid)->firstOrFail();
-        $data = $request->validated();
+    public function update(
+        UpdateCategoryRequest $request,
+        string $uuid
+    ): JsonResponse {
+        $category = Category::where(
+            'uuid',
+            $uuid
+        )->firstOrFail();
 
-        // Resolver parent_id si viene
-        if (array_key_exists('parent_id', $data)) {
-            if (!empty($data['parent_id'])) {
-                // No permitir asignarse a sí mismo como padre
-                if ($data['parent_id'] === $category->uuid) {
-                    return response()->json([
-                        'success' => false,
-                        'error' => 'Una categoría no puede ser su propio padre.',
-                    ], 422);
-                }
+        try {
+            $updatedCategory = $this->categoryService->updateCategory(
+                $category,
+                $request->validated()
+            );
 
-                $parent = Category::where('uuid', $data['parent_id'])->firstOrFail();
-                
-                // Validar profundidad máxima
-                if ($parent->depth >= 1) {
-                    return response()->json([
-                        'success' => false,
-                        'error' => 'No se permiten más de 2 niveles de categorías.',
-                    ], 422);
-                }
-
-                $data['parent_id'] = $parent->id;
-                $data['depth'] = $parent->depth + 1;
-            } else {
-                // parent_id = null (convertir a raíz)
-                $data['parent_id'] = null;
-                $data['depth'] = 0;
-            }
+            return response()->json([
+                'success' => true,
+                'data' => $updatedCategory,
+            ]);
+        } catch (\DomainException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], 422);
         }
-
-        $category->update($data);
-
-        return response()->json([
-            'success' => true,
-            'data' => $category->fresh('parent'),
-        ]);
     }
 
     /**
@@ -139,31 +118,23 @@ class CategoryController extends Controller
      */
     public function destroy(string $uuid): JsonResponse
     {
-        $category = Category::where('uuid', $uuid)->firstOrFail();
+        $category = Category::where(
+            'uuid',
+            $uuid
+        )->firstOrFail();
 
-        // Validar que no tenga productos activos
-        if ($category->products()->where('is_active', true)->exists()) {
+        try {
+            $this->categoryService->deleteCategory($category);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Categoría eliminada correctamente.',
+            ]);
+        } catch (\DomainException $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'No se puede eliminar una categoría con productos activos.',
-                'active_products_count' => $category->products()->where('is_active', true)->count(),
+                'error' => $e->getMessage(),
             ], 422);
         }
-
-        // Validar que no tenga subcategorías
-        if ($category->children()->exists()) {
-            return response()->json([
-                'success' => false,
-                'error' => 'No se puede eliminar una categoría con subcategorías.',
-                'children_count' => $category->children()->count(),
-            ], 422);
-        }
-
-        $category->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Categoría eliminada correctamente.',
-        ]);
     }
 }
