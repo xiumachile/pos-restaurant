@@ -25,11 +25,12 @@ class BillController extends Controller
      */
     public function split(SplitBillRequest $request, string $uuid): JsonResponse
     {
-        // DEBUG: Log del request ANTES de validación
-        
         $validated = $request->validated();
         
-        $order = Order::where('uuid', $uuid)->with('items')->firstOrFail();
+        $order = Order::where('uuid', $uuid)
+            ->where('company_id', $request->user()->company_id)
+            ->with('items')
+            ->firstOrFail();
 
         try {
             $type = $validated['type'];

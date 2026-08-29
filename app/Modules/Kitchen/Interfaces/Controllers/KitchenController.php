@@ -154,7 +154,9 @@ class KitchenController extends Controller
     public function assignCook(AssignCookRequest $request, string $uuid): JsonResponse
     {
         $validated = $request->validated();
-        $order = Order::where('uuid', $uuid)->firstOrFail();
+        $order = Order::where('uuid', $uuid)
+            ->where('company_id', $request->user()->company_id)
+            ->firstOrFail();
 
         if (!$order->status->isInKitchenQueue()) {
             return response()->json([
@@ -182,7 +184,9 @@ class KitchenController extends Controller
     public function updatePriority(UpdatePriorityRequest $request, string $uuid): JsonResponse
     {
         $validated = $request->validated();
-        $order = Order::where('uuid', $uuid)->firstOrFail();
+        $order = Order::where('uuid', $uuid)
+            ->where('company_id', $request->user()->company_id)
+            ->firstOrFail();
 
         if ($order->status->isFinalState()) {
             return response()->json([

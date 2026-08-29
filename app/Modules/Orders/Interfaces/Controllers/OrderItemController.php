@@ -15,7 +15,9 @@ class OrderItemController extends Controller
 {
     public function store(AddItemRequest $request, string $orderUuid): JsonResponse
     {
-        $order = Order::where('uuid', $orderUuid)->firstOrFail();
+        $order = Order::where('uuid', $orderUuid)
+            ->where('company_id', $request->user()->company_id)
+            ->firstOrFail();
 
         if (!$order->isEditable()) {
             return response()->json([
@@ -95,7 +97,9 @@ class OrderItemController extends Controller
 
     public function destroy(string $orderUuid, string $itemUuid): JsonResponse
     {
-        $order = Order::where('uuid', $orderUuid)->firstOrFail();
+        $order = Order::where('uuid', $orderUuid)
+            ->where('company_id', request()->user()->company_id)
+            ->firstOrFail();
 
         if (!$order->isEditable()) {
             return response()->json([

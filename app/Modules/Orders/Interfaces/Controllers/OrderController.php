@@ -91,7 +91,9 @@ class OrderController extends Controller
      */
     public function update(UpdateOrderRequest $request, string $uuid): JsonResponse
     {
-        $order = Order::where('uuid', $uuid)->firstOrFail();
+        $order = Order::where('uuid', $uuid)
+            ->where('company_id', $request->user()->company_id)
+            ->firstOrFail();
 
         if (!$order->isEditable()) {
             return response()->json([
@@ -151,7 +153,9 @@ class OrderController extends Controller
      */
     public function destroy(string $uuid): JsonResponse
     {
-        $order = Order::where('uuid', $uuid)->firstOrFail();
+        $order = Order::where('uuid', $uuid)
+            ->where('company_id', request()->user()->company_id)
+            ->firstOrFail();
 
         $this->authorize('delete', $order);
 

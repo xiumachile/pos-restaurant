@@ -28,12 +28,16 @@ class PaymentController extends Controller
         $validated = $request->validated();
         $user = $request->user();
 
-        $order = Order::where('uuid', $validated['order_uuid'])->firstOrFail();
+        $order = Order::where('uuid', $validated['order_uuid'])
+            ->where('company_id', $user->company_id)
+            ->firstOrFail();
         $paymentMethod = PaymentMethod::forBranch($user->branch_id)->where('uuid', $validated['payment_method_uuid'])->firstOrFail();
 
         $bill = null;
         if (!empty($validated['bill_uuid'])) {
-            $bill = Bill::where('uuid', $validated['bill_uuid'])->firstOrFail();
+            $bill = Bill::where('uuid', $validated['bill_uuid'])
+                ->where('company_id', $user->company_id)
+                ->firstOrFail();
         }
 
         try {
