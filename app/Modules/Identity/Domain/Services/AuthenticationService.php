@@ -78,7 +78,8 @@ class AuthenticationService
      */
     public function logout(): void
     {
-        JWTAuth::parseToken()->invalidate();
+        // Forzar invalidación inmediata (ignora blacklist_grace_period)
+        JWTAuth::parseToken()->invalidate(true);
     }
 
     /**
