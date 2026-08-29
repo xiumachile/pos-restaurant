@@ -75,14 +75,6 @@ beforeEach(function () {
     ]);
 });
 
-function authHeaders(string $token): array
-{
-    return [
-        'Authorization' => 'Bearer ' . $token,
-        'Accept' => 'application/json',
-    ];
-}
-
 // ============================================
 // POST /api/v1/companies
 // ============================================
@@ -317,16 +309,3 @@ test('admin NO puede actualizar capabilities de otra empresa', function () {
     $response->assertStatus(403);
 });
 
-// ============================================
-// Helper para login
-// ============================================
-
-function loginAs(User $user): string
-{
-    $response = test()->postJson('/api/v1/auth/login', [
-        'email' => $user->email,
-        'password' => 'password123',
-    ]);
-
-    return $response->json('access_token');
-}

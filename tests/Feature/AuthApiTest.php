@@ -73,14 +73,6 @@ beforeEach(function () {
     ]);
 });
 
-function authHeaders(string $token): array
-{
-    return [
-        'Authorization' => 'Bearer ' . $token,
-        'Accept' => 'application/json',
-    ];
-}
-
 // ============================================
 // POST /api/v1/auth/login
 // ============================================

@@ -78,3 +78,30 @@ function something()
 {
     // ..
 }
+
+/**
+ * Genera headers de autenticación para requests con token JWT.
+ */
+function authHeaders(string $token): array
+{
+    return [
+        'Authorization' => 'Bearer ' . $token,
+        'Accept' => 'application/json',
+    ];
+}
+
+/**
+ * Hace login con un usuario y retorna el access_token.
+ * Útil en tests que requieren autenticación antes de llamar al endpoint bajo prueba.
+ */
+function loginAs(
+    \Modules\Identity\Domain\Entities\User $user,
+    string $password = 'password123'
+): string {
+    $response = test()->postJson('/api/v1/auth/login', [
+        'email' => $user->email,
+        'password' => $password,
+    ]);
+
+    return $response->json('access_token');
+}
