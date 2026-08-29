@@ -54,7 +54,9 @@ class CashSessionController extends Controller
     public function close(CloseCashSessionRequest $request, string $uuid): JsonResponse
     {
         $validated = $request->validated();
-        $session = CashSession::where('uuid', $uuid)->firstOrFail();
+        $session = CashSession::where('uuid', $uuid)
+            ->where('company_id', $request->user()->company_id)
+            ->firstOrFail();
 
         try {
             $session = $this->cashSessionService->closeSession(

@@ -102,7 +102,9 @@ class RecipeController extends Controller
     {
         $validated = $request->validated();
 
-        $recipe = ProductRecipe::where('uuid', $uuid)->firstOrFail();
+        $recipe = ProductRecipe::where('uuid', $uuid)
+            ->where('company_id', $request->user()->company_id)
+            ->firstOrFail();
 
         $recipe = $this->recipeService->updateRecipe(
             recipe: $recipe,
@@ -134,7 +136,9 @@ class RecipeController extends Controller
      */
     public function destroy(Request $request, string $uuid): JsonResponse
     {
-        $recipe = ProductRecipe::where('uuid', $uuid)->firstOrFail();
+        $recipe = ProductRecipe::where('uuid', $uuid)
+            ->where('company_id', $request->user()->company_id)
+            ->firstOrFail();
 
         $recipe->delete();
 

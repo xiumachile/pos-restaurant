@@ -16,7 +16,9 @@ class ProductPriceController extends Controller
      */
     public function index(string $uuid): JsonResponse
     {
-        $product = Product::where('uuid', $uuid)->firstOrFail();
+        $product = Product::where('uuid', $uuid)
+            ->where('company_id', request()->user()->company_id)
+            ->firstOrFail();
 
         return response()->json([
             'success' => true,
@@ -30,10 +32,14 @@ class ProductPriceController extends Controller
      */
     public function upsert(UpsertProductPricesRequest $request, string $uuid): JsonResponse
     {
-        $product = Product::where('uuid', $uuid)->firstOrFail();
+        $product = Product::where('uuid', $uuid)
+            ->where('company_id', $request->user()->company_id)
+            ->firstOrFail();
 
         foreach ($request->input('prices', []) as $item) {
-            $list = PriceList::where('uuid', $item['price_list_id'])->firstOrFail();
+            $list = PriceList::where('uuid', $item['price_list_id'])
+                ->where('company_id', $request->user()->company_id)
+                ->firstOrFail();
 
             ProductPrice::updateOrCreate(
                 ['product_id' => $product->id, 'price_list_id' => $list->id],
@@ -52,8 +58,12 @@ class ProductPriceController extends Controller
      */
     public function destroy(string $productUuid, string $priceListUuid): JsonResponse
     {
-        $product = Product::where('uuid', $productUuid)->firstOrFail();
-        $list = PriceList::where('uuid', $priceListUuid)->firstOrFail();
+        $product = Product::where('uuid', $productUuid)
+            ->where('company_id', request()->user()->company_id)
+            ->firstOrFail();
+        $list = PriceList::where('uuid', $priceListUuid)
+            ->where('company_id', request()->user()->company_id)
+            ->firstOrFail();
 
         $deleted = ProductPrice::where('product_id', $product->id)
             ->where('price_list_id', $list->id)

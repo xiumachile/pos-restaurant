@@ -58,7 +58,9 @@ class CashCountController extends Controller
         $validated = $request->validated();
         $user = $request->user();
 
-        $session = CashSession::where('uuid', $validated['session_uuid'])->firstOrFail();
+        $session = CashSession::where('uuid', $validated['session_uuid'])
+            ->where('company_id', $user->company_id)
+            ->firstOrFail();
         $type = CashCountType::from($validated['type']);
 
         try {

@@ -53,6 +53,7 @@ class ProductController extends Controller
     {
         $product = Product::with(['category', 'menuItem'])
             ->where('uuid', $uuid)
+            ->where('company_id', request()->user()->company_id)
             ->firstOrFail();
 
         $arr = $product->toArray();
@@ -73,7 +74,9 @@ class ProductController extends Controller
         $user = $request->user();
 
         // Resolver category_id desde UUID
-        $category = Category::where('uuid', $data['category_id'])->firstOrFail();
+        $category = Category::where('uuid', $data['category_id'])
+            ->where('company_id', $user->company_id)
+            ->firstOrFail();
         $data['category_id'] = $category->id;
 
         $data['company_id'] = $user->company_id;
@@ -92,12 +95,16 @@ class ProductController extends Controller
      */
     public function update(UpdateProductRequest $request, string $uuid): JsonResponse
     {
-        $product = Product::where('uuid', $uuid)->firstOrFail();
+        $product = Product::where('uuid', $uuid)
+            ->where('company_id', $request->user()->company_id)
+            ->firstOrFail();
         $data = $request->validated();
 
         // Resolver category_id si viene
         if (isset($data['category_id'])) {
-            $category = Category::where('uuid', $data['category_id'])->firstOrFail();
+            $category = Category::where('uuid', $data['category_id'])
+                ->where('company_id', $request->user()->company_id)
+                ->firstOrFail();
             $data['category_id'] = $category->id;
         }
 
@@ -114,7 +121,9 @@ class ProductController extends Controller
      */
     public function destroy(string $uuid): JsonResponse
     {
-        $product = Product::where('uuid', $uuid)->firstOrFail();
+        $product = Product::where('uuid', $uuid)
+            ->where('company_id', request()->user()->company_id)
+            ->firstOrFail();
 
         // Validar que no tenga órdenes activas
         $activeOrders = OrderItem::where('product_id', $product->id)

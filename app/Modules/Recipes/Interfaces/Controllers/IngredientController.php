@@ -74,7 +74,9 @@ class IngredientController extends Controller
      */
     public function show(Request $request, string $uuid): JsonResponse
     {
-        $ingredient = RawIngredient::where('uuid', $uuid)->firstOrFail();
+        $ingredient = RawIngredient::where('uuid', $uuid)
+            ->where('company_id', $request->user()->company_id)
+            ->firstOrFail();
 
         return RawIngredientResource::make($ingredient)->response();
     }
@@ -88,7 +90,9 @@ class IngredientController extends Controller
         $validated = $request->validated();
         $user = $request->user();
 
-        $ingredient = RawIngredient::where('uuid', $uuid)->firstOrFail();
+        $ingredient = RawIngredient::where('uuid', $uuid)
+            ->where('company_id', $user->company_id)
+            ->firstOrFail();
 
         $purchase = $this->ingredientService->registerPurchase(
             ingredient: $ingredient,
@@ -119,7 +123,9 @@ class IngredientController extends Controller
      */
     public function purchases(Request $request, string $uuid): JsonResponse
     {
-        $ingredient = RawIngredient::where('uuid', $uuid)->firstOrFail();
+        $ingredient = RawIngredient::where('uuid', $uuid)
+            ->where('company_id', $request->user()->company_id)
+            ->firstOrFail();
 
         $history = $this->ingredientService->getPurchaseHistory(
             ingredientId: $ingredient->id,

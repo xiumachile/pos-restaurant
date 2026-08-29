@@ -66,7 +66,9 @@ class PriceListController extends Controller
      */
     public function update(UpdatePriceListRequest $request, string $uuid): JsonResponse
     {
-        $list = PriceList::where('uuid', $uuid)->firstOrFail();
+        $list = PriceList::where('uuid', $uuid)
+            ->where('company_id', $request->user()->company_id)
+            ->firstOrFail();
         $data = $request->validated();
         $user = $request->user();
 
@@ -90,7 +92,9 @@ class PriceListController extends Controller
      */
     public function destroy(string $uuid): JsonResponse
     {
-        $list = PriceList::where('uuid', $uuid)->firstOrFail();
+        $list = PriceList::where('uuid', $uuid)
+            ->where('company_id', request()->user()->company_id)
+            ->firstOrFail();
 
         if ($list->prices()->exists()) {
             return response()->json([

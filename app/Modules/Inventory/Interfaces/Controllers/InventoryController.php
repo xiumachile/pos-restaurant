@@ -86,7 +86,9 @@ class InventoryController extends Controller
      */
     public function show(string $uuid): JsonResponse
     {
-        $item = InventoryItem::where('uuid', $uuid)->firstOrFail();
+        $item = InventoryItem::where('uuid', $uuid)
+            ->where('company_id', request()->user()->company_id)
+            ->firstOrFail();
 
         return InventoryItemResource::make($item)->response();
     }
@@ -97,7 +99,9 @@ class InventoryController extends Controller
      */
     public function update(StoreInventoryItemRequest $request, string $uuid): JsonResponse
     {
-        $item = InventoryItem::where('uuid', $uuid)->firstOrFail();
+        $item = InventoryItem::where('uuid', $uuid)
+            ->where('company_id', $request->user()->company_id)
+            ->firstOrFail();
         $validated = $request->validated();
 
         $item->update($validated);
@@ -111,11 +115,15 @@ class InventoryController extends Controller
      */
     public function movement(RecordMovementRequest $request, string $uuid): JsonResponse
     {
-        $item = InventoryItem::where('uuid', $uuid)->firstOrFail();
+        $item = InventoryItem::where('uuid', $uuid)
+            ->where('company_id', $request->user()->company_id)
+            ->firstOrFail();
         $validated = $request->validated();
         $user = $request->user();
 
-        $branch = Branch::where('uuid', $validated['branch_uuid'])->firstOrFail();
+        $branch = Branch::where('uuid', $validated['branch_uuid'])
+            ->where('company_id', $user->company_id)
+            ->firstOrFail();
 
         try {
             $movement = $this->inventoryService->recordMovement(
@@ -144,7 +152,9 @@ class InventoryController extends Controller
      */
     public function movements(Request $request, string $uuid): JsonResponse
     {
-        $item = InventoryItem::where('uuid', $uuid)->firstOrFail();
+        $item = InventoryItem::where('uuid', $uuid)
+            ->where('company_id', $request->user()->company_id)
+            ->firstOrFail();
 
         $query = $item->movements()->with('user');
 

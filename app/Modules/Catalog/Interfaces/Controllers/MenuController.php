@@ -45,7 +45,10 @@ class MenuController extends Controller
      */
     public function show(string $uuid): JsonResponse
     {
-        $menu = Menu::with(['priceList', 'activations'])->where('uuid', $uuid)->firstOrFail();
+        $menu = Menu::with(['priceList', 'activations'])
+            ->where('uuid', $uuid)
+            ->where('company_id', request()->user()->company_id)
+            ->firstOrFail();
         $data = $this->menuService->getMenuWithItems($menu);
 
         return response()->json([
@@ -101,7 +104,9 @@ class MenuController extends Controller
      */
     public function update(UpdateMenuRequest $request, string $uuid): JsonResponse
     {
-        $menu = Menu::where('uuid', $uuid)->firstOrFail();
+        $menu = Menu::where('uuid', $uuid)
+            ->where('company_id', $request->user()->company_id)
+            ->firstOrFail();
         $data = $request->validated();
         $user = $request->user();
         $isDefault = $request->boolean('is_default');
@@ -119,7 +124,9 @@ class MenuController extends Controller
      */
     public function destroy(string $uuid): JsonResponse
     {
-        $menu = Menu::where('uuid', $uuid)->firstOrFail();
+        $menu = Menu::where('uuid', $uuid)
+            ->where('company_id', request()->user()->company_id)
+            ->firstOrFail();
 
         $this->menuService->deleteMenu($menu);
 
@@ -135,7 +142,9 @@ class MenuController extends Controller
      */
     public function upsertActivations(UpsertMenuActivationsRequest $request, string $uuid): JsonResponse
     {
-        $menu = Menu::where('uuid', $uuid)->firstOrFail();
+        $menu = Menu::where('uuid', $uuid)
+            ->where('company_id', $request->user()->company_id)
+            ->firstOrFail();
         $created = $this->menuService->replaceActivations($menu, $request->input('activations', []));
 
         return response()->json([
@@ -150,7 +159,9 @@ class MenuController extends Controller
      */
     public function assignProducts(AssignMenuProductsRequest $request, string $uuid): JsonResponse
     {
-        $menu = Menu::where('uuid', $uuid)->firstOrFail();
+        $menu = Menu::where('uuid', $uuid)
+            ->where('company_id', $request->user()->company_id)
+            ->firstOrFail();
         $assigned = $this->menuService->assignProducts($menu, $request->input('products', []));
 
         return response()->json([

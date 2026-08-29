@@ -29,9 +29,15 @@ class ComboSubstitutionController extends Controller
             'quantity' => 'required|integer|min:1|max:100',
         ]);
 
-        $menuItem = MenuItem::where('uuid', $validated['menu_item_uuid'])->firstOrFail();
-        $originalProduct = Product::where('uuid', $validated['original_product_uuid'])->firstOrFail();
-        $replacementProduct = Product::where('uuid', $validated['replacement_product_uuid'])->firstOrFail();
+        $menuItem = MenuItem::where('uuid', $validated['menu_item_uuid'])
+            ->where('company_id', $request->user()->company_id)
+            ->firstOrFail();
+        $originalProduct = Product::where('uuid', $validated['original_product_uuid'])
+            ->where('company_id', $request->user()->company_id)
+            ->firstOrFail();
+        $replacementProduct = Product::where('uuid', $validated['replacement_product_uuid'])
+            ->where('company_id', $request->user()->company_id)
+            ->firstOrFail();
 
         $result = $this->validator->execute(
             $menuItem,

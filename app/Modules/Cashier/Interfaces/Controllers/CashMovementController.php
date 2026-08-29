@@ -55,12 +55,16 @@ class CashMovementController extends Controller
         $validated = $request->validated();
         $user = $request->user();
 
-        $session = CashSession::where('uuid', $validated['session_uuid'])->firstOrFail();
+        $session = CashSession::where('uuid', $validated['session_uuid'])
+            ->where('company_id', $user->company_id)
+            ->firstOrFail();
         $type = MovementType::from($validated['type']);
         
         $authorizer = null;
         if (!empty($validated['authorizer_uuid'])) {
-            $authorizer = User::where('uuid', $validated['authorizer_uuid'])->firstOrFail();
+            $authorizer = User::where('uuid', $validated['authorizer_uuid'])
+                ->where('company_id', $user->company_id)
+                ->firstOrFail();
         }
 
         try {
@@ -117,7 +121,9 @@ class CashMovementController extends Controller
             ], 422);
         }
 
-        $session = CashSession::where('uuid', $sessionUuid)->firstOrFail();
+        $session = CashSession::where('uuid', $sessionUuid)
+            ->where('company_id', $request->user()->company_id)
+            ->firstOrFail();
         $summary = $this->movementService->getSessionSummary($session);
 
         return response()->json(['data' => $summary]);
