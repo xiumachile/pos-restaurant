@@ -68,7 +68,10 @@ class BillController extends Controller
      */
     public function index(Request $request, string $uuid): JsonResponse
     {
-        $order = Order::where('uuid', $uuid)->firstOrFail();
+        $user = $request->user();
+        $order = Order::where('uuid', $uuid)
+            ->where('company_id', $user->company_id)
+            ->firstOrFail();
 
         $bills = Bill::where('order_id', $order->id)
             ->whereNotIn('status', ['cancelled'])

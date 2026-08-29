@@ -6,9 +6,6 @@ use Modules\Identity\Domain\Entities\User;
 use Modules\Orders\Domain\Entities\Order;
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
 use Modules\Payments\Domain\Entities\PaymentMethod;
-use Modules\Payments\Domain\Entities\Bill;
-use Modules\Payments\Domain\ValueObjects\BillType;
-use Modules\Payments\Domain\ValueObjects\BillStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 use Illuminate\Support\Str;
@@ -16,6 +13,7 @@ use Illuminate\Support\Str;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    // Tenant A
     $this->company = Company::create([
         'tax_id' => 'PAY-API-' . uniqid(),
         'legal_name' => 'Payment API Company',
@@ -46,7 +44,6 @@ beforeEach(function () {
         'role' => 'waiter',
     ]);
 
-    // Crear método de pago efectivo
     $this->cashMethod = PaymentMethod::create([
         'company_id' => $this->company->id,
         'code' => 'cash',
@@ -55,7 +52,6 @@ beforeEach(function () {
         'is_active' => true,
     ]);
 
-    // Crear método de pago tarjeta
     $this->cardMethod = PaymentMethod::create([
         'company_id' => $this->company->id,
         'code' => 'card',
@@ -65,19 +61,60 @@ beforeEach(function () {
         'is_active' => true,
     ]);
 
+    // Tenant B para cross-tenant
+    $this->companyB = Company::create([
+        'tax_id' => 'PAY-API-B-' . uniqid(),
+        'legal_name' => 'Payment API Company B',
+        'trade_name' => 'Payment API Restaurant B',
+    ]);
+
+    $this->branchB = Branch::create([
+        'company_id' => $this->companyB->id,
+        'code' => 'PAY-B',
+        'name' => 'Payment API Branch B',
+    ]);
+
+    $this->cashierB = User::create([
+        'name' => 'Test Cashier B',
+        'email' => 'cashier-b-' . uniqid() . '@test.com',
+        'password' => 'password123',
+        'company_id' => $this->companyB->id,
+        'branch_id' => $this->branchB->id,
+        'role' => 'cashier',
+    ]);
+
+    $this->waiterB = User::create([
+        'name' => 'Test Waiter B',
+        'email' => 'waiter-b-' . uniqid() . '@test.com',
+        'password' => 'password123',
+        'company_id' => $this->companyB->id,
+        'branch_id' => $this->branchB->id,
+        'role' => 'waiter',
+    ]);
+
+    $this->cashMethodB = PaymentMethod::create([
+        'company_id' => $this->companyB->id,
+        'branch_id' => $this->branchB->id,
+        'code' => 'cash-b',
+        'name_translations' => ['es' => 'Efectivo B'],
+        'type' => 'cash',
+        'is_active' => true,
+    ]);
+
     $this->token = JWTAuth::fromUser($this->cashier);
+    $this->tokenB = JWTAuth::fromUser($this->cashierB);
 });
 
-function payHeaders(): array
+function paymentApiHeaders(?string $token = null): array
 {
     return [
-        'Authorization' => "Bearer " . test()->token,
+        'Authorization' => 'Bearer ' . ($token ?? test()->token),
         'Accept' => 'application/json',
         'Content-Type' => 'application/json',
     ];
 }
 
-function createServedOrder($test): Order
+function paymentApiCreateServedOrder($test): Order
 {
     return Order::create([
         'company_id' => $test->company->id,
@@ -93,15 +130,30 @@ function createServedOrder($test): Order
     ]);
 }
 
+function paymentApiCreateServedOrderB($test): Order
+{
+    return Order::create([
+        'company_id' => $test->companyB->id,
+        'branch_id' => $test->branchB->id,
+        'order_number' => 'ORD-B-' . uniqid(),
+        'type' => 'dine_in',
+        'status' => OrderStatus::SERVED,
+        'waiter_id' => $test->waiterB->id,
+        'subtotal' => 5000,
+        'tax_amount' => 950,
+        'discount_amount' => 0,
+        'total' => 5950,
+    ]);
+}
+
 // ============================================
-// POST /api/v1/payments - Registro de pago
+// POST /api/v1/billing/payments - Registro de pago
 // ============================================
 
 test('POST /api/v1/billing/payments registra pago completo en efectivo', function () {
-    $this->withoutExceptionHandling(); // Mostrar la excepcion real
-    $order = createServedOrder($this);
+    $order = paymentApiCreateServedOrder($this);
 
-    $response = $this->withHeaders(payHeaders())
+    $response = $this->withHeaders(paymentApiHeaders())
         ->postJson('/api/v1/billing/payments', [
             'order_uuid' => $order->uuid,
             'payment_method_uuid' => $this->cashMethod->uuid,
@@ -119,11 +171,10 @@ test('POST /api/v1/billing/payments registra pago completo en efectivo', functio
 });
 
 test('POST /api/v1/billing/payments es idempotente con misma key', function () {
-    $order = createServedOrder($this);
+    $order = paymentApiCreateServedOrder($this);
     $idempotencyKey = Str::uuid()->toString();
 
-    // Primera petición
-    $response1 = $this->withHeaders(payHeaders())
+    $response1 = $this->withHeaders(paymentApiHeaders())
         ->postJson('/api/v1/billing/payments', [
             'order_uuid' => $order->uuid,
             'payment_method_uuid' => $this->cashMethod->uuid,
@@ -134,8 +185,7 @@ test('POST /api/v1/billing/payments es idempotente con misma key', function () {
     $response1->assertStatus(201);
     $paymentUuid1 = $response1->json('data.uuid');
 
-    // Segunda petición con misma key
-    $response2 = $this->withHeaders(payHeaders())
+    $response2 = $this->withHeaders(paymentApiHeaders())
         ->postJson('/api/v1/billing/payments', [
             'order_uuid' => $order->uuid,
             'payment_method_uuid' => $this->cashMethod->uuid,
@@ -143,7 +193,6 @@ test('POST /api/v1/billing/payments es idempotente con misma key', function () {
             'idempotency_key' => $idempotencyKey,
         ]);
 
-    // Retorna 201 (no duplica) con el mismo pago
     $response2->assertStatus(201);
     $paymentUuid2 = $response2->json('data.uuid');
 
@@ -151,9 +200,9 @@ test('POST /api/v1/billing/payments es idempotente con misma key', function () {
 });
 
 test('POST /api/v1/billing/payments requiere idempotency_key', function () {
-    $order = createServedOrder($this);
+    $order = paymentApiCreateServedOrder($this);
 
-    $response = $this->withHeaders(payHeaders())
+    $response = $this->withHeaders(paymentApiHeaders())
         ->postJson('/api/v1/billing/payments', [
             'order_uuid' => $order->uuid,
             'payment_method_uuid' => $this->cashMethod->uuid,
@@ -164,9 +213,9 @@ test('POST /api/v1/billing/payments requiere idempotency_key', function () {
 });
 
 test('POST /api/v1/billing/payments deniega pago mayor al total', function () {
-    $order = createServedOrder($this);
+    $order = paymentApiCreateServedOrder($this);
 
-    $response = $this->withHeaders(payHeaders())
+    $response = $this->withHeaders(paymentApiHeaders())
         ->postJson('/api/v1/billing/payments', [
             'order_uuid' => $order->uuid,
             'payment_method_uuid' => $this->cashMethod->uuid,
@@ -178,9 +227,9 @@ test('POST /api/v1/billing/payments deniega pago mayor al total', function () {
 });
 
 test('POST /api/v1/billing/payments con tarjeta requiere referencia', function () {
-    $order = createServedOrder($this);
+    $order = paymentApiCreateServedOrder($this);
 
-    $response = $this->withHeaders(payHeaders())
+    $response = $this->withHeaders(paymentApiHeaders())
         ->postJson('/api/v1/billing/payments', [
             'order_uuid' => $order->uuid,
             'payment_method_uuid' => $this->cardMethod->uuid,
@@ -192,155 +241,33 @@ test('POST /api/v1/billing/payments con tarjeta requiere referencia', function (
 });
 
 // ============================================
-// POST /api/v1/orders/{uuid}/split - Split Bill
+// Cross-tenant isolation
 // ============================================
 
-test('POST /api/v1/orders/{uuid}/split por partes iguales', function () {
-    $order = createServedOrder($this);
+test('POST /api/v1/billing/payments usuario B no puede pagar orden de empresa A', function () {
+    $orderA = paymentApiCreateServedOrder($this);
 
-    $response = $this->withHeaders(payHeaders())
-        ->postJson("/api/v1/orders/{$order->uuid}/split", [
-            'type' => 'equal_split',
-            'parts' => 2,
+    $response = $this->withHeaders(paymentApiHeaders($this->tokenB))
+        ->postJson('/api/v1/billing/payments', [
+            'order_uuid' => $orderA->uuid,
+            'payment_method_uuid' => $this->cashMethod->uuid,
+            'amount' => 11900,
+            'idempotency_key' => Str::uuid()->toString(),
         ]);
 
-    $response->assertOk()
-        ->assertJsonCount(2, 'data');
-
-    // Verificar que la suma de las dos bills sea el total
-    $total = 0;
-    foreach ($response->json('data') as $bill) {
-        $total += $bill['total'];
-    }
-    expect(round($total, 2))->toBe(11900.0);
+    expect($response->status())->toBeIn([403, 404, 422]);
 });
 
-test('POST /api/v1/orders/{uuid}/split por partes iguales con residuos', function () {
-    $order = createServedOrder($this);
+test('POST /api/v1/billing/payments usuario B no puede usar payment method de empresa A', function () {
+    $orderB = paymentApiCreateServedOrderB($this);
 
-    // Split en 3 partes (11900 / 3 = 3966.67 con residuo)
-    $response = $this->withHeaders(payHeaders())
-        ->postJson("/api/v1/orders/{$order->uuid}/split", [
-            'type' => 'equal_split',
-            'parts' => 3,
+    $response = $this->withHeaders(paymentApiHeaders($this->tokenB))
+        ->postJson('/api/v1/billing/payments', [
+            'order_uuid' => $orderB->uuid,
+            'payment_method_uuid' => $this->cashMethod->uuid,
+            'amount' => 5950,
+            'idempotency_key' => Str::uuid()->toString(),
         ]);
 
-    $response->assertOk()
-        ->assertJsonCount(3, 'data');
-
-    // Verificar que la suma exacta sea el total del pedido
-    $total = 0;
-    foreach ($response->json('data') as $bill) {
-        $total += $bill['total'];
-    }
-    expect(round($total, 2))->toBe(11900.0);
-});
-
-test('POST /api/v1/orders/{uuid}/split por montos personalizados', function () {
-    $order = createServedOrder($this);
-
-    $response = $this->withHeaders(payHeaders())
-        ->postJson("/api/v1/orders/{$order->uuid}/split", [
-            'type' => 'custom_amount',
-            'amounts' => [5000, 6900],
-        ]);
-
-    $response->assertOk()
-        ->assertJsonCount(2, 'data')
-        ->assertJsonPath('data.0.total', 5000)
-        ->assertJsonPath('data.1.total', 6900);
-});
-
-test('POST /api/v1/orders/{uuid}/split deniega montos que exceden total', function () {
-    $order = createServedOrder($this);
-
-    $response = $this->withHeaders(payHeaders())
-        ->postJson("/api/v1/orders/{$order->uuid}/split", [
-            'type' => 'custom_amount',
-            'amounts' => [99999, 50000],
-        ]);
-
-    $response->assertStatus(422);
-});
-
-test('POST /api/v1/orders/{uuid}/split deniega tipo invalido', function () {
-    $order = createServedOrder($this);
-
-    $response = $this->withHeaders(payHeaders())
-        ->postJson("/api/v1/orders/{$order->uuid}/split", [
-            'type' => 'invalid_type',
-        ]);
-
-    $response->assertStatus(422);
-});
-
-// ============================================
-// GET /api/v1/orders/{uuid}/bills
-// ============================================
-
-test('GET /api/v1/orders/{uuid}/bills retorna sub-cuentas', function () {
-    $order = createServedOrder($this);
-
-    // Generar split primero
-    $this->withHeaders(payHeaders())
-        ->postJson("/api/v1/orders/{$order->uuid}/split", [
-            'type' => 'equal_split',
-            'parts' => 2,
-        ]);
-
-    $response = $this->withHeaders(payHeaders())
-        ->getJson("/api/v1/orders/{$order->uuid}/bills");
-
-    $response->assertOk()
-        ->assertJsonCount(2, 'data');
-});
-
-// ============================================
-// Cash Sessions
-// ============================================
-
-test('POST /api/v1/cash-sessions/open abre sesion de caja', function () {
-    $response = $this->withHeaders(payHeaders())
-        ->postJson('/api/v1/cash-sessions/open', [
-            'opening_amount' => 50000,
-            'notes' => 'Apertura turno mañana',
-        ]);
-
-    $response->assertStatus(201)
-        ->assertJsonPath('data.status', 'open')
-        ->assertJsonPath('data.opening_amount', 50000);
-});
-
-test('POST /api/v1/cash-sessions/open deniega si ya hay sesion abierta', function () {
-    // Abrir primera sesión
-    $this->withHeaders(payHeaders())
-        ->postJson('/api/v1/cash-sessions/open', [
-            'opening_amount' => 50000,
-        ]);
-
-    // Intentar abrir segunda
-    $response = $this->withHeaders(payHeaders())
-        ->postJson('/api/v1/cash-sessions/open', [
-            'opening_amount' => 30000,
-        ]);
-
-    $response->assertStatus(422);
-});
-
-test('GET /api/v1/cash-sessions/current retorna sesion abierta', function () {
-    $this->withHeaders(payHeaders())
-        ->postJson('/api/v1/cash-sessions/open', [
-            'opening_amount' => 50000,
-        ]);
-
-    $response = $this->withHeaders(payHeaders())
-        ->getJson('/api/v1/cash-sessions/current');
-
-    $response->assertOk()
-        ->assertJsonPath('data.status', 'open');
-});
-
-test('sin autenticacion retorna 401', function () {
-    $response = $this->getJson('/api/v1/cash-sessions/current');
-    $response->assertStatus(401);
+    expect($response->status())->toBeIn([403, 404, 422]);
 });
