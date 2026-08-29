@@ -41,6 +41,39 @@ expect()->extend('toBeOne', function () {
 |
 */
 
+/**
+ * Limpia el estado de autenticación y tenant entre requests en el mismo test.
+ *
+ * Necesario porque Pest reutiliza la misma instancia de aplicación entre
+ * múltiples llamadas $this->postJson()/getJson() dentro de un mismo test.
+ * En producción cada request HTTP bootea una app nueva, pero en tests no.
+ *
+ * Sin esta limpieza, el guard JWT cachea el usuario del request anterior
+ * y requests siguientes usan el usuario cacheado aunque envíen un token distinto.
+ *
+ * Uso:
+ *   $this->withHeaders(['Authorization' => "Bearer $tokenA"])->postJson('/...');
+ *   switchJwtUser(); // limpiar estado
+ *   $this->withHeaders(['Authorization' => "Bearer $tokenB"])->postJson('/...');
+ */
+function switchJwtUser(): void
+{
+    try {
+        auth()->guard('api')->logout();
+    } catch (\Throwable $e) {
+        // Ignorar si no hay token activo o ya está logueado
+    }
+
+    app('auth')->forgetGuards();
+
+    // Limpiar TenantContext para evitar contaminación entre tenants
+    try {
+        app(\App\Shared\Application\TenantContext::class)->clear();
+    } catch (\Throwable $e) {
+        // Ignorar si el service no está disponible
+    }
+}
+
 function something()
 {
     // ..

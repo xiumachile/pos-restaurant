@@ -274,10 +274,8 @@ test('POST /api/v1/auth/logout invalida token', function () {
     $response->assertStatus(200)
         ->assertJsonPath('message', 'Sesión cerrada correctamente.');
 
-    // IMPORTANTE: Limpiar el guard auth ANTES del siguiente request
-    // El guard cachea el usuario entre requests en el mismo test
-    auth()->guard('api')->logout();
-    app('auth')->forgetGuards();
+    // Limpiar estado entre requests (guard JWT cachea usuario del request anterior)
+    switchJwtUser();
 
     $meResponse = $this->withHeaders(authHeaders($token))
         ->getJson('/api/v1/auth/me');

@@ -244,11 +244,8 @@ test('GET /api/v1/orders/{uuid}/bills usuario B no puede ver bills de empresa A'
             'parts' => 2,
         ]);
 
-    // IMPORTANTE: Limpiar el guard auth y TenantContext antes de cambiar de usuario
-    // Esto previene que el guard cachee el usuario del request anterior
-    auth()->guard('api')->logout();
-    app('auth')->forgetGuards();
-    app(\App\Shared\Application\TenantContext::class)->clear();
+    // Limpiar estado entre requests (guard JWT cachea usuario del request anterior)
+    switchJwtUser();
 
     // Segundo request: index con usuario B
     $response = $this->withHeaders(billApiHeaders($this->tokenB))
