@@ -31,6 +31,7 @@ Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class, 'id
         ->name('payments.store');
 
     Route::post('/orders/{uuid}/split', [BillController::class, 'split'])
+        ->middleware('capability:can_split_bills')
         ->name('orders.split');
 
     Route::post('/cash-sessions/open', [CashSessionController::class, 'open'])

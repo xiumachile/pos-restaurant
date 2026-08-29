@@ -56,6 +56,32 @@ expect()->extend('toBeOne', function () {
  *   switchJwtUser(); // limpiar estado
  *   $this->withHeaders(['Authorization' => "Bearer $tokenB"])->postJson('/...');
  */
+
+/**
+ * Crea todas las capabilities habilitadas para una empresa de test.
+ * 
+ * Necesario porque el middleware CheckCompanyCapability bloquea acceso
+ * a rutas protegidas si la empresa no tiene el capability habilitado.
+ * 
+ * Uso en beforeEach() de tests:
+ *   enableAllCapabilities($this->companyA);
+ */
+function enableAllCapabilities(\Modules\Companies\Domain\Entities\Company $company): void
+{
+    foreach (\Modules\Companies\Domain\ValueObjects\CapabilityKey::cases() as $capabilityKey) {
+        \Modules\Companies\Domain\Entities\CompanyCapability::updateOrCreate(
+            [
+                'company_id' => $company->id,
+                'capability_key' => $capabilityKey->value,
+            ],
+            [
+                'is_enabled' => true,
+                'settings' => [],
+            ]
+        );
+    }
+}
+
 function switchJwtUser(): void
 {
     try {

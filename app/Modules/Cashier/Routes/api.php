@@ -11,7 +11,9 @@ use Modules\Cashier\Interfaces\Controllers\TipPolicyController;
 use Modules\Cashier\Interfaces\Controllers\TipPayoutController;
 use App\Shared\Http\Middleware\TenantContextMiddleware;
 
-// Rutas de Caja que NO necesitan middleware idempotent
+// ============================================
+// Rutas de Caja BÁSICAS (sin capability específico)
+// ============================================
 Route::prefix('v1/cashier')->middleware(['auth:api', TenantContextMiddleware::class])->group(function () {
     // Dashboard
     Route::get('/dashboard', [CashierDashboardController::class, 'index'])
@@ -20,13 +22,10 @@ Route::prefix('v1/cashier')->middleware(['auth:api', TenantContextMiddleware::cl
     Route::get('/session-payments', [CashierDashboardController::class, 'sessionPayments'])
         ->name('cashier.dashboard');
 
-    // ============================================
     // Gestión de cuentas por mesa (cobro por mesa)
-    // ============================================
     Route::get('/tables-with-bills', [CashierTablesController::class, 'tablesWithBills'])
         ->name('cashier.tables-with-bills');
     
-    // POST sin middleware idempotent (usa idempotency_key propia por cada order)
     Route::post('/tables/{tableUuid}/charge', [CashierTablesController::class, 'chargeTable'])
         ->name('cashier.tables.charge');
 
@@ -36,9 +35,7 @@ Route::prefix('v1/cashier')->middleware(['auth:api', TenantContextMiddleware::cl
     Route::post('/bills/{billUuid}/pay', [CashierTablesController::class, 'payBill'])
         ->name('cashier.bills.pay');
 
-    // ============================================
     // Reportes de caja
-    // ============================================
     Route::get('/reports/x-report', [CashierReportController::class, 'xReport'])
         ->name('cashier.reports.x-report');
 
@@ -47,45 +44,50 @@ Route::prefix('v1/cashier')->middleware(['auth:api', TenantContextMiddleware::cl
 
     Route::get('/sessions/history', [CashierReportController::class, 'history'])
         ->name('cashier.sessions.history');
-
-    // ============================================
-    // Configuración de políticas de propinas
-    // ============================================
-    Route::get('/tip-policy', [TipPolicyController::class, 'show'])
-        ->name('cashier.tip-policy.show');
-
-    Route::put('/tip-policy', [TipPolicyController::class, 'update'])
-        ->name('cashier.tip-policy.update');
-
-    // ============================================
-    // Entregas de propinas
-    // ============================================
-    Route::get('/tip-payouts', [TipPayoutController::class, 'index'])
-        ->name('cashier.tip-payouts.index');
-
-    Route::post('/tip-payouts', [TipPayoutController::class, 'store'])
-        ->name('cashier.tip-payouts.store');
-
-    Route::delete('/tip-payouts/{uuid}', [TipPayoutController::class, 'destroy'])
-        ->name('cashier.tip-payouts.destroy');
-
-    Route::get('/tips/summary', [TipPayoutController::class, 'summary'])
-        ->name('cashier.tips.summary');
-
-    Route::get('/tips/max-by-waiter', [TipPayoutController::class, 'maxByWaiter'])
-        ->name('cashier.tips.max-by-waiter');
-
-    Route::get('/waiters', [TipPayoutController::class, 'waiters'])
-        ->name('cashier.waiters');
-
-    Route::get('/tips/by-waiter', [TipPayoutController::class, 'byWaiter'])
-        ->name('cashier.tips.by-waiter');
-
-    Route::post('/tips/generate-payouts', [TipPayoutController::class, 'generatePayouts'])
-        ->name('cashier.tips.generate-payouts');
 });
 
-// Rutas que SÍ necesitan idempotencia
+// ============================================
+// Rutas de PROPINAS (requieren capability:can_accept_tips)
+// ============================================
+Route::prefix('v1/cashier')
+    ->middleware(['auth:api', TenantContextMiddleware::class, 'capability:can_accept_tips'])
+    ->group(function () {
+        // Configuración de políticas de propinas
+        Route::get('/tip-policy', [TipPolicyController::class, 'show'])
+            ->name('cashier.tip-policy.show');
+
+        Route::put('/tip-policy', [TipPolicyController::class, 'update'])
+            ->name('cashier.tip-policy.update');
+
+        // Entregas de propinas
+        Route::get('/tip-payouts', [TipPayoutController::class, 'index'])
+            ->name('cashier.tip-payouts.index');
+
+        Route::post('/tip-payouts', [TipPayoutController::class, 'store'])
+            ->name('cashier.tip-payouts.store');
+
+        Route::delete('/tip-payouts/{uuid}', [TipPayoutController::class, 'destroy'])
+            ->name('cashier.tip-payouts.destroy');
+
+        Route::get('/tips/summary', [TipPayoutController::class, 'summary'])
+            ->name('cashier.tips.summary');
+
+        Route::get('/tips/max-by-waiter', [TipPayoutController::class, 'maxByWaiter'])
+            ->name('cashier.tips.max-by-waiter');
+
+        Route::get('/waiters', [TipPayoutController::class, 'waiters'])
+            ->name('cashier.waiters');
+
+        Route::get('/tips/by-waiter', [TipPayoutController::class, 'byWaiter'])
+            ->name('cashier.tips.by-waiter');
+
+        Route::post('/tips/generate-payouts', [TipPayoutController::class, 'generatePayouts'])
+            ->name('cashier.tips.generate-payouts');
+    });
+
+// ============================================
+// Rutas con IDEMPOTENCIA (Cash Registers, Movements, Counts)
+// ============================================
 Route::prefix('v1/cashier')->middleware(['auth:api', TenantContextMiddleware::class, 'idempotent'])->group(function () {
     // Cash Registers
     Route::get('/registers', [CashRegisterController::class, 'index'])

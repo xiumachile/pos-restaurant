@@ -19,6 +19,8 @@ beforeEach(function () {
         'trade_name' => 'Inventory API Restaurant',
     ]);
 
+    enableAllCapabilities($this->company);
+
     $this->branch = Branch::create([
         'company_id' => $this->company->id,
         'code' => 'INV-API',

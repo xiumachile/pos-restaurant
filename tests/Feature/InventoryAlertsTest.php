@@ -17,6 +17,8 @@ beforeEach(function () {
         'trade_name' => 'Alerts Test Restaurant',
     ]);
 
+    enableAllCapabilities($this->company);
+
     $this->branch = Branch::create([
         'company_id' => $this->company->id,
         'code' => 'ALERT',

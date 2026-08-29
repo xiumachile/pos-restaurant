@@ -17,6 +17,8 @@ beforeEach(function () {
         'legal_name' => 'Bill API Company',
         'trade_name' => 'Bill API Restaurant',
     ]);
+    
+    enableAllCapabilities($this->company);
 
     $this->branch = Branch::create([
         'company_id' => $this->company->id,
@@ -48,6 +50,8 @@ beforeEach(function () {
         'legal_name' => 'Bill API Company B',
         'trade_name' => 'Bill API Restaurant B',
     ]);
+    
+    enableAllCapabilities($this->companyB);
 
     $this->branchB = Branch::create([
         'company_id' => $this->companyB->id,

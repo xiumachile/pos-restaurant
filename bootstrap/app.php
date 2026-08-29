@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'role' => \App\Shared\Http\Middleware\CheckRole::class,
+            'capability' => \App\Shared\Http\Middleware\CheckCompanyCapability::class,
             'idempotent' => IdempotencyKeyMiddleware::class,
         ]);
     })
