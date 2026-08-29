@@ -23,8 +23,23 @@ class OrderPolicy
     /**
      * Ver si el usuario puede ver el pedido.
      */
+
+    /**
+     * Valida que el pedido pertenezca a la misma empresa del usuario.
+     * Defensa en profundidad: incluso si el scope global funciona,
+     * validamos explícitamente aquí.
+     */
+    private function belongsToUserCompany(User $user, Order $order): bool
+    {
+        return $order->company_id === $user->company_id;
+    }
+
     public function view(User $user, Order $order): bool
     {
+        if (!$this->belongsToUserCompany($user, $order)) {
+            return false;
+        }
+
         if (in_array($user->role, ['admin', 'manager'])) {
             return true;
         }
@@ -51,6 +66,10 @@ class OrderPolicy
      */
     public function update(User $user, Order $order): bool
     {
+        if (!$this->belongsToUserCompany($user, $order)) {
+            return false;
+        }
+
         if (in_array($user->role, ['admin', 'manager'])) {
             return true;
         }
@@ -68,6 +87,10 @@ class OrderPolicy
      */
     public function delete(User $user, Order $order): bool
     {
+        if (!$this->belongsToUserCompany($user, $order)) {
+            return false;
+        }
+
         return $this->update($user, $order);
     }
 
@@ -77,6 +100,10 @@ class OrderPolicy
      */
     public function confirm(User $user, Order $order): bool
     {
+        if (!$this->belongsToUserCompany($user, $order)) {
+            return false;
+        }
+
         if (in_array($user->role, ['admin', 'manager'])) {
             return true;
         }
@@ -98,6 +125,10 @@ class OrderPolicy
      */
     public function prepare(User $user, Order $order): bool
     {
+        if (!$this->belongsToUserCompany($user, $order)) {
+            return false;
+        }
+
         return in_array($user->role, ['kitchen', 'admin', 'manager']);
     }
 
@@ -107,6 +138,10 @@ class OrderPolicy
      */
     public function ready(User $user, Order $order): bool
     {
+        if (!$this->belongsToUserCompany($user, $order)) {
+            return false;
+        }
+
         return in_array($user->role, ['kitchen', 'admin', 'manager']);
     }
 
@@ -116,6 +151,10 @@ class OrderPolicy
      */
     public function serve(User $user, Order $order): bool
     {
+        if (!$this->belongsToUserCompany($user, $order)) {
+            return false;
+        }
+
         if (in_array($user->role, ['admin', 'manager'])) {
             return true;
         }
@@ -133,6 +172,10 @@ class OrderPolicy
      */
     public function pay(User $user, Order $order): bool
     {
+        if (!$this->belongsToUserCompany($user, $order)) {
+            return false;
+        }
+
         return in_array($user->role, ['cashier', 'admin', 'manager']);
     }
 
@@ -142,6 +185,10 @@ class OrderPolicy
      */
     public function close(User $user, Order $order): bool
     {
+        if (!$this->belongsToUserCompany($user, $order)) {
+            return false;
+        }
+
         return in_array($user->role, ['cashier', 'admin', 'manager']);
     }
 
@@ -153,6 +200,10 @@ class OrderPolicy
      */
     public function cancel(User $user, Order $order): bool
     {
+        if (!$this->belongsToUserCompany($user, $order)) {
+            return false;
+        }
+
         if (in_array($user->role, ['admin', 'manager'])) {
             return true;
         }

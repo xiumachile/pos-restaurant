@@ -109,6 +109,8 @@ class OrderTransitionController extends Controller
 
     protected function getOrder(string $uuid): Order
     {
-        return Order::where('uuid', $uuid)->firstOrFail();
+        return Order::where('uuid', $uuid)
+            ->where('company_id', request()->user()->company_id)
+            ->firstOrFail();
     }
 }
