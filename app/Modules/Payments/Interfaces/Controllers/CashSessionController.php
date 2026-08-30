@@ -24,6 +24,15 @@ class CashSessionController extends Controller
      */
     public function open(OpenCashSessionRequest $request): JsonResponse
     {
+        // Verificar que la empresa tenga habilitado requires_cashier_session
+        if (!$request->user()->company->hasCapability('requires_cashier_session')) {
+            return response()->json([
+                'error' => 'capability_not_enabled',
+                'message' => 'Esta empresa no requiere apertura de caja',
+                'required_capability' => 'requires_cashier_session',
+            ], 403);
+        }
+
         $validated = $request->validated();
         $user = $request->user();
 

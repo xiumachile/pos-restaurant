@@ -18,6 +18,8 @@ beforeEach(function () {
         'trade_name' => 'Cash Session Restaurant',
     ]);
 
+    enableAllCapabilities($this->company);
+
     $this->branch = Branch::create([
         'company_id' => $this->company->id,
         'code' => 'CS-A',
@@ -54,6 +56,10 @@ beforeEach(function () {
         'branch_id' => $this->branchB->id,
         'role' => 'cashier',
     ]);
+
+    // Habilitar capabilities para ambos tenants
+    enableAllCapabilities($this->company);
+    enableAllCapabilities($this->companyB);
 
     $this->token = JWTAuth::fromUser($this->cashier);
     $this->tokenB = JWTAuth::fromUser($this->cashierB);

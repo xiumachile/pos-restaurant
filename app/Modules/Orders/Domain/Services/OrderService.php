@@ -107,6 +107,16 @@ class OrderService
         // Actualizar campos permitidos
         if (isset($data['status'])) {
             $order->status = OrderStatus::from($data['status']);
+
+        // Si el pedido se confirma, verificar si la empresa tiene kitchen_display habilitado
+        if ($order->status === OrderStatus::CONFIRMED) {
+            $company = \Modules\Companies\Domain\Entities\Company::find($companyId);
+            if (!$company->hasCapability('has_kitchen_display')) {
+                // Si no tiene kitchen_display, marcar como ready directamente
+                // (para barras, mostradores de café, etc.)
+                $order->status = OrderStatus::READY;
+            }
+        }
         }
 
         if (isset($data['notes'])) {

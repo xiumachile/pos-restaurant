@@ -25,6 +25,15 @@ class BillController extends Controller
      */
     public function split(SplitBillRequest $request, string $uuid): JsonResponse
     {
+        // Verificar que la empresa tenga habilitado can_split_bills
+        if (!$request->user()->company->hasCapability('can_split_bills')) {
+            return response()->json([
+                'error' => 'capability_not_enabled',
+                'message' => 'La empresa no tiene habilitada la funcionalidad de dividir cuentas',
+                'required_capability' => 'can_split_bills',
+            ], 403);
+        }
+
         $validated = $request->validated();
         
         $order = Order::where('uuid', $uuid)

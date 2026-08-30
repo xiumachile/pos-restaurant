@@ -131,3 +131,24 @@ function loginAs(
 
     return $response->json('access_token');
 }
+
+/**
+ * Habilita SOLO las capabilities especificadas para una empresa.
+ * Limpia todas las existentes y crea solo las del array.
+ * 
+ * @param Company $company
+ * @param array $capabilities Array de capability keys a habilitar
+ */
+function enableCapabilities($company, array $capabilities): void
+{
+    // Limpiar capabilities existentes
+    $company->capabilities()->delete();
+    
+    // Crear solo las especificadas
+    foreach ($capabilities as $key) {
+        $company->capabilities()->create([
+            'capability_key' => $key,
+            'is_enabled' => true,
+        ]);
+    }
+}
