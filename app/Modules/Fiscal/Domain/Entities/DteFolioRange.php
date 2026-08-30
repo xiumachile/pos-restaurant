@@ -125,27 +125,37 @@ class DteFolioRange extends Model
      */
     public function consumeFolio(): int
     {
-        if (!$this->hasAvailableFolios()) {
+        // Recargar con lock para evitar race conditions
+        $locked = static::where('id', $this->id)
+            ->lockForUpdate()
+            ->firstOrFail();
+
+        if (!$locked->hasAvailableFolios()) {
             throw new \Modules\Fiscal\Domain\Exceptions\NoFoliosAvailableException(
-                $this->dte_type,
-                $this->availableFolios()
+                $locked->dte_type,
+                $locked->availableFolios()
             );
         }
 
         // Si es la primera vez que se consume, empezar desde folio_initial
-        $nextFolio = $this->folio_current < $this->folio_initial 
-            ? $this->folio_initial 
-            : $this->folio_current + 1;
+        $nextFolio = $locked->folio_current < $locked->folio_initial 
+            ? $locked->folio_initial 
+            : $locked->folio_current + 1;
 
-        $this->folio_current = $nextFolio;
+        $locked->folio_current = $nextFolio;
         
         // Si se agotó, marcar como cerrado
-        if ($nextFolio >= $this->folio_final) {
-            $this->closed_at = now();
-            $this->is_active = false;
+        if ($nextFolio >= $locked->folio_final) {
+            $locked->closed_at = now();
+            $locked->is_active = false;
         }
         
-        $this->save();
+        $locked->save();
+
+        // Sincronizar la instancia actual
+        $this->folio_current = $locked->folio_current;
+        $this->closed_at = $locked->closed_at;
+        $this->is_active = $locked->is_active;
 
         return $nextFolio;
     }
