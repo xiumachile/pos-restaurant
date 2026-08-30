@@ -18,6 +18,8 @@ beforeEach(function () {
         'trade_name' => 'Assignment Test Restaurant',
     ]);
 
+    enableAllCapabilities($this->company);
+
     $this->branch = Branch::create([
         'company_id' => $this->company->id,
         'code' => 'ASSIGN',

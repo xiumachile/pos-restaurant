@@ -4,17 +4,19 @@ use Illuminate\Support\Facades\Route;
 use Modules\Kitchen\Interfaces\Controllers\KitchenController;
 use App\Shared\Http\Middleware\TenantContextMiddleware;
 
-Route::prefix('v1/kitchen')->middleware(['auth:api', TenantContextMiddleware::class])->group(function () {
-    // ============================================
-    // Kitchen Display System endpoints
-    // ============================================
-    Route::get('/queue', [KitchenController::class, 'queue'])->name('kitchen.queue');
-    Route::get('/stats', [KitchenController::class, 'stats'])->name('kitchen.stats');
-    Route::get('/history', [KitchenController::class, 'history'])->name('kitchen.history');
-    Route::get('/table-history/{tableUuid}', [KitchenController::class, 'tableHistory'])->name('kitchen.table-history');
-    Route::get('/tables-today', [KitchenController::class, 'tablesToday'])->name('kitchen.tables-today');
-    
-    // Gestión de pedidos por cocina
-    Route::post('/orders/{uuid}/assign-cook', [KitchenController::class, 'assignCook'])->name('kitchen.assign-cook');
-    Route::post('/orders/{uuid}/priority', [KitchenController::class, 'updatePriority'])->name('kitchen.update-priority');
-});
+Route::prefix('v1/kitchen')
+    ->middleware(['auth:api', TenantContextMiddleware::class, 'capability:has_kitchen_display'])
+    ->group(function () {
+        // ============================================
+        // Kitchen Display System endpoints
+        // ============================================
+        Route::get('/queue', [KitchenController::class, 'queue'])->name('kitchen.queue');
+        Route::get('/stats', [KitchenController::class, 'stats'])->name('kitchen.stats');
+        Route::get('/history', [KitchenController::class, 'history'])->name('kitchen.history');
+        Route::get('/table-history/{tableUuid}', [KitchenController::class, 'tableHistory'])->name('kitchen.table-history');
+        Route::get('/tables-today', [KitchenController::class, 'tablesToday'])->name('kitchen.tables-today');
+        
+        // Gestión de pedidos por cocina
+        Route::post('/orders/{uuid}/assign-cook', [KitchenController::class, 'assignCook'])->name('kitchen.assign-cook');
+        Route::post('/orders/{uuid}/priority', [KitchenController::class, 'updatePriority'])->name('kitchen.update-priority');
+    });
