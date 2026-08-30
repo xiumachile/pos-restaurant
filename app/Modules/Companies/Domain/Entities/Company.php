@@ -78,10 +78,27 @@ class Company extends Model
             ? $capabilityKey->value 
             : $capabilityKey;
 
-        return $this->capabilities()
-            ->where('capability_key', $key)
-            ->where('is_enabled', true)
-            ->exists();
+        $cacheKey = "company:{$this->id}:capabilities";
+        $ttl = 300; // 5 minutos
+
+        // Obtener capabilities del cache o de la base de datos
+        $capabilities = cache()->remember($cacheKey, $ttl, function () {
+            return $this->capabilities()
+                ->where('is_enabled', true)
+                ->pluck('capability_key')
+                ->toArray();
+        });
+
+        return in_array($key, $capabilities, true);
+    }
+
+    /**
+     * Invalida el cache de capabilities de esta empresa.
+     */
+    public function invalidateCapabilitiesCache(): void
+    {
+        $cacheKey = "company:{$this->id}:capabilities";
+        cache()->forget($cacheKey);
     }
 
     /**

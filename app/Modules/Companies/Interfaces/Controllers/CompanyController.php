@@ -171,6 +171,9 @@ class CompanyController extends Controller
             );
         }
 
+        // Invalidar cache de capabilities
+        $company->invalidateCapabilitiesCache();
+
         $company->load('capabilities');
 
         return response()->json([
