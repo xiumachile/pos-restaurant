@@ -77,20 +77,12 @@ class CompanyController extends Controller
      */
     public function show(Request $request, string $uuid): JsonResponse
     {
-        $user = $request->user();
-
         $company = Company::where('uuid', $uuid)
             ->with(['capabilities'])
             ->withCount(['branches', 'users'])
             ->firstOrFail();
 
-        // Admin solo puede ver su propia empresa (super_admin ve cualquiera)
-        if ($user->role !== 'super_admin' && $company->id !== $user->company_id) {
-            return response()->json([
-                'error' => 'forbidden',
-                'message' => 'No tienes permiso para ver esta empresa.',
-            ], 403);
-        }
+        $this->authorize('view', $company);
 
         return CompanyResource::make($company)->response();
     }
@@ -101,17 +93,9 @@ class CompanyController extends Controller
      */
     public function update(UpdateCompanyRequest $request, string $uuid): JsonResponse
     {
-        $user = $request->user();
-
         $company = Company::where('uuid', $uuid)->firstOrFail();
 
-        // Admin solo puede actualizar su propia empresa
-        if ($user->role !== 'super_admin' && $company->id !== $user->company_id) {
-            return response()->json([
-                'error' => 'forbidden',
-                'message' => 'No tienes permiso para actualizar esta empresa.',
-            ], 403);
-        }
+        $this->authorize('update', $company);
 
         $validated = $request->validated();
         $company->update($validated);
@@ -127,17 +111,9 @@ class CompanyController extends Controller
      */
     public function destroy(Request $request, string $uuid): JsonResponse
     {
-        $user = $request->user();
-
         $company = Company::where('uuid', $uuid)->firstOrFail();
 
-        // Solo admin de la empresa o super_admin pueden eliminar
-        if ($user->role !== 'super_admin' && $company->id !== $user->company_id) {
-            return response()->json([
-                'error' => 'forbidden',
-                'message' => 'No tienes permiso para eliminar esta empresa.',
-            ], 403);
-        }
+        $this->authorize('delete', $company);
 
         $company->delete();
 
@@ -152,18 +128,11 @@ class CompanyController extends Controller
      */
     public function getCapabilities(Request $request, string $uuid): JsonResponse
     {
-        $user = $request->user();
-
         $company = Company::where('uuid', $uuid)
             ->with('capabilities')
             ->firstOrFail();
 
-        if ($user->role !== 'super_admin' && $company->id !== $user->company_id) {
-            return response()->json([
-                'error' => 'forbidden',
-                'message' => 'No tienes permiso para ver capabilities de esta empresa.',
-            ], 403);
-        }
+        $this->authorize('viewCapabilities', $company);
 
         return response()->json([
             'data' => $company->capabilities->map(function ($capability) {
@@ -183,16 +152,9 @@ class CompanyController extends Controller
      */
     public function updateCapabilities(UpdateCapabilitiesRequest $request, string $uuid): JsonResponse
     {
-        $user = $request->user();
-
         $company = Company::where('uuid', $uuid)->firstOrFail();
 
-        if ($user->role !== 'super_admin' && $company->id !== $user->company_id) {
-            return response()->json([
-                'error' => 'forbidden',
-                'message' => 'No tienes permiso para modificar capabilities de esta empresa.',
-            ], 403);
-        }
+        $this->authorize('updateCapabilities', $company);
 
         $validated = $request->validated();
 

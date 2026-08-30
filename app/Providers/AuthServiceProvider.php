@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Modules\Orders\Domain\Entities\Order;
 use Modules\Orders\Domain\Policies\OrderPolicy;
+use Modules\Companies\Policies\CompanyPolicy;
 
 class AuthServiceProvider extends ServiceProvider
 {
@@ -16,6 +17,7 @@ class AuthServiceProvider extends ServiceProvider
      */
     protected $policies = [
         Order::class => OrderPolicy::class,
+        Company::class => CompanyPolicy::class,
     ];
 
     /**

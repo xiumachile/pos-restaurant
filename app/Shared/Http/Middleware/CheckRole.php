@@ -12,7 +12,7 @@ use Symfony\Component\HttpFoundation\Response;
  * Uso: ->middleware('role:admin,manager')
  * Permite acceso solo si el usuario tiene uno de los roles especificados.
  *
- * Roles disponibles: admin, manager, cashier, waiter, kitchen
+ * Roles disponibles: super_admin, admin, manager, cashier, waiter, kitchen
  */
 class CheckRole
 {
