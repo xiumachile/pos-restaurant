@@ -5,14 +5,10 @@ namespace Modules\Kitchen\Interfaces\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Modules\Identity\Domain\Entities\User;
 use Modules\Kitchen\Domain\Services\KitchenQueueService;
 use Modules\Kitchen\Interfaces\Requests\AssignCookRequest;
 use Modules\Kitchen\Interfaces\Requests\UpdatePriorityRequest;
 use Modules\Kitchen\Interfaces\Resources\KitchenOrderResource;
-use Modules\Orders\Domain\Entities\Order;
-use Modules\Orders\Domain\ValueObjects\OrderPriority;
-use Modules\Tables\Domain\Entities\RestaurantTable;
 
 class KitchenController extends Controller
 {
@@ -64,88 +60,30 @@ class KitchenController extends Controller
 
     /**
      * GET /api/v1/kitchen/table-history/{tableUuid}
-     * Historial completo de pedidos de una mesa del día actual.
      */
     public function tableHistory(Request $request, string $tableUuid): JsonResponse
     {
         $branchId = $request->user()->branch_id;
-        
-        $table = RestaurantTable::where('uuid', $tableUuid)
-            ->where('branch_id', $branchId)
-            ->firstOrFail();
+        $data = $this->queueService->getTableHistory($branchId, $tableUuid);
 
-        $orders = Order::with(['items.menuItem.product', 'waiter'])
-            ->where('table_id', $table->id)
-            ->where('branch_id', $branchId)
-            ->whereDate('created_at', today())
-            ->orderBy('created_at', 'asc')
-            ->get();
-
-        $response = [
-            'table' => [
-                'uuid' => $table->uuid,
-                'table_number' => $table->table_number,
-                'area_code' => $table->area_code,
-                'capacity' => $table->capacity,
+        return response()->json([
+            'data' => [
+                'table' => $data['table'],
+                'orders' => KitchenOrderResource::collection($data['orders'])->resolve(),
+                'summary' => $data['summary'],
             ],
-            'orders' => KitchenOrderResource::collection($orders)->resolve(),
-            'summary' => [
-                'total_orders' => $orders->count(),
-                'total_items' => $orders->sum(fn($o) => $o->items->sum('quantity')),
-                'total_amount' => (float) $orders->sum('total'),
-                'first_order_at' => $orders->first()?->created_at?->toIso8601String(),
-                'last_order_at' => $orders->last()?->created_at?->toIso8601String(),
-            ],
-        ];
-
-        return response()->json(['data' => $response]);
+        ]);
     }
 
     /**
      * GET /api/v1/kitchen/tables-today
-     * Lista todas las mesas con actividad hoy.
      */
     public function tablesToday(Request $request): JsonResponse
     {
         $branchId = $request->user()->branch_id;
+        $tables = $this->queueService->getTablesToday($branchId);
 
-        $tableIds = Order::where('branch_id', $branchId)
-            ->whereDate('created_at', today())
-            ->whereNotNull('table_id')
-            ->distinct()
-            ->pluck('table_id');
-
-        $tables = RestaurantTable::with(['orders' => function ($query) {
-            $query->whereDate('created_at', today())
-                ->with(['items'])
-                ->orderBy('created_at', 'asc');
-        }])
-            ->whereIn('id', $tableIds)
-            ->orderBy('area_code')
-            ->orderBy('table_number')
-            ->get();
-
-        $response = $tables->map(function ($table) {
-            $orders = $table->orders;
-            $totalAmount = $orders->sum('total');
-            $totalItems = $orders->sum(fn($o) => $o->items->sum('quantity'));
-            $lastOrderStatus = $orders->last()?->status?->value;
-            
-            return [
-                'uuid' => $table->uuid,
-                'table_number' => $table->table_number,
-                'area_code' => $table->area_code,
-                'capacity' => $table->capacity,
-                'orders_count' => $orders->count(),
-                'total_items' => $totalItems,
-                'total_amount' => (float) $totalAmount,
-                'last_order_status' => $lastOrderStatus,
-                'first_order_at' => $orders->first()?->created_at?->toIso8601String(),
-                'last_order_at' => $orders->last()?->created_at?->toIso8601String(),
-            ];
-        });
-
-        return response()->json(['data' => $response]);
+        return response()->json(['data' => $tables]);
     }
 
     /**
@@ -154,28 +92,21 @@ class KitchenController extends Controller
     public function assignCook(AssignCookRequest $request, string $uuid): JsonResponse
     {
         $validated = $request->validated();
-        $order = Order::where('uuid', $uuid)
-            ->where('company_id', $request->user()->company_id)
-            ->firstOrFail();
+        
+        try {
+            $order = $this->queueService->assignCookToOrder(
+                $uuid,
+                $validated['cook_uuid'],
+                $request->user()->company_id
+            );
 
-        if (!$order->status->isInKitchenQueue()) {
+            return KitchenOrderResource::make($order)->response();
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
             return response()->json([
                 'error' => 'invalid_state',
-                'message' => 'Solo se pueden asignar cocineros a pedidos en cola de cocina.',
-            ], 422);
+                'message' => $e->getMessage(),
+            ], $e->getStatusCode());
         }
-
-        $cook = User::where('uuid', $validated['cook_uuid'])
-            ->where('role', 'kitchen')
-            ->where('company_id', $order->company_id)
-            ->firstOrFail();
-
-        $order->assigned_cook_id = $cook->id;
-        $order->save();
-
-        $order->load(['items', 'table', 'waiter', 'assignedCook']);
-
-        return KitchenOrderResource::make($order)->response();
     }
 
     /**
@@ -184,22 +115,20 @@ class KitchenController extends Controller
     public function updatePriority(UpdatePriorityRequest $request, string $uuid): JsonResponse
     {
         $validated = $request->validated();
-        $order = Order::where('uuid', $uuid)
-            ->where('company_id', $request->user()->company_id)
-            ->firstOrFail();
+        
+        try {
+            $order = $this->queueService->updateOrderPriority(
+                $uuid,
+                $validated['priority'],
+                $request->user()->company_id
+            );
 
-        if ($order->status->isFinalState()) {
+            return KitchenOrderResource::make($order)->response();
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
             return response()->json([
                 'error' => 'invalid_state',
-                'message' => 'No se puede cambiar la prioridad de un pedido en estado final.',
-            ], 422);
+                'message' => $e->getMessage(),
+            ], $e->getStatusCode());
         }
-
-        $order->priority = OrderPriority::from($validated['priority']);
-        $order->save();
-
-        $order->load(['items', 'table', 'waiter', 'assignedCook']);
-
-        return KitchenOrderResource::make($order)->response();
     }
 }
