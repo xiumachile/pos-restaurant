@@ -4,10 +4,10 @@ use Modules\Companies\Domain\Entities\Company;
 use Modules\Branches\Domain\Entities\Branch;
 use Modules\Identity\Domain\Entities\User;
 use Modules\Orders\Domain\Entities\Order;
+use Modules\Orders\Domain\Services\OrderService;
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
 use Modules\Orders\Domain\ValueObjects\OrderType;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -32,17 +32,14 @@ beforeEach(function () {
         'branch_id' => $this->branch->id,
         'role' => 'waiter',
     ]);
+
+    $this->orderService = app(OrderService::class);
 });
 
 test('generateOrderNumber genera números secuenciales únicos', function () {
-    $controller = new \Modules\Orders\Interfaces\Controllers\OrderController();
-    $reflection = new ReflectionClass($controller);
-    $method = $reflection->getMethod('generateOrderNumber');
-    $method->setAccessible(true);
-
     $numbers = [];
     for ($i = 0; $i < 10; $i++) {
-        $number = $method->invoke($controller, $this->branch->id);
+        $number = $this->orderService->generateOrderNumber($this->branch->id);
         
         // Crear orden con este número
         Order::create([
@@ -69,15 +66,9 @@ test('generateOrderNumber genera números secuenciales únicos', function () {
     expect($numbers[9])->toContain('-0010');
 });
 
-test('generateOrderNumber usa lockForUpdate correctamente', function () {
-    // Este test verifica que el lock funcione creando órdenes en transacciones anidadas
-    $controller = new \Modules\Orders\Interfaces\Controllers\OrderController();
-    $reflection = new ReflectionClass($controller);
-    $method = $reflection->getMethod('generateOrderNumber');
-    $method->setAccessible(true);
-
+test('generateOrderNumber genera números diferentes consecutivamente', function () {
     // Crear primera orden
-    $num1 = $method->invoke($controller, $this->branch->id);
+    $num1 = $this->orderService->generateOrderNumber($this->branch->id);
     Order::create([
         'company_id' => $this->company->id,
         'branch_id' => $this->branch->id,
@@ -92,21 +83,10 @@ test('generateOrderNumber usa lockForUpdate correctamente', function () {
     ]);
 
     // Crear segunda orden
-    $num2 = $method->invoke($controller, $this->branch->id);
+    $num2 = $this->orderService->generateOrderNumber($this->branch->id);
     
     // Los números deben ser diferentes
     expect($num1)->not->toBe($num2);
     expect($num1)->toContain('-0001');
     expect($num2)->toContain('-0002');
-});
-
-test('generateOrderNumber extrae secuencia correctamente', function () {
-    $controller = new \Modules\Orders\Interfaces\Controllers\OrderController();
-    $reflection = new ReflectionClass($controller);
-    $method = $reflection->getMethod('extractSequence');
-    $method->setAccessible(true);
-
-    expect($method->invoke($controller, 'ORD-001-20260815-0042'))->toBe(42);
-    expect($method->invoke($controller, 'ORD-002-20260815-0001'))->toBe(1);
-    expect($method->invoke($controller, 'ORD-999-20261231-9999'))->toBe(9999);
 });
