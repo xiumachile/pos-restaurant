@@ -126,7 +126,7 @@ class DteDocumentController extends Controller
                 'nc_status' => $result['nc_status'],
             ]);
 
-        } catch (\DomainException $e) {
+        } catch (\DomainException | \RuntimeException $e) {
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),
