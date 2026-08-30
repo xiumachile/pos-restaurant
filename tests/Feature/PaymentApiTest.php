@@ -20,6 +20,8 @@ beforeEach(function () {
         'trade_name' => 'Payment API Restaurant',
     ]);
 
+    enableAllCapabilities($this->company);
+
     $this->branch = Branch::create([
         'company_id' => $this->company->id,
         'code' => 'PAY-API',
@@ -67,6 +69,8 @@ beforeEach(function () {
         'legal_name' => 'Payment API Company B',
         'trade_name' => 'Payment API Restaurant B',
     ]);
+
+    enableAllCapabilities($this->companyB);
 
     $this->branchB = Branch::create([
         'company_id' => $this->companyB->id,

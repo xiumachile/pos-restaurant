@@ -28,6 +28,7 @@ Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class])->g
 // ============================================
 Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class, 'idempotent'])->group(function () {
     Route::post('/billing/payments', [PaymentController::class, 'store'])
+        ->middleware('capability:requires_cashier_session')
         ->name('payments.store');
 
     Route::post('/orders/{uuid}/split', [BillController::class, 'split'])

@@ -23,6 +23,8 @@ beforeEach(function () {
         'trade_name' => 'Cashier API Test',
     ]);
 
+    enableAllCapabilities($this->company);
+
     $this->branch = Branch::create([
         'company_id' => $this->company->id,
         'code' => 'CAPI',
