@@ -24,14 +24,83 @@ class CashierReportController extends Controller
     }
 
     /**
+     * GET /api/v1/cashier/reports/x-report
+     * Reporte X: Cierre parcial de caja (sin cerrar sesión)
+     */
+    public function xReport(Request $request): JsonResponse
+    {
+        $session = CashSession::where('branch_id', $request->user()->branch_id)
+            ->where('status', 'open')
+            ->latest('opened_at')
+            ->first();
+
+        if (!$session) {
+            return response()->json(['error' => 'No hay sesión de caja abierta'], 404);
+        }
+
+        $report = $this->buildSessionReport($session);
+        $report['report_type'] = 'x-report';
+        $report['session_status'] = 'open';
+
+        return response()->json($report);
+    }
+
+    /**
+     * GET /api/v1/cashier/reports/z-report/{uuid}
+     * Reporte Z: Cierre final de caja
+     */
+    public function zReport(Request $request, string $uuid): JsonResponse
+    {
+        $session = CashSession::where('uuid', $uuid)
+            ->where('branch_id', $request->user()->branch_id)
+            ->first();
+
+        if (!$session) {
+            return response()->json(['error' => 'Sesión no encontrada'], 404);
+        }
+
+        $report = $this->buildSessionReport($session);
+        $report['report_type'] = 'z-report';
+        $report['session_status'] = $session->status->value;
+
+        return response()->json($report);
+    }
+
+    /**
+     * GET /api/v1/cashier/sessions/history
+     * Historial de sesiones de caja
+     */
+    public function history(Request $request): JsonResponse
+    {
+        $sessions = CashSession::where('branch_id', $request->user()->branch_id)
+            ->withCount('payments')
+            ->orderBy('opened_at', 'desc')
+            ->limit(50)
+            ->get();
+
+        return response()->json(['data' => $sessions]);
+    }
+
+    /**
      * GET /api/v1/cashier/reports/session/{sessionId}
-     * Reporte completo de una sesión de caja
+     * Reporte completo de una sesión de caja (legacy)
      */
     public function sessionReport(Request $request, int $sessionId): JsonResponse
     {
         $session = CashSession::where('branch_id', $request->user()->branch_id)
             ->findOrFail($sessionId);
 
+        $report = $this->buildSessionReport($session);
+        return response()->json($report);
+    }
+
+    /**
+     * Construye el reporte completo de una sesión.
+     * Este método usa PaymentQueryService que filtra por cash_session_id,
+     * por lo que el fix de trazabilidad (pagos vinculados a sesión) funciona correctamente.
+     */
+    private function buildSessionReport(CashSession $session): array
+    {
         // USAR EL SERVICIO en lugar de DB::table('payments')
         $paymentsByMethod = $this->paymentQueryService->getPaymentsByMethodInSession($session->id);
 
@@ -83,9 +152,10 @@ class CashierReportController extends Controller
         $actualCash = $lastCount ? (float) $lastCount->total_counted : null;
         $discrepancy = $actualCash !== null ? $actualCash - $expectedCash : null;
 
-        return response()->json([
+        return [
             'session' => [
                 'id' => $session->id,
+                'uuid' => $session->uuid,
                 'status' => $session->status,
                 'opened_at' => $session->opened_at,
                 'closed_at' => $session->closed_at,
@@ -99,6 +169,6 @@ class CashierReportController extends Controller
             'expected_cash' => $expectedCash,
             'actual_cash' => $actualCash,
             'discrepancy' => $discrepancy,
-        ]);
+        ];
     }
 }
