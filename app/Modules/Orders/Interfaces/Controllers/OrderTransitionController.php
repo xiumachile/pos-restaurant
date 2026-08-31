@@ -38,6 +38,28 @@ class OrderTransitionController extends Controller
         return $this->transition($request, $uuid, OrderStatus::SERVED, 'serve');
     }
 
+    public function readyForPickup(Request $request, string $uuid): JsonResponse
+    {
+        return $this->transition($request, $uuid, OrderStatus::READY_FOR_PICKUP, 'readyForPickup');
+    }
+
+    public function pickup(Request $request, string $uuid): JsonResponse
+    {
+        return $this->transition($request, $uuid, OrderStatus::PICKED_UP, 'pickup');
+    }
+
+    public function dispatch(Request $request, string $uuid): JsonResponse
+    {
+        return $this->transition($request, $uuid, OrderStatus::DISPATCHED, 'dispatch');
+    }
+
+    public function deliver(Request $request, string $uuid): JsonResponse
+    {
+        return $this->transition($request, $uuid, OrderStatus::DELIVERED, 'deliver');
+    }
+
+
+
     public function pay(Request $request, string $uuid): JsonResponse
     {
         $order = $this->getOrder($uuid);

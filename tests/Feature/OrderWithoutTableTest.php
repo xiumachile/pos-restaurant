@@ -51,7 +51,7 @@ beforeEach(function () {
         'password' => 'password123',
         'company_id' => $this->company->id,
         'branch_id' => $this->branch->id,
-        'role' => 'waiter',
+        'role' => 'admin',  // Admin para tests de creación (no probamos autorización de rol aquí)
     ]);
 
     $this->token = JWTAuth::fromUser($this->waiter);

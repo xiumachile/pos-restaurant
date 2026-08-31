@@ -146,6 +146,83 @@ class OrderPolicy
     }
 
     /**
+     * Marcar listo para retirar (ready → ready_for_pickup, pickup flow).
+     * Mismos permisos que ready: kitchen, admin, manager.
+     * Semántica: cocina termina el pedido y está listo para que el cliente retire.
+     */
+    public function readyForPickup(User $user, Order $order): bool
+    {
+        if (!$this->belongsToUserCompany($user, $order)) {
+            return false;
+        }
+
+        return in_array($user->role, ['kitchen', 'admin', 'manager']);
+    }
+
+    /**
+     * Marcar retirado (ready_for_pickup → picked_up, pickup flow).
+     * Mismos permisos que serve: waiter (dueño), admin, manager.
+     * Semántica: waiter/cajero confirma que el cliente retiró el pedido.
+     */
+    public function pickup(User $user, Order $order): bool
+    {
+        if (!$this->belongsToUserCompany($user, $order)) {
+            return false;
+        }
+
+        if (in_array($user->role, ['admin', 'manager'])) {
+            return true;
+        }
+
+        if ($user->role === 'waiter') {
+            return $order->waiter_id === $user->id;
+        }
+
+        // Cashier también puede confirmar pickup (pago al retirar)
+        if ($user->role === 'cashier') {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Marcar despachado (ready → dispatched, delivery flow).
+     * Mismos permisos que ready: kitchen, admin, manager.
+     * Semántica: cocina/coordinador marca que el pedido salió a entrega.
+     */
+    public function dispatch(User $user, Order $order): bool
+    {
+        if (!$this->belongsToUserCompany($user, $order)) {
+            return false;
+        }
+
+        return in_array($user->role, ['kitchen', 'admin', 'manager']);
+    }
+
+    /**
+     * Marcar entregado (dispatched → delivered, delivery flow).
+     * Admin, manager, o waiter (repartidor).
+     * Semántica: repartidor/waiter confirma entrega al cliente.
+     */
+    public function deliver(User $user, Order $order): bool
+    {
+        if (!$this->belongsToUserCompany($user, $order)) {
+            return false;
+        }
+
+        if (in_array($user->role, ['admin', 'manager'])) {
+            return true;
+        }
+
+        if ($user->role === 'waiter') {
+            return $order->waiter_id === $user->id;
+        }
+
+        return false;
+    }
+
+    /**
      * Marcar servido (ready → served).
      * Solo waiter (dueño), admin o manager.
      */

@@ -37,6 +37,12 @@ Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class, 'id
     Route::post('/orders/{uuid}/prepare', [OrderTransitionController::class, 'prepare'])->name('orders.prepare');
     Route::post('/orders/{uuid}/ready', [OrderTransitionController::class, 'ready'])->name('orders.ready');
     Route::post('/orders/{uuid}/serve', [OrderTransitionController::class, 'serve'])->name('orders.serve');
+
+    // Transiciones específicas por canal de fulfillment (Fase 4)
+    Route::post('/orders/{uuid}/ready-for-pickup', [OrderTransitionController::class, 'readyForPickup'])->name('orders.ready-for-pickup');
+    Route::post('/orders/{uuid}/pickup', [OrderTransitionController::class, 'pickup'])->name('orders.pickup');
+    Route::post('/orders/{uuid}/dispatch', [OrderTransitionController::class, 'dispatch'])->name('orders.dispatch');
+    Route::post('/orders/{uuid}/deliver', [OrderTransitionController::class, 'deliver'])->name('orders.deliver');
     Route::post('/orders/{uuid}/pay', [OrderTransitionController::class, 'pay'])->name('orders.pay');
     Route::post('/orders/{uuid}/close', [OrderTransitionController::class, 'close'])->name('orders.close');
     Route::post('/orders/{uuid}/cancel', [OrderTransitionController::class, 'cancel'])->name('orders.cancel');

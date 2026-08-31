@@ -60,6 +60,9 @@ class OrderResource extends JsonResource
             // Timestamps de estado
             'confirmed_at' => $this->confirmed_at?->toIso8601String(),
             'served_at' => $this->served_at?->toIso8601String(),
+            'picked_up_at' => $this->picked_up_at?->toIso8601String(),
+            'dispatched_at' => $this->dispatched_at?->toIso8601String(),
+            'delivered_at' => $this->delivered_at?->toIso8601String(),
             'paid_at' => $this->paid_at?->toIso8601String(),
             'closed_at' => $this->closed_at?->toIso8601String(),
             'cancelled_at' => $this->cancelled_at?->toIso8601String(),
