@@ -400,3 +400,260 @@ test('POST /api/v1/billing/payments sin sesión abierta cuando capability OFF gu
     // Verificar que cash_session_id sea NULL (sin control de caja)
     expect($payment->cash_session_id)->toBeNull();
 });
+
+// ============================================
+// TESTS: can_accept_tips capability
+// ============================================
+
+test('POST /api/v1/billing/payments rechaza tip_amount si can_accept_tips OFF', function () {
+    // Crear empresa SIN can_accept_tips
+    $companyNoTips = \Modules\Companies\Domain\Entities\Company::create([
+        'tax_id' => 'NO-TIPS-' . uniqid(),
+        'legal_name' => 'No Tips Company',
+        'trade_name' => 'No Tips',
+    ]);
+
+    enableCapabilities($companyNoTips, ['requires_cashier_session', 'can_print_receipts']);
+
+    $branchNoTips = \Modules\Branches\Domain\Entities\Branch::create([
+        'company_id' => $companyNoTips->id,
+        'code' => 'NO-TIPS',
+        'name' => 'No Tips Branch',
+    ]);
+
+    $waiter = \Modules\Identity\Domain\Entities\User::create([
+        'name' => 'Waiter No Tips',
+        'email' => 'waiter-no-tips-' . uniqid() . '@test.com',
+        'password' => 'password123',
+        'company_id' => $companyNoTips->id,
+        'branch_id' => $branchNoTips->id,
+        'role' => 'waiter',
+    ]);
+
+    $cashier = \Modules\Identity\Domain\Entities\User::create([
+        'name' => 'Cashier No Tips',
+        'email' => 'cashier-no-tips-' . uniqid() . '@test.com',
+        'password' => 'password123',
+        'company_id' => $companyNoTips->id,
+        'branch_id' => $branchNoTips->id,
+        'role' => 'cashier',
+    ]);
+
+    $cashMethod = \Modules\Payments\Domain\Entities\PaymentMethod::create([
+        'company_id' => $companyNoTips->id,
+        'code' => 'CASH',
+        'name_translations' => ['es' => 'Efectivo'],
+        'type' => 'cash',
+        'is_active' => true,
+    ]);
+
+    // Abrir sesión de caja (requires_cashier_session ON)
+    \Modules\Payments\Domain\Entities\CashSession::create([
+        'company_id' => $companyNoTips->id,
+        'branch_id' => $branchNoTips->id,
+        'user_id' => $cashier->id,
+        'session_number' => 'CS-NO-TIPS-' . strtoupper(substr(uniqid(), -6)),
+        'status' => \Modules\Payments\Domain\ValueObjects\CashSessionStatus::OPEN,
+        'opening_amount' => 50000,
+        'opened_at' => now(),
+    ]);
+
+    $order = \Modules\Orders\Domain\Entities\Order::create([
+        'company_id' => $companyNoTips->id,
+        'branch_id' => $branchNoTips->id,
+        'order_number' => 'ORD-NO-TIPS-' . uniqid(),
+        'type' => 'dine_in',
+        'status' => \Modules\Orders\Domain\ValueObjects\OrderStatus::SERVED,
+        'waiter_id' => $waiter->id,
+        'subtotal' => 10000,
+        'tax_amount' => 1900,
+        'total' => 11900,
+    ]);
+
+    $token = \PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth::fromUser($cashier);
+
+    // Intentar pagar CON propina (debe fallar con 422)
+    $response = $this->withHeaders([
+        'Authorization' => 'Bearer ' . $token,
+        'Accept' => 'application/json',
+        'Content-Type' => 'application/json',
+    ])->postJson('/api/v1/billing/payments', [
+        'order_uuid' => $order->uuid,
+        'payment_method_uuid' => $cashMethod->uuid,
+        'amount' => 11900,
+        'tip_amount' => 2000, // Propina cuando capability OFF
+        'idempotency_key' => Str::uuid()->toString(),
+    ]);
+
+    $response->assertStatus(422)
+        ->assertJsonPath('errors.tip_amount.0', 'Esta empresa no acepta propinas. La capability can_accept_tips está deshabilitada.');
+});
+
+test('POST /api/v1/billing/payments acepta tip_amount si can_accept_tips ON', function () {
+    // Crear empresa CON can_accept_tips
+    $companyWithTips = \Modules\Companies\Domain\Entities\Company::create([
+        'tax_id' => 'WITH-TIPS-' . uniqid(),
+        'legal_name' => 'With Tips Company',
+        'trade_name' => 'With Tips',
+    ]);
+
+    enableCapabilities($companyWithTips, ['requires_cashier_session', 'can_accept_tips', 'can_print_receipts']);
+
+    $branchWithTips = \Modules\Branches\Domain\Entities\Branch::create([
+        'company_id' => $companyWithTips->id,
+        'code' => 'WITH-TIPS',
+        'name' => 'With Tips Branch',
+    ]);
+
+    $waiter = \Modules\Identity\Domain\Entities\User::create([
+        'name' => 'Waiter With Tips',
+        'email' => 'waiter-with-tips-' . uniqid() . '@test.com',
+        'password' => 'password123',
+        'company_id' => $companyWithTips->id,
+        'branch_id' => $branchWithTips->id,
+        'role' => 'waiter',
+    ]);
+
+    $cashier = \Modules\Identity\Domain\Entities\User::create([
+        'name' => 'Cashier With Tips',
+        'email' => 'cashier-with-tips-' . uniqid() . '@test.com',
+        'password' => 'password123',
+        'company_id' => $companyWithTips->id,
+        'branch_id' => $branchWithTips->id,
+        'role' => 'cashier',
+    ]);
+
+    $cashMethod = \Modules\Payments\Domain\Entities\PaymentMethod::create([
+        'company_id' => $companyWithTips->id,
+        'code' => 'CASH',
+        'name_translations' => ['es' => 'Efectivo'],
+        'type' => 'cash',
+        'is_active' => true,
+    ]);
+
+    // Abrir sesión de caja
+    \Modules\Payments\Domain\Entities\CashSession::create([
+        'company_id' => $companyWithTips->id,
+        'branch_id' => $branchWithTips->id,
+        'user_id' => $cashier->id,
+        'session_number' => 'CS-WITH-TIPS-' . strtoupper(substr(uniqid(), -6)),
+        'status' => \Modules\Payments\Domain\ValueObjects\CashSessionStatus::OPEN,
+        'opening_amount' => 50000,
+        'opened_at' => now(),
+    ]);
+
+    $order = \Modules\Orders\Domain\Entities\Order::create([
+        'company_id' => $companyWithTips->id,
+        'branch_id' => $branchWithTips->id,
+        'order_number' => 'ORD-WITH-TIPS-' . uniqid(),
+        'type' => 'dine_in',
+        'status' => \Modules\Orders\Domain\ValueObjects\OrderStatus::SERVED,
+        'waiter_id' => $waiter->id,
+        'subtotal' => 10000,
+        'tax_amount' => 1900,
+        'total' => 11900,
+    ]);
+
+    $token = \PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth::fromUser($cashier);
+
+    // Pagar CON propina (debe funcionar)
+    $response = $this->withHeaders([
+        'Authorization' => 'Bearer ' . $token,
+        'Accept' => 'application/json',
+        'Content-Type' => 'application/json',
+    ])->postJson('/api/v1/billing/payments', [
+        'order_uuid' => $order->uuid,
+        'payment_method_uuid' => $cashMethod->uuid,
+        'amount' => 11900,
+        'tip_amount' => 2000,
+        'idempotency_key' => Str::uuid()->toString(),
+    ]);
+
+    $response->assertStatus(201)
+        ->assertJsonPath('data.tip_amount', 2000)
+        ->assertJsonPath('data.total_amount', 13900); // 11900 + 2000
+});
+
+test('POST /api/v1/billing/payments funciona sin tip_amount independientemente de can_accept_tips', function () {
+    // Crear empresa SIN can_accept_tips
+    $companyNoTips = \Modules\Companies\Domain\Entities\Company::create([
+        'tax_id' => 'NO-TIPS-2-' . uniqid(),
+        'legal_name' => 'No Tips 2 Company',
+        'trade_name' => 'No Tips 2',
+    ]);
+
+    enableCapabilities($companyNoTips, ['requires_cashier_session', 'can_print_receipts']);
+
+    $branchNoTips = \Modules\Branches\Domain\Entities\Branch::create([
+        'company_id' => $companyNoTips->id,
+        'code' => 'NO-TIPS-2',
+        'name' => 'No Tips 2 Branch',
+    ]);
+
+    $waiter = \Modules\Identity\Domain\Entities\User::create([
+        'name' => 'Waiter No Tips 2',
+        'email' => 'waiter-no-tips-2-' . uniqid() . '@test.com',
+        'password' => 'password123',
+        'company_id' => $companyNoTips->id,
+        'branch_id' => $branchNoTips->id,
+        'role' => 'waiter',
+    ]);
+
+    $cashier = \Modules\Identity\Domain\Entities\User::create([
+        'name' => 'Cashier No Tips 2',
+        'email' => 'cashier-no-tips-2-' . uniqid() . '@test.com',
+        'password' => 'password123',
+        'company_id' => $companyNoTips->id,
+        'branch_id' => $branchNoTips->id,
+        'role' => 'cashier',
+    ]);
+
+    $cashMethod = \Modules\Payments\Domain\Entities\PaymentMethod::create([
+        'company_id' => $companyNoTips->id,
+        'code' => 'CASH',
+        'name_translations' => ['es' => 'Efectivo'],
+        'type' => 'cash',
+        'is_active' => true,
+    ]);
+
+    // Abrir sesión de caja
+    \Modules\Payments\Domain\Entities\CashSession::create([
+        'company_id' => $companyNoTips->id,
+        'branch_id' => $branchNoTips->id,
+        'user_id' => $cashier->id,
+        'session_number' => 'CS-NO-TIPS-2-' . strtoupper(substr(uniqid(), -6)),
+        'status' => \Modules\Payments\Domain\ValueObjects\CashSessionStatus::OPEN,
+        'opening_amount' => 50000,
+        'opened_at' => now(),
+    ]);
+
+    $order = \Modules\Orders\Domain\Entities\Order::create([
+        'company_id' => $companyNoTips->id,
+        'branch_id' => $branchNoTips->id,
+        'order_number' => 'ORD-NO-TIPS-2-' . uniqid(),
+        'type' => 'dine_in',
+        'status' => \Modules\Orders\Domain\ValueObjects\OrderStatus::SERVED,
+        'waiter_id' => $waiter->id,
+        'subtotal' => 10000,
+        'tax_amount' => 1900,
+        'total' => 11900,
+    ]);
+
+    $token = \PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth::fromUser($cashier);
+
+    // Pagar SIN propina (debe funcionar incluso sin capability)
+    $response = $this->withHeaders([
+        'Authorization' => 'Bearer ' . $token,
+        'Accept' => 'application/json',
+        'Content-Type' => 'application/json',
+    ])->postJson('/api/v1/billing/payments', [
+        'order_uuid' => $order->uuid,
+        'payment_method_uuid' => $cashMethod->uuid,
+        'amount' => 11900,
+        'idempotency_key' => Str::uuid()->toString(),
+    ]);
+
+    $response->assertStatus(201)
+        ->assertJsonPath('data.tip_amount', 0)
+        ->assertJsonPath('data.total_amount', 11900);
+});

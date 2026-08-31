@@ -74,6 +74,7 @@ use Illuminate\Validation\Rule;
  * - El monto no puede exceder el total pendiente del pedido o sub-cuenta
  * - El método de pago debe estar activo y disponible para la sucursal
  * - Si la empresa tiene `requires_cashier_session` habilitado, debe existir una sesión de caja abierta
+ * - Si la empresa NO tiene `can_accept_tips` habilitado, `tip_amount` debe ser 0 o omitido
  * 
  * @see \Modules\Payments\Interfaces\Controllers\PaymentController::store()
  */
@@ -124,15 +125,25 @@ class StorePaymentRequest extends FormRequest
             $paymentMethodUuid = $this->input('payment_method_uuid');
             $referenceCode = $this->input('reference_code');
 
-            if (!$paymentMethodUuid) {
-                return;
+            if ($paymentMethodUuid) {
+                // Buscar el método de pago
+                $paymentMethod = \Modules\Payments\Domain\Entities\PaymentMethod::where('uuid', $paymentMethodUuid)->first();
+
+                if ($paymentMethod && $paymentMethod->requires_reference && empty($referenceCode)) {
+                    $validator->errors()->add('reference_code', 'El código de referencia es requerido para este método de pago.');
+                }
             }
 
-            // Buscar el método de pago
-            $paymentMethod = \Modules\Payments\Domain\Entities\PaymentMethod::where('uuid', $paymentMethodUuid)->first();
-
-            if ($paymentMethod && $paymentMethod->requires_reference && empty($referenceCode)) {
-                $validator->errors()->add('reference_code', 'El código de referencia es requerido para este método de pago.');
+            // Validar que tip_amount solo se use si la empresa tiene can_accept_tips habilitado
+            $tipAmount = (float) ($this->input('tip_amount') ?? 0);
+            if ($tipAmount > 0) {
+                $user = $this->user();
+                if (!$user->company->hasCapability('can_accept_tips')) {
+                    $validator->errors()->add(
+                        'tip_amount',
+                        'Esta empresa no acepta propinas. La capability can_accept_tips está deshabilitada.'
+                    );
+                }
             }
         });
     }
