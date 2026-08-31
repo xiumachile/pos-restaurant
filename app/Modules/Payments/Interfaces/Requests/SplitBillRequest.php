@@ -4,6 +4,60 @@ namespace Modules\Payments\Interfaces\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * Request para dividir una cuenta (bill) en múltiples sub-cuentas.
+ * 
+ * Este endpoint permite dividir el total de una mesa entre varios clientes.
+ * Soporta 3 modalidades de división, cada una con sus propios campos requeridos.
+ * 
+ * ## Modalidades disponibles:
+ * 
+ * ### 1. equal_split (División equitativa)
+ * Divide el total en partes iguales. Útil cuando todos los comensales pagaron lo mismo.
+ * 
+ * ```json
+ * {
+ *   "type": "equal_split",
+ *   "parts": 4
+ * }
+ * ```
+ * 
+ * ### 2. by_items (División por items consumidos)
+ * Agrupa items específicos en sub-cuentas separadas. Útil cuando cada persona pide cosas diferentes.
+ * 
+ * ```json
+ * {
+ *   "type": "by_items",
+ *   "groups": [
+ *     {
+ *       "item_ids": [1, 2, 3],
+ *       "guest_count": 2
+ *     },
+ *     {
+ *       "item_ids": [4, 5],
+ *       "guest_count": 1
+ *     }
+ *   ]
+ * }
+ * ```
+ * 
+ * ### 3. custom_amount (Montos personalizados)
+ * Define montos exactos para cada sub-cuenta. Útil cuando los clientes acuerdan montos específicos.
+ * 
+ * ```json
+ * {
+ *   "type": "custom_amount",
+ *   "amounts": [15000, 20000, 25000]
+ * }
+ * ```
+ * 
+ * ## Restricciones:
+ * - Solo puede dividirse una bill que NO esté completamente pagada
+ * - La suma de las sub-cuentas debe igualar el total original
+ * - No se puede dividir una bill que ya tiene pagos registrados
+ * 
+ * @see \Modules\Payments\Interfaces\Controllers\BillController::split()
+ */
 class SplitBillRequest extends FormRequest
 {
     public function authorize(): bool

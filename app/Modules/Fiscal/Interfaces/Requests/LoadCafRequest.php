@@ -4,6 +4,58 @@ namespace Modules\Fiscal\Interfaces\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * Request para cargar un rango de folios CAF (Código de Autorización de Folios).
+ * 
+ * El CAF es un archivo XML emitido por el SII que autoriza a una empresa a emitir
+ * DTEs (Documentos Tributarios Electrónicos) dentro de un rango específico de folios.
+ * 
+ * ## Tipos de DTE soportados:
+ * 
+ * - **33**: Factura electrónica
+ * - **34**: Factura exenta electrónica
+ * - **39**: Boleta electrónica
+ * - **41**: Boleta exenta electrónica
+ * - **52**: Guía de despacho electrónica
+ * - **56**: Nota de débito electrónica
+ * - **61**: Nota de crédito electrónica
+ * 
+ * ## Proceso de carga:
+ * 
+ * 1. Se descarga el archivo CAF desde el portal del SII
+ * 2. Se extrae el contenido XML del archivo
+ * 3. Se envía el XML completo en el campo `caf_xml`
+ * 4. El sistema parsea el XML y valida la estructura
+ * 5. Se crea un registro en `dte_folio_ranges` con el rango autorizado
+ * 6. El rango queda disponible para emisión de DTEs
+ * 
+ * ## Ejemplo de request:
+ * 
+ * ```json
+ * {
+ *   "dte_type": 39,
+ *   "folio_initial": 1001,
+ *   "folio_final": 1500,
+ *   "caf_xml": "<?xml version=\"1.0\"?><AUTORIZACION>...</AUTORIZACION>",
+ *   "authorization_date": "2024-01-15",
+ *   "authorized_rut": "76123456-7"
+ * }
+ * ```
+ * 
+ * ## Validaciones:
+ * 
+ * - El rango no debe superponerse con rangos existentes del mismo tipo de DTE
+ * - El folio inicial debe ser menor o igual al folio final
+ * - El XML debe tener estructura válida de CAF
+ * - No se pueden cargar rangos de tipos de DTE no soportados
+ * 
+ * ## Consumo de folios:
+ * 
+ * Una vez cargado el rango, los folios se consumen secuencialmente al emitir DTEs.
+ * Cuando se agota un rango, se debe cargar un nuevo CAF para continuar emitiendo.
+ * 
+ * @see \Modules\Fiscal\Interfaces\Controllers\DteFolioController::store()
+ */
 class LoadCafRequest extends FormRequest
 {
     public function authorize(): bool
