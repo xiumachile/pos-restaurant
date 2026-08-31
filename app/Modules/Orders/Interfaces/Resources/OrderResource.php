@@ -48,6 +48,12 @@ class OrderResource extends JsonResource
             
             // Notas
             'notes' => $this->notes,
+            // Campos de fulfillment (Fase 2 — Order Core sin Mesa)
+            'customer_name' => $this->customer_name,
+            'customer_phone' => $this->customer_phone,
+            'pickup_at' => $this->pickup_at?->toIso8601String(),
+            'delivery_address' => $this->delivery_address,
+            'delivery_notes' => $this->delivery_notes,
             
             // Timestamps de estado
             'confirmed_at' => $this->confirmed_at?->toIso8601String(),

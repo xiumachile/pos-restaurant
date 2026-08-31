@@ -48,27 +48,80 @@ class OrderService
     /**
      * Crea un nuevo pedido.
      */
+    /**
+     * Crea un pedido de cualquier tipo (dine_in, takeout, delivery).
+     *
+     * VALIDEZ DEL TIPO (defensa en profundidad):
+     * - dine_in: REQUIERE table_uuid (validado también en CreateOrderRequest)
+     * - takeout/delivery: NO pueden tener table_uuid (inconsistencia de dominio)
+     *
+     * CAMPOS DE FULFILLMENT:
+     * - customer_name / customer_phone: identifican al cliente (takeout, delivery)
+     * - pickup_at: hora programada de retiro (takeout)
+     * - delivery_address / delivery_notes: datos de entrega (delivery)
+     *
+     * @throws \InvalidArgumentException Si las reglas de dominio son violadas
+     */
     public function createOrder(int $branchId, int $companyId, int $waiterId, array $data): Order
     {
-        $tableId = null;
-        if (!empty($data['table_uuid'])) {
-            $table = RestaurantTable::where('uuid', $data['table_uuid'])->first();
-            $tableId = $table?->id;
+        $type = OrderType::from($data['type']);
+
+        // ═══════════════════════════════════════════════════
+        // VALIDACIÓN DE DOMINIO: reglas por tipo de pedido
+        // ═══════════════════════════════════════════════════
+        $tableUuid = $data['table_uuid'] ?? null;
+
+        // dine_in REQUIERE mesa
+        if ($type->requiresTable() && empty($tableUuid)) {
+            throw new \InvalidArgumentException(
+                'Los pedidos dine_in requieren una mesa asignada.'
+            );
         }
 
-        $status = isset($data['status']) 
-            ? OrderStatus::from($data['status']) 
+        // takeout/delivery NO pueden tener mesa
+        if ($type->forbidsTable() && !empty($tableUuid)) {
+            throw new \InvalidArgumentException(
+                "Los pedidos {$type->value} no pueden tener mesa asignada."
+            );
+        }
+
+        // Resolver table_id si aplica
+        $tableId = null;
+        if (!empty($tableUuid)) {
+            $table = RestaurantTable::where('uuid', $tableUuid)
+                ->where('branch_id', $branchId)
+                ->first();
+
+            if (!$table) {
+                throw new \InvalidArgumentException(
+                    'La mesa especificada no existe o no pertenece a esta sucursal.'
+                );
+            }
+
+            $tableId = $table->id;
+        }
+
+        $status = isset($data['status'])
+            ? OrderStatus::from($data['status'])
             : OrderStatus::DRAFT;
 
         $order = Order::create([
             'company_id' => $companyId,
             'branch_id' => $branchId,
             'order_number' => $this->generateOrderNumber($branchId),
-            'type' => OrderType::from($data['type']),
+            'type' => $type,
             'status' => $status,
             'table_id' => $tableId,
             'waiter_id' => $waiterId,
+            // Campos de fulfillment (opcionales, validados en request)
+            'customer_name' => $data['customer_name'] ?? null,
+            'customer_phone' => $data['customer_phone'] ?? null,
+            'pickup_at' => $data['pickup_at'] ?? null,
+            'delivery_address' => $data['delivery_address'] ?? null,
+            'delivery_notes' => $data['delivery_notes'] ?? null,
+            // Notas generales del pedido
             'notes' => $data['notes'] ?? null,
+            // Totales inicializados en 0 (se calculan al agregar items)
             'subtotal' => 0,
             'tax_amount' => 0,
             'discount_amount' => 0,
