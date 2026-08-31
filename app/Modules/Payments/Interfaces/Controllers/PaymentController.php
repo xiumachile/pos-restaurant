@@ -34,11 +34,12 @@ class PaymentController extends Controller
         // La capability requires_cashier_session = true significa:
         // "no se pueden aceptar pagos sin una sesión de caja abierta previamente".
         // Si la capability está deshabilitada, los pagos son libres (sin control de caja).
+        $openSession = null;
         if ($user->company->hasCapability('requires_cashier_session')) {
             $openSession = CashSession::where('company_id', $user->company_id)
                 ->where('branch_id', $user->branch_id)
                 ->where('status', CashSessionStatus::OPEN)
-                ->exists();
+                ->first();
 
             if (!$openSession) {
                 return response()->json([
@@ -68,7 +69,7 @@ class PaymentController extends Controller
                 amount: (float) $validated['amount'],
                 idempotencyKey: $validated['idempotency_key'],
                 bill: $bill,
-                cashSession: null, // Se maneja en F8 CASHIER
+                cashSession: $openSession,
                 userId: $user->id,
                 tipAmount: (float) ($validated['tip_amount'] ?? 0),
                 referenceCode: $validated['reference_code'] ?? null,

@@ -300,3 +300,103 @@ test('POST /api/v1/billing/payments usuario B no puede usar payment method de em
 
     expect($response->status())->toBeIn([403, 404, 422]);
 });
+
+// ============================================
+// TEST: Trazabilidad de pagos a sesión de caja
+// ============================================
+
+test('POST /api/v1/billing/payments vincula pago a sesión de caja abierta', function () {
+    $order = paymentApiCreateServedOrder($this);
+
+    // La sesión ya está abierta en beforeEach (enableAllCapabilities activa requires_cashier_session)
+    $openSession = \Modules\Payments\Domain\Entities\CashSession::where('company_id', $this->company->id)
+        ->where('branch_id', $this->branch->id)
+        ->where('status', \Modules\Payments\Domain\ValueObjects\CashSessionStatus::OPEN)
+        ->first();
+
+    expect($openSession)->not->toBeNull();
+
+    $response = $this->withHeaders(paymentApiHeaders())
+        ->postJson('/api/v1/billing/payments', [
+            'order_uuid' => $order->uuid,
+            'payment_method_uuid' => $this->cashMethod->uuid,
+            'amount' => 11900,
+            'idempotency_key' => Str::uuid()->toString(),
+        ]);
+
+    $response->assertStatus(201);
+    
+    $paymentUuid = $response->json('data.uuid');
+    $payment = \Modules\Payments\Domain\Entities\Payment::where('uuid', $paymentUuid)->first();
+
+    // Verificar que el pago esté vinculado a la sesión de caja correcta
+    expect($payment->cash_session_id)->toBe($openSession->id);
+});
+
+test('POST /api/v1/billing/payments sin sesión abierta cuando capability OFF guarda cash_session_id NULL', function () {
+    // Crear empresa sin requires_cashier_session
+    $companyNoCash = Company::create([
+        'tax_id' => 'NO-CASH-' . uniqid(),
+        'legal_name' => 'No Cash Control Company',
+        'trade_name' => 'No Cash Control',
+    ]);
+
+    enableCapabilities($companyNoCash, ['can_accept_tips', 'can_print_receipts']);
+
+    $branchNoCash = Branch::create([
+        'company_id' => $companyNoCash->id,
+        'code' => 'NO-CASH',
+        'name' => 'No Cash Branch',
+    ]);
+
+    $cashierNoCash = User::create([
+        'name' => 'Cashier No Cash',
+        'email' => 'cashier-no-cash-' . uniqid() . '@test.com',
+        'password' => 'password123',
+        'company_id' => $companyNoCash->id,
+        'branch_id' => $branchNoCash->id,
+        'role' => 'cashier',
+    ]);
+
+    $cashMethodNoCash = PaymentMethod::create([
+        'company_id' => $companyNoCash->id,
+        'code' => 'cash-no-cash',
+        'name_translations' => ['es' => 'Efectivo No Cash'],
+        'type' => 'cash',
+        'is_active' => true,
+    ]);
+
+    $order = Order::create([
+        'company_id' => $companyNoCash->id,
+        'branch_id' => $branchNoCash->id,
+        'order_number' => 'ORD-NO-CASH-' . uniqid(),
+        'type' => 'dine_in',
+        'status' => OrderStatus::SERVED,
+        'waiter_id' => $cashierNoCash->id,
+        'subtotal' => 10000,
+        'tax_amount' => 1900,
+        'total' => 11900,
+    ]);
+
+    $token = JWTAuth::fromUser($cashierNoCash);
+
+    // NO abrir sesión de caja (capability OFF)
+    $response = $this->withHeaders([
+        'Authorization' => 'Bearer ' . $token,
+        'Accept' => 'application/json',
+        'Content-Type' => 'application/json',
+    ])->postJson('/api/v1/billing/payments', [
+        'order_uuid' => $order->uuid,
+        'payment_method_uuid' => $cashMethodNoCash->uuid,
+        'amount' => 11900,
+        'idempotency_key' => Str::uuid()->toString(),
+    ]);
+
+    $response->assertStatus(201);
+    
+    $paymentUuid = $response->json('data.uuid');
+    $payment = \Modules\Payments\Domain\Entities\Payment::where('uuid', $paymentUuid)->first();
+
+    // Verificar que cash_session_id sea NULL (sin control de caja)
+    expect($payment->cash_session_id)->toBeNull();
+});
