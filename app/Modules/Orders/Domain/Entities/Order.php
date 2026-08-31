@@ -29,6 +29,7 @@ class Order extends Model
         'branch_id',
         'order_number',
         'type',
+        'fulfillment_channel',
         'status',
         'table_id',
         'waiter_id',
@@ -61,6 +62,7 @@ class Order extends Model
     {
         return [
             'type' => OrderType::class,
+            'fulfillment_channel' => \Modules\Orders\Domain\ValueObjects\FulfillmentChannel::class,
             'status' => OrderStatus::class,
             'sync_status' => SyncStatus::class,
             'version' => 'integer',

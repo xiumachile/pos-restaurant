@@ -63,6 +63,7 @@ class CreateOrderRequest extends FormRequest
 
         $rules = [
             'type' => ['required', Rule::in(['dine_in', 'takeout', 'delivery'])],
+            'fulfillment_channel' => ['nullable', Rule::in(['onsite', 'pickup', 'delivery'])],
             'table_uuid' => ['nullable', 'uuid', 'exists:restaurant_tables,uuid'],
             'customer_name' => ['nullable', 'string', 'max:200'],
             'customer_phone' => ['nullable', 'string', 'max:30'],
@@ -96,6 +97,7 @@ class CreateOrderRequest extends FormRequest
         return [
             'type.required' => 'El tipo de pedido es obligatorio.',
             'type.in' => 'El tipo de pedido debe ser dine_in, takeout o delivery.',
+            'fulfillment_channel.in' => 'El canal de cumplimiento debe ser onsite, pickup o delivery.',
             'table_uuid.required' => 'Los pedidos dine_in requieren una mesa.',
             'table_uuid.exists' => 'La mesa especificada no existe.',
             'table_uuid.uuid' => 'El UUID de la mesa es inválido.',
@@ -116,6 +118,17 @@ class CreateOrderRequest extends FormRequest
         $validator->after(function ($validator) {
             $type = $this->input('type');
             $tableUuid = $this->input('table_uuid');
+
+            // Validar compatibilidad type ↔ fulfillment_channel
+            // - delivery: solo puede ser delivery (inconsistente onsite/pickup)
+            // - dine_in: puede ser onsite (canónico) o pickup (edge: pedir en local pero llevar)
+            // - takeout: puede ser pickup (canónico) u onsite (edge: pedir para llevar pero quedarse)
+            $channel = $this->input('fulfillment_channel');
+            if (!empty($channel)) {
+                if ($type === 'delivery' && $channel !== 'delivery') {
+                    $validator->errors()->add('fulfillment_channel', 'Los pedidos delivery solo pueden tener canal delivery.');
+                }
+            }
 
             // dine_in: mesa requerida (ya validada en rules, doble chequeo defensivo)
             if ($type === 'dine_in' && empty($tableUuid)) {

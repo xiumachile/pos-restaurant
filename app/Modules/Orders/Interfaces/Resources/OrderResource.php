@@ -16,6 +16,8 @@ class OrderResource extends JsonResource
             'uuid' => $this->uuid,
             'order_number' => $this->order_number,
             'type' => $this->type->value,
+            'fulfillment_channel' => $this->fulfillment_channel?->value,
+            'fulfillment_channel_label' => $this->fulfillment_channel?->label(),
             'type_label' => $this->type->label(),
             'status' => $this->status->value,
             'is_editable' => $this->isEditable(),

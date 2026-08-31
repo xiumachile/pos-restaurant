@@ -7,6 +7,7 @@ use Illuminate\Support\Collection;
 use Modules\Orders\Domain\Entities\Order;
 use Modules\Orders\Domain\ValueObjects\OrderPriority;
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
+use Modules\Orders\Domain\ValueObjects\FulfillmentChannel;
 use Modules\Orders\Domain\ValueObjects\OrderType;
 use Modules\Tables\Domain\Entities\RestaurantTable;
 
@@ -105,11 +106,19 @@ class OrderService
             ? OrderStatus::from($data['status'])
             : OrderStatus::DRAFT;
 
+        // Resolver fulfillment_channel:
+        // - Si viene explícito en data, usarlo (ya validado en request)
+        // - Si no, usar el canal por defecto del tipo de pedido
+        $fulfillmentChannel = isset($data['fulfillment_channel'])
+            ? FulfillmentChannel::from($data['fulfillment_channel'])
+            : $type->defaultFulfillmentChannel();
+
         $order = Order::create([
             'company_id' => $companyId,
             'branch_id' => $branchId,
             'order_number' => $this->generateOrderNumber($branchId),
             'type' => $type,
+            'fulfillment_channel' => $fulfillmentChannel,
             'status' => $status,
             'table_id' => $tableId,
             'waiter_id' => $waiterId,
