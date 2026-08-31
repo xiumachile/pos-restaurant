@@ -9,6 +9,8 @@ use Modules\Companies\Domain\Entities\Company;
 use Modules\Companies\Domain\Policies\CompanyPolicy;
 use Modules\Orders\Domain\Entities\Order;
 use Modules\Orders\Domain\Policies\OrderPolicy;
+use Modules\Payments\Domain\Entities\CashSession;
+use Modules\Payments\Domain\Policies\CashSessionPolicy;
 
 class AuthServiceProvider extends ServiceProvider
 {
@@ -18,6 +20,7 @@ class AuthServiceProvider extends ServiceProvider
     protected $policies = [
         Order::class => OrderPolicy::class,
         Company::class => CompanyPolicy::class,
+        CashSession::class => CashSessionPolicy::class,
     ];
 
     /**
