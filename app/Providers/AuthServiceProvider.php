@@ -5,10 +5,10 @@ namespace App\Providers;
 use App\Shared\Infrastructure\Auth\JwtUserProvider;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Gate;
+use Modules\Companies\Domain\Entities\Company;
+use Modules\Companies\Domain\Policies\CompanyPolicy;
 use Modules\Orders\Domain\Entities\Order;
 use Modules\Orders\Domain\Policies\OrderPolicy;
-use Modules\Companies\Policies\CompanyPolicy;
 
 class AuthServiceProvider extends ServiceProvider
 {
