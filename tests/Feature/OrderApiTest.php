@@ -171,3 +171,117 @@ test('GET /api/v1/orders sin token retorna 401', function () {
     $response = $this->getJson('/api/v1/orders');
     $response->assertStatus(401);
 });
+
+// ============================================
+// TESTS: has_kitchen_display capability
+// ============================================
+
+test('pedido salta directo a READY si has_kitchen_display OFF', function () {
+    // Crear empresa SIN has_kitchen_display
+    $companyNoKDS = Company::create([
+        'tax_id' => 'NO-KDS-' . uniqid(),
+        'legal_name' => 'No KDS Company',
+        'trade_name' => 'No KDS',
+    ]);
+
+    enableCapabilities($companyNoKDS, ['can_split_bills', 'requires_cashier_session', 'can_accept_tips']);
+
+    $branchNoKDS = Branch::create([
+        'company_id' => $companyNoKDS->id,
+        'code' => 'NO-KDS',
+        'name' => 'No KDS Branch',
+    ]);
+
+    $cashier = User::create([
+        'name' => 'Cashier No KDS',
+        'email' => 'cashier-no-kds-' . uniqid() . '@test.com',
+        'password' => 'password123',
+        'company_id' => $companyNoKDS->id,
+        'branch_id' => $branchNoKDS->id,
+        'role' => 'cashier',
+    ]);
+
+    $token = JWTAuth::fromUser($cashier);
+
+    // Crear pedido
+    $order = Order::create([
+        'company_id' => $companyNoKDS->id,
+        'branch_id' => $branchNoKDS->id,
+        'order_number' => 'ORD-NO-KDS-' . uniqid(),
+        'type' => 'dine_in',
+        'status' => OrderStatus::DRAFT,
+        'subtotal' => 10000,
+        'tax_amount' => 1900,
+        'total' => 11900,
+    ]);
+
+    // Confirmar pedido (debería saltar directo a READY)
+    $response = $this->withHeaders([
+        'Authorization' => 'Bearer ' . $token,
+        'Accept' => 'application/json',
+        'Content-Type' => 'application/json',
+    ])->putJson("/api/v1/orders/{$order->uuid}", [
+        'status' => 'confirmed',
+    ]);
+
+    $response->assertOk();
+
+    // Verificar que saltó directo a READY (no se quedó en CONFIRMED)
+    $order->refresh();
+    expect($order->status)->toBe(OrderStatus::READY);
+});
+
+test('pedido pasa por CONFIRMED si has_kitchen_display ON', function () {
+    // Crear empresa CON has_kitchen_display
+    $companyWithKDS = Company::create([
+        'tax_id' => 'WITH-KDS-' . uniqid(),
+        'legal_name' => 'With KDS Company',
+        'trade_name' => 'With KDS',
+    ]);
+
+    enableCapabilities($companyWithKDS, ['can_split_bills', 'requires_cashier_session', 'can_accept_tips', 'has_kitchen_display']);
+
+    $branchWithKDS = Branch::create([
+        'company_id' => $companyWithKDS->id,
+        'code' => 'WITH-KDS',
+        'name' => 'With KDS Branch',
+    ]);
+
+    $cashier = User::create([
+        'name' => 'Cashier With KDS',
+        'email' => 'cashier-with-kds-' . uniqid() . '@test.com',
+        'password' => 'password123',
+        'company_id' => $companyWithKDS->id,
+        'branch_id' => $branchWithKDS->id,
+        'role' => 'cashier',
+    ]);
+
+    $token = JWTAuth::fromUser($cashier);
+
+    // Crear pedido
+    $order = Order::create([
+        'company_id' => $companyWithKDS->id,
+        'branch_id' => $branchWithKDS->id,
+        'order_number' => 'ORD-WITH-KDS-' . uniqid(),
+        'type' => 'dine_in',
+        'status' => OrderStatus::DRAFT,
+        'subtotal' => 10000,
+        'tax_amount' => 1900,
+        'total' => 11900,
+    ]);
+
+    // Confirmar pedido (debería quedarse en CONFIRMED para KDS)
+    $response = $this->withHeaders([
+        'Authorization' => 'Bearer ' . $token,
+        'Accept' => 'application/json',
+        'Content-Type' => 'application/json',
+    ])->putJson("/api/v1/orders/{$order->uuid}", [
+        'status' => 'confirmed',
+    ]);
+
+    $response->assertOk();
+
+    // Verificar que se quedó en CONFIRMED (esperando que cocina lo tome)
+    $order->refresh();
+    expect($order->status)->toBe(OrderStatus::CONFIRMED);
+});
