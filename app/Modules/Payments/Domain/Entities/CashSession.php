@@ -107,6 +107,50 @@ class CashSession extends Model
      * Calcula el monto esperado BRUTO (informativo para dashboard).
      * Incluye propinas porque asume que aún están en caja.
      */
+    /**
+     * Calcula el balance esperado de efectivo con opciones configurables.
+     * 
+     * @param bool $includeMovements Incluir movimientos de caja (retiros/depósitos)
+     * @param bool $onlyCashTipsPaidOut Solo descontar propinas pagadas en efectivo
+     * @return float
+     */
+    private function calculateExpectedBalanceInternal(
+        bool $includeMovements = true,
+        bool $onlyCashTipsPaidOut = false
+    ): float {
+        $cashSales = (float) $this->payments()
+            ->where('status', 'completed')
+            ->where('method_code', 'CASH')
+            ->sum('amount');
+        
+        $cashTips = (float) $this->payments()
+            ->where('status', 'completed')
+            ->where('method_code', 'CASH')
+            ->sum('tip_amount');
+        
+        $brutExpected = (float) $this->opening_amount + $cashSales + $cashTips;
+        
+        // Calcular propinas pagadas
+        $tipPayoutQuery = \Modules\Cashier\Domain\Entities\TipPayout::where('cash_session_id', $this->id)
+            ->valid();
+        
+        if ($onlyCashTipsPaidOut) {
+            $tipPayoutQuery->where('payment_method', 'cash');
+        }
+        
+        $tipsPaidOut = (float) $tipPayoutQuery->sum('amount');
+        
+        // Calcular impacto de movimientos (si se solicita)
+        $movementsImpact = 0;
+        if ($includeMovements) {
+            $movementsImpact = $this->movements()
+                ->get()
+                ->sum(fn($m) => $m->balanceImpact());
+        }
+        
+        return round($brutExpected - $tipsPaidOut + $movementsImpact, 2);
+    }
+
     public function calculateExpectedAmount(): float
     {
         $totalPayments = (float) $this->payments()
@@ -143,28 +187,11 @@ class CashSession extends Model
      */
     public function calculateExpectedAmountForClose(): float
     {
-        // BRUTO: inicial + ventas efectivo + propinas efectivo
-        $cashSales = (float) $this->payments()
-            ->where('status', 'completed')
-            ->where('method_code', 'CASH')
-            ->sum('amount');
-        
-        $cashTips = (float) $this->payments()
-            ->where('status', 'completed')
-            ->where('method_code', 'CASH')
-            ->sum('tip_amount');
-        
-        $brutExpected = (float) $this->opening_amount + $cashSales + $cashTips;
-        
-        // SOLO restar propinas entregadas FÍSICAMENTE (payment_method='cash')
-        // Los TipPayouts con payment_method='payroll' son registros contables
-        // para nómina y NO representan salidas físicas de la caja.
-        $cashTipsPaidOut = (float) \Modules\Cashier\Domain\Entities\TipPayout::where('cash_session_id', $this->id)
-            ->valid()
-            ->where('payment_method', 'cash')
-            ->sum('amount');
-        
-        return round($brutExpected - $cashTipsPaidOut, 2);
+        // Cierre de caja: balance neto con movimientos, solo propinas en efectivo
+        return $this->calculateExpectedBalanceInternal(
+            includeMovements: true,
+            onlyCashTipsPaidOut: true
+        );
     }
 
     /**
@@ -222,27 +249,10 @@ class CashSession extends Model
      */
     public function calculateExpectedCashBalance(): float
     {
-        $cashSales = (float) $this->payments()
-            ->where('status', 'completed')
-            ->where('method_code', 'CASH')
-            ->sum('amount');
-
-        $cashTips = (float) $this->payments()
-            ->where('status', 'completed')
-            ->where('method_code', 'CASH')
-            ->sum('tip_amount');
-
-        $totalTipsPaidOut = (float) \Modules\Cashier\Domain\Entities\TipPayout::where('cash_session_id', $this->id)
-            ->valid()
-            ->sum('amount');
-
-        $movementsImpact = $this->movements()
-            ->get()
-            ->sum(fn($m) => $m->balanceImpact());
-
-        return round(
-            (float) $this->opening_amount + $cashSales + $cashTips - $totalTipsPaidOut + $movementsImpact,
-            2
+        // Balance completo: con movimientos y todas las propinas
+        return $this->calculateExpectedBalanceInternal(
+            includeMovements: true,
+            onlyCashTipsPaidOut: false
         );
     }
 

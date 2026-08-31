@@ -59,6 +59,7 @@ class CashSessionController extends Controller
         $validated = $request->validated();
         $session = CashSession::where('uuid', $uuid)
             ->where('company_id', $request->user()->company_id)
+            ->where('branch_id', $request->user()->branch_id)  // SEGURIDAD: solo puede cerrar sesiones de su propia sucursal
             ->firstOrFail();
 
         try {
