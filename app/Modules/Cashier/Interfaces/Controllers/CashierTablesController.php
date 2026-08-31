@@ -8,8 +8,10 @@ use Modules\Cashier\Domain\Services\CashierTableService;
 use Modules\Cashier\Interfaces\Requests\ChargeTableRequest;
 use Modules\Cashier\Interfaces\Requests\PayBillRequest;
 use Modules\Payments\Domain\Entities\Bill;
+use Modules\Payments\Domain\Entities\CashSession;
 use Modules\Payments\Domain\Entities\PaymentMethod;
 use Modules\Payments\Domain\Exceptions\PaymentException;
+use Modules\Payments\Domain\ValueObjects\CashSessionStatus;
 use Modules\Payments\Interfaces\Resources\BillResource;
 use Modules\Tables\Domain\Entities\RestaurantTable;
 
@@ -77,6 +79,22 @@ class CashierTablesController extends Controller
         $branchId = $user->branch_id;
         $validated = $request->validated();
 
+        // Si la empresa requiere sesión de caja, verificar que exista una abierta
+        if ($user->company->hasCapability('requires_cashier_session')) {
+            $openSession = CashSession::where('company_id', $user->company_id)
+                ->where('branch_id', $branchId)
+                ->where('status', CashSessionStatus::OPEN)
+                ->first();
+
+            if (!$openSession) {
+                return response()->json([
+                    'error' => 'cash_session_required',
+                    'message' => 'Debe abrir una sesión de caja antes de cobrar.',
+                    'required_capability' => 'requires_cashier_session',
+                ], 403);
+            }
+        }
+
         $table = RestaurantTable::where('uuid', $tableUuid)
             ->where('branch_id', $branchId)
             ->firstOrFail();
@@ -117,6 +135,22 @@ class CashierTablesController extends Controller
         $user = $request->user();
         $branchId = $user->branch_id;
         $validated = $request->validated();
+
+        // Si la empresa requiere sesión de caja, verificar que exista una abierta
+        if ($user->company->hasCapability('requires_cashier_session')) {
+            $openSession = CashSession::where('company_id', $user->company_id)
+                ->where('branch_id', $branchId)
+                ->where('status', CashSessionStatus::OPEN)
+                ->first();
+
+            if (!$openSession) {
+                return response()->json([
+                    'error' => 'cash_session_required',
+                    'message' => 'Debe abrir una sesión de caja antes de cobrar.',
+                    'required_capability' => 'requires_cashier_session',
+                ], 403);
+            }
+        }
 
         $bill = Bill::where('uuid', $billUuid)
             ->where('branch_id', $branchId)

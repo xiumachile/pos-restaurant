@@ -31,28 +31,22 @@ Route::prefix('v1/cashier')->middleware(['auth:api', TenantContextMiddleware::cl
 
     Route::get('/sessions/history', [CashierReportController::class, 'history'])
         ->name('cashier.sessions.history');
+
+    // Mesas con bills (consulta, no requiere control de caja)
+    Route::get('/tables-with-bills', [CashierTablesController::class, 'tablesWithBills'])
+        ->name('cashier.tables-with-bills');
+
+    // Preparar bills (crear bills, no requiere control de caja)
+    Route::post('/tables/{tableUuid}/prepare-bills', [CashierTablesController::class, 'prepareBills'])
+        ->name('cashier.tables.prepare-bills');
+
+    // Cobrar mesas y bills (la verificación de sesión se hace en el controller)
+    Route::post('/tables/{tableUuid}/charge', [CashierTablesController::class, 'chargeTable'])
+        ->name('cashier.tables.charge');
+
+    Route::post('/bills/{billUuid}/pay', [CashierTablesController::class, 'payBill'])
+        ->name('cashier.bills.pay');
 });
-
-// ============================================
-// Rutas de Caja que REQUIEREN sesión abierta
-// ============================================
-Route::prefix('v1/cashier')
-    ->middleware(['auth:api', TenantContextMiddleware::class, 'capability:requires_cashier_session'])
-    ->group(function () {
-        // Consultas de mesas con bills (requieren sesión)
-        Route::get('/tables-with-bills', [CashierTablesController::class, 'tablesWithBills'])
-            ->name('cashier.tables-with-bills');
-        
-        // Cobros y pagos (mutaciones, requieren sesión abierta)
-        Route::post('/tables/{tableUuid}/charge', [CashierTablesController::class, 'chargeTable'])
-            ->name('cashier.tables.charge');
-
-        Route::post('/tables/{tableUuid}/prepare-bills', [CashierTablesController::class, 'prepareBills'])
-            ->name('cashier.tables.prepare-bills');
-
-        Route::post('/bills/{billUuid}/pay', [CashierTablesController::class, 'payBill'])
-            ->name('cashier.bills.pay');
-    });
 
 // ============================================
 // Rutas de PROPINAS (requieren capability:can_accept_tips)
