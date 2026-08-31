@@ -5,7 +5,9 @@ use Modules\Branches\Domain\Entities\Branch;
 use Modules\Identity\Domain\Entities\User;
 use Modules\Orders\Domain\Entities\Order;
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
+use Modules\Payments\Domain\Entities\CashSession;
 use Modules\Payments\Domain\Entities\PaymentMethod;
+use Modules\Payments\Domain\ValueObjects\CashSessionStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 use Illuminate\Support\Str;
@@ -107,6 +109,29 @@ beforeEach(function () {
 
     $this->token = JWTAuth::fromUser($this->cashier);
     $this->tokenB = JWTAuth::fromUser($this->cashierB);
+
+    // Como enableAllCapabilities() activa requires_cashier_session=ON,
+    // debemos abrir una sesión de caja en cada tenant para que los pagos
+    // sean aceptados (nueva semántica de la capability).
+    CashSession::create([
+        'company_id' => $this->company->id,
+        'branch_id' => $this->branch->id,
+        'user_id' => $this->cashier->id,
+        'session_number' => 'CS-A-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -6)),
+        'status' => CashSessionStatus::OPEN,
+        'opening_amount' => 50000,
+        'opened_at' => now(),
+    ]);
+
+    CashSession::create([
+        'company_id' => $this->companyB->id,
+        'branch_id' => $this->branchB->id,
+        'user_id' => $this->cashierB->id,
+        'session_number' => 'CS-B-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -6)),
+        'status' => CashSessionStatus::OPEN,
+        'opening_amount' => 50000,
+        'opened_at' => now(),
+    ]);
 });
 
 function paymentApiHeaders(?string $token = null): array
