@@ -41,6 +41,17 @@ class LedgerService
         ?string $description = null,
         ?int $userId = null
     ): JournalEntry {
+        // IDEMPOTENCIA: Verificar si ya existe un asiento para esta referencia
+        // Si existe, retornar el existente sin crear uno nuevo.
+        // Esto previene asientos duplicados en caso de retry manual o bug.
+        $existingEntry = JournalEntry::where('reference_type', $referenceType)
+            ->where('reference_id', $referenceId)
+            ->first();
+
+        if ($existingEntry) {
+            return $existingEntry->load('ledgerEntries.account');
+        }
+
         // Validar que hay al menos una línea
         if (empty($lines)) {
             throw UnbalancedJournalEntryException::emptyEntry();
