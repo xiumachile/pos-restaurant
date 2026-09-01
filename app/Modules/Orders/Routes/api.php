@@ -24,7 +24,9 @@ Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class])->g
 Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class, 'idempotent'])->group(function () {
     
     // Orders CRUD
-    Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
+    Route::post('/orders', [OrderController::class, 'store'])
+        ->middleware('throttle:30,1')
+        ->name('orders.store');
     Route::put('/orders/{uuid}', [OrderController::class, 'update'])->name('orders.update');
     Route::delete('/orders/{uuid}', [OrderController::class, 'destroy'])->name('orders.destroy');
 

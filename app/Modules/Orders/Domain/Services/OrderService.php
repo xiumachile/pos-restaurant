@@ -10,6 +10,7 @@ use Modules\Orders\Domain\ValueObjects\OrderStatus;
 use Modules\Orders\Domain\ValueObjects\FulfillmentChannel;
 use Modules\Orders\Domain\ValueObjects\OrderType;
 use Modules\Tables\Domain\Entities\RestaurantTable;
+use Modules\Orders\Domain\Exceptions\OrderNotModifiableException;
 
 /**
  * Servicio de gestión de pedidos.
@@ -154,7 +155,7 @@ class OrderService
             ->firstOrFail();
 
         if (!$order->isEditable()) {
-            abort(422, 'No se pueden modificar pedidos ya confirmados.');
+            throw new OrderNotModifiableException();
         }
 
         // Actualizar mesa si se proporcionó

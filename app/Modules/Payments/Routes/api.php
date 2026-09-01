@@ -28,6 +28,7 @@ Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class])->g
 // ============================================
 Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class, 'idempotent'])->group(function () {
     Route::post('/billing/payments', [PaymentController::class, 'store'])
+        ->middleware('throttle:20,1')
         ->name('payments.store');
 
     Route::post('/orders/{uuid}/split', [BillController::class, 'split'])

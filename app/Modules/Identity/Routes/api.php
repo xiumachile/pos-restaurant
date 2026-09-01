@@ -6,9 +6,11 @@ use Modules\Identity\Interfaces\Controllers\AuthController;
 Route::prefix('v1/auth')->group(function () {
     // Rutas públicas (sin autenticación)
     Route::post('/login', [AuthController::class, 'login'])
+        ->middleware('throttle:5,1')
         ->name('auth.login');
 
     Route::post('/login/pos', [AuthController::class, 'posLogin'])
+        ->middleware('throttle:3,1')
         ->name('auth.login.pos');
 
     // Rutas protegidas (requieren JWT válido)
