@@ -10,6 +10,8 @@ use Modules\Payments\Domain\Entities\Payment;
 use Modules\Payments\Domain\Entities\PaymentMethod;
 use Modules\Payments\Domain\Exceptions\PaymentException;
 use Modules\Payments\Domain\ValueObjects\PaymentStatus;
+use Modules\Accounting\Domain\Entities\Account;
+use Modules\Payments\Domain\Services\PaymentLedgerService;
 
 /**
  * Servicio de dominio para registro de pagos.
@@ -17,6 +19,10 @@ use Modules\Payments\Domain\ValueObjects\PaymentStatus;
  */
 class PaymentService
 {
+    public function __construct(
+        private PaymentLedgerService $paymentLedgerService
+    ) {}
+
     /**
      * Registra un pago para un pedido o bill específico.
      * Garantiza idempotencia mediante Idempotency-Key.
@@ -33,6 +39,11 @@ class PaymentService
         ?string $referenceCode = null,
         ?string $notes = null
     ): Payment {
+        // IMPORTANTE: Sembrar cuentas contables ANTES de la transacción
+        // Esto evita el error PostgreSQL 25P02 (transaction aborted) cuando
+        // un INSERT de cuenta duplicada falla dentro de la transacción
+        Account::seedDefaultsFor($order->company_id, $order->branch_id);
+
         return DB::transaction(function () use (
             $order, $paymentMethod, $amount, $idempotencyKey,
             $bill, $cashSession, $userId, $tipAmount, $referenceCode, $notes
@@ -86,12 +97,20 @@ class PaymentService
                 'paid_at' => now(),
             ]);
 
-            // 6. Actualizar el bill si aplica
+            // 6. Generar asiento contable (P0-05 — Ledger integration)
+            // Si falla, se revierte toda la transacción (payment incluido)
+            try {
+                $this->paymentLedgerService->recordPayment($payment);
+            } catch (\Exception $e) {
+                throw PaymentException::ledgerRecordingFailed($e->getMessage());
+            }
+
+            // 7. Actualizar el bill si aplica
             if ($bill) {
                 $bill->registerPaymentAmount($amount);
             }
 
-            // 7. Actualizar el pedido si está completamente pagado
+            // 8. Actualizar el pedido si está completamente pagado
             $this->updateOrderPaymentStatus($order);
 
             return $payment;

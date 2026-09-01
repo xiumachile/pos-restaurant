@@ -54,4 +54,20 @@ class PaymentException extends Exception
             422
         );
     }
+
+    public static function orderRequiredForLedger(): self
+    {
+        return new self('El pago requiere un pedido asociado para generar asiento contable.');
+    }
+
+    public static function invalidOrderTotal(float $total): self
+    {
+        return new self("El total del pedido debe ser mayor a cero. Recibido: {$total}");
+    }
+
+    public static function ledgerRecordingFailed(string $reason): self
+    {
+        return new self("No se pudo registrar el asiento contable del pago: {$reason}");
+    }
+
 }

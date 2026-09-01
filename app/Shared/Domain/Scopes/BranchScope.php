@@ -61,7 +61,10 @@ class BranchScope implements Scope
         }
 
         if ($branchId !== null) {
-            $builder->where($model->getTable() . '.branch_id', $branchId);
+            $builder->where(function($q) use ($model, $branchId) {
+                $q->where($model->getTable() . '.branch_id', $branchId)
+                  ->orWhereNull($model->getTable() . '.branch_id');
+            });
             return;
         }
 

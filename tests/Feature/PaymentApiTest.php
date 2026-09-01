@@ -9,6 +9,7 @@ use Modules\Payments\Domain\Entities\CashSession;
 use Modules\Payments\Domain\Entities\PaymentMethod;
 use Modules\Payments\Domain\ValueObjects\CashSessionStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Modules\Accounting\Domain\Entities\Account;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 use Illuminate\Support\Str;
 
@@ -23,6 +24,9 @@ beforeEach(function () {
     ]);
 
     enableAllCapabilities($this->company);
+
+    // Crear cuentas contables por defecto (necesarias para P0-05 Ledger integration)
+    Account::seedDefaultsFor($this->company->id);
 
     $this->branch = Branch::create([
         'company_id' => $this->company->id,
@@ -73,6 +77,9 @@ beforeEach(function () {
     ]);
 
     enableAllCapabilities($this->companyB);
+
+    // Crear cuentas contables por defecto para tenant B
+    Account::seedDefaultsFor($this->companyB->id);
 
     $this->branchB = Branch::create([
         'company_id' => $this->companyB->id,
@@ -191,6 +198,12 @@ test('POST /api/v1/billing/payments registra pago completo en efectivo', functio
             'idempotency_key' => Str::uuid()->toString(),
         ]);
 
+    if ($response->status() !== 201) {
+        dump('=== ERROR 422 ===');
+        dump('Status:', $response->status());
+        dump('Body:', $response->json());
+    }
+    
     $response->assertStatus(201)
         ->assertJsonPath('data.method_code', 'cash')
         ->assertJsonPath('data.amount', 11900)
