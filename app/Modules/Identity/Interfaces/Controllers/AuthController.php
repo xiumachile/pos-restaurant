@@ -10,6 +10,7 @@ use Modules\Identity\Domain\Exceptions\InvalidCredentialsException;
 use Modules\Identity\Domain\Services\AuthenticationService;
 use Modules\Identity\Interfaces\Requests\LoginRequest;
 use Modules\Identity\Interfaces\Requests\PosLoginRequest;
+use Modules\Identity\Interfaces\Requests\PosSessionRequest;
 use Modules\Identity\Interfaces\Requests\RefreshRequest;
 
 class AuthController extends Controller
@@ -35,13 +36,50 @@ class AuthController extends Controller
         }
     }
 
-    public function posLogin(PosLoginRequest $request): JsonResponse
+    /**
+     * POST /api/v1/auth/pos-session
+     * Crea una sesión POS efímera a partir del PIN.
+     * Operación O(n) aceptable (solo se llama en setup).
+     */
+    public function posSession(PosSessionRequest $request): JsonResponse
     {
         try {
-            $response = $this->authService->loginWithPin(
+            $response = $this->authService->createPosSession(
                 $request->branch_id,
                 $request->pin
             );
+            return response()->json($response, 201);
+        } catch (InvalidCredentialsException $e) {
+            return response()->json([
+                'error' => 'invalid_credentials',
+                'message' => $e->getMessage(),
+            ], 401);
+        }
+    }
+
+    /**
+     * POST /api/v1/auth/login/pos
+     * Autentica con PIN (legacy) o session_token (nuevo, O(1)).
+     * 
+     * Backwards compatible: si se envía 'pin', usa el flujo legacy.
+     * Si se envía 'session_token', usa el nuevo flujo O(1) con cache.
+     */
+    public function posLogin(PosLoginRequest $request): JsonResponse
+    {
+        try {
+            // Nuevo flujo: session_token (O(1) lookup en cache)
+            if ($request->has('session_token')) {
+                $response = $this->authService->loginWithSessionToken(
+                    $request->branch_id,
+                    $request->session_token
+                );
+            } else {
+                // Flujo legacy: PIN (O(n), mantener para compatibilidad)
+                $response = $this->authService->loginWithPin(
+                    $request->branch_id,
+                    $request->pin
+                );
+            }
             return response()->json($response);
         } catch (InvalidCredentialsException $e) {
             return response()->json([

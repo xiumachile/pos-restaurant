@@ -13,6 +13,11 @@ Route::prefix('v1/auth')->group(function () {
         ->middleware('throttle:3,1')
         ->name('auth.login.pos');
 
+    // NUEVO: Crear sesión POS efímera (setup, O(n) aceptable)
+    Route::post('/pos-session', [AuthController::class, 'posSession'])
+        ->middleware('throttle:3,1')
+        ->name('auth.pos-session');
+
     // Rutas protegidas (requieren JWT válido)
     Route::middleware('auth:api')->group(function () {
         Route::post('/refresh', [AuthController::class, 'refresh'])
