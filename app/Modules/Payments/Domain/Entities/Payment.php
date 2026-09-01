@@ -115,4 +115,9 @@ class Payment extends Model
     {
         return sprintf('PAY-%s-%s', strtoupper($branchCode), date('Ymd') . '-' . strtoupper(substr(uniqid(), -6)));
     }
+
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(Refund::class);
+    }
 }
