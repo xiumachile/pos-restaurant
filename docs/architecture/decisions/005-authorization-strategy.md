@@ -1,4 +1,3 @@
-
 # ADR-005: Estrategia de Autorización (Spatie vs Roles Simples)
 
 **Fecha**: 01 Septiembre 2026  
@@ -35,43 +34,32 @@ hasta que el frontend requiera permisos granulares.**
    - Migración incremental (no rompe roles existentes)
    - Permisos granulares como `orders.create`, `orders.cancel`, `payments.refund`
 
-### Estrategia de Transición (cuando sea necesaria)
+## Consecuencias
 
-```bash
-# Fase 1: Crear roles y permisos Spatie
-php artisan make:permission orders.create
-php artisan make:permission orders.cancel
-php artisan make:permission payments.refund
-php artisan make:permission catalog.update
+### Positivas
+✅ Zero migración innecesaria  
+✅ Roles simples siguen funcionando  
+✅ Spatie disponible cuando se necesite  
+✅ Frontend puede usar `role` string por ahora
 
-# Fase 2: Asignar permisos a roles existentes
-User::where('role', 'admin')->each(fn($u) => $u->givePermissionTo('orders.*'));
-User::where('role', 'cashier')->each(fn($u) => $u->givePermissionTo('orders.create'));
-
-# Fase 3: Migrar middleware gradualmente
-# CheckRole sigue funcionando, pero usa Spatie como respaldo
-Consecuencias
-Positivas
-✅ Zero migración innecesaria
-✅ Roles simples siguen funcionando
-✅ Spatie disponible cuando se necesite
-✅ Frontend puede usar role string por ahora
-Negativas
-⚠️ No hay permisos granulares todavía (limita UI condicional)
+### Negativas
+⚠️ No hay permisos granulares todavía (limita UI condicional)  
 ⚠️ Dos sistemas de autorización coexisten (pero solo uno activo)
-Alternativas Descartadas
-❌ Migrar completamente a Spatie ahora: Alto costo, zero valor inmediato
-❌ Eliminar Spatie del composer: Pierde flexibilidad futura
-❌ Implementar sistema custom de permisos: Reinventar la rueda
-Criterio de Activación
+
+## Alternativas Descartadas
+
+❌ **Migrar completamente a Spatie ahora**: Alto costo, zero valor inmediato  
+❌ **Eliminar Spatie del composer**: Pierde flexibilidad futura  
+❌ **Implementar sistema custom de permisos**: Reinventar la rueda
+
+## Criterio de Activación
+
 Activar Spatie cuando el frontend necesite:
-Botones condicionales por permiso granular (no solo por rol)
-Auditoría detallada de permisos por usuario
-Roles personalizados por empresa/branch
-Referencias
-Package instalado: spatie/laravel-permission ^8.3
-Middleware actual: CheckRole (compara $user->role string)
-Tabla users: campo role (admin, manager, cashier, waiter, kitchen)
-Próxima iteración: Sprint de frontend (Gap 1) evaluará necesidad real
-Decisión tomada por: Arquitecto + Desarrollador
-Fecha: 01 Septiembre 2026
+- Botones condicionales por permiso granular (no solo por rol)
+- Auditoría detallada de permisos por usuario
+- Roles personalizados por empresa/branch
+
+---
+
+**Decisión tomada por**: Arquitecto + Desarrollador  
+**Fecha**: 01 Septiembre 2026
