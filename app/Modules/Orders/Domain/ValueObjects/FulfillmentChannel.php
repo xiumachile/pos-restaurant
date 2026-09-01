@@ -15,9 +15,11 @@ namespace Modules\Orders\Domain\ValueObjects;
  * - TAKEOUT  → default PICKUP
  * - DELIVERY → default DELIVERY
  *
- * Nota: Este enum se definió como parte de Fase 2 (Order Core sin Mesa).
- * El campo `fulfillment_channel` en la tabla `orders` se agregará en una
- * fase posterior cuando se requiera distinguir fulfillment del tipo.
+  * Implementado en Fase 2-3 (commits 53515af, a7c4289):
+ * - Columna `fulfillment_channel` agregada a tabla `orders`
+ * - Backfill automático: DINE_IN→onsite, TAKEOUT→pickup, DELIVERY→delivery
+ * - Default 'onsite' vía migración
+ * - Documentación completa en docs/architecture/decisions/001-fulfillment-model.md
  */
 enum FulfillmentChannel: string
 {
