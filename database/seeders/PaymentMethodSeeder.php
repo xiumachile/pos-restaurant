@@ -12,24 +12,25 @@ class PaymentMethodSeeder extends Seeder
 {
     public function run(): void
     {
-        $company = Company::withoutGlobalScopes()
-            ->where('trade_name', 'Wok & Mesa')
-            ->first();
+        // Usar la primera empresa disponible (más robusto que hardcodear nombre)
+        $company = Company::withoutGlobalScopes()->first();
 
         if (!$company) {
-            $this->command->error('Compañía Wok & Mesa no existe.');
+            $this->command->error('No hay empresas. Ejecuta BaseTenantSeeder primero.');
             return;
         }
 
+        // Usar la primera branch disponible de la empresa
         $branch = Branch::withoutGlobalScopes()
             ->where('company_id', $company->id)
-            ->where('code', 'MAIN')
             ->first();
 
         if (!$branch) {
-            $this->command->error('Branch MAIN no existe.');
+            $this->command->error("No hay branches para {$company->trade_name}.");
             return;
         }
+
+        $this->command->info("Creando métodos de pago para: {$company->trade_name} (branch: {$branch->code})");
 
         $existing = PaymentMethod::withoutGlobalScopes()
             ->where('company_id', $company->id)

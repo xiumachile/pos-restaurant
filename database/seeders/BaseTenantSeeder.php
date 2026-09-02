@@ -128,4 +128,5 @@ class BaseTenantSeeder extends Seeder
         $this->command->info("Terminales: " . Terminal::count());
         $this->command->info("Usuarios:   " . User::count());
     }
-}
+
+    }
