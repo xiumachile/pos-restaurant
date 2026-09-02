@@ -34,13 +34,13 @@ beforeEach(function () {
         'name' => 'POS Flow Branch',
     ]);
 
-    $this->cashier = User::create([
+    $this->user = User::create([
         'name' => 'Test Cashier',
-        'email' => 'cashier-' . uniqid() . '@test.com',
+        'email' => 'manager-' . uniqid() . '@test.com',
         'password' => 'password123',
         'company_id' => $this->company->id,
         'branch_id' => $this->branch->id,
-        'role' => 'cashier',
+        'role' => 'manager',
         'pos_pin_hash' => password_hash('1234', PASSWORD_BCRYPT),
     ]);
 
@@ -56,7 +56,7 @@ beforeEach(function () {
     $this->cashSession = CashSession::create([
         'company_id' => $this->company->id,
         'branch_id' => $this->branch->id,
-        'user_id' => $this->cashier->id,
+        'user_id' => $this->user->id,
         'session_number' => 'CS-FLOW-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -6)),
         'status' => CashSessionStatus::OPEN,
         'opening_amount' => 100000,
