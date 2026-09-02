@@ -19,6 +19,8 @@ class OrderItemController extends Controller
             ->where('company_id', $request->user()->company_id)
             ->firstOrFail();
 
+        $this->authorize('update', $order);
+
         if (!$order->isEditable()) {
             return response()->json([
                 'error' => 'order_not_modifiable',
@@ -28,7 +30,6 @@ class OrderItemController extends Controller
 
         $validated = $request->validated();
 
-        // Estrategia 1: Buscar por menu_item_uuid (flujo normal online)
         $menuItem = null;
         $product = null;
 
@@ -39,16 +40,12 @@ class OrderItemController extends Controller
             }
         }
 
-        // Estrategia 2: Buscar por product_uuid (flujo offline-first)
-        // Busca el menu_item activo de esta sucursal para ese producto,
-        // o usa el producto directamente si no hay menu_item.
         if (!$product && !empty($validated['product_uuid'])) {
             $product = Product::withoutGlobalScopes()
                 ->where('uuid', $validated['product_uuid'])
                 ->first();
 
             if ($product) {
-                // Intentar encontrar un menu_item para este producto en la sucursal
                 $menuItem = MenuItem::withoutGlobalScopes()
                     ->where('product_id', $product->id)
                     ->where('branch_id', $order->branch_id)
@@ -64,48 +61,31 @@ class OrderItemController extends Controller
             ], 422);
         }
 
-        // Obtener nombre del JSON de traducciones
         $translations = $product->name_translations ?? [];
         if (is_string($translations)) {
             $translations = json_decode($translations, true) ?? [];
         }
         $productName = $translations['es'] ?? $translations['en'] ?? reset($translations) ?: 'Producto';
 
-        // Precio: menu_item > product (fallback)
         $unitPrice = (float) ($menuItem->base_price ?? $product->base_price);
         $subtotal = $unitPrice * $validated['quantity'];
 
-        // Calcular impuesto: priorizar tax_rate del producto si está seteado,
-        // sino usar la lógica de herencia (Product.tax → Category.tax → Default)
         if ($product->tax_rate !== null && $product->tax_rate > 0) {
-            // Usar tax_rate directo del producto (más confiable en testing)
             $taxRate = (float) $product->tax_rate;
             $taxAmount = round($subtotal * ($taxRate / 100), 2);
             $taxName = null;
         } else {
-            // Fallback a herencia
             $effectiveTax = $product->getEffectiveTax();
             $taxRate = $effectiveTax ? (float) $effectiveTax->rate : 0.0;
             $taxAmount = round($subtotal * ($taxRate / 100), 2);
             $taxName = $effectiveTax ? $effectiveTax->name : null;
         }
 
-        // DEBUG: Ver valores calculados
-        \Log::debug('OrderItemController::store', [
-            'product_id' => $product->id,
-            'product_tax_rate' => $product->tax_rate,
-            'unitPrice' => $unitPrice,
-            'quantity' => $validated['quantity'],
-            'subtotal' => $subtotal,
-            'taxRate' => $taxRate,
-            'taxAmount' => $taxAmount,
-        ]);
-
         $item = OrderItem::create([
             'product_id' => $product->id,
             'company_id' => $order->company_id,
             'order_id' => $order->id,
-            'menu_item_id' => $menuItem?->id,  // nullable si no hay menu_item
+            'menu_item_id' => $menuItem?->id,
             'name_snapshot' => $productName,
             'unit_price_snapshot' => $unitPrice,
             'quantity' => $validated['quantity'],

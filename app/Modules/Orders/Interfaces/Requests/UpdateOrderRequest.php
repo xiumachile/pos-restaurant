@@ -15,7 +15,7 @@ class UpdateOrderRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status' => ['nullable', Rule::in(['open', 'confirmed', 'preparing', 'ready', 'served', 'paid', 'cancelled'])],
+            'status' => ['nullable', Rule::in(['draft', 'confirmed', 'preparing', 'ready', 'served', 'paid', 'closed', 'cancelled'])],
             'table_uuid' => ['nullable', 'uuid', 'exists:restaurant_tables,uuid'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'guest_count' => ['nullable', 'integer', 'min:1', 'max:50'],

@@ -13,20 +13,12 @@ use Modules\Payments\Domain\ValueObjects\PaymentStatus;
 use Modules\Accounting\Domain\Entities\Account;
 use Modules\Payments\Domain\Services\PaymentLedgerService;
 
-/**
- * Servicio de dominio para registro de pagos.
- * Implementa Idempotencia según Arquitectura v1.1 Sección 12.
- */
 class PaymentService
 {
     public function __construct(
         private PaymentLedgerService $paymentLedgerService
     ) {}
 
-    /**
-     * Registra un pago para un pedido o bill específico.
-     * Garantiza idempotencia mediante Idempotency-Key.
-     */
     public function registerPayment(
         Order $order,
         PaymentMethod $paymentMethod,
@@ -39,27 +31,23 @@ class PaymentService
         ?string $referenceCode = null,
         ?string $notes = null
     ): Payment {
-        // IMPORTANTE: Sembrar cuentas contables ANTES de la transacción
-        // Esto evita el error PostgreSQL 25P02 (transaction aborted) cuando
-        // un INSERT de cuenta duplicada falla dentro de la transacción
         Account::seedDefaultsFor($order->company_id, $order->branch_id);
 
         return DB::transaction(function () use (
             $order, $paymentMethod, $amount, $idempotencyKey,
             $bill, $cashSession, $userId, $tipAmount, $referenceCode, $notes
         ) {
-            // 1. Verificar idempotencia
+            $order = Order::lockForUpdate()->find($order->id);
+
             $existing = Payment::where('idempotency_key', $idempotencyKey)->first();
             if ($existing) {
                 return $existing;
             }
 
-            // 2. Validar que el pedido sea pagable
             if (!$this->isOrderPayable($order)) {
                 throw PaymentException::orderNotPayable();
             }
 
-            // 3. Validar método de pago
             if (!$paymentMethod->is_active) {
                 throw PaymentException::invalidPaymentMethod();
             }
@@ -68,13 +56,11 @@ class PaymentService
                 throw PaymentException::invalidPaymentMethod();
             }
 
-            // 4. Validar monto disponible
             $available = $this->getAvailableAmount($order, $bill);
             if ($amount > $available + 0.01) {
                 throw PaymentException::insufficientAmount($amount, $available);
             }
 
-            // 5. Crear el pago (reference_code es opcional)
             $totalAmount = Payment::calculateTotal($amount, $tipAmount);
 
             $payment = Payment::create([
@@ -97,38 +83,27 @@ class PaymentService
                 'paid_at' => now(),
             ]);
 
-            // 6. Generar asiento contable (P0-05 — Ledger integration)
-            // Si falla, se revierte toda la transacción (payment incluido)
             try {
                 $this->paymentLedgerService->recordPayment($payment);
             } catch (\Exception $e) {
                 throw PaymentException::ledgerRecordingFailed($e->getMessage());
             }
 
-            // 7. Actualizar el bill si aplica
             if ($bill) {
                 $bill->registerPaymentAmount($amount);
             }
 
-            // 8. Actualizar el pedido si está completamente pagado
             $this->updateOrderPaymentStatus($order);
 
             return $payment;
         });
     }
 
-    /**
-     * Verifica si un pedido puede recibir pagos.
-     * Acepta cualquier estado cobrable: CONFIRMED, PREPARING, READY, SERVED
-     */
     private function isOrderPayable(Order $order): bool
     {
         return $order->status->isChargeable();
     }
 
-    /**
-     * Calcula el monto disponible a pagar (total - ya pagado).
-     */
     private function getAvailableAmount(Order $order, ?Bill $bill): float
     {
         if ($bill) {
@@ -142,10 +117,6 @@ class PaymentService
         return (float) $order->total - $paidAmount;
     }
 
-    /**
-     * Actualiza el estado de pago del pedido si está completamente pagado.
-     * Transiciona el order a PAID desde cualquier estado cobrable.
-     */
     private function updateOrderPaymentStatus(Order $order): void
     {
         $paidAmount = (float) Payment::where('order_id', $order->id)
@@ -157,8 +128,7 @@ class PaymentService
             $order->status = \Modules\Orders\Domain\ValueObjects\OrderStatus::PAID;
             $order->cashier_id = $order->cashier_id ?: auth()->id();
             $order->save();
-            
-            // Disparar evento OrderPaid si existe
+
             if (class_exists(\Modules\Orders\Domain\Events\OrderPaid::class)) {
                 event(new \Modules\Orders\Domain\Events\OrderPaid($order));
             }

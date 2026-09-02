@@ -20,20 +20,11 @@ class PaymentController extends Controller
         private PaymentService $paymentService
     ) {}
 
-    /**
-     * POST /api/v1/payments
-     * Registra un pago para un pedido o bill específico.
-     * Requiere header Idempotency-Key (según Arquitectura v1.1 Sección 12).
-     */
     public function store(StorePaymentRequest $request): JsonResponse
     {
         $validated = $request->validated();
         $user = $request->user();
 
-        // Si la empresa REQUIERE sesión de caja, verificar que exista una abierta.
-        // La capability requires_cashier_session = true significa:
-        // "no se pueden aceptar pagos sin una sesión de caja abierta previamente".
-        // Si la capability está deshabilitada, los pagos son libres (sin control de caja).
         $openSession = null;
         if ($user->company->hasCapability('requires_cashier_session')) {
             $openSession = CashSession::where('company_id', $user->company_id)
@@ -53,7 +44,12 @@ class PaymentController extends Controller
         $order = Order::where('uuid', $validated['order_uuid'])
             ->where('company_id', $user->company_id)
             ->firstOrFail();
-        $paymentMethod = PaymentMethod::forBranch($user->branch_id)->where('uuid', $validated['payment_method_uuid'])->firstOrFail();
+
+        $this->authorize('pay', $order);
+
+        $paymentMethod = PaymentMethod::forBranch($user->branch_id)
+            ->where('uuid', $validated['payment_method_uuid'])
+            ->firstOrFail();
 
         $bill = null;
         if (!empty($validated['bill_uuid'])) {
