@@ -5,6 +5,7 @@ namespace App\Shared\Http\Middleware;
 use App\Shared\Domain\Entities\IdempotencyKey;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
@@ -22,13 +23,14 @@ class IdempotencyKeyMiddleware
 
     public function handle(Request $request, Closure $next): SymfonyResponse
     {
-        // F2.1: Desactivar idempotencia en testing (excepto en IdempotencyTest)
-        if (app()->environment('testing') && !$this->isTestingMiddleware($request)) {
+        // Si no es POST/PUT/PATCH/DELETE, no aplicar idempotencia
+        if (!$request->isMethod('POST') && !$request->isMethod('PUT') && !$request->isMethod('PATCH') && !$request->isMethod('DELETE')) {
             return $next($request);
         }
 
-        // Si no es POST/PUT/PATCH/DELETE, no aplicar idempotencia
-        if (!$request->isMethod('POST') && !$request->isMethod('PUT') && !$request->isMethod('PATCH') && !$request->isMethod('DELETE')) {
+        // F2.1: En testing, activar idempotencia solo si el header está presente
+        // Esto permite que tests específicos validen idempotencia enviando el header
+        if (app()->environment('testing') && !$request->hasHeader('Idempotency-Key')) {
             return $next($request);
         }
 
@@ -50,14 +52,46 @@ class IdempotencyKeyMiddleware
 
         $requestHash = $this->generateRequestHash($request);
 
+        // ESTRATEGIA HÍBRIDA (ADR-007): Redis como cache + SQL como fuente de verdad
+        // Paso 1: Check Redis (O(1), fast path)
+        $cacheKey = 'idempotency:' . $idempotencyKey;
+        $cachedResponse = Cache::get($cacheKey);
+
+        if ($cachedResponse) {
+            if ($cachedResponse['request_hash'] === $requestHash) {
+                Log::info('IdempotencyKey: Returning cached response from Redis', [
+                    'key' => $idempotencyKey,
+                    'endpoint' => $request->path(),
+                ]);
+
+                return response()->json(
+                    $cachedResponse['response_body'],
+                    $cachedResponse['response_code']
+                );
+            }
+
+            return response()->json([
+                'error' => 'Idempotency-Key conflict',
+                'message' => 'El Idempotency-Key ya fue usado con datos diferentes.',
+            ], 409);
+        }
+
+        // Paso 2: Check SQL (fuente de verdad, fallback si Redis no tiene)
         $existing = IdempotencyKey::where('key', $idempotencyKey)->first();
 
         if ($existing && $existing->hasValidResponse()) {
             if ($existing->request_hash === $requestHash) {
-                Log::info('IdempotencyKey: Returning cached response', [
+                Log::info('IdempotencyKey: Returning cached response from SQL', [
                     'key' => $idempotencyKey,
                     'endpoint' => $request->path(),
                 ]);
+
+                // Write-through: cachear en Redis para próximos requests
+                Cache::put($cacheKey, [
+                    'request_hash' => $existing->request_hash,
+                    'response_code' => $existing->response_code,
+                    'response_body' => $existing->response_body,
+                ], now()->addHours(self::DEFAULT_TTL_HOURS));
 
                 return response()->json(
                     $existing->response_body,
@@ -76,13 +110,22 @@ class IdempotencyKeyMiddleware
 
         // Solo cachear respuestas exitosas (2xx)
         if ($response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
+            $responseData = [
+                'request_hash' => $requestHash,
+                'response_code' => $response->getStatusCode(),
+                'response_body' => json_decode($response->getContent(), true),
+            ];
+
+            // Write-through: SQL (durabilidad) + Redis (performance)
             IdempotencyKey::create([
                 'key' => $idempotencyKey,
                 'request_hash' => $requestHash,
                 'response_code' => $response->getStatusCode(),
-                'response_body' => json_decode($response->getContent(), true),
+                'response_body' => $responseData['response_body'],
                 'expires_at' => now()->addHours(self::DEFAULT_TTL_HOURS),
             ]);
+
+            Cache::put($cacheKey, $responseData, now()->addHours(self::DEFAULT_TTL_HOURS));
         }
 
         return $response;

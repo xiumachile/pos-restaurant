@@ -9,6 +9,7 @@ use Modules\Orders\Domain\Services\OrderService;
 use Modules\Orders\Interfaces\Requests\CreateOrderRequest;
 use Modules\Orders\Interfaces\Requests\UpdateOrderRequest;
 use Modules\Orders\Interfaces\Resources\OrderResource;
+use Modules\Orders\Domain\Exceptions\OrderNotModifiableException;
 
 class OrderController extends Controller
 {
@@ -72,11 +73,8 @@ class OrderController extends Controller
             );
 
             return OrderResource::make($order)->response();
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
-            return response()->json([
-                'error' => 'order_not_modifiable',
-                'message' => $e->getMessage(),
-            ], $e->getStatusCode());
+        } catch (OrderNotModifiableException $e) {
+            return $e->render();
         }
     }
 

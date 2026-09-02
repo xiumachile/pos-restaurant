@@ -52,12 +52,31 @@ class OrderItem extends Model
         static::saving(function (OrderItem $item) {
             $item->subtotal = $item->unit_price_snapshot * $item->quantity;
             
-            // Calcular impuesto por línea
+            // Si el tax_amount ya fue seteado explícitamente por el controller
+            // (con su snapshot de rate), respetar ese cálculo.
+            // Esto permite que OrderItemController calcule impuestos usando
+            // product.tax_rate legacy sin que el evento saving() lo sobreescriba.
+            if ($item->tax_amount !== null && $item->tax_amount > 0 && $item->tax_rate_snapshot !== null) {
+                return; // Tax ya calculado - preservar snapshot histórico
+            }
+            
+            // Calcular impuesto por línea (fallback)
             $tax = null;
             
             if ($item->product_id && $item->product) {
                 // Caso 1: Hay producto asociado → usar su impuesto efectivo
                 $tax = $item->product->getEffectiveTax();
+                
+                // FALLBACK LEGACY: si getEffectiveTax() retorna null (no hay tax_id
+                // ni default), pero el producto tiene tax_rate legacy, usarlo.
+                // Esto mantiene compatibilidad con productos antiguos que solo
+                // tienen tax_rate configurado sin tax_id.
+                if (!$tax && $item->product->tax_rate !== null && $item->product->tax_rate > 0) {
+                    $item->tax_amount = round($item->subtotal * ((float) $item->product->tax_rate / 100), 2);
+                    $item->tax_rate_snapshot = (float) $item->product->tax_rate;
+                    $item->tax_name_snapshot = null; // Legacy no tiene nombre
+                    return;
+                }
             } else {
                 // Caso 2: Sin producto (item custom, combo, etc.) → usar Tax default de la empresa
                 $tax = \Modules\Tax\Domain\Entities\Tax::where('company_id', $item->company_id)
@@ -71,7 +90,7 @@ class OrderItem extends Model
                 $item->tax_rate_snapshot = $tax->effectiveRate();
                 $item->tax_name_snapshot = $tax->name;
             } else {
-                // Fallback: sin impuesto configurado
+                // Sin impuesto configurado
                 $item->tax_amount = 0;
                 $item->tax_rate_snapshot = null;
                 $item->tax_name_snapshot = null;

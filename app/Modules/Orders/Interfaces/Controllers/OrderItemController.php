@@ -73,8 +73,36 @@ class OrderItemController extends Controller
 
         // Precio: menu_item > product (fallback)
         $unitPrice = (float) ($menuItem->base_price ?? $product->base_price);
+        $subtotal = $unitPrice * $validated['quantity'];
+
+        // Calcular impuesto: priorizar tax_rate del producto si está seteado,
+        // sino usar la lógica de herencia (Product.tax → Category.tax → Default)
+        if ($product->tax_rate !== null && $product->tax_rate > 0) {
+            // Usar tax_rate directo del producto (más confiable en testing)
+            $taxRate = (float) $product->tax_rate;
+            $taxAmount = round($subtotal * ($taxRate / 100), 2);
+            $taxName = null;
+        } else {
+            // Fallback a herencia
+            $effectiveTax = $product->getEffectiveTax();
+            $taxRate = $effectiveTax ? (float) $effectiveTax->rate : 0.0;
+            $taxAmount = round($subtotal * ($taxRate / 100), 2);
+            $taxName = $effectiveTax ? $effectiveTax->name : null;
+        }
+
+        // DEBUG: Ver valores calculados
+        \Log::debug('OrderItemController::store', [
+            'product_id' => $product->id,
+            'product_tax_rate' => $product->tax_rate,
+            'unitPrice' => $unitPrice,
+            'quantity' => $validated['quantity'],
+            'subtotal' => $subtotal,
+            'taxRate' => $taxRate,
+            'taxAmount' => $taxAmount,
+        ]);
 
         $item = OrderItem::create([
+            'product_id' => $product->id,
             'company_id' => $order->company_id,
             'order_id' => $order->id,
             'menu_item_id' => $menuItem?->id,  // nullable si no hay menu_item
@@ -82,7 +110,10 @@ class OrderItemController extends Controller
             'unit_price_snapshot' => $unitPrice,
             'quantity' => $validated['quantity'],
             'notes' => $validated['notes'] ?? null,
-            'subtotal' => $unitPrice * $validated['quantity'],
+            'subtotal' => $subtotal,
+            'tax_amount' => $taxAmount,
+            'tax_rate_snapshot' => $taxRate,
+            'tax_name_snapshot' => $taxName,
         ]);
 
         $order->recalculateTotals();

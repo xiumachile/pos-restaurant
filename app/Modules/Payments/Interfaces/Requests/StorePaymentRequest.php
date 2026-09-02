@@ -80,6 +80,23 @@ use Illuminate\Validation\Rule;
  */
 class StorePaymentRequest extends FormRequest
 {
+    /**
+     * Fusionar Idempotency-Key del header al body si no está en el body.
+     * 
+     * Permite que el cliente envíe la clave de idempotencia como header
+     * (recomendado por el middleware) o en el body (legacy).
+     * 
+     * Prioridad: body > header (body tiene preferencia si ambos existen).
+     */
+    protected function prepareForValidation(): void
+    {
+        if (!$this->has('idempotency_key') && $this->hasHeader('Idempotency-Key')) {
+            $this->merge([
+                'idempotency_key' => $this->header('Idempotency-Key'),
+            ]);
+        }
+    }
+
     public function authorize(): bool
     {
         return in_array($this->user()->role, ['cashier', 'admin', 'manager']);

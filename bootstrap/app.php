@@ -7,6 +7,10 @@ use Illuminate\Auth\AuthenticationException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
 use App\Shared\Http\Middleware\IdempotencyKeyMiddleware;
+use Modules\Accounting\Domain\Exceptions\UnbalancedJournalEntryException;
+use Modules\Payments\Domain\Exceptions\InvalidRefundException;
+use Modules\Payments\Domain\Exceptions\PaymentException;
+use Modules\Orders\Domain\Exceptions\OrderNotModifiableException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -44,6 +48,42 @@ return Application::configure(basePath: dirname(__DIR__))
                     'error' => 'forbidden',
                     'message' => $e->getMessage() ?: 'No tienes permisos para realizar esta acción.',
                 ], 403);
+            }
+        });
+        // OrderNotModifiableException → 422 JSON
+        $exceptions->render(function (OrderNotModifiableException $e, Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return $e->render();
+            }
+        });
+
+        // PaymentException → 422 JSON (errores de dominio de pagos)
+        $exceptions->render(function (PaymentException $e, Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json([
+                    'error' => 'payment_failed',
+                    'message' => $e->getMessage(),
+                ], 422);
+            }
+        });
+
+        // InvalidRefundException → 422 JSON (errores de dominio de refunds)
+        $exceptions->render(function (InvalidRefundException $e, Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json([
+                    'error' => 'refund_failed',
+                    'message' => $e->getMessage(),
+                ], 422);
+            }
+        });
+
+        // UnbalancedJournalEntryException → 422 JSON (errores de contabilidad)
+        $exceptions->render(function (UnbalancedJournalEntryException $e, Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json([
+                    'error' => 'journal_entry_unbalanced',
+                    'message' => $e->getMessage(),
+                ], 422);
             }
         });
     })->create();

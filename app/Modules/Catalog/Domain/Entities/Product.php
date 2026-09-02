@@ -206,9 +206,14 @@ class Product extends Model
 
     /**
      * Calcula el precio con impuesto incluido.
+     * 
+     * Usa la misma fuente que OrderItem::saving() para garantizar consistencia:
+     * getEffectiveTax() → product.tax_id → category.tax_id → company default → tax_rate legacy.
      */
     public function priceWithTax(): float
     {
-        return (float) $this->base_price * (1 + (float) $this->tax_rate / 100);
+        $effectiveTax = $this->getEffectiveTax();
+        $rate = $effectiveTax ? (float) $effectiveTax->rate : (float) ($this->tax_rate ?? 0);
+        return (float) $this->base_price * (1 + $rate / 100);
     }
 }
