@@ -8,6 +8,7 @@ import { OrderCartPanel } from "@/components/orders/OrderCartPanel";
 import { flattenAreas, TABLE_STATUS_LABELS, TABLE_STATUS_STYLES } from "@/types/tables";
 import type { Product } from "@/types/catalog";
 import { ArrowLeft, Users, Loader2, AlertCircle, Scissors } from "lucide-react";
+import { useToastStore } from "@/store/useToastStore";
 import { CapabilityGate } from "@/components/CapabilityGate";
 import { CapabilityKey } from "@/types/capabilities";
 
@@ -93,7 +94,11 @@ export function OrderTakingPage() {
                   <button
                     className="ml-4 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
                     onClick={() => {
-                      console.log("Dividir cuenta para mesa:", table.uuid);
+                      useToastStore.getState().addToast(
+                        "info",
+                        "División de cuenta estará disponible próximamente. Por ahora, usa múltiples sub-cuentas manualmente.",
+                        5000
+                      );
                     }}
                     title="Dividir cuenta entre varios clientes"
                   >

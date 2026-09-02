@@ -43,6 +43,8 @@ export function useInvalidateCashier() {
   return () => {
     queryClient.invalidateQueries({ queryKey: DASHBOARD_KEY });
     queryClient.invalidateQueries({ queryKey: TABLES_WITH_BILLS_KEY });
+    // FIX: también invalidar tables para que la mesa pase a "libre" tras pago
+    queryClient.invalidateQueries({ queryKey: ["tables"] });
   };
 }
 
@@ -153,6 +155,8 @@ export function usePayBill() {
       queryClient.invalidateQueries({ queryKey: ["bills"] });
       queryClient.invalidateQueries({ queryKey: ["cashier", "tables-with-bills"] });
       queryClient.invalidateQueries({ queryKey: ["cashier", "dashboard"] });
+      // FIX: invalidar tables para que la mesa pase a "libre" inmediatamente
+      queryClient.invalidateQueries({ queryKey: ["tables"] });
     },
   });
 }

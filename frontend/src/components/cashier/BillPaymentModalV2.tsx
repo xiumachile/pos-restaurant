@@ -532,7 +532,7 @@ export function BillPaymentModalV2({
           ) : (
             <>
               <CheckCircle2 size={18} />
-              Cobrar {formatPrice(billTotal)}
+              Cobrar {formatPrice(billTotal + tipsSum)}
             </>
           )}
         </button>

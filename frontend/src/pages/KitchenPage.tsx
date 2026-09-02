@@ -18,7 +18,7 @@ export function KitchenPage() {
   const allOrders = zones.flatMap((zone) => zone.orders);
   const confirmed = allOrders.filter((o) => o.status === "confirmed");
   const preparing = allOrders.filter((o) => o.status === "preparing");
-  const readyOrders = allOrders.filter((o) => o.status === "ready");
+  const readyOrders = allOrders.filter((o) => o.status === "ready" || o.status === "ready_for_pickup");
 
   const handleTransition = async (
     uuid: string,

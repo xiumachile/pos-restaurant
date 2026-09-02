@@ -1,9 +1,16 @@
 export type OrderStatus =
+  // Estados base
   | "draft"
   | "confirmed"
   | "preparing"
   | "ready"
-  | "served"
+  // Estados específicos por canal de fulfillment
+  | "ready_for_pickup"  // pickup: listo para retirar
+  | "picked_up"         // pickup: cliente retiró
+  | "dispatched"        // delivery: salió a entregar
+  | "delivered"         // delivery: entregado al cliente
+  // Estados compartidos
+  | "served"            // dine_in: servido en mesa
   | "paid"
   | "closed"
   | "cancelled";

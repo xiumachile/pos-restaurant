@@ -1,6 +1,6 @@
 export type OrderPriority = "normal" | "rush" | "vip";
 
-export type KitchenOrderStatus = "confirmed" | "preparing" | "ready" | "served";
+export type KitchenOrderStatus = "confirmed" | "preparing" | "ready" | "ready_for_pickup" | "served";
 
 export interface KitchenOrderItem {
   uuid: string;
