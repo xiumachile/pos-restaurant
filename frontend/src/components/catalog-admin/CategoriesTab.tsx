@@ -18,8 +18,24 @@ import { getTranslatedName } from "@/types/catalog";
 
 export function CategoriesTab() {
   const { data: categories = [], isLoading, error } = useAdminCategories();
+  const deleteMutation = useDeleteCategory();
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  const handleDelete = (category: Category) => {
+    const categoryName = getTranslatedName(category.name_translations);
+    if (confirm(`¿Eliminar la categoría "${categoryName}"? Esta acción no se puede deshacer.`)) {
+      deleteMutation.mutate(category.uuid, {
+        onSuccess: () => {
+          console.log(`Categoría "${categoryName}" eliminada exitosamente`);
+        },
+        onError: (error: any) => {
+          console.error('Error al eliminar categoría:', error);
+          alert(`Error al eliminar la categoría. Por favor intenta de nuevo.`);
+        },
+      });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -220,8 +236,3 @@ function CategoryFormModal({ category, onClose }: CategoryFormModalProps) {
   );
 }
 
-function handleDelete(category: Category) {
-  if (confirm(`¿Eliminar la categoría "${getTranslatedName(category.name_translations)}"?`)) {
-    // TODO: implementar deleteMutation
-  }
-}

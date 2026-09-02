@@ -12,21 +12,6 @@ export default defineConfig(async () => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          // Separar dependencias pesadas
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-ui': ['lucide-react'],
-          'vendor-state': ['zustand'],
-          'vendor-query': ['@tanstack/react-query'],
-          'vendor-i18n': ['i18next', 'react-i18next'],
-        },
-      },
-    },
-    chunkSizeWarningLimit: 1000, // Aumentar límite a 1MB
-  },
   clearScreen: false,
   server: {
     port: 1420,
