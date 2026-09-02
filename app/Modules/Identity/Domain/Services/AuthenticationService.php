@@ -26,7 +26,10 @@ class AuthenticationService
      */
     public function loginWithEmail(string $email, string $password): array
     {
-        $user = User::withoutGlobalScopes()->where('email', $email)->first();
+        $user = User::withoutGlobalScopes()
+            ->with(['company'])
+            ->where('email', $email)
+            ->first();
 
         if (!$user || !Hash::check($password, $user->password)) {
             throw InvalidCredentialsException::email();
@@ -55,7 +58,9 @@ class AuthenticationService
     public function loginWithPin(int $branchId, string $pin): array
     {
         // Obtener TODOS los usuarios activos de la sucursal con pos_pin_hash
-        $users = User::withoutGlobalScopes()->where('branch_id', $branchId)
+        $users = User::withoutGlobalScopes()
+            ->with(['company'])
+            ->where('branch_id', $branchId)
             ->where('is_active', true)
             ->whereNotNull('pos_pin_hash')
             ->get();
@@ -168,7 +173,9 @@ class AuthenticationService
             throw InvalidCredentialsException::pin();
         }
 
-        $user = User::withoutGlobalScopes()->find($userId);
+        $user = User::withoutGlobalScopes()
+            ->with(['company'])
+            ->find($userId);
 
         if (!$user || !$user->is_active) {
             Cache::forget($cacheKey);
@@ -198,6 +205,11 @@ class AuthenticationService
                 'company_id' => $user->company_id,
                 'branch_id' => $user->branch_id,
                 'is_active' => $user->is_active,
+                'company' => [
+                    'id' => $user->company->id ?? null,
+                    'uuid' => $user->company->uuid ?? null,
+                    'trade_name' => $user->company->trade_name ?? null,
+                ],
             ],
         ];
     }

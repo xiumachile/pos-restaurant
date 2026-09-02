@@ -41,3 +41,18 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
+
+// Auto-fetch capabilities cuando el usuario hace login
+useAuthStore.subscribe((state, prevState) => {
+  if (state.user?.company?.uuid && !prevState.user?.company?.uuid) {
+    // Login exitoso → cargar capabilities
+    import('./useCapabilitiesStore').then(({ useCapabilitiesStore }) => {
+      useCapabilitiesStore.getState().fetchCapabilities(state.user!.company!.uuid);
+    });
+  } else if (!state.user && prevState.user) {
+    // Logout → limpiar capabilities
+    import('./useCapabilitiesStore').then(({ useCapabilitiesStore }) => {
+      useCapabilitiesStore.getState().reset();
+    });
+  }
+});

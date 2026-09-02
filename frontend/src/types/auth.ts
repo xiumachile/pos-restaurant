@@ -8,6 +8,7 @@ export interface User {
   branch_id: number;
   company?: {
     id: number;
+    uuid: string;  // ← Agregado para capabilities
     trade_name: string;
   };
   branch?: {

@@ -8,6 +8,7 @@ import { CashierPage } from "@/pages/CashierPage";
 import { OrdersPage } from "@/pages/OrdersPage";
 import { TipSettingsPage } from "@/pages/settings/TipSettingsPage";
 import { CatalogSettingsPage } from "@/pages/settings/CatalogSettingsPage";
+import { CapabilitiesPage } from "@/pages/settings/CapabilitiesPage";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuthStore } from "@/store/useAuthStore";
 
@@ -57,6 +58,16 @@ function SettingsPage() {
           <h2 className="font-bold text-lg mb-1">Impresoras</h2>
           <p className="text-sm text-slate-400">🚧 Próximamente</p>
         </div>
+        <a
+          href="/settings/capabilities"
+          className="bg-slate-800 hover:bg-slate-700 rounded-lg p-6 transition-colors border border-slate-700"
+        >
+          <div className="text-2xl mb-2">🎛️</div>
+          <h2 className="font-bold text-lg mb-1">Capacidades</h2>
+          <p className="text-sm text-slate-400">
+            Habilita o deshabilita funcionalidades del POS
+          </p>
+        </a>
         <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700/50 opacity-50">
           <div className="text-2xl mb-2">👥</div>
           <h2 className="font-bold text-lg mb-1">Usuarios</h2>
@@ -89,6 +100,7 @@ export const router = createBrowserRouter([
           { path: "settings", element: <SettingsPage /> },
           { path: "settings/tips", element: <TipSettingsPage /> },
           { path: "settings/catalog", element: <CatalogSettingsPage /> },
+          { path: "settings/capabilities", element: <CapabilitiesPage /> },
         ],
       },
     ],
