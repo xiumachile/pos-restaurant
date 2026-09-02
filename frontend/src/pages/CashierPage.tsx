@@ -14,6 +14,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { formatPrice } from "@/types/catalog";
+import { CapabilityGate } from "@/components/CapabilityGate";
+import { CapabilityKey } from "@/types/capabilities";
 
 /**
  * Página de Caja.
@@ -49,8 +51,10 @@ export function CashierPage() {
 
   return (
     <div className="flex flex-col h-full gap-4">
-      {/* Barra compacta de estado de caja */}
-      <CashSessionStatus session={dashboard?.current_session || null} />
+      {/* Barra compacta de estado de caja (solo si requiere sesión) */}
+      <CapabilityGate requires={CapabilityKey.REQUIRES_CASHIER_SESSION}>
+        <CashSessionStatus session={dashboard?.current_session || null} />
+      </CapabilityGate>
 
       {/* Cuentas por cobrar: PROTAGONISTA */}
       <div className="flex-1 flex flex-col min-h-0">
@@ -64,14 +68,16 @@ export function CashierPage() {
           </div>
         </div>
 
-        {!isSessionOpen && tablesWithBills.length > 0 && (
-          <div className="bg-amber-900/30 border border-amber-700 rounded-lg p-2.5 mb-3 text-xs text-amber-200 flex items-center gap-2">
-            <AlertCircle size={14} className="flex-shrink-0" />
-            <span>
-              Debes <strong>abrir caja</strong> antes de poder cobrar cuentas.
-            </span>
-          </div>
-        )}
+        <CapabilityGate requires={CapabilityKey.REQUIRES_CASHIER_SESSION}>
+          {!isSessionOpen && tablesWithBills.length > 0 && (
+            <div className="bg-amber-900/30 border border-amber-700 rounded-lg p-2.5 mb-3 text-xs text-amber-200 flex items-center gap-2">
+              <AlertCircle size={14} className="flex-shrink-0" />
+              <span>
+                Debes <strong>abrir caja</strong> antes de poder cobrar cuentas.
+              </span>
+            </div>
+          )}
+        </CapabilityGate>
 
         {loadingTables ? (
           <div className="flex items-center justify-center py-12">

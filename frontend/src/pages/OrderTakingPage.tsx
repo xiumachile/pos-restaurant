@@ -7,7 +7,9 @@ import { OrderCatalogPanel } from "@/components/orders/OrderCatalogPanel";
 import { OrderCartPanel } from "@/components/orders/OrderCartPanel";
 import { flattenAreas, TABLE_STATUS_LABELS, TABLE_STATUS_STYLES } from "@/types/tables";
 import type { Product } from "@/types/catalog";
-import { ArrowLeft, Users, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Users, Loader2, AlertCircle, Scissors } from "lucide-react";
+import { CapabilityGate } from "@/components/CapabilityGate";
+import { CapabilityKey } from "@/types/capabilities";
 
 /**
  * Vista de toma de pedido para una mesa específica.
@@ -75,14 +77,32 @@ export function OrderTakingPage() {
           </button>
 
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-3">
-              Mesa {table.table_number}
-              <span
-                className={`text-xs px-2.5 py-1 rounded-full border ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}
-              >
-                {TABLE_STATUS_LABELS[table.status]}
-              </span>
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold flex items-center gap-3">
+                Mesa {table.table_number}
+                <span
+                  className={`text-xs px-2.5 py-1 rounded-full border ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}
+                >
+                  {TABLE_STATUS_LABELS[table.status]}
+                </span>
+              </h1>
+              
+              {/* Botón dividir cuenta (solo si está habilitado) */}
+              <CapabilityGate requires={CapabilityKey.CAN_SPLIT_BILLS}>
+                {hasActiveOrders && (
+                  <button
+                    className="ml-4 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+                    onClick={() => {
+                      console.log("Dividir cuenta para mesa:", table.uuid);
+                    }}
+                    title="Dividir cuenta entre varios clientes"
+                  >
+                    <Scissors size={16} />
+                    Dividir Cuenta
+                  </button>
+                )}
+              </CapabilityGate>
+            </div>
             <p className="text-sm text-slate-400 mt-1 flex items-center gap-3">
               <span className="flex items-center gap-1">
                 <Users size={14} /> {table.capacity} personas

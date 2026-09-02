@@ -9,6 +9,8 @@ import { OrdersPage } from "@/pages/OrdersPage";
 import { TipSettingsPage } from "@/pages/settings/TipSettingsPage";
 import { CatalogSettingsPage } from "@/pages/settings/CatalogSettingsPage";
 import { CapabilitiesPage } from "@/pages/settings/CapabilitiesPage";
+import { CapabilityGate } from "@/components/CapabilityGate";
+import { CapabilityKey } from "@/types/capabilities";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuthStore } from "@/store/useAuthStore";
 
@@ -43,16 +45,18 @@ function SettingsPage() {
             Categorías, productos, listas de precios y menús
           </p>
         </a>
-        <a
-          href="/settings/tips"
-          className="bg-slate-800 hover:bg-slate-700 rounded-lg p-6 transition-colors border border-slate-700"
-        >
-          <div className="text-2xl mb-2">💰</div>
-          <h2 className="font-bold text-lg mb-1">Propinas</h2>
-          <p className="text-sm text-slate-400">
-            Configura cómo se reparten las propinas
-          </p>
-        </a>
+        <CapabilityGate requires={CapabilityKey.CAN_ACCEPT_TIPS}>
+          <a
+            href="/settings/tips"
+            className="bg-slate-800 hover:bg-slate-700 rounded-lg p-6 transition-colors border border-slate-700"
+          >
+            <div className="text-2xl mb-2">💰</div>
+            <h2 className="font-bold text-lg mb-1">Propinas</h2>
+            <p className="text-sm text-slate-400">
+              Configura cómo se reparten las propinas
+            </p>
+          </a>
+        </CapabilityGate>
         <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700/50 opacity-50">
           <div className="text-2xl mb-2">🖨️</div>
           <h2 className="font-bold text-lg mb-1">Impresoras</h2>
