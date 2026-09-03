@@ -94,9 +94,17 @@ export function OrderTakingPage() {
                   <button
                     className="ml-4 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
                     onClick={() => {
+                      // TODO(post-demo): Conectar SplitBillModal cuando feature esté validada
+                      // Infraestructura existente:
+                      //   - SplitBillModal.tsx (equal/items/custom)
+                      //   - useSplitOrder() hook
+                      //   - Backend: POST /orders/{uuid}/split
+                      //   - Capability: can_split_bills (ya habilitada)
+                      // Decisión: Mantener desconectado para demo del 11 Sep
+                      //           para evitar introducir bugs en flujo crítico.
                       useToastStore.getState().addToast(
                         "info",
-                        "División de cuenta estará disponible próximamente. Por ahora, usa múltiples sub-cuentas manualmente.",
+                        "División de cuenta estará disponible en próxima versión. Por ahora, crea sub-cuentas manualmente desde el flujo de pedido.",
                         5000
                       );
                     }}
