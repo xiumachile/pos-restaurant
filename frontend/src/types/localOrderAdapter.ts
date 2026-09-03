@@ -1,4 +1,5 @@
 import type { Order, OrderItem, OrderStatus, OrderType } from "./orders";
+import { isValidLocalStatus } from "@/services/sync/statusMapper";
 import type { LocalOrder, LocalOrderItem } from "../db/repositories/OrderRepository";
 
 /**
@@ -51,7 +52,9 @@ export function adaptLocalOrder(
     order_number: order.order_number || `TEMP-${order.local_uuid.slice(0, 8)}`,
     type: (order.order_type as OrderType) || "dine_in",
     type_label: order.order_type === "dine_in" ? "En mesa" : order.order_type || "dine_in",
-    status: (order.status as OrderStatus) || "confirmed",
+    status: (isValidLocalStatus(order.status) 
+      ? (order.status as OrderStatus) 
+      : "confirmed"),
     is_editable: true,
     is_active: true,
     items: adaptedItems,

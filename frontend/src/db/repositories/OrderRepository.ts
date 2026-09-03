@@ -11,7 +11,19 @@ export interface LocalOrder {
   table_id: string | null;
   order_number: string;
   order_type: "dine_in" | "take_out" | "delivery";
-  status: "confirmed" | "preparing" | "ready" | "served" | "paid" | "cancelled";
+  status: 
+    | "draft"              // Borrador (no confirmado aún)
+    | "confirmed"          // Confirmado por garzón
+    | "preparing"          // En preparación (cocina)
+    | "ready"              // Listo para servir (onsite)
+    | "ready_for_pickup"   // Listo para retirar (pickup)
+    | "picked_up"          // Cliente retiró (pickup)
+    | "dispatched"         // En camino (delivery)
+    | "delivered"          // Entregado (delivery)
+    | "served"             // Servido en mesa (legacy dine_in)
+    | "paid"               // Pagado
+    | "closed"             // Cerrado (final)
+    | "cancelled";         // Cancelado (terminal)
   subtotal: number;
   discount_total: number;
   tax_total: number;
@@ -37,7 +49,17 @@ export interface LocalOrderItem {
   unit_price: number;
   subtotal: number;
   notes: string | null;
-  kitchen_status: "pending" | "preparing" | "ready" | "delivered";
+  // kitchen_status: alineado con OrderStatus del backend
+  // NOTA: pending = draft (item aún no confirmado por cocina)
+  kitchen_status: 
+    | "pending"            // Equivale a draft del order padre
+    | "confirmed"          // Confirmado en cocina
+    | "preparing"          // En preparación
+    | "ready"              // Listo
+    | "ready_for_pickup"   // Listo para pickup
+    | "served"             // Servido en mesa
+    | "delivered"          // Entregado (pickup/delivery)
+    | "cancelled";         // Cancelado
   is_menu_item: boolean;
   menu_item_id: string | null;
   created_at: string;
