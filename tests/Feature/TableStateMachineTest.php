@@ -68,10 +68,15 @@ test('permite transicion de billing a available liberando el pedido', function (
     expect($this->table->hasActiveOrder())->toBeFalse();
 });
 
-test('deniega transicion directa de occupied a available', function () {
+test('permite transicion directa de occupied a available (flujo simplificado)', function () {
     $this->table->occupy(12345);
+    expect($this->table->status)->toBe(TableStatus::Occupied);
+    
     $this->table->free();
-})->throws(InvalidTableStatusTransition::class);
+    
+    expect($this->table->status)->toBe(TableStatus::Available);
+    expect($this->table->current_order_id)->toBeNull();
+});
 
 test('deniega transicion de billing a occupied', function () {
     $this->table->occupy(12345);
@@ -120,6 +125,19 @@ test('el ciclo completo de una mesa funciona correctamente', function () {
     $this->table->free();
     expect($this->table->status)->toBe(TableStatus::Available);
     expect($this->table->current_order_id)->toBeNull();
+});
+
+test('permite liberar mesa via occupied → available (flujo simplificado tras pago)', function () {
+    // Este flujo se usa cuando se paga directamente sin pasar por billing
+    $this->table->occupy(12345);
+    expect($this->table->status)->toBe(TableStatus::Occupied);
+    
+    // Pago directo: occupied → available (sin pasar por billing)
+    $this->table->free();
+    
+    expect($this->table->status)->toBe(TableStatus::Available);
+    expect($this->table->current_order_id)->toBeNull();
+    expect($this->table->hasActiveOrder())->toBeFalse();
 });
 
 test('el nombre del area se traduce correctamente', function () {

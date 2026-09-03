@@ -105,7 +105,7 @@ test('PUT /api/v1/tables/{uuid}/status permite transicion valida', function () {
         ->assertJsonPath('data.status', 'maintenance');
 });
 
-test('PUT /api/v1/tables/{uuid}/status deniega transicion invalida', function () {
+test('PUT /api/v1/tables/{uuid}/status permite transicion occupied a available (flujo simplificado)', function () {
     $table = RestaurantTable::create([
         'company_id' => $this->company->id,
         'branch_id' => $this->branch->id,
@@ -119,9 +119,9 @@ test('PUT /api/v1/tables/{uuid}/status deniega transicion invalida', function ()
 
     $response = $this->actingAs($this->user)
         ->putJson("/api/v1/tables/{$table->uuid}/status", [
-            'status' => 'available', // No permitido directamente desde occupied
+            'status' => 'available', // Ahora permitido: flujo simplificado tras pago
         ]);
 
-    $response->assertStatus(422)
-        ->assertJsonPath('error', 'invalid_status_transition');
+    $response->assertOk()
+        ->assertJsonPath('data.status', 'available');
 });
