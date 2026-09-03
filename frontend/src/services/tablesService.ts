@@ -15,8 +15,11 @@ export const tablesService = {
     const data = response.data as any;
     const areas: TablesArea[] = Array.isArray(data?.data) ? data.data : [];
     
+    console.log('[tablesService] Backend retornó', areas.length, 'áreas');
+    
     // Obtener status actualizado desde SQLite local (overlay optimista)
     const overrides = await localTablesService.getStatusOverrides();
+    console.log('[tablesService] Overrides de SQLite:', overrides.size, 'mesas');
     
     // Aplicar overrides: el status local tiene prioridad sobre el cloud
     // Esto asegura que cambios recientes (ej: mesa ocupada tras crear pedido)

@@ -153,10 +153,16 @@ export function usePayBill() {
     mutationFn: ({ billUuid, payload }: { billUuid: string; payload: PayBillPayload }) =>
       billsService.payBill(billUuid, payload),
     onSuccess: async (response) => {
+      console.log('[usePayBill] Pago exitoso:', response);
+      
       // Si el orden pasó a estado 'paid', limpiar overrides de mesas en SQLite
       // Esto resuelve el bug donde el overlay optimista persiste después del pago
       if (response.order_transitioned_to_paid) {
+        console.log('[usePayBill] Order transitioned to paid, limpiando overrides de mesas...');
         await localTablesService.clearAllOverrides();
+        console.log('[usePayBill] Overrides limpiados');
+      } else {
+        console.log('[usePayBill] Order NO transitioned to paid (pago parcial?)');
       }
       
       queryClient.invalidateQueries({ queryKey: ["bills"] });
