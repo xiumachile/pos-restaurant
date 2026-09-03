@@ -68,7 +68,7 @@ function createKitchenOrder($status, $test): Order
 test('GET /api/v1/kitchen/queue retorna pedidos en cola', function () {
     createKitchenOrder(OrderStatus::CONFIRMED, $this);
     createKitchenOrder(OrderStatus::PREPARING, $this);
-    createKitchenOrder(OrderStatus::READY, $this); // No debería aparecer
+    createKitchenOrder(OrderStatus::READY, $this); // ✅ Ahora SÍ aparece en cola (fix FASE 1)
 
     $response = $this->withHeaders(kitchenHeaders())
         ->getJson('/api/v1/kitchen/queue');
@@ -79,8 +79,9 @@ test('GET /api/v1/kitchen/queue retorna pedidos en cola', function () {
     expect($data)->toBeArray();
 
     // Sumar todos los pedidos de todas las zonas
+    // Estados en cola: confirmed, preparing, ready, ready_for_pickup
     $totalOrders = collect($data)->sum('count');
-    expect($totalOrders)->toBe(2); // Solo confirmed + preparing
+    expect($totalOrders)->toBe(3); // confirmed + preparing + ready
 });
 
 test('GET /api/v1/kitchen/queue retorna estructura por zona', function () {

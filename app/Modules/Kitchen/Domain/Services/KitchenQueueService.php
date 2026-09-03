@@ -28,6 +28,8 @@ class KitchenQueueService
                 $query->whereIn('status', [
                     OrderStatus::CONFIRMED,
                     OrderStatus::PREPARING,
+                    OrderStatus::READY,               // Pedidos listos para servir (onsite)
+                    OrderStatus::READY_FOR_PICKUP,    // Pedidos listos para retirar (pickup)
                 ]);
             })
             ->orderByRaw("CASE priority WHEN 'vip' THEN 1 WHEN 'rush' THEN 2 ELSE 3 END ASC")
@@ -50,7 +52,9 @@ class KitchenQueueService
 
         $confirmed = (clone $baseQuery)->where('status', OrderStatus::CONFIRMED)->count();
         $preparing = (clone $baseQuery)->where('status', OrderStatus::PREPARING)->count();
-        $ready = (clone $baseQuery)->where('status', OrderStatus::READY)->count();
+        $ready = (clone $baseQuery)
+            ->whereIn('status', [OrderStatus::READY, OrderStatus::READY_FOR_PICKUP])
+            ->count();
         $totalActive = $confirmed + $preparing + $ready;
 
         $recentOrders = (clone $baseQuery)
