@@ -13,7 +13,7 @@ export function useTables() {
     queryKey: TABLES_QUERY_KEY,
     queryFn: tablesService.list,
     refetchInterval: 5000,
-    staleTime: 10000,
+    staleTime: 2000,  // Reducido de 10s a 2s para refetch más agresivo tras pago
   });
 }
 

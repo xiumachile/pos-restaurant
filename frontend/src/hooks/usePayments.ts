@@ -155,8 +155,12 @@ export function usePayBill() {
       queryClient.invalidateQueries({ queryKey: ["bills"] });
       queryClient.invalidateQueries({ queryKey: ["cashier", "tables-with-bills"] });
       queryClient.invalidateQueries({ queryKey: ["cashier", "dashboard"] });
-      // FIX: invalidar tables para que la mesa pase a "libre" inmediatamente
-      queryClient.invalidateQueries({ queryKey: ["tables"] });
+      // FIX: invalidar tables con refetchType 'all' para refetch inmediato
+      // Sin refetchType, React Query respeta staleTime (10s) y no hace refetch
+      queryClient.invalidateQueries({ 
+        queryKey: ["tables"],
+        refetchType: 'all'  // Forza refetch de todas las queries activas
+      });
     },
   });
 }
