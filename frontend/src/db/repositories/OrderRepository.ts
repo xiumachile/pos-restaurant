@@ -1,5 +1,6 @@
 import { localDb } from "../localDb";
 import { SyncQueueRepository } from "./SyncQueueRepository";
+import { localTablesService } from "@/services/localTablesService";
 import { v4 as uuidv4 } from "uuid";
 
 export interface LocalOrder {
@@ -146,11 +147,7 @@ export class OrderRepository {
     // UPDATE OPTIMISTA: marcar mesa como ocupada inmediatamente
     // Esto da feedback instantáneo al usuario sin esperar al sync
     if (payload.table_id) {
-      await localDb.execute(
-        "UPDATE local_tables SET status = 'occupied', current_order_uuid = ?, last_updated = CURRENT_TIMESTAMP WHERE uuid = ?",
-        [local_uuid, payload.table_id]
-      );
-      console.log(`[OrderRepository] 🪑 Mesa ${payload.table_id} marcada como occupied (optimista)`);
+      await localTablesService.markOccupied(payload.table_id, local_uuid);
     }
 
     console.log(`[OrderRepository] 📤 Pedido encolado para sync: ${local_uuid}`);

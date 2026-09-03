@@ -123,6 +123,7 @@ export function useSessionPayments(enabled: boolean = true) {
 }
 
 import { billsService } from "@/services/billsService";
+import { localTablesService } from "@/services/localTablesService";
 import type { Bill, SplitPayload, PayBillPayload } from "@/types/bills";
 
 export function useBills(orderUuid: string | null) {
@@ -151,7 +152,13 @@ export function usePayBill() {
   return useMutation({
     mutationFn: ({ billUuid, payload }: { billUuid: string; payload: PayBillPayload }) =>
       billsService.payBill(billUuid, payload),
-    onSuccess: () => {
+    onSuccess: async (response) => {
+      // Si el orden pasó a estado 'paid', limpiar overrides de mesas en SQLite
+      // Esto resuelve el bug donde el overlay optimista persiste después del pago
+      if (response.order_transitioned_to_paid) {
+        await localTablesService.clearAllOverrides();
+      }
+      
       queryClient.invalidateQueries({ queryKey: ["bills"] });
       queryClient.invalidateQueries({ queryKey: ["cashier", "tables-with-bills"] });
       queryClient.invalidateQueries({ queryKey: ["cashier", "dashboard"] });

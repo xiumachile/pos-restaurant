@@ -14,16 +14,33 @@ class ReleaseTableOnOrderPaid
         $order = $event->order;
 
         if (!$order->table_id) {
+            Log::warning('ReleaseTableOnOrderPaid: order sin table_id', [
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+            ]);
             return;
         }
 
         $table = RestaurantTable::find($order->table_id);
 
         if (!$table) {
+            Log::warning('ReleaseTableOnOrderPaid: mesa no encontrada', [
+                'order_id' => $order->id,
+                'table_id' => $order->table_id,
+            ]);
             return;
         }
 
         if ($table->current_order_id !== $order->id) {
+            Log::warning('ReleaseTableOnOrderPaid: current_order_id no coincide (posible type mismatch)', [
+                'order_id' => $order->id,
+                'order_id_type' => gettype($order->id),
+                'table_id' => $table->id,
+                'table_current_order_id' => $table->current_order_id,
+                'table_current_order_id_type' => gettype($table->current_order_id),
+                'strict_compare_result' => ($table->current_order_id !== $order->id),
+                'loose_compare_result' => ($table->current_order_id != $order->id),
+            ]);
             return;
         }
 
