@@ -131,6 +131,18 @@ export class SyncApiClient {
     const response = await apiClient.get("/sync/changes", { params });
     return response.data.data;
   }
+  /**
+   * Confirma un pedido vía transición de dominio (dispara OrderConfirmed).
+   * IMPORTANTE: Usar esto en lugar de updateOrder({status:'confirmed'})
+   * para que se ejecuten los listeners (OccupyTableOnOrderConfirm, etc.)
+   */
+  async confirmOrder(uuid: string): Promise<any> {
+    const response = await apiClient.post(`/orders/${uuid}/confirm`, {}, {
+      headers: { "Idempotency-Key": uuidv4() },
+    });
+    return response.data.data;
+  }
 }
 
 export const syncApi = new SyncApiClient();
+

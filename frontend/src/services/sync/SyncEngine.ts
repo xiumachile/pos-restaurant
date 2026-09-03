@@ -192,13 +192,18 @@ export class SyncEngine {
           }
         }
 
-        // IMPORTANTE: Actualizar estado a confirmed DESPUÉS de agregar items
+        // IMPORTANTE: Confirmar pedido vía transición de dominio DESPUÉS de agregar items
+        // Usa POST /orders/{uuid}/confirm que dispara OrderConfirmed event
+        // Esto ejecuta los listeners: OccupyTableOnOrderConfirm (mesa),
+        // ticket de cocina, auditoría, etc.
+        // Antes usaba updateOrder({status:'confirmed'}) que solo pisaba la
+        // columna sin pasar por OrderStateMachine.
         if (itemsAdded > 0) {
           try {
-            await syncApi.updateOrder(String(cloudId), { status: 'confirmed' });
-            console.log(`[SyncEngine] ✅ Estado actualizado a confirmed (${itemsAdded} items)`);
-          } catch (updateError: any) {
-            console.warn(`[SyncEngine] ⚠️ No se pudo actualizar estado:`, updateError?.response?.data || updateError?.message);
+            await syncApi.confirmOrder(String(cloudId));
+            console.log(`[SyncEngine] ✅ Pedido confirmado vía transición de dominio (${itemsAdded} items)`);
+          } catch (confirmError: any) {
+            console.warn(`[SyncEngine] ⚠️ No se pudo confirmar pedido:`, confirmError?.response?.data || confirmError?.message);
             // No fallar completamente, el pedido ya tiene items
           }
         }
