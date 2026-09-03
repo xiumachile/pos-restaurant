@@ -61,8 +61,17 @@ export function useTableOrders(tableUuid: string | null) {
     staleTime: 5000,
   });
 
+
+  
   // 3. Fusionar: locales primero, cloud después (deduplicar por cloud_id)
   const cloudOrders = cloudQuery.data || [];
+  
+  // Debug logs
+  console.log('[useTableOrders] Pedidos locales:', localOrders.length);
+  localOrders.forEach(o => console.log('  LOCAL:', o.uuid, o.order_number, (o as any)._syncStatus));
+  console.log('[useTableOrders] Pedidos cloud:', cloudOrders.length);
+  cloudOrders.forEach(o => console.log('  CLOUD:', o.uuid, o.order_number));
+  
   const localCloudIds = new Set(
     localOrders
       .filter(o => o._isLocal && (o as any).uuid && !String((o as any).uuid).startsWith("TEMP"))
@@ -73,6 +82,9 @@ export function useTableOrders(tableUuid: string | null) {
     cloudOrder => !localCloudIds.has(cloudOrder.uuid)
   );
 
+  console.log('[useTableOrders] Pedidos deduplicados:', deduplicatedCloud.length);
+  console.log('[useTableOrders] Total fusionado:', localOrders.length + deduplicatedCloud.length);
+  
   const merged: OrderWithSource[] = [...localOrders, ...deduplicatedCloud];
 
   return {

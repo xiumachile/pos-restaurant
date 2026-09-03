@@ -113,11 +113,24 @@ export interface AggregatedOrders {
  * Suma cantidades del mismo producto, mantiene trazabilidad de órdenes.
  */
 export function aggregateOrders(orders: Order[]): AggregatedOrders {
+  console.log('[aggregateOrders] Procesando', orders.length, 'pedidos');
+  orders.forEach((o, i) => {
+    if (o && o.items) {
+      console.log(`  ${i + 1}. ${o.order_number} - ${o.items.length} items`);
+      o.items.forEach(item => {
+        if (item) {
+          console.log(`    - ${item.name}: ${item.quantity}x (menu_uuid: ${item.menu_item_uuid})`);
+        }
+      });
+    }
+  });
   const itemsMap = new Map<string, AggregatedItem>();
 
   for (const order of orders) {
     for (const item of order.items) {
-      const key = item.menu_item_uuid;
+      // Usar menu_item_uuid si existe, sino usar nombre del producto como fallback
+      // Esto previene que items sin menu_item_uuid (null) se agrupen incorrectamente
+      const key = item.menu_item_uuid || `name:${item.name}`;
       const existing = itemsMap.get(key);
 
       if (existing) {
