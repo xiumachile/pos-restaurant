@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { ordersService } from "@/services/ordersService";
 import { OrderRepository } from "@/db/repositories/OrderRepository";
 import { adaptLocalOrder, type OrderWithSource } from "@/types/localOrderAdapter";
@@ -19,38 +19,65 @@ const KEY = (tableUuid: string) => ["table-orders", tableUuid];
  */
 export function useTableOrders(tableUuid: string | null) {
   const [localOrders, setLocalOrders] = useState<OrderWithSource[]>([]);
+  const previousOrdersRef = useRef<string>("");
 
-  // 1. Leer pedidos locales pendientes
-  useEffect(() => {
+  // 1. Leer pedidos locales pendientes (optimizado para evitar re-renders)
+  const loadLocalOrders = useCallback(async () => {
     if (!tableUuid) {
       setLocalOrders([]);
       return;
     }
 
-    const loadLocalOrders = async () => {
-      try {
-        const pendingLocal = await OrderRepository.findPendingByTable(tableUuid);
-        
-        // Cargar items de cada pedido y adaptar formato
-        const adapted: OrderWithSource[] = [];
-        for (const order of pendingLocal) {
-          const items = await OrderRepository.findItemsByOrderLocalUuid(order.local_uuid);
-          adapted.push(adaptLocalOrder(order, items));
-        }
-        
-        setLocalOrders(adapted);
-      } catch (error) {
-        console.error("[useTableOrders] Error cargando pedidos locales:", error);
-        setLocalOrders([]);
+    try {
+      const pendingLocal = await OrderRepository.findPendingByTable(tableUuid);
+      
+      // Cargar items de cada pedido y adaptar formato
+      const adapted: OrderWithSource[] = [];
+      for (const order of pendingLocal) {
+        const items = await OrderRepository.findItemsByOrderLocalUuid(order.local_uuid);
+        adapted.push(adaptLocalOrder(order, items));
       }
-    };
+      
+      // Solo actualizar estado si realmente cambió (evitar re-renders innecesarios)
+      const signature = adapted.map(o => o.uuid).join(",");
+      if (signature !== previousOrdersRef.current) {
+        previousOrdersRef.current = signature;
+        setLocalOrders(adapted);
+      }
+    } catch (error) {
+      console.error("[useTableOrders] Error cargando pedidos locales:", error);
+    }
+  }, [tableUuid]);
 
+  useEffect(() => {
+    if (!tableUuid) {
+      setLocalOrders([]);
+      previousOrdersRef.current = "";
+      return;
+    }
+
+    // Cargar inmediatamente
     loadLocalOrders();
 
-    // Re-cargar cuando el query se invalide (por ejemplo, tras crear pedido nuevo)
-    const interval = setInterval(loadLocalOrders, 3000);
+    // Re-cargar cada 5 segundos (no 3) y solo si hay cambios reales
+    const interval = setInterval(loadLocalOrders, 5000);
     return () => clearInterval(interval);
-  }, [tableUuid]);
+  }, [tableUuid, loadLocalOrders]);
+
+  // Escuchar invalidaciones de React Query
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!tableUuid) return;
+
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (event?.query?.queryKey?.[0] === "table-orders" && 
+          event?.query?.queryKey?.[1] === tableUuid) {
+        loadLocalOrders();
+      }
+    });
+
+    return unsubscribe;
+  }, [tableUuid, queryClient, loadLocalOrders]);
 
   // 2. Leer pedidos de la nube
   const cloudQuery = useQuery<Order[], Error>({
@@ -61,11 +88,8 @@ export function useTableOrders(tableUuid: string | null) {
     staleTime: 5000,
   });
 
-
-  
   // 3. Fusionar: locales primero, cloud después (deduplicar por cloud_id)
   const cloudOrders = cloudQuery.data || [];
-  
   const localCloudIds = new Set(
     localOrders
       .filter(o => o._isLocal && (o as any).uuid && !String((o as any).uuid).startsWith("TEMP"))
@@ -80,7 +104,7 @@ export function useTableOrders(tableUuid: string | null) {
 
   return {
     ...cloudQuery,
-    data: merged as Order[], // Cast para compatibilidad con ActiveOrderItems
+    data: merged as Order[],
     hasLocalPending: localOrders.length > 0,
   };
 }
