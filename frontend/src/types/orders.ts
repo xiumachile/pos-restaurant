@@ -113,17 +113,6 @@ export interface AggregatedOrders {
  * Suma cantidades del mismo producto, mantiene trazabilidad de órdenes.
  */
 export function aggregateOrders(orders: Order[]): AggregatedOrders {
-  console.log('[aggregateOrders] Procesando', orders.length, 'pedidos');
-  orders.forEach((o, i) => {
-    if (o && o.items) {
-      console.log(`  ${i + 1}. ${o.order_number} - ${o.items.length} items`);
-      o.items.forEach(item => {
-        if (item) {
-          console.log(`    - ${item.name}: ${item.quantity}x (menu_uuid: ${item.menu_item_uuid})`);
-        }
-      });
-    }
-  });
   const itemsMap = new Map<string, AggregatedItem>();
 
   for (const order of orders) {
