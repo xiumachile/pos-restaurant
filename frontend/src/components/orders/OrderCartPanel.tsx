@@ -97,6 +97,15 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
       if (syncStatus !== "offline") {
         try {
           await useSyncStore.getState().triggerFullSync();
+          
+          // Esperar 500ms para que el backend procese completamente
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Refrescar pedidos activos con retry
+          await refetchActiveOrders();
+          await new Promise(resolve => setTimeout(resolve, 300));
+          await refetchActiveOrders();
+          
           // Forzar refetch de tables DESPUÉS del sync (el backend ya actualizó el status)
           invalidateTables();
         } catch (syncErr) {

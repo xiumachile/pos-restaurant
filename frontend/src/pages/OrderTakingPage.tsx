@@ -33,6 +33,15 @@ export function OrderTakingPage() {
     }
   }, [table, initCart]);
 
+  // Refetch inmediato al entrar a la mesa (no esperar polling de 10s)
+  // Esto asegura que pedidos anteriores aparezcan al instante
+  const { refetch: refetchOrders } = useTableOrders(tableUuid || null);
+  useEffect(() => {
+    if (tableUuid) {
+      refetchOrders();
+    }
+  }, [tableUuid, refetchOrders]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
