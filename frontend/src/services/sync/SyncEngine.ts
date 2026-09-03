@@ -198,13 +198,48 @@ export class SyncEngine {
         // ticket de cocina, auditoría, etc.
         // Antes usaba updateOrder({status:'confirmed'}) que solo pisaba la
         // columna sin pasar por OrderStateMachine.
+        // CRÍTICO: Confirmar pedido vía transición de dominio
+        // POST /orders/{uuid}/confirm dispara OrderConfirmed event que ejecuta:
+        // - OccupyTableOnOrderConfirm (mesa pasa a occupied)
+        // - BroadcastOrderEvents (ticket de cocina)
+        // - Auditoría, stock, transición DRAFT → CONFIRMED
+        //
+        // Si falla por red/timeout: relanzar error → evento queda pendiente → reintento
+        // Si falla porque YA estaba confirmado (idempotencia): tratar como éxito
         if (itemsAdded > 0) {
           try {
             await syncApi.confirmOrder(String(cloudId));
             console.log(`[SyncEngine] ✅ Pedido confirmado vía transición de dominio (${itemsAdded} items)`);
           } catch (confirmError: any) {
-            console.warn(`[SyncEngine] ⚠️ No se pudo confirmar pedido:`, confirmError?.response?.data || confirmError?.message);
-            // No fallar completamente, el pedido ya tiene items
+            const status = confirmError?.response?.status;
+            const errorData = confirmError?.response?.data;
+            const errorCode = errorData?.error || errorData?.code || errorData?.error_code;
+            const errorMessage = errorData?.message || confirmError?.message || '';
+
+            // Idempotencia: si el pedido YA estaba confirmado (ej: reintento previo),
+            // el backend retorna 422 con InvalidOrderTransitionException
+            // Tratamos como éxito para no bloquear el flujo
+            const isAlreadyConfirmed =
+              status === 422 &&
+              (errorCode === 'invalid_transition' ||
+               errorCode === 'invalid_order_transition' ||
+               /already.*confirm/i.test(errorMessage) ||
+               /cannot.*transition/i.test(errorMessage) ||
+               /transición.*inválida/i.test(errorMessage));
+
+            if (isAlreadyConfirmed) {
+              console.log(`[SyncEngine] ✅ Pedido ya estaba confirmado (idempotencia)`);
+            } else {
+              // Falla real (red, timeout, error de servidor, validación, etc.)
+              // Relanzar para que processItem() NO marque como synced
+              // y el SyncWorker reintente en el próximo ciclo
+              console.error(`[SyncEngine] ❌ CRÍTICO: No se pudo confirmar pedido (status: ${status})`);
+              console.error('[SyncEngine] El evento quedará pendiente para reintento automático');
+              console.error('[SyncEngine] Error:', errorData || confirmError?.message);
+              throw new Error(
+                `Fallo crítico al confirmar pedido ${cloudId}: ${errorMessage || 'Error desconocido'}`
+              );
+            }
           }
         }
 
