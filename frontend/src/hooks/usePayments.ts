@@ -123,7 +123,6 @@ export function useSessionPayments(enabled: boolean = true) {
 }
 
 import { billsService } from "@/services/billsService";
-import { localTablesService } from "@/services/localTablesService";
 import type { Bill, SplitPayload, PayBillPayload } from "@/types/bills";
 
 export function useBills(orderUuid: string | null) {
@@ -152,27 +151,19 @@ export function usePayBill() {
   return useMutation({
     mutationFn: ({ billUuid, payload }: { billUuid: string; payload: PayBillPayload }) =>
       billsService.payBill(billUuid, payload),
-    onSuccess: async (response) => {
+    onSuccess: (response) => {
       console.log('[usePayBill] Pago exitoso:', response);
+      console.log('[usePayBill] Order transitioned to paid:', response.order_transitioned_to_paid);
       
-      // Si el orden pasó a estado 'paid', limpiar overrides de mesas en SQLite
-      // Esto resuelve el bug donde el overlay optimista persiste después del pago
-      if (response.order_transitioned_to_paid) {
-        console.log('[usePayBill] Order transitioned to paid, limpiando overrides de mesas...');
-        await localTablesService.clearAllOverrides();
-        console.log('[usePayBill] Overrides limpiados');
-      } else {
-        console.log('[usePayBill] Order NO transitioned to paid (pago parcial?)');
-      }
-      
+      // Invalidar queries para refrescar datos del backend
       queryClient.invalidateQueries({ queryKey: ["bills"] });
       queryClient.invalidateQueries({ queryKey: ["cashier", "tables-with-bills"] });
       queryClient.invalidateQueries({ queryKey: ["cashier", "dashboard"] });
-      // FIX: invalidar tables con refetchType 'all' para refetch inmediato
-      // Sin refetchType, React Query respeta staleTime (10s) y no hace refetch
+      
+      // Forzar refetch inmediato de tables (backend ya liberó la mesa)
       queryClient.invalidateQueries({ 
         queryKey: ["tables"],
-        refetchType: 'all'  // Forza refetch de todas las queries activas
+        refetchType: 'all'
       });
     },
   });

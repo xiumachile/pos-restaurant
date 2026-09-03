@@ -144,11 +144,10 @@ export class OrderRepository {
       payload: syncPayload,
     });
 
-    // UPDATE OPTIMISTA: marcar mesa como ocupada inmediatamente
-    // Esto da feedback instantáneo al usuario sin esperar al sync
-    if (payload.table_id) {
-      await localTablesService.markOccupied(payload.table_id, local_uuid);
-    }
+    // NOTA: Ya no hacemos UPDATE optimista de mesas en SQLite.
+    // El backend maneja correctamente las transiciones de estado.
+    // El usuario verá el cambio cuando el sync complete y el backend
+    // actualice el estado de la mesa a 'occupied'.
 
     console.log(`[OrderRepository] 📤 Pedido encolado para sync: ${local_uuid}`);
 

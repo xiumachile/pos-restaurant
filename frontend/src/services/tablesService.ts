@@ -1,5 +1,4 @@
 import apiClient from "./apiClient";
-import { localTablesService } from "./localTablesService";
 import type { TablesArea } from "@/types/tables";
 
 interface ListTablesResponse {
@@ -9,28 +8,21 @@ interface ListTablesResponse {
 export const tablesService = {
   /**
    * Lista todas las mesas agrupadas por área (el backend ya las agrupa).
+   * 
+   * NOTA: Eliminamos el overlay optimista de SQLite porque causaba bugs
+   * donde las mesas permanecían 'occupied' en la UI después de que el
+   * backend las liberara tras el pago. El backend es la fuente de verdad
+   * y maneja correctamente las transiciones de estado.
    */
   async list(): Promise<TablesArea[]> {
     const response = await apiClient.get<ListTablesResponse>("/tables");
     const data = response.data as any;
     const areas: TablesArea[] = Array.isArray(data?.data) ? data.data : [];
     
-    console.log('[tablesService] Backend retornó', areas.length, 'áreas');
+    console.log('[tablesService] Backend retornó', areas.length, 'áreas (sin overlay de SQLite)');
     
-    // Obtener status actualizado desde SQLite local (overlay optimista)
-    const overrides = await localTablesService.getStatusOverrides();
-    console.log('[tablesService] Overrides de SQLite:', overrides.size, 'mesas');
-    
-    // Aplicar overrides: el status local tiene prioridad sobre el cloud
-    // Esto asegura que cambios recientes (ej: mesa ocupada tras crear pedido)
-    // se reflejen inmediatamente sin esperar al próximo pull del backend
-    return areas.map(area => ({
-      ...area,
-      tables: area.tables.map(table => ({
-        ...table,
-        status: (overrides.get(table.uuid) || table.status) as typeof table.status
-      }))
-    }));
+    // Retornar directamente los datos del backend sin aplicar overrides
+    return areas;
   },
 
   /**
