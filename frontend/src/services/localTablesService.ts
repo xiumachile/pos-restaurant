@@ -25,7 +25,6 @@ export const localTablesService = {
       "UPDATE local_tables SET status = 'occupied', current_order_uuid = ?, last_updated = CURRENT_TIMESTAMP WHERE uuid = ?",
       [orderLocalUuid, tableUuid]
     );
-    console.log(`[localTablesService] 🪑 Mesa ${tableUuid} marcada como occupied (optimista)`);
   },
 
   /**
@@ -37,7 +36,6 @@ export const localTablesService = {
       "UPDATE local_tables SET status = 'available', current_order_uuid = NULL, last_updated = CURRENT_TIMESTAMP WHERE uuid = ?",
       [tableUuid]
     );
-    console.log(`[localTablesService] ✅ Mesa ${tableUuid} marcada como available`);
   },
 
   /**
@@ -50,6 +48,5 @@ export const localTablesService = {
     await localDb.execute(
       "UPDATE local_tables SET status = 'available', current_order_uuid = NULL, last_updated = CURRENT_TIMESTAMP WHERE current_order_uuid IS NOT NULL"
     );
-    console.log(`[localTablesService] 🧹 Todos los overrides de mesas limpiados`);
   },
 };

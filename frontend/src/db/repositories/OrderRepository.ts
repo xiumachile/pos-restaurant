@@ -149,8 +149,6 @@ export class OrderRepository {
     // El usuario verá el cambio cuando el sync complete y el backend
     // actualice el estado de la mesa a 'occupied'.
 
-    console.log(`[OrderRepository] 📤 Pedido encolado para sync: ${local_uuid}`);
-
     return await this.findByLocalUuid(local_uuid) as LocalOrder;
   }
 
