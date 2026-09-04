@@ -144,10 +144,18 @@ export class OrderRepository {
       payload: syncPayload,
     });
 
-    // NOTA: Ya no hacemos UPDATE optimista de mesas en SQLite.
-    // El backend maneja correctamente las transiciones de estado.
-    // El usuario verá el cambio cuando el sync complete y el backend
-    // actualice el estado de la mesa a 'occupied'.
+    // FIX OFFLINE (Nivel 4): Marcar mesa como occupied en SQLite inmediatamente
+    // Esto garantiza que la UI refleje el cambio sin esperar sync.
+    // En modo offline, el overlay de tablesService lo muestra al instante.
+    // En modo online, el backend actualizará tras sync (overlay inactivo).
+    // El PullEngine limpiará el overlay tras sync exitoso.
+    if (payload.table_id) {
+      try {
+        await localTablesService.markOccupied(payload.table_id, local_uuid);
+      } catch (error) {
+        console.warn("[OrderRepository] No se pudo marcar mesa como occupied:", error);
+      }
+    }
 
     return await this.findByLocalUuid(local_uuid) as LocalOrder;
   }
