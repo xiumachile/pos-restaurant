@@ -1,3 +1,4 @@
+import { memo, useMemo } from "react";
 import type { Order } from "@/types/orders";
 import { aggregateOrders } from "@/types/orders";
 import { formatPrice } from "@/types/catalog";
@@ -16,10 +17,11 @@ interface ActiveOrderItemsProps {
  * - Agrupa productos iguales de varias órdenes
  * - Totales acumulados al pie
  */
-export function ActiveOrderItems({ orders }: ActiveOrderItemsProps) {
+export const ActiveOrderItems = memo(function ActiveOrderItems({ orders }: ActiveOrderItemsProps) {
+  // useMemo: solo recalcular cuando orders cambie realmente
+  const aggregated = useMemo(() => aggregateOrders(orders), [orders]);
+  
   if (orders.length === 0) return null;
-
-  const aggregated = aggregateOrders(orders);
 
   // Contar pedidos locales pendientes para mostrar banner
   const localPending = orders.filter((o: any) => o._isLocal && o._syncStatus === "pending").length;
@@ -104,3 +106,4 @@ export function ActiveOrderItems({ orders }: ActiveOrderItemsProps) {
     </div>
   );
 }
+);

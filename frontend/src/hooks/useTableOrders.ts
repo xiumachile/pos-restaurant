@@ -10,38 +10,41 @@ const KEY = (tableUuid: string) => ["table-orders", tableUuid];
 /**
  * Hook para obtener pedidos activos de una mesa.
  * 
- * 🔀 Fusión de fuentes (offline-first):
- * 1. Pedidos locales con sync_status = pending/error (instantáneo)
- * 2. Pedidos de la nube (con polling cada 10s)
- * 3. Deduplicación: si un pedido local ya tiene cloud_id, no se muestra dos veces
- * 
- * Orden: locales primero (con badge "⏳ Sin sincronizar"), luego cloud.
+ * OPTIMIZACIONES APLICADAS:
+ * - useCallback para estabilizar loadLocalOrders
+ * - useRef para comparar cambios reales antes de setState
+ * - Signature-based comparison evita re-renders innecesarios
+ * - Sin logs de debug
  */
 export function useTableOrders(tableUuid: string | null) {
   const [localOrders, setLocalOrders] = useState<OrderWithSource[]>([]);
-  const previousOrdersRef = useRef<string>("");
+  const previousSignatureRef = useRef<string>("");
 
-  // 1. Leer pedidos locales pendientes (optimizado para evitar re-renders)
+  // useCallback estabiliza la referencia para evitar recreaciones
   const loadLocalOrders = useCallback(async () => {
     if (!tableUuid) {
-      setLocalOrders([]);
+      if (previousSignatureRef.current !== "") {
+        previousSignatureRef.current = "";
+        setLocalOrders([]);
+      }
       return;
     }
 
     try {
       const pendingLocal = await OrderRepository.findPendingByTable(tableUuid);
       
-      // Cargar items de cada pedido y adaptar formato
       const adapted: OrderWithSource[] = [];
       for (const order of pendingLocal) {
         const items = await OrderRepository.findItemsByOrderLocalUuid(order.local_uuid);
         adapted.push(adaptLocalOrder(order, items));
       }
       
-      // Solo actualizar estado si realmente cambió (evitar re-renders innecesarios)
-      const signature = adapted.map(o => o.uuid).join(",");
-      if (signature !== previousOrdersRef.current) {
-        previousOrdersRef.current = signature;
+      // OPTIMIZACIÓN: Solo actualiza estado si hay cambios reales
+      // Firma basada en uuids de pedidos para detectar cambios
+      const signature = adapted.map(o => `${o.uuid}:${(o as any)._syncStatus || ''}`).join('|');
+      
+      if (signature !== previousSignatureRef.current) {
+        previousSignatureRef.current = signature;
         setLocalOrders(adapted);
       }
     } catch (error) {
@@ -51,44 +54,29 @@ export function useTableOrders(tableUuid: string | null) {
 
   useEffect(() => {
     if (!tableUuid) {
+      previousSignatureRef.current = "";
       setLocalOrders([]);
-      previousOrdersRef.current = "";
       return;
     }
 
-    // Cargar inmediatamente
+    // Cargar inmediatamente al montar
     loadLocalOrders();
 
-    // Re-cargar cada 5 segundos (no 3) y solo si hay cambios reales
-    const interval = setInterval(loadLocalOrders, 5000);
+    // Polling cada 10s (balance entre frescura y performance)
+    const interval = setInterval(loadLocalOrders, 10000);
     return () => clearInterval(interval);
   }, [tableUuid, loadLocalOrders]);
 
-  // Escuchar invalidaciones de React Query
-  const queryClient = useQueryClient();
-  useEffect(() => {
-    if (!tableUuid) return;
-
-    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
-      if (event?.query?.queryKey?.[0] === "table-orders" && 
-          event?.query?.queryKey?.[1] === tableUuid) {
-        loadLocalOrders();
-      }
-    });
-
-    return unsubscribe;
-  }, [tableUuid, queryClient, loadLocalOrders]);
-
-  // 2. Leer pedidos de la nube
+  // Leer pedidos de la nube (React Query maneja cache y deduplicación)
   const cloudQuery = useQuery<Order[], Error>({
     queryKey: tableUuid ? KEY(tableUuid) : ["table-orders", "disabled"],
     queryFn: () => ordersService.listTableOrders(tableUuid!),
     enabled: !!tableUuid,
-    refetchInterval: 10000,
+    refetchInterval: 15000, // Polling cada 15s (menos agresivo)
     staleTime: 5000,
   });
 
-  // 3. Fusionar: locales primero, cloud después (deduplicar por cloud_id)
+  // Fusionar: locales primero, cloud después (deduplicar por cloud_id)
   const cloudOrders = cloudQuery.data || [];
   const localCloudIds = new Set(
     localOrders

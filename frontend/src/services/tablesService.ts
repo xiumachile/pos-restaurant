@@ -19,7 +19,6 @@ export const tablesService = {
     const data = response.data as any;
     const areas: TablesArea[] = Array.isArray(data?.data) ? data.data : [];
     
-    console.log('[tablesService] Backend retornó', areas.length, 'áreas (sin overlay de SQLite)');
     
     // Retornar directamente los datos del backend sin aplicar overrides
     return areas;
