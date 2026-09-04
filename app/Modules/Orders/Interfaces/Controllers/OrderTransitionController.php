@@ -83,6 +83,13 @@ class OrderTransitionController extends Controller
             $order = $this->getOrder($uuid);
             $this->authorize('cancel', $order);
 
+            // IDEMPOTENCIA DE DOMINIO: si el pedido YA está cancelado,
+            // retornar éxito sin disparar eventos de nuevo.
+            if ($order->status === OrderStatus::CANCELLED) {
+                $order->load(['items', 'table', 'waiter']);
+                return OrderResource::make($order)->response();
+            }
+
             $order = $this->stateMachine->transition(
                 $order,
                 OrderStatus::CANCELLED,
@@ -115,6 +122,16 @@ class OrderTransitionController extends Controller
 
             if (!$skipAuth) {
                 $this->authorize($policyMethod, $order);
+            }
+
+            // IDEMPOTENCIA DE DOMINIO: si el pedido YA está en el estado objetivo,
+            // retornar éxito sin disparar eventos de nuevo.
+            // Esto permite reintentos seguros después de timeout o pérdida de respuesta,
+            // incluso si el cliente usa una idempotency_key diferente.
+            // Complementa (no reemplaza) el IdempotencyKeyMiddleware a nivel HTTP.
+            if ($order->status === $newStatus) {
+                $order->load(['items', 'table', 'waiter']);
+                return OrderResource::make($order)->response();
             }
 
             $order = $this->stateMachine->transition($order, $newStatus);
