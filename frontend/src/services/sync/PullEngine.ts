@@ -215,7 +215,7 @@ export class PullEngine {
     if (tables.length === 0) return;
 
     // Obtener mutaciones pendientes UNA VEZ
-    const mutations = await localDb.select<{ table_uuid: string; pending_status: string; pending_order_uuid: string | null }[]>(
+    const mutations = await localDb.select<{ table_uuid: string; pending_status: string; pending_order_uuid: string | null }>(
       "SELECT table_uuid, pending_status, pending_order_uuid FROM table_local_mutations"
     );
     const mutationMap = new Map(mutations.map(m => [m.table_uuid, m]));
@@ -314,7 +314,7 @@ export class PullEngine {
    */
   private async upsertTablesIncremental(tables: any[]): Promise<void> {
     // Obtener mutaciones pendientes UNA VEZ
-    const mutations = await localDb.select<{ table_uuid: string; pending_status: string; pending_order_uuid: string | null }[]>(
+    const mutations = await localDb.select<{ table_uuid: string; pending_status: string; pending_order_uuid: string | null }>(
       "SELECT table_uuid, pending_status, pending_order_uuid FROM table_local_mutations"
     );
     const mutationMap = new Map(mutations.map(m => [m.table_uuid, m]));

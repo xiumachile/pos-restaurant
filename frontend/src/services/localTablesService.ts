@@ -29,8 +29,7 @@ export const localTablesService = {
    * Obtiene todas las mutaciones pendientes.
    */
   async getPendingMutations(): Promise<TableMutation[]> {
-    const db = await localDb.getConnection();
-    return await db.select<TableMutation[]>(
+    return await localDb.select<TableMutation>(
       "SELECT * FROM table_local_mutations ORDER BY created_at ASC"
     );
   },
@@ -39,12 +38,10 @@ export const localTablesService = {
    * Obtiene la mutación pendiente para una mesa específica (si existe).
    */
   async getMutation(tableUuid: string): Promise<TableMutation | null> {
-    const db = await localDb.getConnection();
-    const rows = await db.select<TableMutation[]>(
+    return await localDb.selectOne<TableMutation>(
       "SELECT * FROM table_local_mutations WHERE table_uuid = ?",
       [tableUuid]
     );
-    return rows[0] || null;
   },
 
   /**
@@ -54,10 +51,8 @@ export const localTablesService = {
    * Retorna un mapa uuid -> status para aplicar como overlay.
    */
   async getStatusOverrides(): Promise<Map<string, string>> {
-    const db = await localDb.getConnection();
-
     // 1. Obtener mutaciones pendientes (prioridad alta)
-    const mutations = await db.select<TableMutation[]>(
+    const mutations = await localDb.select<TableMutation>(
       "SELECT table_uuid, pending_status FROM table_local_mutations"
     );
 
@@ -73,7 +68,7 @@ export const localTablesService = {
     if (mutations.length < 100) {
       // Solo si hay pocas mutaciones, traer el resto desde local_tables
       // para tener información completa en fallback offline
-      const cloudTables = await db.select<{ uuid: string; status: string }[]>(
+      const cloudTables = await localDb.select<{ uuid: string; status: string }>(
         "SELECT uuid, status FROM local_tables"
       );
       for (const t of cloudTables) {
@@ -93,10 +88,20 @@ export const localTablesService = {
    * El status visible se calcula priorizando mutaciones locales.
    */
   async getAllTables(): Promise<RestaurantTable[]> {
-    const db = await localDb.getConnection();
+    interface TableRow {
+      uuid: string;
+      table_number: string;
+      area_name: string | null;
+      capacity: number | null;
+      cloud_status: string | null;
+      cloud_order_uuid: string | null;
+      last_updated: string | null;
+      pending_status: string | null;
+      pending_order_uuid: string | null;
+    }
 
     // Traer todo en una sola query con LEFT JOIN
-    const tables = await db.select<any[]>(
+    const tables = await localDb.select<TableRow>(
       `SELECT 
          t.uuid, t.table_number, t.area_name, t.capacity, 
          t.status AS cloud_status, t.current_order_uuid AS cloud_order_uuid,
@@ -140,12 +145,9 @@ export const localTablesService = {
   async markOccupied(tableUuid: string, orderLocalUuid: string): Promise<void> {
     console.log("[localTablesService] 🪑 markOccupied:", { tableUuid, orderLocalUuid });
 
-    const db = await localDb.getConnection();
-
-    await db.execute("BEGIN TRANSACTION");
     try {
       // 1. Registrar mutación pendiente (autoridad principal)
-      await db.execute(
+      await localDb.execute(
         `INSERT OR REPLACE INTO table_local_mutations 
          (table_uuid, pending_status, pending_order_uuid, created_at)
          VALUES (?, 'occupied', ?, CURRENT_TIMESTAMP)`,
@@ -153,7 +155,7 @@ export const localTablesService = {
       );
 
       // 2. Actualizar local_tables para reflejo inmediato
-      await db.execute(
+      await localDb.execute(
         `UPDATE local_tables 
          SET status = 'occupied', 
              current_order_uuid = ?, 
@@ -162,10 +164,8 @@ export const localTablesService = {
         [orderLocalUuid, tableUuid]
       );
 
-      await db.execute("COMMIT");
       console.log("[localTablesService] ✅ Mutación registrada + local_tables actualizado");
     } catch (error) {
-      await db.execute("ROLLBACK");
       console.error("[localTablesService] ❌ Error en markOccupied:", error);
       throw error;
     }
@@ -179,18 +179,15 @@ export const localTablesService = {
   async markAvailable(tableUuid: string): Promise<void> {
     console.log("[localTablesService] 🟢 markAvailable:", tableUuid);
 
-    const db = await localDb.getConnection();
-
-    await db.execute("BEGIN TRANSACTION");
     try {
       // 1. Eliminar mutación pendiente
-      await db.execute(
+      await localDb.execute(
         "DELETE FROM table_local_mutations WHERE table_uuid = ?",
         [tableUuid]
       );
 
       // 2. Actualizar local_tables
-      await db.execute(
+      await localDb.execute(
         `UPDATE local_tables 
          SET status = 'available', 
              current_order_uuid = NULL, 
@@ -199,10 +196,8 @@ export const localTablesService = {
         [tableUuid]
       );
 
-      await db.execute("COMMIT");
       console.log("[localTablesService] ✅ Mutación eliminada + local_tables actualizado");
     } catch (error) {
-      await db.execute("ROLLBACK");
       console.error("[localTablesService] ❌ Error en markAvailable:", error);
       throw error;
     }
@@ -226,12 +221,12 @@ export const localTablesService = {
    * Usado tras full sync exitoso o logout.
    */
   async clearAllMutations(): Promise<number> {
-    const db = await localDb.getConnection();
-    const count = await db.select<{ count: number }[]>(
+    const countRows = await localDb.select<{ count: number }>(
       "SELECT COUNT(*) as count FROM table_local_mutations"
     );
-    const result = await db.execute("DELETE FROM table_local_mutations");
-    console.log(`[localTablesService] 🧹 ${count[0]?.count || 0} mutaciones eliminadas`);
-    return result;
+    const count = countRows[0]?.count || 0;
+    const rowsAffected = await localDb.execute("DELETE FROM table_local_mutations");
+    console.log(`[localTablesService] 🧹 ${count} mutaciones eliminadas`);
+    return rowsAffected;
   },
 };
