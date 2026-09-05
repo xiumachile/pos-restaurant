@@ -160,7 +160,36 @@ export const tablesService = {
 
       // Guardar en caché para uso offline futuro
       saveToCache(areas);
-      console.log("[tablesService] Modo online, retornando sin overlay");
+
+      // 2. FASE 4 FIX: SIEMPRE aplicar overlay si hay mutaciones pendientes
+      // Esto es crítico: el cloud puede tener estado desactualizado si:
+      // - El pedido local se creó pero aún no se confirmó en cloud
+      // - El confirm falló y está pendiente de reintento
+      // - El OrderConfirmed event no ha llegado al cloud todavía
+      // Mientras haya mutaciones locales, tienen prioridad sobre el cloud.
+      const overrides = await localTablesService.getStatusOverrides();
+      const hasMutations = overrides.size > 0;
+
+      if (hasMutations) {
+        // Contar cuántas son mutaciones REALES (no solo estado del cloud)
+        const mutations = await localTablesService.getPendingMutations();
+        const mutationUuids = new Set(mutations.map(m => m.table_uuid));
+        const realOverrides = new Map<string, string>();
+
+        for (const [uuid, status] of overrides.entries()) {
+          if (mutationUuids.has(uuid)) {
+            realOverrides.set(uuid, status);
+          }
+        }
+
+        if (realOverrides.size > 0) {
+          console.log(`[tablesService] 🔒 Aplicando overlay de ${realOverrides.size} mutaciones pendientes sobre cloud`);
+          const result = applyOfflineOverlay(areas, realOverrides);
+          return result;
+        }
+      }
+
+      console.log("[tablesService] Modo online, sin mutaciones, retornando cloud puro");
       return areas;
 
     } catch (error: any) {

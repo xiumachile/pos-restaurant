@@ -1,4 +1,5 @@
-import { v4 as uuidv4, v5 as uuidv5 } from "uuid";
+import { v4 as uuidv4 } from "uuid";
+import { deterministicUuidV4 } from "../utils/deterministicUuid";
 import { apiClient } from "./apiClient";
 
 export interface OrderPayload {
@@ -152,13 +153,12 @@ export class SyncApiClient {
    */
   async confirmOrder(uuid: string): Promise<any> {
     // FASE 3 FIX: Idempotency-Key debe ser UUIDv4 válido (el backend lo exige).
-    // Generamos un UUIDv5 determinístico desde el uuid de la orden para que
-    // reintentos usen la misma clave (idempotencia real).
+    // Usamos un UUIDv4 determinístico (SHA-256 + formato v4) basado en el uuid
+    // de la orden para garantizar idempotencia real en reintentos.
     //
-    // Namespace fijo (UUIDv4 arbitrario) para el dominio "order-confirmation":
-    // Cualquier UUID constante funciona como namespace de uuidv5.
-    const CONFIRM_NAMESPACE = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
-    const idempotencyKey = uuidv5(`confirm-${uuid}`, CONFIRM_NAMESPACE);
+    // Ventaja sobre uuidv4() aleatorio: reintentos usan la misma clave.
+    // Ventaja sobre uuidv5: genera UUIDv4 válido (no v5).
+    const idempotencyKey = await deterministicUuidV4(`confirm-order-${uuid}`);
 
     const response = await apiClient.post(`/orders/${uuid}/confirm`, {}, {
       headers: { "Idempotency-Key": idempotencyKey },
