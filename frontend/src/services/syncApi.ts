@@ -132,13 +132,31 @@ export class SyncApiClient {
     return response.data.data;
   }
   /**
+   * Consulta el estado actual de una orden específica.
+   * Usado para resolver ambigüedad en HTTP 422 (idempotencia vs error real).
+   */
+  async getOrder(uuid: string): Promise<{
+    uuid: string;
+    status: string;
+    items: any[];
+    [key: string]: any;
+  }> {
+    const response = await apiClient.get(`/orders/${uuid}`);
+    return response.data.data;
+  }
+
+  /**
    * Confirma un pedido vía transición de dominio (dispara OrderConfirmed).
    * IMPORTANTE: Usar esto en lugar de updateOrder({status:'confirmed'})
    * para que se ejecuten los listeners (OccupyTableOnOrderConfirm, etc.)
    */
   async confirmOrder(uuid: string): Promise<any> {
+    // FASE 3: Idempotency-Key estable (uuid de la orden)
+    // Esto garantiza que si la confirmación falla por timeout y reintentamos,
+    // el backend reconozca que es la misma operación y no duplique la confirmación.
+    // Patrón: "confirm-{uuid}" para distinguirla de otras operaciones sobre la misma orden
     const response = await apiClient.post(`/orders/${uuid}/confirm`, {}, {
-      headers: { "Idempotency-Key": uuidv4() },
+      headers: { "Idempotency-Key": `confirm-${uuid}` },
     });
     return response.data.data;
   }

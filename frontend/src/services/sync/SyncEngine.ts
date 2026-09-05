@@ -217,11 +217,51 @@ export class SyncEngine {
             await syncApi.confirmOrder(String(cloudId));
             console.log(`[SyncEngine] ✅ Pedido confirmado vía transición de dominio (${itemsAdded} items)`);
           } catch (error: any) {
-            // Cualquier error es real: relanzar para que processItem() NO marque como synced
-            // y el SyncWorker reintente en el próximo ciclo (cada 15s)
-            const errorMessage = error?.response?.data?.message || error?.message || 'Error desconocido';
-            console.error(`[SyncEngine] ❌ Error al confirmar pedido ${cloudId}: ${errorMessage}`);
-            throw new Error(`Fallo al confirmar pedido ${cloudId}: ${errorMessage}`);
+            // FASE 3: Manejo inteligente de HTTP 422
+            // 422 puede ser:
+            //   (a) Idempotencia: orden ya estaba CONFIRMED → tratar como éxito
+            //   (b) Error real: transición inválida (ej: orden cancelada) → relanzar
+            //
+            // Para resolver la ambigüedad, consultamos el estado real de la orden
+            // en el backend y decidimos según su status.
+            if (error?.response?.status === 422) {
+              console.warn(`[SyncEngine] ⚠️  HTTP 422 al confirmar ${cloudId}, consultando estado real...`);
+              try {
+                const orderState = await syncApi.getOrder(String(cloudId));
+                const status = orderState?.status;
+                
+                console.log(`[SyncEngine] 🔍 Estado real de orden ${cloudId}: ${status}`);
+                
+                // Estados que indican que la confirmación YA OCURRIÓ (idempotencia)
+                const confirmedStatuses = ['confirmed', 'preparing', 'ready', 'served', 'paid', 'closed'];
+                
+                if (confirmedStatuses.includes(status)) {
+                  console.log(`[SyncEngine] ✓ Orden ya confirmada (idempotencia 422), continuando`);
+                  // NO relanzar: considerar como éxito
+                } else if (status === 'draft') {
+                  // La orden sigue en DRAFT: confirmación realmente falló
+                  console.error(`[SyncEngine] ❌ Orden sigue en DRAFT tras 422, reintentando`);
+                  throw new Error(`Orden ${cloudId} sigue en DRAFT tras 422, requiere reintento`);
+                } else if (status === 'cancelled') {
+                  // Orden fue cancelada (posiblemente por otro proceso)
+                  console.error(`[SyncEngine] ❌ Orden ${cloudId} fue cancelada, no se puede confirmar`);
+                  throw new Error(`Orden ${cloudId} cancelada, confirmación imposible`);
+                } else {
+                  // Estado inesperado
+                  console.error(`[SyncEngine] ❌ Estado inesperado de orden ${cloudId}: ${status}`);
+                  throw new Error(`Estado inesperado de orden ${cloudId}: ${status}`);
+                }
+              } catch (fetchError: any) {
+                // Si falla consultar el estado, relanzar el error original
+                console.error(`[SyncEngine] ❌ No se pudo consultar estado de orden ${cloudId}:`, fetchError);
+                throw new Error(`Fallo al confirmar ${cloudId} y no se pudo verificar estado`);
+              }
+            } else {
+              // Error no-422: relanzar normalmente (timeout, 500, etc.)
+              const errorMessage = error?.response?.data?.message || error?.message || 'Error desconocido';
+              console.error(`[SyncEngine] ❌ Error al confirmar pedido ${cloudId}: ${errorMessage}`);
+              throw new Error(`Fallo al confirmar pedido ${cloudId}: ${errorMessage}`);
+            }
           }
         }
 
