@@ -7,11 +7,6 @@ const TABLES_QUERY_KEY = ["tables"];
 
 /**
  * Hook para obtener la lista de mesas agrupadas por área.
- * 
- * COMPORTAMIENTO:
- * - Online: refetch cada 5s para mantener datos frescos
- * - Offline: desactiva refetch automático (tableService usa caché + SQLite)
- * - Refetch manual siempre disponible (botón de recargar)
  */
 export function useTables() {
   const syncStatus = useSyncStore((s) => s.status);
@@ -20,50 +15,59 @@ export function useTables() {
   return useQuery<TablesArea[], Error>({
     queryKey: TABLES_QUERY_KEY,
     queryFn: tablesService.list,
-    // En offline, no hacer refetch automático (la data viene de caché/SQLite)
     refetchInterval: isOffline ? false : 5000,
-    // En offline, considerar datos siempre frescos (ya son locales)
     staleTime: isOffline ? Infinity : 2000,
-    // Mantener datos en caché 5 minutos aunque el componente se desmonte
     gcTime: 5 * 60 * 1000,
-    // No reintentar en offline (tablesService ya maneja el fallback)
     retry: !isOffline,
-    // No bloquear render inicial (mostrar caché si existe)
     placeholderData: (previousData) => previousData,
   });
 }
 
 /**
  * Invalida y fuerza refetch de la query de tables.
- * 
- * IMPORTANTE: Usamos refetchQueries en lugar de invalidateQueries porque:
- * - invalidateQueries solo marca como stale
- * - Con staleTime: Infinity en offline, el refetch no ocurre automáticamente
- * - refetchQueries fuerza el refetch inmediato de queries activas
+ *
+ * FIX CRÍTICO OFFLINE:
+ * React Query v5 + fetchQuery se cuelga cuando:
+ * - staleTime: Infinity
+ * - retry: false
+ * - query no está activamente montada
+ *
+ * En offline, BYPASS total de React Query:
+ * 1. Llamar tablesService.list() directamente
+ * 2. Actualizar cache con setQueryData
+ *
+ * En online, usar fetchQuery normal.
  */
 export function useInvalidateTables() {
   const queryClient = useQueryClient();
 
   return async () => {
-    console.log("[useInvalidateTables] 🔄 Forzando fetchQuery de tables");
+    const syncStatus = useSyncStore.getState().status;
+    const isOffline = syncStatus === "offline";
+
+    console.log("[useInvalidateTables] 🔄 Invalidando tables, syncStatus:", syncStatus);
 
     try {
-      // fetchQuery fuerza la ejecución de tablesService.list()
-      // aunque la query esté inactiva/desmontada.
-      const data = await queryClient.fetchQuery({
-        queryKey: TABLES_QUERY_KEY,
-        queryFn: tablesService.list,
-        staleTime: 0,
-      });
-
-      // Asegurar que el cache queda actualizado antes de navegar a Mesas.
-      queryClient.setQueryData(TABLES_QUERY_KEY, data);
-
-      console.log("[useInvalidateTables] ✅ Cache de tables actualizado:", data.length, "áreas");
+      if (isOffline) {
+        // 🔑 BYPASS OFFLINE: React Query puede colgarse en este caso
+        // Llamar directamente a tablesService y actualizar cache manualmente
+        console.log("[useInvalidateTables] ✈️ Modo offline: bypass de React Query");
+        const data = await tablesService.list();
+        queryClient.setQueryData(TABLES_QUERY_KEY, data);
+        console.log("[useInvalidateTables] ✅ Cache actualizado manualmente:", data.length, "áreas");
+      } else {
+        // Online: usar fetchQuery normal
+        console.log("[useInvalidateTables] 🌐 Modo online: fetchQuery");
+        const data = await queryClient.fetchQuery({
+          queryKey: TABLES_QUERY_KEY,
+          queryFn: tablesService.list,
+          staleTime: 0,
+        });
+        queryClient.setQueryData(TABLES_QUERY_KEY, data);
+        console.log("[useInvalidateTables] ✅ Cache actualizado:", data.length, "áreas");
+      }
     } catch (error) {
       console.error("[useInvalidateTables] ❌ Error actualizando tables:", error);
-
-      // Fallback: al menos marcar como inválida para que refetchee al montar.
       queryClient.invalidateQueries({ queryKey: TABLES_QUERY_KEY });
     }
   };
