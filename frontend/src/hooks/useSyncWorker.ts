@@ -1,7 +1,14 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useSyncStore } from "../store/useSyncStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { SyncQueueRepository } from "../db/repositories/SyncQueueRepository";
+
+/**
+ * Flag a nivel de módulo que sobrevive entre mount/unmount de StrictMode.
+ * Garantiza que el worker solo se inicialice UNA VEZ por sesión.
+ */
+let workerInitialized = false;
+let workerSessionKey: string | null = null;
 
 /**
  * Hook que inicia el worker de sincronización.
@@ -12,8 +19,8 @@ import { SyncQueueRepository } from "../db/repositories/SyncQueueRepository";
  * 2. Dispara sincronización completa (push + pull)
  * 3. Arranca worker periódico (solo push de sync_queue)
  *
- * NOTA: Este hook solo debe montarse UNA VEZ en la aplicación.
- * Actualmente se monta en App.tsx. No debe existir en AppLayout.
+ * IDEMPOTENTE: React StrictMode no puede ejecutar el efecto dos veces
+ * gracias al flag `workerInitialized` a nivel de módulo.
  */
 export function useSyncWorker() {
   const startWorker = useSyncStore((state) => state.startWorker);
@@ -21,34 +28,38 @@ export function useSyncWorker() {
   const refreshPendingCount = useSyncStore((state) => state.refreshPendingCount);
   const triggerFullSync = useSyncStore((state) => state.triggerFullSync);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-
-  // Flag para evitar ejecución doble (React StrictMode en dev)
-  const initializedRef = useRef(false);
+  const userId = useAuthStore((state) => state.user?.id);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      console.log("[SyncWorker] ⏸️  Esperando autenticación...");
+    if (!isAuthenticated || !userId) {
+      // Reset flag cuando el usuario cierra sesión
+      if (workerInitialized) {
+        console.log("[SyncWorker] 👋 Usuario desautenticado, reseteando flag");
+        workerInitialized = false;
+        workerSessionKey = null;
+        stopWorker();
+      }
       return;
     }
 
-    if (initializedRef.current) {
-      console.log("[SyncWorker] ⏭️  Ya inicializado, saltando");
+    // Clave única por sesión (evita re-inicialización si userId cambia)
+    const sessionKey = `session-${userId}`;
+    if (workerInitialized && workerSessionKey === sessionKey) {
+      // Ya inicializado para esta sesión - saltar
       return;
     }
 
-    initializedRef.current = true;
-    console.log("[SyncWorker] 🚀 Usuario autenticado, iniciando worker");
+    workerInitialized = true;
+    workerSessionKey = sessionKey;
+    console.log("[SyncWorker] 🚀 Usuario autenticado, iniciando worker (session:", sessionKey, ")");
 
     // FASE 1: Recuperación de syncing abandonados al iniciar
-    // Esto corrige operaciones que quedaron pegadas por crash/corte de energía
     (async () => {
       try {
         const recovered = await SyncQueueRepository.recoverAbandonedSyncing();
         if (recovered > 0) {
           console.log(`[SyncWorker] 🔄 Recuperadas ${recovered} operaciones syncing al iniciar`);
         }
-        // También recuperar cualquier syncing restante con force reset
-        // (solo al primer inicio después de un posible crash)
         const forceReset = await SyncQueueRepository.forceResetAllSyncing();
         if (forceReset > 0) {
           console.log(`[SyncWorker] ⚠️  Reset forzoso de ${forceReset} syncing restantes`);
@@ -57,7 +68,7 @@ export function useSyncWorker() {
         console.error("[SyncWorker] Error en recovery:", error);
       }
 
-      // Después de recovery: sync completa (push pendientes + pull catálogo)
+      // Sync completa (push pendientes + pull catálogo)
       await triggerFullSync();
 
       // Worker periódico: solo push de sync_queue cada 15s
@@ -65,9 +76,16 @@ export function useSyncWorker() {
       await refreshPendingCount();
     })();
 
+    // NOTA: NO reseteamos workerInitialized en cleanup.
+    // Esto garantiza idempotencia frente a React StrictMode.
+    // El cleanup solo detiene el worker cuando el componente realmente se desmonta
+    // (ej: logout), pero no en el desmontaje temporal de StrictMode.
     return () => {
-      stopWorker();
-      initializedRef.current = false;
+      // Solo detener si el usuario realmente se desautenticó
+      const currentAuth = useAuthStore.getState().isAuthenticated;
+      if (!currentAuth) {
+        stopWorker();
+      }
     };
-  }, [isAuthenticated, startWorker, stopWorker, refreshPendingCount, triggerFullSync]);
+  }, [isAuthenticated, userId, startWorker, stopWorker, refreshPendingCount, triggerFullSync]);
 }

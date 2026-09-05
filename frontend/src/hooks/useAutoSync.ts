@@ -1,45 +1,27 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useSyncStore } from "../store/useSyncStore";
 import { useAuthStore } from "../store/useAuthStore";
 
 /**
- * Hook que dispara sincronización automática en momentos clave:
- * 1. Cuando el usuario se autentica (primera sync tras login)
- * 2. Al recuperar conectividad (ya está en useSyncStore)
- * 3. Cada N minutos (configurable)
+ * Hook que dispara sincronización periódica cada N minutos.
+ *
+ * NOTA: El triggerFullSync() inicial al autenticarse lo hace
+ * useSyncWorker (montado en App.tsx). Este hook solo se encarga
+ * del sync periódico.
+ *
+ * FLUJO:
+ * - useSyncWorker (App.tsx): triggerFullSync al autenticarse
+ * - useAutoSync (AppLayout.tsx): triggerFullSync cada N minutos
+ * - useSyncStore (online event): triggerFullSync al recuperar red
  */
 export function useAutoSync(options: {
-  syncOnAuth?: boolean;
   intervalMinutes?: number;
 } = {}) {
-  const {
-    syncOnAuth = true,
-    intervalMinutes = 5,
-  } = options;
+  const { intervalMinutes = 5 } = options;
 
   const triggerFullSync = useSyncStore((s) => s.triggerFullSync);
-  const status = useSyncStore((s) => s.status);
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const userId = useAuthStore((s) => s.user?.id);
-  const hasInitialSyncedRef = useRef(false);
 
-  // 🔑 Sync al autenticarse (primera vez por sesión)
-  useEffect(() => {
-    if (syncOnAuth && isAuthenticated && userId && !hasInitialSyncedRef.current && status === "online") {
-      console.log("[AutoSync] 🚀 Primera sync tras login, userId:", userId);
-      hasInitialSyncedRef.current = true;
-      triggerFullSync();
-    }
-  }, [isAuthenticated, userId, status, syncOnAuth, triggerFullSync]);
-
-  // Reset flag al hacer logout
-  useEffect(() => {
-    if (!isAuthenticated) {
-      hasInitialSyncedRef.current = false;
-    }
-  }, [isAuthenticated]);
-
-  // Sync periódico
+  // Sync periódico (cada N minutos)
   useEffect(() => {
     if (!intervalMinutes || intervalMinutes <= 0) return;
 
@@ -57,7 +39,7 @@ export function useAutoSync(options: {
 
   return {
     lastSyncAt: useSyncStore((s) => s.lastSyncAt),
-    status,
+    status: useSyncStore((s) => s.status),
     triggerFullSync,
   };
 }

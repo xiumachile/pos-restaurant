@@ -7,10 +7,8 @@ import { ToastContainer } from '../system/ToastContainer';
 
 export function AppLayout() {
 // useSyncWorker() movido a App.tsx (único punto de montaje)
-  useAutoSync({             // Sync al autenticarse + periódica cada 5min
-    syncOnAuth: true,
-    intervalMinutes: 5,
-  });
+  // Sync periódico cada 5min (el sync inicial lo hace useSyncWorker en App.tsx)
+  useAutoSync({ intervalMinutes: 5 });
 
   return (
     <div className="flex h-screen bg-slate-900 overflow-hidden">
