@@ -198,15 +198,68 @@ export class PullEngine {
     }
   }
 
+  /**
+   * FASE 4: Upsert de mesas preservando mutaciones locales pendientes.
+   *
+   * REGLA: Si existe una mutación pendiente para una mesa (en table_local_mutations),
+   * NO sobrescribimos status ni current_order_uuid con datos del cloud.
+   * El estado local pendiente tiene prioridad sobre el estado del cloud.
+   *
+   * Esto resuelve el bug donde:
+   *   OFFLINE: Mesa local = occupied, Pedido local = pending
+   *   PULL: Cloud = available
+   *   Antes: local = available (INCORRECTO - destruía mutación)
+   *   Ahora: local = occupied (CORRECTO - preserva mutación)
+   */
   private async upsertTables(tables: any[]): Promise<void> {
     if (tables.length === 0) return;
-    await localDb.execute("DELETE FROM local_tables");
+
+    // Obtener mutaciones pendientes UNA VEZ
+    const mutations = await localDb.select<{ table_uuid: string; pending_status: string; pending_order_uuid: string | null }[]>(
+      "SELECT table_uuid, pending_status, pending_order_uuid FROM table_local_mutations"
+    );
+    const mutationMap = new Map(mutations.map(m => [m.table_uuid, m]));
+
+    let preserved = 0;
+    let synced = 0;
+
     for (const table of tables) {
-      await localDb.execute(
-        `INSERT OR REPLACE INTO local_tables (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated) 
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [table.uuid, table.table_number, table.area_name, table.capacity, table.status, table.current_order_uuid, table.updated_at]
-      );
+      const hasMutation = mutationMap.has(table.uuid);
+
+      if (hasMutation) {
+        // 🔒 Hay mutación pendiente: preservar status y order_uuid locales
+        // Solo actualizar campos que NO son estado (table_number, area_name, capacity)
+        const mutation = mutationMap.get(table.uuid)!;
+        await localDb.execute(
+          `INSERT OR REPLACE INTO local_tables 
+           (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated) 
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            table.uuid,
+            table.table_number,
+            table.area_name,
+            table.capacity,
+            mutation.pending_status,           // ← Preservado
+            mutation.pending_order_uuid,       // ← Preservado
+            table.updated_at
+          ]
+        );
+        preserved++;
+        console.log(`[PullEngine] 🔒 Mesa ${table.table_number} (${table.uuid}): mutación preservada → ${mutation.pending_status}`);
+      } else {
+        // ✅ Sin mutación: aplicar estado del cloud normalmente
+        await localDb.execute(
+          `INSERT OR REPLACE INTO local_tables 
+           (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated) 
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [table.uuid, table.table_number, table.area_name, table.capacity, table.status, table.current_order_uuid, table.updated_at]
+        );
+        synced++;
+      }
+    }
+
+    if (preserved > 0) {
+      console.log(`[PullEngine] 📊 Mesas: ${synced} actualizadas desde cloud, ${preserved} mutaciones preservadas`);
     }
   }
 
@@ -255,16 +308,52 @@ export class PullEngine {
     }
   }
 
+  /**
+   * FASE 4: Upsert incremental preservando mutaciones locales.
+   * Mismo principio que upsertTables pero para cambios incrementales.
+   */
   private async upsertTablesIncremental(tables: any[]): Promise<void> {
+    // Obtener mutaciones pendientes UNA VEZ
+    const mutations = await localDb.select<{ table_uuid: string; pending_status: string; pending_order_uuid: string | null }[]>(
+      "SELECT table_uuid, pending_status, pending_order_uuid FROM table_local_mutations"
+    );
+    const mutationMap = new Map(mutations.map(m => [m.table_uuid, m]));
+
     for (const table of tables) {
       if (table.deleted) {
+        // Si hay mutación pendiente para una mesa eliminada, eliminarla también
+        // (la mesa ya no existe en el cloud)
+        await localDb.execute("DELETE FROM table_local_mutations WHERE table_uuid = ?", [table.uuid]);
         await localDb.execute("DELETE FROM local_tables WHERE uuid = ?", [table.uuid]);
       } else {
-        await localDb.execute(
-          `INSERT OR REPLACE INTO local_tables (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated) 
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [table.uuid, table.table_number, table.area_name, table.capacity, table.status, table.current_order_uuid, table.updated_at]
-        );
+        const hasMutation = mutationMap.has(table.uuid);
+
+        if (hasMutation) {
+          // 🔒 Preservar estado local pendiente
+          const mutation = mutationMap.get(table.uuid)!;
+          await localDb.execute(
+            `INSERT OR REPLACE INTO local_tables 
+             (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated) 
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+              table.uuid,
+              table.table_number,
+              table.area_name,
+              table.capacity,
+              mutation.pending_status,
+              mutation.pending_order_uuid,
+              table.updated_at
+            ]
+          );
+        } else {
+          // ✅ Aplicar estado del cloud
+          await localDb.execute(
+            `INSERT OR REPLACE INTO local_tables 
+             (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated) 
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [table.uuid, table.table_number, table.area_name, table.capacity, table.status, table.current_order_uuid, table.updated_at]
+          );
+        }
       }
     }
   }

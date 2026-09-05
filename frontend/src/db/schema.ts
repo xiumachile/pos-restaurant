@@ -1,5 +1,6 @@
 import { localDb } from "./localDb";
 import initialMigration from "./migrations/001_initial.sql?raw";
+import tableMutationsMigration from "./migrations/002_table_local_mutations.sql?raw";
 
 /**
  * Parser robusto para dividir SQL en statements individuales.
@@ -228,8 +229,68 @@ export async function runMigrations(): Promise<void> {
   } else {
     console.log("[Migrations] ✅ Migración 001 ya está aplicada");
 
+    // Aplicar migración 002 si no está aplicada (FASE 4: table_local_mutations)
+    if (!applied.some(m => m.version === "002")) {
+      console.log("[Migrations] 🚀 Aplicando migración 002_table_local_mutations...");
+
+      if (!tableMutationsMigration || tableMutationsMigration.trim().length === 0) {
+        throw new Error("Migración 002 vacía o no cargada");
+      }
+
+      const statements = parseSqlStatements(tableMutationsMigration);
+      console.log(`[Migrations] 🔍 002: Parsed ${statements.length} statements SQL`);
+
+      let executed = 0;
+      let skipped = 0;
+
+      for (let i = 0; i < statements.length; i++) {
+        const stmt = statements[i];
+        const upper = stmt.toUpperCase().trim();
+
+        if (upper.startsWith("--") || upper.startsWith("/*") || stmt.trim().length === 0) {
+          skipped++;
+          continue;
+        }
+
+        try {
+          await db.execute(stmt);
+          executed++;
+          const createMatch = stmt.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["']?(\w+)/i);
+          if (createMatch) {
+            console.log(`[Migrations] ✓ Tabla creada: ${createMatch[1]}`);
+          }
+        } catch (err: any) {
+          if (err.message?.includes("already exists") || err.code === 1) {
+            console.warn(`[Migrations] ⚠️  Objeto ya existe, continuando`);
+            skipped++;
+          } else {
+            throw new Error(`Migración 002 falló en statement ${i + 1}: ${err.message}`);
+          }
+        }
+      }
+
+      console.log(`[Migrations] ✅ 002 Resumen: ${executed} ejecutados, ${skipped} saltados`);
+
+      await db.execute(
+        "INSERT OR REPLACE INTO migrations (version, checksum) VALUES (?, ?)",
+        ["002", `table-mutations-${executed}-statements-${Date.now()}`]
+      );
+
+      // Verificar que la tabla se creó
+      const check = await db.select<{ name: string }[]>(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name = 'table_local_mutations'"
+      );
+      if (check.length === 0) {
+        throw new Error("Tabla table_local_mutations no se creó");
+      }
+      console.log("[Migrations] ✅ Verificada: table_local_mutations");
+      console.log("[Migrations] 🎉 Migración 002 aplicada correctamente");
+    } else {
+      console.log("[Migrations] ✅ Migración 002 ya está aplicada");
+    }
+
     // Verificar integridad de tablas críticas
-    const criticalTables = ["sync_queue", "local_orders", "local_products"];
+    const criticalTables = ["sync_queue", "local_orders", "local_products", "table_local_mutations"];
     let allOk = true;
 
     for (const table of criticalTables) {
