@@ -164,7 +164,12 @@ export class SyncEngine {
         }
 
         console.log(`[SyncEngine] ✅ Orden creada en cloud: ${cloudId}`);
-        await OrderRepository.markAsSynced(item.entity_local_uuid, String(cloudId));
+        
+        // ⚠️ FASE 2: NO marcamos como synced todavía.
+        // La orden solo se considera sincronizada cuando TODA la cadena
+        // de dominio está completa (create + items + confirm).
+        // El markAsSynced final lo hace SyncQueueRepository.markAsSynced()
+        // al final de processItem(), DESPUÉS de que confirmOrder() sea exitoso.
 
         // Agregar items uno por uno (requiere estado DRAFT)
         let itemsAdded = 0;
