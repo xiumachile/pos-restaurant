@@ -52,10 +52,12 @@ export const localTablesService = {
    * Centraliza el UPDATE de local_tables para mantener consistencia.
    */
   async markOccupied(tableUuid: string, orderLocalUuid: string): Promise<void> {
-    await localDb.execute(
+    console.log("[localTablesService] 🪑 markOccupied llamado:", { tableUuid, orderLocalUuid });
+    const result = await localDb.execute(
       "UPDATE local_tables SET status = 'occupied', current_order_uuid = ?, last_updated = CURRENT_TIMESTAMP WHERE uuid = ?",
       [orderLocalUuid, tableUuid]
     );
+    console.log("[localTablesService] ✅ UPDATE ejecutado, filas afectadas:", result);
   },
 
   /**

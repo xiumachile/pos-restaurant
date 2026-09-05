@@ -146,15 +146,19 @@ export class OrderRepository {
 
     // FIX OFFLINE (Nivel 4): Marcar mesa como occupied en SQLite inmediatamente
     // Esto garantiza que la UI refleje el cambio sin esperar sync.
-    // En modo offline, el overlay de tablesService lo muestra al instante.
-    // En modo online, el backend actualizará tras sync (overlay inactivo).
-    // El PullEngine limpiará el overlay tras sync exitoso.
+    console.log("[OrderRepository] 📤 Pedido creado localmente:", local_uuid);
+    console.log("[OrderRepository] table_id:", payload.table_id);
+    
     if (payload.table_id) {
       try {
+        console.log("[OrderRepository] Llamando markOccupied para mesa:", payload.table_id);
         await localTablesService.markOccupied(payload.table_id, local_uuid);
+        console.log("[OrderRepository] ✅ markOccupied ejecutado exitosamente");
       } catch (error) {
-        console.warn("[OrderRepository] No se pudo marcar mesa como occupied:", error);
+        console.error("[OrderRepository] ❌ Error en markOccupied:", error);
       }
+    } else {
+      console.warn("[OrderRepository] ⚠️ No hay table_id, no se marca mesa");
     }
 
     return await this.findByLocalUuid(local_uuid) as LocalOrder;

@@ -1,4 +1,6 @@
 import apiClient from "./apiClient";
+import { localPaymentsService } from "./localPaymentsService";
+import { useSyncStore } from "@/store/useSyncStore";
 import type {
   PaymentMethod,
   CashierDashboard,
@@ -73,11 +75,35 @@ export const paymentsService = {
   },
 
   async listTablesWithBills(): Promise<TableBill[]> {
-    const response = await apiClient.get<ListResponse<TableBill>>(
-      "/cashier/tables-with-bills"
-    );
-    const data = response.data as any;
-    return Array.isArray(data?.data) ? data.data : [];
+    const syncStatus = useSyncStore.getState().status;
+    const isOffline = syncStatus === "offline";
+
+    // En offline: reconstruir desde SQLite directamente (sin fetch al backend)
+    if (isOffline) {
+      try {
+        return await localPaymentsService.listTablesWithBillsOffline();
+      } catch (error) {
+        console.warn("[paymentsService] Error leyendo cuentas desde SQLite:", error);
+        return [];
+      }
+    }
+
+    // En online: intentar backend, fallback a SQLite si falla
+    try {
+      const response = await apiClient.get<ListResponse<TableBill>>(
+        "/cashier/tables-with-bills"
+      );
+      const data = response.data as any;
+      return Array.isArray(data?.data) ? data.data : [];
+    } catch (error: any) {
+      console.warn("[paymentsService] Backend inaccesible, usando SQLite:", error?.message);
+      try {
+        return await localPaymentsService.listTablesWithBillsOffline();
+      } catch (fallbackError) {
+        console.error("[paymentsService] Error en fallback SQLite:", fallbackError);
+        return [];
+      }
+    }
   },
 
   async chargeTable(

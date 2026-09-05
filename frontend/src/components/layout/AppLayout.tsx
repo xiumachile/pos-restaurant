@@ -1,12 +1,12 @@
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
-import { useSyncWorker } from '../../hooks/useSyncWorker';
+// useSyncWorker eliminado: se monta una sola vez en App.tsx
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { ToastContainer } from '../system/ToastContainer';
 
 export function AppLayout() {
-  useSyncWorker();          // Worker cada 15s (push de eventos locales)
+// useSyncWorker() movido a App.tsx (único punto de montaje)
   useAutoSync({             // Sync al autenticarse + periódica cada 5min
     syncOnAuth: true,
     intervalMinutes: 5,

@@ -10,7 +10,7 @@ const TABLES_QUERY_KEY = ["tables"];
  * 
  * COMPORTAMIENTO:
  * - Online: refetch cada 5s para mantener datos frescos
- * - Offline: desactiva refetch automático (tablaService usa caché + SQLite)
+ * - Offline: desactiva refetch automático (tableService usa caché + SQLite)
  * - Refetch manual siempre disponible (botón de recargar)
  */
 export function useTables() {
@@ -33,7 +33,38 @@ export function useTables() {
   });
 }
 
+/**
+ * Invalida y fuerza refetch de la query de tables.
+ * 
+ * IMPORTANTE: Usamos refetchQueries en lugar de invalidateQueries porque:
+ * - invalidateQueries solo marca como stale
+ * - Con staleTime: Infinity en offline, el refetch no ocurre automáticamente
+ * - refetchQueries fuerza el refetch inmediato de queries activas
+ */
 export function useInvalidateTables() {
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: TABLES_QUERY_KEY });
+
+  return async () => {
+    console.log("[useInvalidateTables] 🔄 Forzando fetchQuery de tables");
+
+    try {
+      // fetchQuery fuerza la ejecución de tablesService.list()
+      // aunque la query esté inactiva/desmontada.
+      const data = await queryClient.fetchQuery({
+        queryKey: TABLES_QUERY_KEY,
+        queryFn: tablesService.list,
+        staleTime: 0,
+      });
+
+      // Asegurar que el cache queda actualizado antes de navegar a Mesas.
+      queryClient.setQueryData(TABLES_QUERY_KEY, data);
+
+      console.log("[useInvalidateTables] ✅ Cache de tables actualizado:", data.length, "áreas");
+    } catch (error) {
+      console.error("[useInvalidateTables] ❌ Error actualizando tables:", error);
+
+      // Fallback: al menos marcar como inválida para que refetchee al montar.
+      queryClient.invalidateQueries({ queryKey: TABLES_QUERY_KEY });
+    }
+  };
 }

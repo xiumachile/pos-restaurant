@@ -80,13 +80,11 @@ function applyOfflineOverlay(
 
 /**
  * Reconstruye la estructura de áreas desde SQLite cuando no hay caché disponible.
- * Agrupa mesas por area_name (ya que local_tables no tiene area_code).
  */
 async function rebuildFromSQLite(): Promise<TablesArea[]> {
   const allTables = await localTablesService.getAllTables();
   if (allTables.length === 0) return [];
 
-  // Agrupar por area_name
   const areaMap = new Map<string, RestaurantTable[]>();
   for (const table of allTables) {
     const key = table.area_name || "Sin área";
@@ -96,7 +94,6 @@ async function rebuildFromSQLite(): Promise<TablesArea[]> {
     areaMap.get(key)!.push(table);
   }
 
-  // Convertir a TablesArea[]
   return Array.from(areaMap.entries()).map(([areaName, tables]) => ({
     area_code: areaName.toLowerCase().replace(/\s+/g, "_"),
     area_name: areaName,
@@ -104,54 +101,72 @@ async function rebuildFromSQLite(): Promise<TablesArea[]> {
   }));
 }
 
+/**
+ * Resuelve las áreas usando caché + SQLite + overlay.
+ * Usado cuando el backend no está disponible.
+ */
+async function resolveOfflineAreas(): Promise<TablesArea[]> {
+  const cached = readFromCache();
+  const overrides = await localTablesService.getStatusOverrides();
+
+  console.log("[tablesService] Caché:", cached ? `disponible (${cached.length} áreas)` : "NO disponible");
+  console.log("[tablesService] Overrides:", overrides.size, "mesas");
+
+  if (cached) {
+    console.log("[tablesService] Aplicando overlay sobre caché");
+    const result = applyOfflineOverlay(cached, overrides);
+    console.log("[tablesService] Retornando", result.length, "áreas con overlay");
+    return result;
+  }
+
+  console.warn("[tablesService] Sin caché, reconstruyendo desde SQLite");
+  const result = await rebuildFromSQLite();
+  console.log("[tablesService] Reconstruido desde SQLite:", result.length, "áreas");
+  return result;
+}
+
 export const tablesService = {
   /**
    * Lista todas las mesas agrupadas por área.
    *
    * ESTRATEGIA OFFLINE-FIRST:
-   * 1. Intenta fetch del backend
-   * 2. Si éxito: guarda en caché + retorna datos (con overlay si offline)
-   * 3. Si falla (red): usa caché + overlay de SQLite
-   * 4. Si no hay caché: reconstruye desde SQLite (fallback final)
+   * 1. Si syncStatus === "offline": usar caché + SQLite inmediatamente (sin fetch)
+   * 2. Si online: intentar fetch del backend + guardar en caché
+   * 3. Si fetch falla: usar caché + overlay de SQLite
+   * 4. Si no hay caché: reconstruir desde SQLite (fallback final)
    *
-   * Esto garantiza que la vista de mesas funcione 100% offline.
+   * Esto garantiza que la vista de mesas funcione 100% offline sin timeouts.
    */
   async list(): Promise<TablesArea[]> {
     const syncStatus = useSyncStore.getState().status;
     const isOffline = syncStatus === "offline";
 
+    console.log("[tablesService] 📋 list() llamado, syncStatus:", syncStatus);
+
+    // 🔑 CLAVE: En modo offline, NO intentar fetch al backend (evita timeout)
+    if (isOffline) {
+      console.log("[tablesService] ✈️ Modo offline: usando caché + SQLite directamente");
+      return resolveOfflineAreas();
+    }
+
     try {
-      // 1. Intentar fetch del backend
+      // 1. Intentar fetch del backend (solo online)
+      console.log("[tablesService] Intentando fetch del backend...");
       const response = await apiClient.get<ListTablesResponse>("/tables");
       const data = response.data as any;
       const areas: TablesArea[] = Array.isArray(data?.data) ? data.data : [];
 
+      console.log("[tablesService] ✅ Backend respondió:", areas.length, "áreas");
+
       // Guardar en caché para uso offline futuro
       saveToCache(areas);
+      console.log("[tablesService] Modo online, retornando sin overlay");
+      return areas;
 
-      // En modo online, retornar datos del backend sin overlay
-      if (!isOffline) {
-        return areas;
-      }
-
-      // En modo offline pero con backend accesible (raro), aplicar overlay
-      const overrides = await localTablesService.getStatusOverrides();
-      return applyOfflineOverlay(areas, overrides);
-
-    } catch (error) {
-      // 2. Si falla (típicamente offline), usar caché + overlay
-      console.warn("[tablesService] Backend inaccesible, usando caché local");
-
-      const cached = readFromCache();
-      const overrides = await localTablesService.getStatusOverrides();
-
-      if (cached) {
-        return applyOfflineOverlay(cached, overrides);
-      }
-
-      // 3. Sin caché: reconstruir desde SQLite (fallback final)
-      console.warn("[tablesService] Sin caché, reconstruyendo desde SQLite");
-      return rebuildFromSQLite();
+    } catch (error: any) {
+      // 2. Si falla (red, timeout, etc.), usar caché + overlay
+      console.warn("[tablesService] ❌ Backend inaccesible:", error?.message || error);
+      return resolveOfflineAreas();
     }
   },
 

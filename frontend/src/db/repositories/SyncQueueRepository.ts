@@ -28,7 +28,107 @@ export interface EnqueuePayload {
   payload: any;
 }
 
+// Timeout para considerar una operación syncing como abandonada (2 minutos)
+const SYNCING_TIMEOUT_MINUTES = 2;
+
 export class SyncQueueRepository {
+  /**
+   * Recupera operaciones que quedaron en estado 'syncing' por más de SYNCING_TIMEOUT_MINUTES.
+   * Esto ocurre cuando el proceso se interrumpe (crash, corte de energía, timeout).
+   *
+   * Regla:
+   * - syncing < 2 minutos → mantener (proceso activo)
+   * - syncing >= 2 minutos → volver a pending + increment attempts
+   *
+   * @returns Número de items recuperados
+   */
+  static async recoverAbandonedSyncing(): Promise<number> {
+    const cutoff = new Date(
+      Date.now() - SYNCING_TIMEOUT_MINUTES * 60 * 1000
+    ).toISOString();
+
+    // Buscar items en syncing que superaron el timeout
+    const abandoned = await localDb.select<SyncQueueItem>(
+      `SELECT * FROM sync_queue 
+       WHERE sync_status = 'syncing' 
+         AND updated_at < ?
+       ORDER BY created_at ASC`,
+      [cutoff]
+    );
+
+    if (abandoned.length === 0) return 0;
+
+    console.log(`[SyncQueue] ⚠️  Recuperando ${abandoned.length} operaciones syncing abandonadas`);
+
+    for (const item of abandoned) {
+      const attempts = item.attempts + 1;
+      
+      if (attempts >= item.max_attempts) {
+        // Máximo de intentos alcanzado → fallar definitivamente
+        await localDb.execute(
+          `UPDATE sync_queue 
+           SET sync_status = 'failed', 
+               attempts = ?, 
+               last_error = ?,
+               updated_at = CURRENT_TIMESTAMP 
+           WHERE id = ?`,
+          [attempts, `Abandonado tras ${SYNCING_TIMEOUT_MINUTES}min (intento ${attempts})`, item.id]
+        );
+        console.log(`[SyncQueue] ❌ ${item.entity_type}/${item.action} falló tras ${attempts} intentos`);
+      } else {
+        // Backoff exponencial
+        const backoffSeconds = Math.pow(2, attempts) * 15;
+        const nextRetryAt = new Date(Date.now() + backoffSeconds * 1000).toISOString();
+
+        await localDb.execute(
+          `UPDATE sync_queue 
+           SET sync_status = 'pending', 
+               attempts = ?, 
+               last_error = ?,
+               next_retry_at = ?,
+               updated_at = CURRENT_TIMESTAMP 
+           WHERE id = ?`,
+          [
+            attempts,
+            `Sync abandonado (timeout ${SYNCING_TIMEOUT_MINUTES}min, intento ${attempts})`,
+            nextRetryAt,
+            item.id,
+          ]
+        );
+        console.log(`[SyncQueue] 🔄 ${item.entity_type}/${item.action} → pending (intento ${attempts})`);
+      }
+    }
+
+    return abandoned.length;
+  }
+
+  /**
+   * Obtiene conteo de items en estado 'syncing' actualmente.
+   */
+  static async countSyncing(): Promise<number> {
+    const results = await localDb.select<{ count: number }>(
+      "SELECT COUNT(*) as count FROM sync_queue WHERE sync_status = ?",
+      ["syncing"]
+    );
+    return results[0]?.count || 0;
+  }
+
+  /**
+   * Fuerza reset de todos los items syncing a pending (para casos extremos).
+   * Usar solo cuando se sabe que el proceso anterior definitivamente murió.
+   */
+  static async forceResetAllSyncing(): Promise<number> {
+    const result = await localDb.execute(
+      `UPDATE sync_queue 
+       SET sync_status = 'pending', 
+           attempts = attempts + 1,
+           last_error = 'Reset forzado (posible crash)',
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE sync_status = 'syncing'`
+    );
+    return result;
+  }
+
   static async enqueue(data: EnqueuePayload): Promise<string> {
     const id = uuidv4();
     const payloadStr = JSON.stringify(data.payload);
@@ -55,9 +155,18 @@ export class SyncQueueRepository {
 
   /**
    * Obtiene los próximos N eventos pendientes.
+   * 
+   * IMPORTANTE: Antes de consultar, recupera automáticamente cualquier
+   * operación 'syncing' que haya quedado abandonada (timeout > 2min).
+   * Esto garantiza que nunca queden operaciones pegadas en 'syncing'.
+   * 
    * Nota: El filtrado por next_retry_at se hace en JS para compatibilidad con tests.
    */
   static async getPending(limit: number = 50): Promise<SyncQueueItem[]> {
+    // Paso 1: Recuperar cualquier syncing abandonado
+    await this.recoverAbandonedSyncing();
+
+    // Paso 2: Consultar pendientes
     const allPending = await localDb.select<SyncQueueItem>(
       "SELECT * FROM sync_queue WHERE sync_status = ? ORDER BY created_at ASC",
       ["pending"]
@@ -65,7 +174,7 @@ export class SyncQueueRepository {
 
     const now = new Date();
 
-    // Filtrar en JS: solo incluir items sin next_retry_at o con next_retry_at <= now
+    // Paso 3: Filtrar en JS: solo incluir items sin next_retry_at o con next_retry_at <= now
     const eligible = allPending.filter((item) => {
       if (!item.next_retry_at) return true;
       return new Date(item.next_retry_at) <= now;

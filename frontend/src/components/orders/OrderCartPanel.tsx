@@ -105,16 +105,18 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
           await refetchActiveOrders();
           await new Promise(resolve => setTimeout(resolve, 300));
           await refetchActiveOrders();
-          
-          // Forzar refetch de tables DESPUÉS del sync (el backend ya actualizó el status)
-          invalidateTables();
         } catch (syncErr) {
           console.warn("[OrderCartPanel] Sync diferida:", syncErr);
         }
-      } else {
-        // En offline, invalidamos igual porque ya hicimos el update optimista
-        invalidateTables();
       }
+      
+      // FIX: invalidateTables() SIEMPRE se ejecuta, sin importar:
+      // - Si estamos offline o online
+      // - Si el sync falló o tuvo éxito
+      // - Si el detector de conectividad tiene lag
+      // Esto garantiza que la UI refleje el markOccupied optimista
+      // de SQLite inmediatamente, incluso si la red falla.
+      await invalidateTables();
 
       // 5. Feedback final
       setFeedback({
