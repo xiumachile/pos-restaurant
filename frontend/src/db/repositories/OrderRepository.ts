@@ -150,13 +150,12 @@ export class OrderRepository {
     console.log("[OrderRepository] table_id:", payload.table_id);
     
     if (payload.table_id) {
-      try {
-        console.log("[OrderRepository] Llamando markOccupied para mesa:", payload.table_id);
-        await localTablesService.markOccupied(payload.table_id, local_uuid);
-        console.log("[OrderRepository] ✅ markOccupied ejecutado exitosamente");
-      } catch (error) {
-        console.error("[OrderRepository] ❌ Error en markOccupied:", error);
-      }
+      console.log("[OrderRepository] Llamando markOccupied para mesa:", payload.table_id);
+      // FASE 4 FIX: NO capturar el error silenciosamente.
+      // Si markOccupied falla (ej: tabla no existe, mesa no existe),
+      // el error DEBE propagarse para que el usuario sepa que algo falló.
+      await localTablesService.markOccupied(payload.table_id, local_uuid);
+      console.log("[OrderRepository] ✅ markOccupied ejecutado exitosamente");
     } else {
       console.warn("[OrderRepository] ⚠️ No hay table_id, no se marca mesa");
     }

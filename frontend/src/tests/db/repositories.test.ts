@@ -24,10 +24,22 @@ describe("Repositorios locales", () => {
 
   beforeEach(async () => {
     // Limpiar tablas entre tests
+    await localDb.execute("DELETE FROM table_local_mutations");
     await localDb.execute("DELETE FROM sync_queue");
     await localDb.execute("DELETE FROM local_order_items");
     await localDb.execute("DELETE FROM local_payments");
     await localDb.execute("DELETE FROM local_orders");
+    await localDb.execute("DELETE FROM local_tables");
+
+    // Seed de mesas (necesario para tests que pasan table_id)
+    await localDb.execute(
+      `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status)
+       VALUES ('table-1', '1', 'Principal', 4, 'available')`
+    );
+    await localDb.execute(
+      `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status)
+       VALUES ('table-2', '2', 'Principal', 4, 'available')`
+    );
   });
 
   describe("OrderRepository", () => {

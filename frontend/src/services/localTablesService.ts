@@ -136,39 +136,47 @@ export const localTablesService = {
    * Marca una mesa como ocupada (update optimista al crear pedido offline).
    *
    * IMPLEMENTACIÓN FASE 4:
-   * 1. INSERT/REPLACE en table_local_mutations (marca mutación pendiente)
-   * 2. UPDATE de local_tables.status (para reflejo inmediato en UI)
+   * 1. Verificar que la mesa existe en SQLite
+   * 2. INSERT/REPLACE en table_local_mutations (marca mutación pendiente)
+   * 3. UPDATE de local_tables.status (para reflejo inmediato en UI)
    *
+   * IMPORTANTE: Si la tabla table_local_mutations no existe,
+   * lanzará error "no such table" que se propagará al caller.
    * PullEngine detectará la mutación y NO sobrescribirá el estado
    * hasta que la orden se sincronice exitosamente.
    */
   async markOccupied(tableUuid: string, orderLocalUuid: string): Promise<void> {
     console.log("[localTablesService] 🪑 markOccupied:", { tableUuid, orderLocalUuid });
 
-    try {
-      // 1. Registrar mutación pendiente (autoridad principal)
-      await localDb.execute(
-        `INSERT OR REPLACE INTO table_local_mutations 
-         (table_uuid, pending_status, pending_order_uuid, created_at)
-         VALUES (?, 'occupied', ?, CURRENT_TIMESTAMP)`,
-        [tableUuid, orderLocalUuid]
-      );
-
-      // 2. Actualizar local_tables para reflejo inmediato
-      await localDb.execute(
-        `UPDATE local_tables 
-         SET status = 'occupied', 
-             current_order_uuid = ?, 
-             last_updated = CURRENT_TIMESTAMP 
-         WHERE uuid = ?`,
-        [orderLocalUuid, tableUuid]
-      );
-
-      console.log("[localTablesService] ✅ Mutación registrada + local_tables actualizado");
-    } catch (error) {
-      console.error("[localTablesService] ❌ Error en markOccupied:", error);
-      throw error;
+    // 0. Verificar que la mesa existe en local_tables
+    const tableCheck = await localDb.select<{ uuid: string }>(
+      "SELECT uuid FROM local_tables WHERE uuid = ?",
+      [tableUuid]
+    );
+    if (tableCheck.length === 0) {
+      throw new Error(`[localTablesService] Mesa ${tableUuid} no existe en SQLite. PullEngine debe sincronizar las mesas primero.`);
     }
+
+    // 1. Registrar mutación pendiente (autoridad principal)
+    // Si table_local_mutations no existe, esto lanzará "no such table"
+    await localDb.execute(
+      `INSERT OR REPLACE INTO table_local_mutations 
+       (table_uuid, pending_status, pending_order_uuid, created_at)
+       VALUES (?, 'occupied', ?, CURRENT_TIMESTAMP)`,
+      [tableUuid, orderLocalUuid]
+    );
+
+    // 2. Actualizar local_tables para reflejo inmediato
+    await localDb.execute(
+      `UPDATE local_tables 
+       SET status = 'occupied', 
+           current_order_uuid = ?, 
+           last_updated = CURRENT_TIMESTAMP 
+       WHERE uuid = ?`,
+      [orderLocalUuid, tableUuid]
+    );
+
+    console.log("[localTablesService] ✅ Mutación registrada + local_tables actualizado");
   },
 
   /**
