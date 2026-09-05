@@ -22,35 +22,24 @@ interface LocalItemRow {
   notes: string | null;
 }
 
+// FIX: área_code no existe en local_tables, solo area_name
 interface TableInfoRow {
   uuid: string;
   table_number: string;
-  area_code: string;
-  area_name: string;
-  capacity: number;
+  area_name: string | null;
+  capacity: number | null;
 }
 
 /**
  * Servicio para operaciones de pagos que requieren acceso a datos locales.
- * 
- * Proporciona fallback offline para funcionalidades que normalmente
- * dependen del backend.
  */
 export const localPaymentsService = {
   /**
    * Reconstruye la lista de mesas con cuentas pendientes desde SQLite.
-   * 
-   * Equivalente offline de paymentsService.listTablesWithBills().
-   * Útil cuando el backend no está disponible.
-   * 
-   * Flujo:
-   * 1. Lee todos los pedidos locales con status !== closed/cancelled
-   * 2. Agrupa por table_id
-   * 3. Lee items de cada pedido
-   * 4. Lee info de mesa desde local_tables
-   * 5. Construye estructura TableBill[] idéntica al backend
    */
   async listTablesWithBillsOffline(): Promise<TableBill[]> {
+    console.log("[localPaymentsService] 📋 listTablesWithBillsOffline() llamado");
+
     const db = await localDb.getConnection();
 
     // 1. Obtener pedidos activos (no cerrados ni cancelados)
@@ -63,7 +52,12 @@ export const localPaymentsService = {
       ORDER BY created_at ASC
     `);
 
-    if (orders.length === 0) return [];
+    console.log(`[localPaymentsService] 📦 Pedidos activos encontrados: ${orders.length}`);
+
+    if (orders.length === 0) {
+      console.log("[localPaymentsService] ⚠️ Sin pedidos activos, retornando []");
+      return [];
+    }
 
     // 2. Agrupar pedidos por table_id
     const ordersByTable = new Map<string, LocalOrderRow[]>();
@@ -73,13 +67,17 @@ export const localPaymentsService = {
       ordersByTable.set(order.table_id, existing);
     }
 
-    // 3. Obtener info de mesas
+    console.log(`[localPaymentsService] 🍽️  Mesas con pedidos: ${ordersByTable.size}`);
+
+    // 3. Obtener info de mesas (FIX: usar area_name, no area_code)
     const tableUuids = Array.from(ordersByTable.keys());
     const tablesInfo = await db.select<TableInfoRow[]>(`
-      SELECT uuid, table_number, area_code, area_name, capacity
+      SELECT uuid, table_number, area_name, capacity
       FROM local_tables
       WHERE uuid IN (${tableUuids.map(() => "?").join(",")})
     `, tableUuids);
+
+    console.log(`[localPaymentsService] 📊 Mesas encontradas en local_tables: ${tablesInfo.length}`);
 
     const tablesMap = new Map(tablesInfo.map(t => [t.uuid, t]));
 
@@ -91,6 +89,8 @@ export const localPaymentsService = {
       FROM local_order_items
       WHERE order_local_uuid IN (${orderUuids.map(() => "?").join(",")})
     `, orderUuids);
+
+    console.log(`[localPaymentsService] 🍔 Items totales: ${items.length}`);
 
     // Agrupar items por pedido
     const itemsByOrder = new Map<string, LocalItemRow[]>();
@@ -105,9 +105,16 @@ export const localPaymentsService = {
 
     for (const [tableUuid, tableOrders] of ordersByTable.entries()) {
       const tableInfo = tablesMap.get(tableUuid);
-      if (!tableInfo) continue;
+      if (!tableInfo) {
+        console.warn(`[localPaymentsService] ⚠️ Mesa ${tableUuid} no encontrada en local_tables, saltando`);
+        continue;
+      }
 
-      // Construir objetos TableBillOrder
+      // Generar area_code desde area_name (mismo patrón que localTablesService)
+      const areaCode = (tableInfo.area_name || "sin_area")
+        .toLowerCase()
+        .replace(/\s+/g, "_");
+
       const tableBillOrders: TableBillOrder[] = tableOrders.map(order => {
         const orderItems = itemsByOrder.get(order.local_uuid) || [];
 
@@ -127,14 +134,14 @@ export const localPaymentsService = {
           subtotal: order.subtotal || 0,
           tax_amount: order.tax_total || 0,
           total: order.grand_total || 0,
-          waiter_name: null, // No disponible localmente
-          served_at: null,   // No disponible localmente
+          waiter_name: null,
+          served_at: null,
           items,
-          bills: [], // Las bills solo existen en el backend
+          bills: [],
         };
       });
 
-      // Calcular totales de la mesa
+      // Calcular totales
       const subtotal = tableBillOrders.reduce((sum, o) => sum + o.subtotal, 0);
       const taxAmount = tableBillOrders.reduce((sum, o) => sum + o.tax_amount, 0);
       const totalAmount = tableBillOrders.reduce((sum, o) => sum + o.total, 0);
@@ -142,12 +149,10 @@ export const localPaymentsService = {
         (sum, o) => sum + o.items.reduce((s, i) => s + i.quantity, 0), 0
       );
 
-      // Timestamps
       const dates = tableOrders.map(o => o.created_at).sort();
       const firstOrderAt = dates[0] || null;
       const lastOrderAt = dates[dates.length - 1] || null;
 
-      // Detectar pedidos no servidos (status = confirmed/preparing)
       const unservedOrders = tableOrders.filter(o =>
         o.status === "confirmed" || o.status === "preparing"
       );
@@ -159,7 +164,7 @@ export const localPaymentsService = {
       result.push({
         table_uuid: tableUuid,
         table_number: tableInfo.table_number,
-        area_code: tableInfo.area_code || "unknown",
+        area_code: areaCode,
         capacity: tableInfo.capacity || 4,
         orders_count: tableOrders.length,
         total_items: totalItems,
@@ -175,6 +180,7 @@ export const localPaymentsService = {
       });
     }
 
+    console.log(`[localPaymentsService] ✅ Retornando ${result.length} mesas con cuenta`);
     return result;
   },
 };

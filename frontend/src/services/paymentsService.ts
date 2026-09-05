@@ -31,10 +31,51 @@ export const paymentsService = {
   },
 
   async getDashboard(): Promise<CashierDashboard> {
-    const response = await apiClient.get<SingleResponse<CashierDashboard>>(
-      "/cashier/dashboard"
-    );
-    return (response.data as any).data;
+    const syncStatus = useSyncStore.getState().status;
+    const isOffline = syncStatus === "offline";
+
+    if (isOffline) {
+      console.log("[paymentsService] ✈️ getDashboard en modo offline: usando datos locales");
+      // Fallback: dashboard mínimo para que CashierPage no quede en loading
+      // Usamos unknown para evitar error de tipo (propiedades adicionales en CashierDashboard)
+      return {
+        current_session: null,
+        total_sales_today: 0,
+        total_orders_today: 0,
+        total_tips_today: 0,
+        pending_orders_count: 0,
+        registers: [],
+        statistics_today: {
+          total_sales: 0,
+          total_orders: 0,
+          total_tips: 0,
+          avg_ticket: 0,
+        },
+      } as unknown as CashierDashboard;
+    }
+
+    try {
+      const response = await apiClient.get<SingleResponse<CashierDashboard>>(
+        "/cashier/dashboard"
+      );
+      return (response.data as any).data;
+    } catch (error: any) {
+      console.warn("[paymentsService] ⚠️ getDashboard falló:", error?.message);
+      return {
+        current_session: null,
+        total_sales_today: 0,
+        total_orders_today: 0,
+        total_tips_today: 0,
+        pending_orders_count: 0,
+        registers: [],
+        statistics_today: {
+          total_sales: 0,
+          total_orders: 0,
+          total_tips: 0,
+          avg_ticket: 0,
+        },
+      } as unknown as CashierDashboard;
+    }
   },
 
   /**
@@ -78,12 +119,16 @@ export const paymentsService = {
     const syncStatus = useSyncStore.getState().status;
     const isOffline = syncStatus === "offline";
 
+    console.log(`[paymentsService] 📋 listTablesWithBills() - syncStatus: ${syncStatus}, isOffline: ${isOffline}`);
+
     // En offline: reconstruir desde SQLite directamente (sin fetch al backend)
     if (isOffline) {
       try {
-        return await localPaymentsService.listTablesWithBillsOffline();
-      } catch (error) {
-        console.warn("[paymentsService] Error leyendo cuentas desde SQLite:", error);
+        const result = await localPaymentsService.listTablesWithBillsOffline();
+        console.log(`[paymentsService] ✅ Offline: ${result.length} mesas con cuenta`);
+        return result;
+      } catch (error: any) {
+        console.error("[paymentsService] ❌ Error leyendo cuentas desde SQLite:", error?.message || error);
         return [];
       }
     }
@@ -94,13 +139,17 @@ export const paymentsService = {
         "/cashier/tables-with-bills"
       );
       const data = response.data as any;
-      return Array.isArray(data?.data) ? data.data : [];
+      const result = Array.isArray(data?.data) ? data.data : [];
+      console.log(`[paymentsService] ✅ Online: ${result.length} mesas con cuenta desde backend`);
+      return result;
     } catch (error: any) {
-      console.warn("[paymentsService] Backend inaccesible, usando SQLite:", error?.message);
+      console.warn("[paymentsService] ⚠️ Backend inaccesible, usando SQLite:", error?.message);
       try {
-        return await localPaymentsService.listTablesWithBillsOffline();
-      } catch (fallbackError) {
-        console.error("[paymentsService] Error en fallback SQLite:", fallbackError);
+        const result = await localPaymentsService.listTablesWithBillsOffline();
+        console.log(`[paymentsService] ✅ Fallback SQLite: ${result.length} mesas con cuenta`);
+        return result;
+      } catch (fallbackError: any) {
+        console.error("[paymentsService] ❌ Error en fallback SQLite:", fallbackError?.message || fallbackError);
         return [];
       }
     }
