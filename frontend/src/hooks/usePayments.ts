@@ -41,6 +41,7 @@ export function useTablesWithBills() {
 export function useInvalidateCashier() {
   const queryClient = useQueryClient();
   return () => {
+    console.log("[useInvalidateCashier] 🔄 Invalidando queries de Caja (dashboard + tables-with-bills + tables)");
     queryClient.invalidateQueries({ queryKey: DASHBOARD_KEY });
     queryClient.invalidateQueries({ queryKey: TABLES_WITH_BILLS_KEY });
     // FIX: también invalidar tables para que la mesa pase a "libre" tras pago
