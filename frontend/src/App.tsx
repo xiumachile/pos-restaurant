@@ -4,6 +4,7 @@ import { useDatabaseInit } from "./hooks/useDatabaseInit";
 import { useSyncWorker } from "./hooks/useSyncWorker";
 import { usePrintEngine } from "./hooks/usePrintEngine";
 import { useAuthRefresh } from "./hooks/useAuthRefresh";
+import { useCatalogSyncInvalidation } from "./hooks/useCatalog";
 import { DatabaseLoader } from "./components/system/DatabaseLoader";
 import { router } from "./router";
 import i18n from "./i18n/config";
@@ -15,6 +16,10 @@ function AppContent() {
   useSyncWorker();
   // Iniciar PrintEngine (polling de PrintJobs cada 5s)
   usePrintEngine();
+  // FIX: Invalidar queries de catálogo cuando cambia el estado de conexión
+  // Esto garantiza que al pasar online↔offline, useCategories y useProducts
+  // recarguen los datos desde SQLite (offline) o backend (online)
+  useCatalogSyncInvalidation();
 
   return (
     <I18nextProvider i18n={i18n}>
