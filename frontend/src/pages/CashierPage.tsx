@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   useCashierDashboard,
   useTablesWithBills,
+  useInvalidateCashier,
 } from "@/hooks/usePayments";
 import { CashSessionStatus } from "@/components/cashier/CashSessionStatus";
 import { TableBillModal } from "@/components/cashier/TableBillModal";
@@ -26,6 +27,17 @@ export function CashierPage() {
   const { data: dashboard, isLoading: loadingDashboard } = useCashierDashboard();
   const { data: tablesWithBills = [], isLoading: loadingTables } = useTablesWithBills();
   const [selectedTableUuid, setSelectedTableUuid] = useState<string | null>(null);
+  const invalidateCashier = useInvalidateCashier();
+
+  // FIX: Forzar invalidateCashier al montar la página.
+  // Esto garantiza que en modo offline se ejecute el bypass de React Query
+  // y se carguen las mesas con cuenta desde localPaymentsService.
+  // Sin esto, el cache puede estar vacío y la página aparece sin mesas
+  // hasta que otro evento (como crear un pedido) fuerce el refetch.
+  useEffect(() => {
+    console.log("[CashierPage] 🔍 Montando, forzando invalidateCashier");
+    invalidateCashier();
+  }, []);
 
   const isSessionOpen = !!dashboard?.current_session;
 
