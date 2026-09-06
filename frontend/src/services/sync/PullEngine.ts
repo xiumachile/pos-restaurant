@@ -222,30 +222,53 @@ export class PullEngine {
 
     let preserved = 0;
     let synced = 0;
+    let reconciled = 0;
 
     for (const table of tables) {
       const hasMutation = mutationMap.has(table.uuid);
 
       if (hasMutation) {
-        // 🔒 Hay mutación pendiente: preservar status y order_uuid locales
-        // Solo actualizar campos que NO son estado (table_number, area_name, capacity)
         const mutation = mutationMap.get(table.uuid)!;
-        await localDb.execute(
-          `INSERT OR REPLACE INTO local_tables 
-           (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated) 
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [
-            table.uuid,
-            table.table_number,
-            table.area_name,
-            table.capacity,
-            mutation.pending_status,           // ← Preservado
-            mutation.pending_order_uuid,       // ← Preservado
-            table.updated_at
-          ]
-        );
-        preserved++;
-        console.log(`[PullEngine] 🔒 Mesa ${table.table_number} (${table.uuid}): mutación preservada → ${mutation.pending_status}`);
+
+        // FASE 5: RECONCILIACIÓN - si el cloud ya refleja el estado pendiente,
+        // la mutación local ya no es necesaria y debe eliminarse.
+        // Esto evita que mutaciones queden "colgadas" indefinidamente.
+        if (table.status === mutation.pending_status) {
+          // ✅ Mutación reconciliada: cloud ya tiene el estado local
+          // Eliminar la mutación y aplicar estado del cloud normalmente
+          await localDb.execute(
+            "DELETE FROM table_local_mutations WHERE table_uuid = ?",
+            [table.uuid]
+          );
+          await localDb.execute(
+            `INSERT OR REPLACE INTO local_tables 
+             (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated) 
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [table.uuid, table.table_number, table.area_name, table.capacity, table.status, table.current_order_uuid, table.updated_at]
+          );
+          reconciled++;
+          console.log(`[PullEngine] ✅ Mesa ${table.table_number} (${table.uuid}): mutación reconciliada y eliminada (cloud=${table.status})`);
+        } else {
+          // 🔒 Mutación aún pendiente: preservar estado local
+          // El cloud tiene un estado diferente (ej: cobrado en otro terminal)
+          // pero el cambio local todavía no se ha sincronizado
+          await localDb.execute(
+            `INSERT OR REPLACE INTO local_tables 
+             (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated) 
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+              table.uuid,
+              table.table_number,
+              table.area_name,
+              table.capacity,
+              mutation.pending_status,           // ← Preservado
+              mutation.pending_order_uuid,       // ← Preservado
+              table.updated_at
+            ]
+          );
+          preserved++;
+          console.log(`[PullEngine] 🔒 Mesa ${table.table_number} (${table.uuid}): mutación preservada (local=${mutation.pending_status}, cloud=${table.status})`);
+        }
       } else {
         // ✅ Sin mutación: aplicar estado del cloud normalmente
         await localDb.execute(
@@ -258,8 +281,8 @@ export class PullEngine {
       }
     }
 
-    if (preserved > 0) {
-      console.log(`[PullEngine] 📊 Mesas: ${synced} actualizadas desde cloud, ${preserved} mutaciones preservadas`);
+    if (preserved > 0 || reconciled > 0) {
+      console.log(`[PullEngine] 📊 Mesas: ${synced} cloud, ${preserved} preservadas, ${reconciled} reconciliadas`);
     }
   }
 
@@ -319,32 +342,57 @@ export class PullEngine {
     );
     const mutationMap = new Map(mutations.map(m => [m.table_uuid, m]));
 
+    let incrementalStats = { cloud: 0, preserved: 0, reconciled: 0, deleted: 0 };
+
     for (const table of tables) {
       if (table.deleted) {
         // Si hay mutación pendiente para una mesa eliminada, eliminarla también
         // (la mesa ya no existe en el cloud)
         await localDb.execute("DELETE FROM table_local_mutations WHERE table_uuid = ?", [table.uuid]);
         await localDb.execute("DELETE FROM local_tables WHERE uuid = ?", [table.uuid]);
+        incrementalStats.deleted++;
+        console.log(`[PullEngine] 🗑️ Mesa ${table.table_number} eliminada del cloud`);
       } else {
         const hasMutation = mutationMap.has(table.uuid);
 
         if (hasMutation) {
-          // 🔒 Preservar estado local pendiente
           const mutation = mutationMap.get(table.uuid)!;
-          await localDb.execute(
-            `INSERT OR REPLACE INTO local_tables 
-             (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated) 
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [
-              table.uuid,
-              table.table_number,
-              table.area_name,
-              table.capacity,
-              mutation.pending_status,
-              mutation.pending_order_uuid,
-              table.updated_at
-            ]
-          );
+
+          // FASE 5: RECONCILIACIÓN - si cloud ya refleja el estado pendiente,
+          // la mutación local ha sido sincronizada y debe eliminarse
+          if (table.status === mutation.pending_status) {
+            // ✅ Mutación reconciliada
+            await localDb.execute(
+              "DELETE FROM table_local_mutations WHERE table_uuid = ?",
+              [table.uuid]
+            );
+            await localDb.execute(
+              `INSERT OR REPLACE INTO local_tables 
+               (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated) 
+               VALUES (?, ?, ?, ?, ?, ?, ?)`,
+              [table.uuid, table.table_number, table.area_name, table.capacity, table.status, table.current_order_uuid, table.updated_at]
+            );
+            incrementalStats.reconciled++;
+            console.log(`[PullEngine] ✅ Mesa ${table.table_number} (${table.uuid}): mutación reconciliada y eliminada (cloud=${table.status})`);
+          } else {
+            // 🔒 Mutación pendiente: preservar
+            await localDb.execute(
+              `INSERT OR REPLACE INTO local_tables 
+               (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated) 
+               VALUES (?, ?, ?, ?, ?, ?, ?)`,
+              [
+                table.uuid,
+                table.table_number,
+                table.area_name,
+                table.capacity,
+                mutation.pending_status,
+                mutation.pending_order_uuid,
+                table.updated_at
+              ]
+            );
+            incrementalStats.preserved++;
+            console.log(`[PullEngine] 🔒 Mesa ${table.table_number} (${table.uuid}): mutación preservada (local=${mutation.pending_status}, cloud=${table.status})`);
+          }
         } else {
           // ✅ Aplicar estado del cloud
           await localDb.execute(
@@ -353,8 +401,14 @@ export class PullEngine {
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [table.uuid, table.table_number, table.area_name, table.capacity, table.status, table.current_order_uuid, table.updated_at]
           );
+          incrementalStats.cloud++;
         }
       }
+    }
+
+    const total = incrementalStats.cloud + incrementalStats.preserved + incrementalStats.reconciled + incrementalStats.deleted;
+    if (total > 0) {
+      console.log(`[PullEngine] 📊 Mesas incrementales: ${incrementalStats.cloud} cloud, ${incrementalStats.preserved} preservadas, ${incrementalStats.reconciled} reconciliadas, ${incrementalStats.deleted} eliminadas`);
     }
   }
 
