@@ -1,4 +1,6 @@
 import apiClient from "./apiClient";
+import { CashSessionRepository } from "@/db/repositories/CashSessionRepository";
+import { useAuthStore } from "@/store/useAuthStore";
 import { localPaymentsService } from "./localPaymentsService";
 import { useSyncStore } from "@/store/useSyncStore";
 import type {
@@ -35,11 +37,25 @@ export const paymentsService = {
     const isOffline = syncStatus === "offline";
 
     if (isOffline) {
-      console.log("[paymentsService] ✈️ getDashboard en modo offline: usando datos locales");
-      // Fallback: dashboard mínimo para que CashierPage no quede en loading
-      // Usamos unknown para evitar error de tipo (propiedades adicionales en CashierDashboard)
+      console.log("[paymentsService] ✈️ getDashboard en modo offline: leyendo sesión local de SQLite");
+
+      // FIX OFFLINE: Leer la sesión activa de local_cash_sessions
+      // para que CashierPage reconozca que la caja está abierta
+      let currentSession: CashSession | null = null;
+      try {
+        const localSession = await CashSessionRepository.findActive();
+        if (localSession) {
+          currentSession = CashSessionRepository.toCashSession(localSession);
+          console.log(`[paymentsService] ✅ Sesión activa encontrada offline: ${localSession.local_uuid} (cloud: ${localSession.cloud_id || 'N/A'})`);
+        } else {
+          console.log("[paymentsService] ⚠️ No hay sesión activa en SQLite (caja cerrada)");
+        }
+      } catch (sessionErr) {
+        console.warn("[paymentsService] ⚠️ Error leyendo sesión offline:", sessionErr);
+      }
+
       return {
-        current_session: null,
+        current_session: currentSession,
         total_sales_today: 0,
         total_orders_today: 0,
         total_tips_today: 0,
@@ -58,7 +74,44 @@ export const paymentsService = {
       const response = await apiClient.get<SingleResponse<CashierDashboard>>(
         "/cashier/dashboard"
       );
-      return (response.data as any).data;
+      const dashboard = (response.data as any).data;
+
+      // FIX OFFLINE: Si hay sesión activa en el backend, sincronizarla
+      // a local_cash_sessions para que esté disponible offline
+      if (dashboard.current_session) {
+        try {
+          const existing = await CashSessionRepository.findActive();
+          const backendSession = dashboard.current_session;
+
+          // Si no hay sesión local activa o el cloud_id no coincide, crear/actualizar
+          if (!existing || existing.cloud_id !== backendSession.uuid) {
+            const auth = useAuthStore.getState();
+            const user = auth.user;
+            const branchId = user?.branch_id ? String(user.branch_id) : "unknown";
+
+            // Si hay una sesión local activa pero diferente, cerrarla (fue cerrada en otro terminal)
+            if (existing && existing.cloud_id !== backendSession.uuid) {
+              await CashSessionRepository.close(existing.local_uuid, existing.opening_amount);
+              console.log(`[paymentsService] 🔒 Sesión local anterior cerrada (reemplazada por backend)`);
+            }
+
+            await CashSessionRepository.create({
+              branch_id: String(branchId),
+              user_id: user?.id ? String(user.id) : "unknown",
+              user_name: backendSession.user?.name || null,
+              opening_amount: backendSession.opening_amount,
+              opened_at: backendSession.opened_at,
+              cloud_id: backendSession.uuid,
+              sync_status: "synced",
+            });
+            console.log(`[paymentsService] ✅ Sesión del backend sincronizada a SQLite: ${backendSession.uuid}`);
+          }
+        } catch (syncErr) {
+          console.warn("[paymentsService] ⚠️ Error sincronizando sesión a SQLite:", syncErr);
+        }
+      }
+
+      return dashboard;
     } catch (error: any) {
       console.warn("[paymentsService] ⚠️ getDashboard falló:", error?.message);
       return {
@@ -96,11 +149,38 @@ export const paymentsService = {
   },
 
   async openSession(openingAmount: number, notes?: string): Promise<CashSession> {
+    console.log(`[paymentsService] 📤 Abriendo sesión de caja con monto: ${openingAmount}`);
+
     const response = await apiClient.post<SingleResponse<CashSession>>(
       "/cash-sessions/open",
       { opening_amount: openingAmount, notes }
     );
-    return (response.data as any).data;
+    const session = (response.data as any).data;
+
+    // FIX OFFLINE: Guardar la sesión localmente para que esté disponible
+    // cuando no haya conexión. Esto permite que CashierPage muestre
+    // "caja abierta" aunque el backend esté inaccesible.
+    try {
+      const auth = useAuthStore.getState();
+      const user = auth.user;
+      const branchId = user?.branch_id ? String(user.branch_id) : "unknown";
+
+      await CashSessionRepository.create({
+        branch_id: String(branchId),
+        user_id: user?.id ? String(user.id) : "unknown",
+        user_name: user?.name || null,
+        opening_amount: openingAmount,
+        opened_at: session.opened_at,
+        cloud_id: session.uuid,
+        sync_status: "synced",
+      });
+      console.log(`[paymentsService] ✅ Sesión guardada localmente: ${session.uuid}`);
+    } catch (localErr) {
+      // No crítico: si falla guardar localmente, la sesión sigue funcionando online
+      console.warn("[paymentsService] ⚠️ No se pudo guardar sesión localmente:", localErr);
+    }
+
+    return session;
   },
 
   async closeSession(
@@ -108,11 +188,32 @@ export const paymentsService = {
     closingAmount: number,
     notes?: string
   ): Promise<CashSession> {
+    console.log(`[paymentsService] 🔒 Cerrando sesión: ${sessionUuid}`);
+
     const response = await apiClient.post<SingleResponse<CashSession>>(
       `/cash-sessions/${sessionUuid}/close`,
       { closing_amount: closingAmount, notes }
     );
-    return (response.data as any).data;
+    const session = (response.data as any).data;
+
+    // FIX OFFLINE: Actualizar la sesión localmente para que
+    // en modo offline se reconozca que la caja está cerrada
+    try {
+      // Buscar la sesión local por cloud_id
+      const db = await import("../db/localDb").then(m => m.localDb);
+      const rows = await db.select<{ local_uuid: string }>(
+        "SELECT local_uuid FROM local_cash_sessions WHERE cloud_id = ?",
+        [sessionUuid]
+      );
+      if (rows.length > 0) {
+        await CashSessionRepository.close(rows[0].local_uuid, closingAmount);
+        console.log(`[paymentsService] ✅ Sesión cerrada localmente: ${rows[0].local_uuid}`);
+      }
+    } catch (localErr) {
+      console.warn("[paymentsService] ⚠️ No se pudo cerrar sesión localmente:", localErr);
+    }
+
+    return session;
   },
 
   async listTablesWithBills(): Promise<TableBill[]> {
