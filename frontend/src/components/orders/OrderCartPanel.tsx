@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCartStore } from "@/stores/useCartStore";
 import { useInvalidateTables } from "@/hooks/useTables";
+import { useInvalidateCashier } from "@/hooks/usePayments";
 import { useTableOrders } from "@/hooks/useTableOrders";
 import { aggregateOrders } from "@/types/orders";
 import { getTranslatedName, formatPrice, parsePrice } from "@/types/catalog";
@@ -30,6 +31,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
   const clearCart = useCartStore((s) => s.clearCart);
   const getTotals = useCartStore((s) => s.getTotals);
   const invalidateTables = useInvalidateTables();
+  const invalidateCashier = useInvalidateCashier();
 
   const user = useAuthStore((s) => s.user);
   const syncStatus = useSyncStore((s) => s.status);
@@ -117,6 +119,11 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
       // Esto garantiza que la UI refleje el markOccupied optimista
       // de SQLite inmediatamente, incluso si la red falla.
       await invalidateTables();
+
+      // FIX OFFLINE: también invalidar queries de Caja para que
+      // CashierPage muestre las mesas con cuenta pendientes
+      // (localPaymentsService.listTablesWithBillsOffline())
+      await invalidateCashier();
 
       // 5. Feedback final
       setFeedback({
