@@ -1,3 +1,4 @@
+import { localDb } from "../../db/localDb";
 import { SyncQueueRepository, type SyncQueueItem } from "../../db/repositories/SyncQueueRepository";
 import { syncApi } from "../syncApi";
 import { pullEngine } from "./PullEngine";
@@ -216,6 +217,24 @@ export class SyncEngine {
           try {
             await syncApi.confirmOrder(String(cloudId));
             console.log(`[SyncEngine] ✅ Pedido confirmado vía transición de dominio (${itemsAdded} items)`);
+
+            // FASE 5: RECONCILIACIÓN INMEDIATA DE MUTACIÓN DE MESA
+            // El backend ya disparó OrderConfirmed → OccupyTableOnOrderConfirm,
+            // por lo que la mesa en cloud ya está en estado 'occupied'.
+            // Podemos eliminar la mutación local inmediatamente sin esperar PullEngine.
+            const tableUuid = orderPayload.table_uuid;
+            if (tableUuid) {
+              try {
+                await localDb.execute(
+                  "DELETE FROM table_local_mutations WHERE table_uuid = ? AND pending_status = 'occupied'",
+                  [tableUuid]
+                );
+                console.log(`[SyncEngine] ✅ Mutación de mesa ${tableUuid} reconciliada tras sync exitoso`);
+              } catch (mutError: any) {
+                // No crítico: si falla eliminar la mutación, PullEngine la reconciliará en el próximo pull
+                console.warn(`[SyncEngine] ⚠️  No se pudo eliminar mutación de mesa ${tableUuid}:`, mutError?.message);
+              }
+            }
           } catch (error: any) {
             // FASE 3: Manejo inteligente de HTTP 422
             // 422 puede ser:
