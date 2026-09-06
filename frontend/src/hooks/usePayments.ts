@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { paymentsService } from "@/services/paymentsService";
+import { useSyncStore } from "@/store/useSyncStore";
 import type { PaymentMethod, CashierDashboard, SessionPaymentsData } from "@/types/payments";
 import type { TableBill } from "@/types/tableBill";
 
@@ -16,11 +17,18 @@ export function usePaymentMethods() {
 }
 
 export function useCashierDashboard() {
+  const syncStatus = useSyncStore((s) => s.status);
+  const isOffline = syncStatus === "offline";
+
   return useQuery<CashierDashboard, Error>({
     queryKey: DASHBOARD_KEY,
     queryFn: paymentsService.getDashboard,
-    refetchInterval: 30000, // 30s para stats (no crítico)
-    staleTime: 10000,
+    // En offline: NO refetch (causa errores y loading eterno)
+    refetchInterval: isOffline ? false : 30000,
+    // En offline: considerar datos siempre frescos (el fallback es instantáneo)
+    staleTime: isOffline ? Infinity : 10000,
+    // No reintentar en offline
+    retry: !isOffline,
   });
 }
 
@@ -40,11 +48,30 @@ export function useTablesWithBills() {
 
 export function useInvalidateCashier() {
   const queryClient = useQueryClient();
-  return () => {
+
+  return async () => {
     console.log("[useInvalidateCashier] 🔄 Invalidando queries de Caja (dashboard + tables-with-bills + tables)");
+
+    // FIX OFFLINE: invalidateQueries puede no forzar refetch de queries inactivas.
+    // Usamos el mismo patrón de bypass que useInvalidateTables:
+    // llamar directamente al service y actualizar cache manualmente.
+    const syncStatus = useSyncStore.getState().status;
+    const isOffline = syncStatus === "offline";
+
+    if (isOffline) {
+      console.log("[useInvalidateCashier] ✈️ Modo offline: bypass de React Query para tables-with-bills");
+      try {
+        const data = await paymentsService.listTablesWithBills();
+        queryClient.setQueryData(TABLES_WITH_BILLS_KEY, data);
+        console.log(`[useInvalidateCashier] ✅ Cache de Caja actualizado manualmente: ${data.length} mesas`);
+      } catch (error) {
+        console.error("[useInvalidateCashier] ❌ Error actualizando cache:", error);
+      }
+    }
+
+    // Siempre invalidar (para online y como respaldo)
     queryClient.invalidateQueries({ queryKey: DASHBOARD_KEY });
     queryClient.invalidateQueries({ queryKey: TABLES_WITH_BILLS_KEY });
-    // FIX: también invalidar tables para que la mesa pase a "libre" tras pago
     queryClient.invalidateQueries({ queryKey: ["tables"] });
   };
 }
