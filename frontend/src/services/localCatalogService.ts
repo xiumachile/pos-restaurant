@@ -24,12 +24,24 @@ interface LocalProductRow {
 }
 
 /**
+ * Hash determinístico de string a número positivo.
+ * Usado para generar IDs numéricos estables a partir de UUIDs.
+ */
+function hashStringToNumber(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0; // Convert to 32bit integer
+  }
+  return Math.abs(hash);
+}
+
+/**
  * Servicio local para catálogo (offline-first).
  * 
  * Lee directamente de SQLite las tablas local_categories y local_products
  * que PullEngine mantiene sincronizadas con el backend.
- * 
- * Usado por catalogService cuando no hay conexión al backend.
  */
 export const localCatalogService = {
   /**
@@ -54,6 +66,9 @@ export const localCatalogService = {
 
   /**
    * Lista productos desde SQLite con filtros opcionales.
+   * 
+   * NOTA: local_products NO tiene sort_order (schema actual),
+   * por lo que ordenamos por uuid. El orden se mantiene consistente.
    */
   async listProducts(filters?: {
     categoryId?: number;
@@ -63,6 +78,10 @@ export const localCatalogService = {
 
     const db = await localDb.getConnection();
 
+    // IMPORTANTE: local_products schema es:
+    // uuid, category_id, sku, name_translations, description_translations,
+    // base_price, tax_rate, is_combo, kitchen_zone_id, is_active, last_updated
+    // NO tiene sort_order (diferencia con local_categories)
     let query = `
       SELECT uuid, category_id, sku, name_translations, description_translations,
              base_price, tax_rate, is_combo, kitchen_zone_id, is_active, last_updated
@@ -72,19 +91,17 @@ export const localCatalogService = {
     const params: any[] = [];
 
     if (filters?.categoryId) {
-      // Nota: category_id en SQLite puede ser string (UUID) pero el filtro viene como number (ID)
-      // Para simplicidad, intentamos ambos formatos
       query += ` AND (category_id = ? OR category_id = CAST(? AS TEXT))`;
       params.push(filters.categoryId, String(filters.categoryId));
     }
 
-    query += ` ORDER BY sort_order ASC, uuid ASC`;
+    query += ` ORDER BY name_translations ASC, uuid ASC`;
 
     const rows = await db.select<LocalProductRow[]>(query, params);
 
     let products = rows.map((row) => this.toProduct(row));
 
-    // Filtro de búsqueda en memoria (después del SQL para flexibilidad)
+    // Filtro de búsqueda en memoria
     if (filters?.search && filters.search.trim()) {
       const search = filters.search.trim().toLowerCase();
       products = products.filter((p) => {
@@ -111,12 +128,11 @@ export const localCatalogService = {
       nameTranslations = { es: row.name_translations || "Sin nombre" };
     }
 
-    // Agregar todos los campos requeridos por el tipo Category
     return {
-      id: 0, // SQLite no tiene ID numérico
+      id: hashStringToNumber(row.uuid),
       uuid: row.uuid,
-      company_id: 0, // No disponible en SQLite
-      branch_id: 0, // No disponible en SQLite
+      company_id: 0,
+      branch_id: 0,
       name_translations: nameTranslations,
       sort_order: row.sort_order || 0,
       is_active: Boolean(row.is_active),
@@ -129,6 +145,7 @@ export const localCatalogService = {
 
   /**
    * Convierte una fila de local_products al tipo Product.
+   * Usa hash determinístico del UUID para generar id numérico único.
    */
   toProduct(row: LocalProductRow): Product {
     let nameTranslations: Record<string, string> = {};
@@ -152,13 +169,12 @@ export const localCatalogService = {
       descriptionTranslations = null;
     }
 
-    // Agregar todos los campos requeridos por el tipo Product
     return {
-      id: 0, // SQLite no tiene ID numérico
+      id: hashStringToNumber(row.uuid),
       uuid: row.uuid,
-      company_id: 0, // No disponible en SQLite
-      branch_id: 0, // No disponible en SQLite
-      category_id: 0, // Se intentará resolver después si es necesario
+      company_id: 0,
+      branch_id: 0,
+      category_id: 0,
       sku: row.sku || "",
       name_translations: nameTranslations,
       description_translations: descriptionTranslations,
@@ -171,7 +187,7 @@ export const localCatalogService = {
       updated_at: row.last_updated,
       deleted_at: null,
       tax_id: null,
-      menu_item_uuid: row.uuid, // Asumir que menu_item_uuid = product.uuid
+      menu_item_uuid: row.uuid,
     } as unknown as Product;
   },
 };
