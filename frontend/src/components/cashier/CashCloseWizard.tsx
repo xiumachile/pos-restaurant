@@ -66,11 +66,21 @@ export function CashCloseWizard({
   const [notes, setNotes] = useState("");
   const [tipsDelivered, setTipsDelivered] = useState<boolean | null>(null);
 
-  const { data: tipsByWaiter, isLoading: loadingTips } = useQuery({
+  const { data: tipsByWaiterRaw, isLoading: loadingTips } = useQuery({
     queryKey: ["tips-by-waiter"],
     queryFn: tipWizardService.getTipsByWaiter,
     enabled: isOpen && step === 1,
   });
+
+  // FIX: Defensive default para evitar crashes cuando el servicio
+  // retorna null o un objeto incompleto (backend sin propinas).
+  const tipsByWaiter = tipsByWaiterRaw ?? {
+    by_waiter: [],
+    policy: { label: "Sin política", key: "none" },
+    total_pending: 0,
+    total_cash: 0,
+    total_non_cash: 0,
+  };
 
   const generatePayouts = useMutation({
     mutationFn: tipWizardService.generatePayouts,
@@ -265,11 +275,11 @@ export function CashCloseWizard({
                     </div>
 
                     {/* Tabla de propinas por garzón */}
-                    {tipsByWaiter && tipsByWaiter.by_waiter.length > 0 && (
+                    {tipsByWaiter && Array.isArray(tipsByWaiter.by_waiter) && tipsByWaiter.by_waiter.length > 0 && (
                       <div className="bg-slate-800 rounded-lg overflow-hidden">
                         <div className="p-3 bg-slate-700/50 font-semibold text-sm flex items-center gap-2">
                           <Users size={16} className="text-blue-400" />
-                          Propinas por garzón ({tipsByWaiter.policy.label})
+                          Propinas por garzón ({tipsByWaiter.policy?.label || "Sin política"})
                         </div>
                         <table className="w-full text-sm">
                           <thead className="text-xs text-slate-400 bg-slate-800/80">
@@ -281,7 +291,7 @@ export function CashCloseWizard({
                             </tr>
                           </thead>
                           <tbody>
-                            {tipsByWaiter.by_waiter.map((w) => (
+                            {(tipsByWaiter.by_waiter || []).map((w) => (
                               <tr key={w.waiter_id} className="border-t border-slate-700">
                                 <td className="p-3 font-medium text-white">{w.waiter_name}</td>
                                 <td className="p-3 text-right text-green-400">
@@ -298,13 +308,13 @@ export function CashCloseWizard({
                             <tr className="border-t-2 border-slate-600 bg-slate-700/30">
                               <td className="p-3 font-bold">TOTAL</td>
                               <td className="p-3 text-right font-bold text-green-400">
-                                {formatPrice(tipsByWaiter.by_waiter.reduce((s, w) => s + w.cash, 0))}
+                                {formatPrice((tipsByWaiter.by_waiter || []).reduce((s, w) => s + (w.cash || 0), 0))}
                               </td>
                               <td className="p-3 text-right font-bold text-blue-400">
-                                {formatPrice(tipsByWaiter.by_waiter.reduce((s, w) => s + w.card + w.transfer + w.gift_card, 0))}
+                                {formatPrice((tipsByWaiter.by_waiter || []).reduce((s, w) => s + (w.card || 0) + (w.transfer || 0) + (w.gift_card || 0), 0))}
                               </td>
                               <td className="p-3 text-right font-bold text-orange-400">
-                                {formatPrice(tipsByWaiter.total_pending)}
+                                {formatPrice(tipsByWaiter.total_pending || 0)}
                               </td>
                             </tr>
                           </tbody>
