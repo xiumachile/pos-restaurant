@@ -298,3 +298,81 @@ test('payBill maneja 10 requests concurrentes con misma idempotency_key', functi
     expect($successCount + $conflictCount)->toBe(9,
         "Todos los retries deben ser manejados por idempotencia");
 });
+
+test('usuario B no puede pagar bill de empresa A', function () {
+    // Setup: usuario de Branch B intenta pagar bill de Branch A
+    $companyB = Company::create([
+        'tax_id' => 'PAY-B-' . uniqid(),
+        'legal_name' => 'Company B',
+        'trade_name' => 'Company B',
+    ]);
+
+    $branchB = Branch::create([
+        'company_id' => $companyB->id,
+        'code' => 'PAY-B-BR',
+        'name' => 'Branch B',
+    ]);
+
+    $cashierB = User::create([
+        'name' => 'Cashier B',
+        'email' => 'cashier-b-' . uniqid() . '@test.com',
+        'password' => 'password123',
+        'company_id' => $companyB->id,
+        'branch_id' => $branchB->id,
+        'role' => 'cashier',
+    ]);
+
+    $cashMethodB = PaymentMethod::create([
+        'company_id' => $companyB->id,
+        'branch_id' => $branchB->id,
+        'code' => 'CASH',
+        'name_translations' => ['es' => 'Efectivo'],
+        'type' => 'cash',
+        'is_active' => true,
+    ]);
+
+    // Bill de Company A (creado en beforeEach)
+    $order = createChargeableOrderForPayBillTest($this);
+    $bill = Bill::create([
+        'company_id' => $this->company->id,
+        'branch_id' => $this->branch->id,
+        'order_id' => $order->id,
+        'bill_number' => $order->order_number . '-1',
+        'type' => BillType::EQUAL_SPLIT,
+        'subtotal' => 10000,
+        'tax_amount' => 1900,
+        'discount_amount' => 0,
+        'tip_amount' => 0,
+        'total' => 11900,
+        'paid_amount' => 0,
+        'remaining_amount' => 11900,
+        'status' => BillStatus::OPEN,
+        'guest_count' => 1,
+    ]);
+
+    $tokenB = JWTAuth::fromUser($cashierB);
+
+    // Intentar pagar con usuario de Branch B
+    $response = $this->withHeaders([
+        'Authorization' => 'Bearer ' . $tokenB,
+        'Accept' => 'application/json',
+        'Idempotency-Key' => Str::uuid()->toString(),
+    ])->postJson("/api/v1/cashier/bills/{$bill->uuid}/pay", [
+        'payment_method_uuid' => $cashMethodB->uuid,
+        'amount' => 11900,
+        'idempotency_key' => Str::uuid()->toString(),
+    ]);
+
+    // Debe fallar con 404 (bill no encontrado en Branch B) o 403 (forbidden)
+    expect($response->status())->toBeIn([403, 404, 422],
+        "Usuario de Branch B NO debe poder pagar bill de Branch A");
+
+    // Verificar que NO se creó ningún Payment
+    $paymentsCount = Payment::where('bill_id', $bill->id)->count();
+    expect($paymentsCount)->toBe(0,
+        "NO debe crearse Payment en intento cross-branch");
+
+    // Bill debe permanecer OPEN
+    $bill->refresh();
+    expect($bill->status)->toBe(BillStatus::OPEN);
+});
