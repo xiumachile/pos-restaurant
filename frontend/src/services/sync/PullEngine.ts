@@ -177,9 +177,9 @@ export class PullEngine {
     await localDb.execute("DELETE FROM local_categories");
     for (const cat of categories) {
       await localDb.execute(
-        `INSERT OR REPLACE INTO local_categories (uuid, name_translations, sort_order, is_active, last_updated) 
-         VALUES (?, ?, ?, ?, ?)`,
-        [cat.uuid, JSON.stringify(cat.name_translations), cat.sort_order || 0, cat.is_active ? 1 : 0, cat.updated_at]
+        `INSERT OR REPLACE INTO local_categories (uuid, backend_id, name_translations, sort_order, is_active, last_updated) 
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [cat.uuid, cat.id, JSON.stringify(cat.name_translations), cat.sort_order || 0, cat.is_active ? 1 : 0, cat.updated_at]
       );
     }
   }
@@ -305,11 +305,11 @@ export class PullEngine {
         // Eliminar localmente
         await localDb.execute("DELETE FROM local_categories WHERE uuid = ?", [cat.uuid]);
       } else {
-        // Insertar o actualizar
+        // Insertar o actualizar (incluye backend_id)
         await localDb.execute(
-          `INSERT OR REPLACE INTO local_categories (uuid, name_translations, sort_order, is_active, last_updated) 
-           VALUES (?, ?, ?, ?, ?)`,
-          [cat.uuid, JSON.stringify(cat.name_translations), cat.sort_order || 0, cat.is_active ? 1 : 0, cat.updated_at]
+          `INSERT OR REPLACE INTO local_categories (uuid, backend_id, name_translations, sort_order, is_active, last_updated) 
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [cat.uuid, cat.id, JSON.stringify(cat.name_translations), cat.sort_order || 0, cat.is_active ? 1 : 0, cat.updated_at]
         );
       }
     }

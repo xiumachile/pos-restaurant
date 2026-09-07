@@ -3,6 +3,7 @@ import type { Category, Product } from "@/types/catalog";
 
 interface LocalCategoryRow {
   uuid: string;
+  backend_id: number | null;  // ← ID numérico del backend
   name_translations: string;
   sort_order: number;
   is_active: number | boolean;
@@ -11,7 +12,7 @@ interface LocalCategoryRow {
 
 interface LocalProductRow {
   uuid: string;
-  category_id: string | null;  // ← ES EL UUID DE LA CATEGORÍA (no número)
+  category_id: string | null;  // ← ID numérico como string (ej: "5.0")
   sku: string | null;
   name_translations: string;
   description_translations?: string | null;
@@ -23,27 +24,13 @@ interface LocalProductRow {
   last_updated: string;
 }
 
-/**
- * Hash determinístico de string a número positivo.
- * Debe coincidir con el hash usado en useCatalog.ts
- */
-function hashStringToNumber(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash |= 0;
-  }
-  return Math.abs(hash);
-}
-
 export const localCatalogService = {
   async listCategories(): Promise<Category[]> {
     console.log("[localCatalogService] 📋 listCategories() desde SQLite");
     const db = await localDb.getConnection();
 
     const rows = await db.select<LocalCategoryRow[]>(`
-      SELECT uuid, name_translations, sort_order, is_active, last_updated
+      SELECT uuid, backend_id, name_translations, sort_order, is_active, last_updated
       FROM local_categories
       WHERE is_active = 1
       ORDER BY sort_order ASC, uuid ASC
@@ -56,10 +43,9 @@ export const localCatalogService = {
   /**
    * Lista productos desde SQLite con filtros opcionales.
    * 
-   * IMPORTANTE: category_id en local_products es un UUID (string),
-   * pero el filtro viene como number (id numérico del backend).
-   * Por lo tanto, primero buscamos la categoría cuyo hash(uuid) === categoryId,
-   * y luego filtramos productos por el UUID real.
+   * IMPORTANTE: product.category_id es el ID numérico del backend (como string,
+   * ej: "5.0"). category.backend_id es también el ID numérico.
+   * Por lo tanto, el filtrado compara ambos como números.
    */
   async listProducts(filters?: {
     categoryId?: number;
@@ -68,39 +54,28 @@ export const localCatalogService = {
     console.log(`[localCatalogService] 📋 listProducts(filters: ${JSON.stringify(filters)})`);
     const db = await localDb.getConnection();
 
-    // Traer TODOS los productos activos (el filtrado se hace en memoria)
-    const query = `
+    let query = `
       SELECT uuid, category_id, sku, name_translations, description_translations,
              base_price, tax_rate, is_combo, kitchen_zone_id, is_active, last_updated
       FROM local_products
       WHERE is_active = 1
     `;
+    const params: any[] = [];
 
-    const rows = await db.select<LocalProductRow[]>(query, []);
-    console.log(`[localCatalogService] 📦 ${rows.length} productos totales en SQLite`);
+    // Filtro por categoría: comparar category_id (string) con backend_id (number)
+    if (filters?.categoryId) {
+      query += ` AND CAST(category_id AS INTEGER) = ?`;
+      params.push(filters.categoryId);
+    }
+
+    query += ` ORDER BY base_price ASC, uuid ASC`;
+
+    const rows = await db.select<LocalProductRow[]>(query, params);
+    console.log(`[localCatalogService] 📦 ${rows.length} productos en resultado`);
 
     let products = rows.map((row) => this.toProduct(row));
 
-    // FILTRO POR CATEGORÍA: mapear categoryId (number) → UUID de categoría
-    if (filters?.categoryId) {
-      // Obtener todas las categorías para hacer el mapeo
-      const categories = await this.listCategories();
-      const targetCategory = categories.find(c => c.id === filters.categoryId);
-      
-      if (targetCategory) {
-        // Filtrar productos por UUID de la categoría
-        products = products.filter(p => {
-          const productRow = rows.find(r => r.uuid === p.uuid);
-          return productRow?.category_id === targetCategory.uuid;
-        });
-        console.log(`[localCatalogService] 🎯 Filtro categoryId=${filters.categoryId} → UUID=${targetCategory.uuid} → ${products.length} productos`);
-      } else {
-        console.log(`[localCatalogService] ⚠️ Categoría ${filters.categoryId} no encontrada`);
-        products = [];
-      }
-    }
-
-    // FILTRO POR BÚSQUEDA
+    // Filtro por búsqueda en memoria
     if (filters?.search && filters.search.trim()) {
       const search = filters.search.trim().toLowerCase();
       products = products.filter((p) => {
@@ -126,7 +101,7 @@ export const localCatalogService = {
     }
 
     return {
-      id: hashStringToNumber(row.uuid),
+      id: row.backend_id || 0,  // ← Usar backend_id real del backend
       uuid: row.uuid,
       company_id: 0,
       branch_id: 0,
@@ -163,11 +138,11 @@ export const localCatalogService = {
     }
 
     return {
-      id: hashStringToNumber(row.uuid),
+      id: 0,  // No crítico, usamos uuid como identificador único
       uuid: row.uuid,
       company_id: 0,
       branch_id: 0,
-      category_id: 0,  // Se pierde aquí, pero usamos category_uuid para filtrar
+      category_id: row.category_id ? parseInt(row.category_id, 10) : 0,
       sku: row.sku || "",
       name_translations: nameTranslations,
       description_translations: descriptionTranslations,
