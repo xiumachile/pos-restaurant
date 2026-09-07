@@ -376,3 +376,53 @@ test('usuario B no puede pagar bill de empresa A', function () {
     $bill->refresh();
     expect($bill->status)->toBe(BillStatus::OPEN);
 });
+
+test('payBill hace rollback completo si falla alguna etapa', function () {
+    $order = createChargeableOrderForPayBillTest($this);
+
+    $bill = Bill::create([
+        'company_id' => $this->company->id,
+        'branch_id' => $this->branch->id,
+        'order_id' => $order->id,
+        'bill_number' => $order->order_number . '-1',
+        'type' => BillType::EQUAL_SPLIT,
+        'subtotal' => 10000,
+        'tax_amount' => 1900,
+        'discount_amount' => 0,
+        'tip_amount' => 0,
+        'total' => 11900,
+        'paid_amount' => 0,
+        'remaining_amount' => 11900,
+        'status' => BillStatus::OPEN,
+        'guest_count' => 1,
+    ]);
+
+    // Intentar pagar con amount mayor al disponible (debe fallar)
+    $response = $this->withHeaders([
+        'Authorization' => 'Bearer ' . $this->token,
+        'Accept' => 'application/json',
+        'Idempotency-Key' => Str::uuid()->toString(),
+    ])->postJson("/api/v1/cashier/bills/{$bill->uuid}/pay", [
+        'payment_method_uuid' => $this->cashMethod->uuid,
+        'amount' => 99999, // Mayor al available
+        'idempotency_key' => Str::uuid()->toString(),
+    ]);
+
+    // Debe fallar con 422 (insufficient amount)
+    $response->assertStatus(422);
+
+    // Verificar que NO se creó Payment
+    $paymentsCount = Payment::where('bill_id', $bill->id)->count();
+    expect($paymentsCount)->toBe(0,
+        "NO debe crearse Payment si la validación falla");
+
+    // Bill debe permanecer OPEN
+    $bill->refresh();
+    expect($bill->status)->toBe(BillStatus::OPEN);
+    expect((float) $bill->paid_amount)->toBe(0.0);
+
+    // Order debe permanecer SERVED
+    $order->refresh();
+    expect($order->status)->toBe(OrderStatus::SERVED);
+    expect($order->paid_at)->toBeNull();
+});
