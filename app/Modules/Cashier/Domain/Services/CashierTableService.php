@@ -259,7 +259,7 @@ class CashierTableService
 
         // Determinar monto a pagar
         $requestedAmount = isset($data['amount']) ? (float) $data['amount'] : null;
-        
+
         if ($requestedAmount !== null) {
             if ($requestedAmount > (float) $bill->remaining_amount + 0.01) {
                 throw new \DomainException(
@@ -274,6 +274,16 @@ class CashierTableService
         $cashSession = $this->getOpenCashSession($branchId);
         $tipAmount = (float) ($data['tip_amount'] ?? 0);
 
+        // ⚠️ FIX P0-01: DELEGAR completamente a PaymentService
+        // PaymentService YA hace TODO dentro de una DB::transaction:
+        //   1. lockForUpdate() en Order
+        //   2. Payment::create()
+        //   3. paymentLedgerService->recordPayment()
+        //   4. $bill->registerPaymentAmount() + save()  ← actualiza paid_amount
+        //   5. updateOrderPaymentStatus()              ← transiciona Order a PAID
+        //   6. event(OrderPaid)                        ← dispara ReleaseTableOnOrderPaid
+        $orderStatusBefore = $bill->order->status;
+
         $payment = $this->paymentService->registerPayment(
             order: $bill->order,
             paymentMethod: $paymentMethod,
@@ -287,35 +297,12 @@ class CashierTableService
             notes: $data['notes'] ?? null
         );
 
-        // Actualizar bill
-        $bill->paid_amount = (float) $bill->paid_amount + $amountToPay;
-        $bill->remaining_amount = (float) $bill->total - (float) $bill->paid_amount;
-        if ($bill->remaining_amount <= 0.01) {
-            $bill->status = BillStatus::PAID;
-        }
-        $bill->save();
+        // Recargar bill desde DB para obtener estado actualizado por PaymentService
+        $bill->refresh();
+        $bill->load('order');
 
-        // Verificar si todas las bills del order están pagadas
-        $order = $bill->order;
-        $allBillsPaid = Bill::where('order_id', $order->id)
-            ->whereNotIn('status', [BillStatus::CANCELLED])
-            ->where('status', '!=', BillStatus::PAID)
-            ->count() === 0;
-
-        $orderTransitionedToPaid = false;
-        if ($allBillsPaid && $order->status->isChargeable()) {
-            $order->cashier_id = $user->id;
-            $order->paid_at = now();
-            $order->status = OrderStatus::PAID;
-            $order->save();
-            event(new OrderPaid($order));
-            $orderTransitionedToPaid = true;
-
-            $table = $order->table;
-            if ($table) {
-                $this->releaseTableIfEmpty($table, $branchId, $user);
-            }
-        }
+        $orderTransitionedToPaid = $bill->order->status === OrderStatus::PAID
+            && $orderStatusBefore !== OrderStatus::PAID;
 
         return [
             'success' => true,
