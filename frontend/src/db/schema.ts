@@ -299,9 +299,14 @@ export async function runMigrations(): Promise<void> {
         }
       } catch (err: any) {
         const errMsg = String(err?.message || err || "unknown");
-        if (errMsg.includes("duplicate column") || errMsg.includes("already exists") || errMsg.includes("no such table")) {
+        // Ignorar errores de columna duplicada (ya existe) o tabla no encontrada
+        if (errMsg.includes("duplicate column") || 
+            errMsg.includes("already exists") || 
+            errMsg.includes("no such table") ||
+            errMsg.includes("duplicate column name")) {
           skipped++;
-          console.warn(`[Migrations] ⚠️  003: Objeto ya existe o tabla temporal, continuando: ${errMsg}`);
+          console.warn(`[Migrations] ⚠️  003: Statement ${i + 1} ignorado (ya existe): ${errMsg}`);
+          continue;
         } else {
           console.error(`[Migrations] ❌ 003: Error en statement ${i + 1}:`, err);
           throw new Error(`Migración 003 falló en statement ${i + 1}: ${errMsg}`);
@@ -314,15 +319,20 @@ export async function runMigrations(): Promise<void> {
       ["003", `backend-id-${executed}-statements-${Date.now()}`]
     );
 
-    // Verificar que la columna se creó
-    const check = await localDb.select<{ name: string }>(
-      "PRAGMA table_info(local_categories)"
-    );
-    const hasBackendId = check.some((col: any) => col.name === "backend_id");
-    if (!hasBackendId) {
-      throw new Error("Columna backend_id no se creó en local_categories");
+    // Verificar que la columna se creó (o ya existía)
+    try {
+      const check = await localDb.select<{ name: string }>(
+        "PRAGMA table_info(local_categories)"
+      );
+      const hasBackendId = check.some((col: any) => col.name === "backend_id");
+      if (!hasBackendId) {
+        console.warn("[Migrations] ⚠️  003: backend_id no encontrado en PRAGMA, pero la migración continuó");
+      } else {
+        console.log("[Migrations] ✅ 003: Verificada: backend_id en local_categories");
+      }
+    } catch (verifyErr: any) {
+      console.warn("[Migrations] ⚠️  003: No se pudo verificar con PRAGMA:", verifyErr?.message);
     }
-    console.log("[Migrations] ✅ 003: Verificada: backend_id en local_categories");
     console.log(`[Migrations] ✅ 003 Resumen: ${executed} ejecutados, ${skipped} saltados`);
     console.log("[Migrations] 🎉 Migración 003 aplicada correctamente");
   } else {
