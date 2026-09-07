@@ -27,6 +27,14 @@ export function OrderTakingPage() {
 
   const table = flattenAreas(areas).find((t) => t.uuid === tableUuid);
 
+  // Debug: log de estado de carga
+  useEffect(() => {
+    console.log(`[OrderTakingPage] 🔍 areas: ${areas.length}, tableUuid: ${tableUuid}, table encontrada: ${!!table}`);
+    if (!table && areas.length > 0) {
+      console.warn(`[OrderTakingPage] ⚠️ Mesa ${tableUuid} NO encontrada en ${areas.length} áreas`);
+    }
+  }, [areas, tableUuid, table]);
+
   useEffect(() => {
     if (table) {
       initCart(table.uuid, table.table_number, table.area_name);

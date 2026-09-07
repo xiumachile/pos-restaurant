@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCategories, useProducts } from "@/hooks/useCatalog";
 import { getTranslatedName, formatPrice } from "@/types/catalog";
 import type { Product } from "@/types/catalog";
@@ -15,6 +15,12 @@ interface OrderCatalogPanelProps {
 export function OrderCatalogPanel({ onAddProduct }: OrderCatalogPanelProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Debug: confirmar que el componente se monta
+  useEffect(() => {
+    console.log("[OrderCatalogPanel] 🎯 Componente montado");
+    return () => console.log("[OrderCatalogPanel] 🧹 Componente desmontado");
+  }, []);
 
   const { data: categories = [], isLoading: loadingCategories } = useCategories();
   const { data: products = [], isLoading: loadingProducts } = useProducts({
