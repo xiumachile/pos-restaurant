@@ -24,6 +24,20 @@ interface LocalProductRow {
   last_updated: string;
 }
 
+/**
+ * Hash determinístico de string a número positivo.
+ * Usado para generar IDs numéricos estables a partir de UUIDs.
+ */
+function hashStringToNumber(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
 export const localCatalogService = {
   async listCategories(): Promise<Category[]> {
     console.log("[localCatalogService] 📋 listCategories() desde SQLite");
@@ -138,7 +152,7 @@ export const localCatalogService = {
     }
 
     return {
-      id: 0,  // No crítico, usamos uuid como identificador único
+      id: hashStringToNumber(row.uuid),  // ID determinístico desde uuid
       uuid: row.uuid,
       company_id: 0,
       branch_id: 0,
