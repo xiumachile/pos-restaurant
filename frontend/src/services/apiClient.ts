@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+import { useSyncStore } from "@/store/useSyncStore";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
 
@@ -10,6 +11,22 @@ export const apiClient = axios.create({
     Accept: "application/json",
   },
   timeout: 15000,
+});
+
+// SIMULATED OFFLINE: Rechazar requests cuando el usuario activa modo offline simulado
+// Esto permite probar flujos offline incluso cuando el backend local está activo.
+// Activar con Ctrl+Shift+O (atajo global en App.tsx)
+apiClient.interceptors.request.use((config) => {
+  const simulatedOffline = useSyncStore.getState().simulatedOffline;
+  if (simulatedOffline) {
+    console.warn(`[apiClient] 🧪 SIMULATED OFFLINE: Rechazando ${config.method?.toUpperCase()} ${config.url}`);
+    return Promise.reject({
+      message: "Network Error (simulated offline)",
+      code: "ERR_NETWORK",
+      isSimulatedOffline: true,
+    });
+  }
+  return config;
 });
 
 // Idempotencia por defecto (Principio #7): toda mutación lleva Idempotency-Key

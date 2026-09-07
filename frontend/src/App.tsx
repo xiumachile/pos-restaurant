@@ -1,9 +1,11 @@
+import { useEffect } from "react";
 import { RouterProvider } from "react-router-dom";
 import { I18nextProvider } from "react-i18next";
 import { useDatabaseInit } from "./hooks/useDatabaseInit";
 import { useSyncWorker } from "./hooks/useSyncWorker";
 import { usePrintEngine } from "./hooks/usePrintEngine";
 import { useAuthRefresh } from "./hooks/useAuthRefresh";
+import { useSyncStore } from "./store/useSyncStore";
 import { useCatalogSyncInvalidation } from "./hooks/useCatalog";
 import { DatabaseLoader } from "./components/system/DatabaseLoader";
 import { router } from "./router";
@@ -12,6 +14,19 @@ import i18n from "./i18n/config";
 function AppContent() {
   // Refresh automático del JWT cuando queda < 2 minutos
   useAuthRefresh();
+
+  // Atajo Ctrl+Shift+O para toggle de modo offline simulado
+  // Útil para testing cuando el backend corre en localhost
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "o") {
+        e.preventDefault();
+        useSyncStore.getState().toggleSimulatedOffline();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
   // Iniciar worker de sincronización en background
   useSyncWorker();
   // Iniciar PrintEngine (polling de PrintJobs cada 5s)

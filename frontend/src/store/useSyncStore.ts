@@ -33,8 +33,10 @@ interface SyncState {
   progress: SyncProgress | null;
   isWorkerRunning: boolean;
   workerIntervalId: number | null;
+  simulatedOffline: boolean;
 
   setStatus: (status: ConnectionStatus) => void;
+  toggleSimulatedOffline: () => void;
   refreshPendingCount: () => Promise<void>;
   setLastError: (error: string | null) => void;
   setLastSyncAt: (timestamp: string) => void;
@@ -55,6 +57,29 @@ export const useSyncStore = create<SyncState>((set, get) => ({
   progress: null,
   isWorkerRunning: false,
   workerIntervalId: null,
+  simulatedOffline: false,
+
+  toggleSimulatedOffline: () => {
+    const current = get().simulatedOffline;
+    const newValue = !current;
+
+    set({ simulatedOffline: newValue });
+
+    console.log(`[SyncStore] 🧪 Modo offline simulado: ${newValue ? "ACTIVADO" : "DESACTIVADO"}`);
+
+    const { setStatus, triggerSync } = get();
+
+    if (newValue) {
+      setStatus("offline");
+      console.log("[SyncStore] ✈️  Modo offline simulado ACTIVO");
+    } else {
+      if (navigator.onLine) {
+        setStatus("online");
+        console.log("[SyncStore] 🌐 Modo offline simulado DESACTIVADO, disparando sync");
+        triggerSync();
+      }
+    }
+  },
 
   setStatus: (status) => {
     console.log(`[SyncStore] Estado cambiado: ${get().status} → ${status}`);
@@ -148,19 +173,23 @@ if (typeof window !== "undefined") {
 
   const updateConnectivity = () => {
     const isOnline = navigator.onLine;
-    const { setStatus, triggerSync } = useSyncStore.getState();
+    const { setStatus, triggerSync, simulatedOffline } = useSyncStore.getState();
+    
+    // Efectivo = conectado al backend Y no simulando offline
+    const effectiveOnline = isOnline && !simulatedOffline;
 
-    if (isOnline !== lastOnlineStatus) {
-      console.log(`[SyncStore] Conectividad cambió: ${lastOnlineStatus} → ${isOnline}`);
-      lastOnlineStatus = isOnline;
+    if (effectiveOnline !== lastOnlineStatus) {
+      console.log(`[SyncStore] Conectividad cambió: ${lastOnlineStatus} → ${effectiveOnline} (navigator=${isOnline}, simulated=${simulatedOffline})`);
+      lastOnlineStatus = effectiveOnline;
 
-      if (isOnline) {
+      if (effectiveOnline) {
         setStatus("online");
         console.log("[SyncStore] 🌐 Conectividad restaurada, disparando sync");
         triggerSync();
       } else {
         setStatus("offline");
-        console.log("[SyncStore] ✈️  Sin conexión, modo offline");
+        const reason = simulatedOffline ? "SIMULADO (Ctrl+Shift+O)" : "real";
+        console.log(`[SyncStore] ✈️  Sin conexión (${reason}), modo offline`);
       }
     }
   };
