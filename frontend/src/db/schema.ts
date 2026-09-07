@@ -1,6 +1,7 @@
 import { localDb } from "./localDb";
 import initialMigration from "./migrations/001_initial.sql?raw";
 import tableMutationsMigration from "./migrations/002_table_local_mutations.sql?raw";
+import backendIdMigration from "./migrations/003_add_backend_id_to_categories.sql?raw";
 
 /**
  * Parser robusto para dividir SQL en statements individuales.
@@ -264,6 +265,67 @@ export async function runMigrations(): Promise<void> {
     console.log("[Migrations] 🎉 Migración 002 aplicada correctamente");
   } else {
     console.log("[Migrations] ✅ Migración 002 ya está aplicada");
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // MIGRACIÓN 003: Agregar backend_id a local_categories
+  // ═══════════════════════════════════════════════════════════════
+  if (!applied.some(m => m.version === "003")) {
+    console.log("[Migrations] 🚀 Aplicando migración 003_add_backend_id...");
+
+    if (!backendIdMigration || backendIdMigration.trim().length === 0) {
+      throw new Error("Migración 003 vacía o no cargada");
+    }
+
+    console.log(`[Migrations] 📄 003 SQL: ${backendIdMigration.length} caracteres`);
+
+    const statements = parseSqlStatements(backendIdMigration);
+    console.log(`[Migrations] 🔍 003: Parsed ${statements.length} statements`);
+
+    let executed = 0;
+    let skipped = 0;
+
+    for (let i = 0; i < statements.length; i++) {
+      const stmt = statements[i];
+      try {
+        await db.execute(stmt);
+        executed++;
+
+        if (stmt.toUpperCase().includes("ALTER TABLE")) {
+          console.log(`[Migrations] ✓ 003: Columna backend_id agregada`);
+        } else if (stmt.toUpperCase().includes("CREATE INDEX")) {
+          const indexMatch = stmt.match(/CREATE INDEX\s+\w+\s+(\w+)/i);
+          console.log(`[Migrations] ✓ 003: Índice creado: ${indexMatch?.[1] || "unknown"}`);
+        }
+      } catch (err: any) {
+        if (err.message?.includes("duplicate column name") || err.message?.includes("already exists") || err.code === 1) {
+          skipped++;
+          console.warn(`[Migrations] ⚠️  003: Columna/índice ya existe, continuando`);
+        } else {
+          console.error(`[Migrations] ❌ 003: Error en statement ${i + 1}:`, err);
+          throw new Error(`Migración 003 falló en statement ${i + 1}: ${err.message}`);
+        }
+      }
+    }
+
+    await db.execute(
+      "INSERT OR REPLACE INTO migrations (version, checksum) VALUES (?, ?)",
+      ["003", `backend-id-${executed}-statements-${Date.now()}`]
+    );
+
+    // Verificar que la columna se creó
+    const check = await localDb.select<{ name: string }>(
+      "PRAGMA table_info(local_categories)"
+    );
+    const hasBackendId = check.some((col: any) => col.name === "backend_id");
+    if (!hasBackendId) {
+      throw new Error("Columna backend_id no se creó en local_categories");
+    }
+    console.log("[Migrations] ✅ 003: Verificada: backend_id en local_categories");
+    console.log(`[Migrations] ✅ 003 Resumen: ${executed} ejecutados, ${skipped} saltados`);
+    console.log("[Migrations] 🎉 Migración 003 aplicada correctamente");
+  } else {
+    console.log("[Migrations] ✅ Migración 003 ya está aplicada");
   }
 
   // ═══════════════════════════════════════════════════════════════
