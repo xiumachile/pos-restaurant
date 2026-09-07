@@ -298,12 +298,13 @@ export async function runMigrations(): Promise<void> {
           console.log(`[Migrations] ✓ 003: Índice creado: ${indexMatch?.[1] || "unknown"}`);
         }
       } catch (err: any) {
-        if (err.message?.includes("duplicate column name") || err.message?.includes("already exists") || err.code === 1) {
+        const errMsg = String(err?.message || err || "unknown");
+        if (errMsg.includes("duplicate column") || errMsg.includes("already exists") || errMsg.includes("no such table")) {
           skipped++;
-          console.warn(`[Migrations] ⚠️  003: Columna/índice ya existe, continuando`);
+          console.warn(`[Migrations] ⚠️  003: Objeto ya existe o tabla temporal, continuando: ${errMsg}`);
         } else {
           console.error(`[Migrations] ❌ 003: Error en statement ${i + 1}:`, err);
-          throw new Error(`Migración 003 falló en statement ${i + 1}: ${err.message}`);
+          throw new Error(`Migración 003 falló en statement ${i + 1}: ${errMsg}`);
         }
       }
     }
