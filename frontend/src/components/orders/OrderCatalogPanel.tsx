@@ -16,12 +16,6 @@ export function OrderCatalogPanel({ onAddProduct }: OrderCatalogPanelProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Debug: confirmar que el componente se monta
-  useEffect(() => {
-    console.log("[OrderCatalogPanel] 🎯 Componente montado");
-    return () => console.log("[OrderCatalogPanel] 🧹 Componente desmontado");
-  }, []);
-
   const { data: categories = [], isLoading: loadingCategories } = useCategories();
   const { data: products = [], isLoading: loadingProducts } = useProducts({
     categoryId: selectedCategoryId,
