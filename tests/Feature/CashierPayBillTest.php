@@ -229,3 +229,72 @@ test('payBill es idempotente con misma idempotency_key', function () {
     $paymentsCount = Payment::where('bill_id', $bill->id)->count();
     expect($paymentsCount)->toBe(1, "Solo debe existir UN Payment tras retry");
 });
+
+test('payBill maneja 10 requests concurrentes con misma idempotency_key', function () {
+    $order = createChargeableOrderForPayBillTest($this);
+
+    $bill = Bill::create([
+        'company_id' => $this->company->id,
+        'branch_id' => $this->branch->id,
+        'order_id' => $order->id,
+        'bill_number' => $order->order_number . '-1',
+        'type' => BillType::EQUAL_SPLIT,
+        'subtotal' => 10000,
+        'tax_amount' => 1900,
+        'discount_amount' => 0,
+        'tip_amount' => 0,
+        'total' => 11900,
+        'paid_amount' => 0,
+        'remaining_amount' => 11900,
+        'status' => BillStatus::OPEN,
+        'guest_count' => 1,
+    ]);
+
+    $idempotencyKey = Str::uuid()->toString();
+    $headers = [
+        'Authorization' => 'Bearer ' . $this->token,
+        'Accept' => 'application/json',
+        'Idempotency-Key' => $idempotencyKey,
+    ];
+    $payload = [
+        'payment_method_uuid' => $this->cashMethod->uuid,
+        'amount' => 11900,
+        'idempotency_key' => $idempotencyKey,
+    ];
+
+    // Primer request establece baseline
+    $response1 = $this->withHeaders($headers)->postJson("/api/v1/cashier/bills/{$bill->uuid}/pay", $payload);
+    $response1->assertStatus(200);
+
+    // 9 requests adicionales con MISMA key (simulando retry masivo)
+    $successCount = 0;
+    $conflictCount = 0;
+    $errorCount = 0;
+
+    for ($i = 0; $i < 9; $i++) {
+        $response = $this->withHeaders($headers)->postJson("/api/v1/cashier/bills/{$bill->uuid}/pay", $payload);
+        
+        if ($response->status() === 200) {
+            $successCount++;
+        } elseif ($response->status() === 409) {
+            $conflictCount++;
+        } else {
+            $errorCount++;
+        }
+    }
+
+    // Verificar integridad financiera
+    $bill->refresh();
+    $paymentsCount = Payment::where('bill_id', $bill->id)->count();
+
+    expect((float) $bill->paid_amount)->toBe(11900.0,
+        "paid_amount debe ser exactamente el monto del pago único");
+    expect($paymentsCount)->toBe(1,
+        "Solo debe existir UN Payment después de 10 requests concurrentes con misma key");
+    expect($bill->status)->toBe(BillStatus::PAID);
+
+    // Todos los retries deben retornar 200 (idempotencia) o 409 (conflict)
+    // pero NUNCA deben crear Payments adicionales
+    expect($successCount + $conflictCount)->toBe(9,
+        "Todos los retries deben ser manejados por idempotencia");
+});
