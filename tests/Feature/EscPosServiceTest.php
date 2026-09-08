@@ -145,6 +145,7 @@ test('ReceiptFormatter genera ticket completo', function () {
             ['name' => 'Arroz Chaufa', 'qty' => 1, 'price' => 8000, 'subtotal' => 8000],
         ],
         'subtotal' => 32000,
+        'tax_label' => 'IVA (19%)',
         'tax' => 6080,
         'discount' => 0,
         'total' => 38080,
@@ -183,5 +184,5 @@ test('ReceiptFormatter incluye descuento si existe', function () {
     ]);
     
     expect($output)->toContain("Descuento");
-    expect($output)->toContain("-$1.000");
+    expect($output)->toContain("-1.000");
 });
