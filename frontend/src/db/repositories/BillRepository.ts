@@ -213,14 +213,17 @@ export class BillRepository {
       throw new Error(`Bill ${localUuid} not found`);
     }
 
+    // Si hay reason, usarlo; si no, preservar notes actual
+    const finalNotes = reason || bill.notes || null;
+
     await localDb.execute(
       `UPDATE local_bills
        SET status = 'cancelled',
-           notes = COALESCE(?, notes),
+           notes = ?,
            sync_status = 'pending',
            sync_error = NULL
        WHERE local_uuid = ?`,
-      [reason || null, localUuid]
+      [finalNotes, localUuid]
     );
 
     const updated = await this.findByLocalUuid(localUuid);
@@ -231,7 +234,7 @@ export class BillRepository {
         entity_type: "bill",
         entity_local_uuid: localUuid,
         action: "cancel",
-        payload: { reason: reason || null },
+        payload: { reason: finalNotes },
       });
     }
 
@@ -276,11 +279,12 @@ export class BillRepository {
    * Lista bills abiertas (status = 'open' o 'partial') de una branch.
    */
   static async findOpenByBranch(branchId: string): Promise<LocalBill[]> {
-    return await localDb.select<LocalBill>(
-      `SELECT * FROM local_bills
-       WHERE branch_id = ? AND status IN ('open', 'partial')
-       ORDER BY created_at ASC`,
+    const allBills = await localDb.select<LocalBill>(
+      `SELECT * FROM local_bills WHERE branch_id = ? ORDER BY created_at ASC`,
       [branchId]
     );
+    
+    // Filtrar en JavaScript: solo open o partial
+    return allBills.filter(b => b.status === "open" || b.status === "partial");
   }
 }

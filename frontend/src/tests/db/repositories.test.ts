@@ -10,6 +10,7 @@ import { localDb } from "../../db/localDb";
 import { runMigrations } from "../../db/schema";
 import { OrderRepository } from "../../db/repositories/OrderRepository";
 import { PaymentRepository } from "../../db/repositories/PaymentRepository";
+import { BillRepository } from "../../db/repositories/BillRepository";
 import { SyncQueueRepository } from "../../db/repositories/SyncQueueRepository";
 
 describe("Repositorios locales", () => {
@@ -28,6 +29,7 @@ describe("Repositorios locales", () => {
     await localDb.execute("DELETE FROM sync_queue");
     await localDb.execute("DELETE FROM local_order_items");
     await localDb.execute("DELETE FROM local_payments");
+    await localDb.execute("DELETE FROM local_bills");
     await localDb.execute("DELETE FROM local_orders");
     await localDb.execute("DELETE FROM local_tables");
 
@@ -179,4 +181,173 @@ describe("Repositorios locales", () => {
       expect(after).toHaveLength(0);
     });
   });
+
+  describe("BillRepository", () => {
+    it("debería crear una bill local con paid_amount=0 y encolarla para sync", async () => {
+      const bill = await BillRepository.create({
+        company_id: "company-1",
+        branch_id: "branch-1",
+        bill_number: "BILL-001",
+        subtotal: 10000,
+        tax_total: 1900,
+        grand_total: 11900,
+      });
+
+      expect(bill).toBeDefined();
+      expect(bill.local_uuid).toMatch(/^[a-f0-9-]{36}$/);
+      expect(bill.bill_number).toBe("BILL-001");
+      expect(bill.grand_total).toBe(11900);
+      expect(bill.paid_amount).toBe(0);
+      expect(bill.remaining_amount).toBe(11900);
+      expect(bill.status).toBe("open");
+      expect(bill.sync_status).toBe("pending");
+      expect(bill.idempotency_key).toMatch(/^[a-f0-9-]{36}$/);
+
+      // Verificar que se encoló para sync
+      const pending = await SyncQueueRepository.getPending();
+      const billQueueItem = pending.find(p => p.entity_local_uuid === bill.local_uuid);
+      expect(billQueueItem).toBeDefined();
+      expect(billQueueItem?.entity_type).toBe("bill");
+      expect(billQueueItem?.action).toBe("create");
+    });
+
+    it("debería registrar pago y actualizar remaining_amount y status", async () => {
+      const bill = await BillRepository.create({
+        company_id: "company-1",
+        branch_id: "branch-1",
+        bill_number: "BILL-002",
+        subtotal: 10000,
+        tax_total: 1900,
+        grand_total: 11900,
+      });
+
+      // Pago parcial de $5000
+      const updated = await BillRepository.registerPayment(bill.local_uuid, 5000);
+
+      expect(updated.paid_amount).toBe(5000);
+      expect(updated.remaining_amount).toBe(6900);
+      expect(updated.status).toBe("partial");
+
+      // Verificar que se encoló el update para sync
+      const pending = await SyncQueueRepository.getPending();
+      const updates = pending.filter(
+        p => p.entity_local_uuid === bill.local_uuid && p.action === "update"
+      );
+      expect(updates).toHaveLength(1);
+    });
+
+    it("debería cambiar status a 'paid' cuando remaining_amount llega a 0", async () => {
+      const bill = await BillRepository.create({
+        company_id: "company-1",
+        branch_id: "branch-1",
+        bill_number: "BILL-003",
+        subtotal: 10000,
+        tax_total: 1900,
+        grand_total: 11900,
+      });
+
+      // Pago completo
+      const updated = await BillRepository.registerPayment(bill.local_uuid, 11900);
+
+      expect(updated.paid_amount).toBe(11900);
+      expect(updated.remaining_amount).toBe(0);
+      expect(updated.status).toBe("paid");
+    });
+
+    it("debería rechazar pago en bill ya pagada o cancelada", async () => {
+      const bill = await BillRepository.create({
+        company_id: "company-1",
+        branch_id: "branch-1",
+        bill_number: "BILL-004",
+        subtotal: 10000,
+        tax_total: 1900,
+        grand_total: 11900,
+      });
+
+      // Pagar completamente
+      await BillRepository.registerPayment(bill.local_uuid, 11900);
+
+      // Intentar pagar de nuevo debe lanzar error
+      await expect(
+        BillRepository.registerPayment(bill.local_uuid, 1000)
+      ).rejects.toThrow(/paid|cancelled/i);
+    });
+
+    it("debería marcar bill como synced con cloud_id", async () => {
+      const bill = await BillRepository.create({
+        company_id: "company-1",
+        branch_id: "branch-1",
+        bill_number: "BILL-005",
+        subtotal: 10000,
+        tax_total: 1900,
+        grand_total: 11900,
+      });
+
+      await BillRepository.markAsSynced(bill.local_uuid, "cloud-bill-123");
+
+      const updated = await BillRepository.findByLocalUuid(bill.local_uuid);
+      expect(updated?.cloud_id).toBe("cloud-bill-123");
+      expect(updated?.sync_status).toBe("synced");
+    });
+
+    it("debería cancelar una bill y encolar cancelación", async () => {
+      const bill = await BillRepository.create({
+        company_id: "company-1",
+        branch_id: "branch-1",
+        bill_number: "BILL-006",
+        subtotal: 10000,
+        tax_total: 1900,
+        grand_total: 11900,
+      });
+
+      await BillRepository.cancel(bill.local_uuid, "Cliente canceló");
+
+      const updated = await BillRepository.findByLocalUuid(bill.local_uuid);
+      expect(updated?.status).toBe("cancelled");
+
+      const pending = await SyncQueueRepository.getPending();
+      const cancelItem = pending.find(
+        p => p.entity_local_uuid === bill.local_uuid && p.action === "cancel"
+      );
+      expect(cancelItem).toBeDefined();
+    });
+
+    it("debería listar bills abiertas por branch", async () => {
+      // Crear 3 bills: 2 abiertas, 1 pagada
+      await BillRepository.create({
+        company_id: "company-1",
+        branch_id: "branch-1",
+        bill_number: "BILL-A",
+        subtotal: 10000,
+        tax_total: 1900,
+        grand_total: 11900,
+      });
+
+      const bill2 = await BillRepository.create({
+        company_id: "company-1",
+        branch_id: "branch-1",
+        bill_number: "BILL-B",
+        subtotal: 5000,
+        tax_total: 950,
+        grand_total: 5950,
+      });
+      
+      await BillRepository.registerPayment(bill2.local_uuid, 5950);
+
+      await BillRepository.create({
+        company_id: "company-1",
+        branch_id: "branch-1",
+        bill_number: "BILL-C",
+        subtotal: 7000,
+        tax_total: 1330,
+        grand_total: 8330,
+      });
+
+      const open = await BillRepository.findOpenByBranch("branch-1");
+      
+      expect(open).toHaveLength(2);
+      expect(open.every(b => b.status === "open" || b.status === "partial")).toBe(true);
+    });
+  });
+
 });

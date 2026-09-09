@@ -5,7 +5,7 @@ export interface SyncQueueItem {
   id: string;
   company_id: string;
   branch_id: string;
-  entity_type: "order" | "payment" | "table_status" | "cash_session";
+  entity_type: "order" | "payment" | "bill" | "table_status" | "cash_session";
   entity_local_uuid: string;
   entity_cloud_id: string | null;
   action: "create" | "update" | "delete";
