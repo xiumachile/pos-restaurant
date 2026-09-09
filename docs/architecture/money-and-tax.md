@@ -200,3 +200,124 @@ app/Modules/Fiscal/Domain/ValueObjects/DteType.php (taxRateFromOrder)
 app/Modules/Printers/Domain/Services/ReceiptFormatter.php (dinámico)
 Autor: Arquitectura WokMesa
 Revisado por: [Pendiente]
+cd ~/pos-restaurant
+
+## Bills offline
+
+### Decisiones arquitectónicas
+
+Las `local_bills` creadas offline son **solo para tracking local** y NO se sincronizan al backend.
+
+**Razón:**
+- El endpoint `POST /billing/payments` acepta `bill_uuid` como opcional (nullable)
+- El backend NO crea bills automáticamente al recibir payments
+- Las bills solo se crean en backend vía `POST /orders/{uuid}/split` (split explícito)
+
+**Caso de uso:**
+- UI puede mostrar bills abiertas offline
+- Calcular `remaining_amount` localmente
+- Tracking de pagos parciales offline
+- Soporte para split bills en UI local
+
+**Limitación:**
+Si el usuario hace split offline (múltiples bills), el backend solo verá un payment único al order completo.
+
+**Workaround:**
+Si se requiere split, el usuario debe esperar a tener conexión y hacer el split online vía `POST /orders/{uuid}/split`.
+
+### Flujo de sincronización
+Offline (SQLite):
+local_orders → local_order_items → local_bills → local_payments
+↓
+(solo tracking local)
+Sync a backend:
+local_orders → POST /orders (crear order)
+local_order_items → POST /orders/{uuid}/items (agregar items)
+local_payments → POST /billing/payments (sin bill_uuid)
+Backend (PostgreSQL):
+orders → order_items → payments (asociados al order completo)
+(NO hay bills a menos que se haga split online)
+
+### Justificación
+
+**Por qué NO sincronizar bills:**
+
+1. **Caso de uso más común**: 90% de pagos son sin split
+   - Para estos casos, sincronizar solo payments es suficiente
+   - El backend no necesita saber que hubo una bill local
+
+2. **`local_bills` sigue siendo útil para UI**
+   - Mostrar bills abiertas offline
+   - Calcular `remaining_amount` localmente
+   - Tracking de pagos parciales offline
+
+3. **Split offline es un caso edge**
+   - La mayoría de restaurantes no hacen split frecuentemente
+   - Si necesitan split, pueden esperar a tener conexión
+   - Esta limitación está documentada
+
+4. **Simplicidad**
+   - No necesitamos implementar `processBill()` en SyncEngine
+   - `processPayment()` ya funciona sin cambios
+   - Menos código = menos bugs
+
+5. **Extensible en el futuro**
+   - Si después necesitamos split offline, podemos agregar `processBill()`
+   - Pero por ahora no es prioritario
+
+### Ejemplo de flujo offline completo
+
+**Escenario: Pago sin split (caso común)**
+
+```typescript
+// 1. Crear pedido offline
+const order = await OrderRepository.create({
+  company_id: "company-1",
+  branch_id: "branch-1",
+  table_id: "table-1",
+});
+
+// 2. Agregar items
+await OrderRepository.addItem(order.local_uuid, {
+  product_id: "prod-1",
+  product_name: "Hamburguesa",
+  quantity: 2,
+  unit_price: 5000,
+});
+
+// 3. Crear pago offline (con auto-creación de bill)
+const result = await offlinePaymentService.createPaymentOffline({
+  orderLocalUuid: order.local_uuid,
+  paymentMethod: "cash",
+  amount: 11900,
+});
+
+// Resultado:
+// - local_bill creada (tracking local)
+// - local_payment creado
+// - order marcado como paid
+// - mesa liberada
+// - Todo encolado en sync_queue
+Escenario: Sincronización
+// SyncEngine procesa la cola
+await syncEngine.processBatch();
+
+// POST /orders → crea order en backend
+// POST /orders/{uuid}/items → agrega items
+// POST /billing/payments → crea payment (sin bill_uuid)
+
+// Backend recibe:
+// - Order con items
+// - Payment asociado al order completo
+// - (NO hay bill en backend porque no se hizo split online)
+Referencias
+SyncEngine: src/services/sync/SyncEngine.ts
+processOrder(): sincroniza orders
+processPayment(): sincroniza payments (sin bill_uuid)
+OfflinePaymentService: src/services/offlinePaymentService.ts
+createPaymentOffline(): crea bill + payment localmente
+Backend endpoints:
+POST /orders: crear order
+POST /orders/{uuid}/items: agregar items
+POST /billing/payments: crear payment (bill_uuid opcional)
+POST /orders/{uuid}/split: crear bills (solo online)
