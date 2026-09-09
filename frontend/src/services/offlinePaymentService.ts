@@ -3,6 +3,8 @@ import { OrderRepository } from "@/db/repositories/OrderRepository";
 import { BillRepository } from "@/db/repositories/BillRepository";
 import { PaymentRepository } from "@/db/repositories/PaymentRepository";
 import { SyncQueueRepository } from "@/db/repositories/SyncQueueRepository";
+import { CashMovementRepository } from "@/db/repositories/CashMovementRepository";
+import { CashSessionRepository } from "@/db/repositories/CashSessionRepository";
 import type { LocalOrder } from "@/db/repositories/OrderRepository";
 import type { LocalBill } from "@/types/bills";
 import type { LocalPayment } from "@/db/repositories/PaymentRepository";
@@ -183,6 +185,35 @@ export const offlinePaymentService = {
         notes,
       });
 
+      // 7. Si es pago en efectivo y hay sesión abierta, registrar como movimiento de caja
+      let cashMovementCreated = false;
+      if (paymentMethod === "cash") {
+        try {
+          const terminalId = (await import("./terminalIdentity")).getTerminalId();
+          const userId = order.waiter_id || "unknown"; // usar waiter_id como proxy de user_id
+          const session = await CashSessionRepository.findActive(
+            order.company_id,
+            order.branch_id,
+            userId,
+            terminalId
+          );
+          if (session) {
+            await this.registerCashPayment(
+              session.local_uuid,
+              amount,
+              payment.local_uuid,
+              payment.cloud_id || undefined,
+              notes
+            );
+            cashMovementCreated = true;
+            console.log(`[offlinePaymentService] ✅ Movimiento de caja registrado: ${amount}`);
+          }
+        } catch (movementErr: any) {
+          // No crítico: si falla registrar movimiento, el pago sigue siendo válido
+          console.warn("[offlinePaymentService] ⚠️ No se pudo registrar movimiento de caja:", movementErr?.message);
+        }
+      }
+
       // 7. Si bill está completamente pagada → actualizar order + liberar mesa
       let orderStatusUpdated = false;
       let tableReleased = false;
@@ -251,6 +282,30 @@ export const offlinePaymentService = {
         status: "available",
         current_order_uuid: null,
       },
+    });
+  },
+
+  /**
+   * Registra un pago en efectivo como movimiento de caja.
+   * 
+   * Usado cuando el método de pago es 'cash' y hay una sesión abierta.
+   * Crea un movimiento local de tipo 'payment' con balance_after calculado.
+   */
+  async registerCashPayment(
+    cashSessionLocalUuid: string,
+    amount: number,
+    referenceLocalUuid: string,
+    referenceCloudId?: string,
+    notes?: string
+  ): Promise<any> {
+    return await CashMovementRepository.create(cashSessionLocalUuid, {
+      type: "payment",
+      amount,
+      reason: "Pago en efectivo",
+      notes,
+      reference_type: "payment",
+      reference_local_uuid: referenceLocalUuid,
+      reference_cloud_id: referenceCloudId,
     });
   },
 
