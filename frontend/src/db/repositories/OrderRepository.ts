@@ -87,79 +87,73 @@ export class OrderRepository {
     const idempotency_key = uuidv4();
     const order_number = `TEMP-${Date.now()}`;
 
-    await localDb.execute(
-      `INSERT INTO local_orders (
-        local_uuid, company_id, branch_id, terminal_id, table_id,
-        order_number, order_type, status, subtotal, discount_total,
-        tax_total, tip_amount, grand_total, guest_count,
-        waiter_id, waiter_name, notes, idempotency_key, sync_status,
-        created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-      [
+    // TRANSACCIÓN ATÓMICA: todas las operaciones deben completarse juntas
+    await localDb.transaction(async () => {
+      // 1. Crear order
+      await localDb.execute(
+        `INSERT INTO local_orders (
+          local_uuid, company_id, branch_id, terminal_id, table_id,
+          order_number, order_type, status, subtotal, discount_total,
+          tax_total, tip_amount, grand_total, guest_count,
+          waiter_id, waiter_name, notes, idempotency_key, sync_status,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [
+          local_uuid,
+          payload.company_id,
+          payload.branch_id,
+          payload.terminal_id || null,
+          payload.table_id || null,
+          order_number,
+          payload.order_type || "dine_in",
+          "confirmed",
+          payload.guest_count || 1,
+          payload.waiter_id || null,
+          payload.waiter_name || null,
+          payload.notes || null,
+          idempotency_key,
+        ]
+      );
+
+      // 2. Encolar evento de sincronización
+      const syncPayload = {
         local_uuid,
-        payload.company_id,
-        payload.branch_id,
-        payload.terminal_id || null,
-        payload.table_id || null,
+        company_id: payload.company_id,
+        branch_id: payload.branch_id,
+        terminal_id: payload.terminal_id || null,
+        table_id: payload.table_id || null,
         order_number,
-        payload.order_type || "dine_in",
-        "confirmed",
-        payload.guest_count || 1,
-        payload.waiter_id || null,
-        payload.waiter_name || null,
-        payload.notes || null,
+        order_type: payload.order_type || "dine_in",
+        status: 'confirmed',
+        subtotal: 0,
+        discount_total: 0,
+        tax_total: 0,
+        tip_amount: 0,
+        grand_total: 0,
+        guest_count: payload.guest_count || 1,
+        waiter_id: payload.waiter_id || null,
+        waiter_name: payload.waiter_name || null,
+        notes: payload.notes || null,
         idempotency_key,
-      ]
-    );
+        items: [], // Se actualizarán cuando se agreguen items
+      };
 
-    // Encolar evento de sincronización
-    const syncPayload = {
-      local_uuid,
-      company_id: payload.company_id,
-      branch_id: payload.branch_id,
-      terminal_id: payload.terminal_id || null,
-      table_id: payload.table_id || null,
-      order_number,
-      order_type: payload.order_type || "dine_in",
-      status: 'confirmed',
-      subtotal: 0,
-      discount_total: 0,
-      tax_total: 0,
-      tip_amount: 0,
-      grand_total: 0,
-      guest_count: payload.guest_count || 1,
-      waiter_id: payload.waiter_id || null,
-      waiter_name: payload.waiter_name || null,
-      notes: payload.notes || null,
-      idempotency_key,
-      items: [], // Se actualizarán cuando se agreguen items
-    };
+      await SyncQueueRepository.enqueue({
+        company_id: payload.company_id,
+        branch_id: payload.branch_id,
+        entity_type: 'order',
+        entity_local_uuid: local_uuid,
+        action: 'create',
+        payload: syncPayload,
+      });
 
-    await SyncQueueRepository.enqueue({
-      company_id: payload.company_id,
-      branch_id: payload.branch_id,
-      entity_type: 'order',
-      entity_local_uuid: local_uuid,
-      action: 'create',
-      payload: syncPayload,
+      // 3. Marcar mesa como occupied (si existe table_id)
+      if (payload.table_id) {
+        await localTablesService.markOccupied(payload.table_id, local_uuid);
+      }
     });
 
-    // FIX OFFLINE (Nivel 4): Marcar mesa como occupied en SQLite inmediatamente
-    // Esto garantiza que la UI refleje el cambio sin esperar sync.
     console.log("[OrderRepository] 📤 Pedido creado localmente:", local_uuid);
-    console.log("[OrderRepository] table_id:", payload.table_id);
-    
-    if (payload.table_id) {
-      console.log("[OrderRepository] Llamando markOccupied para mesa:", payload.table_id);
-      // FASE 4 FIX: NO capturar el error silenciosamente.
-      // Si markOccupied falla (ej: tabla no existe, mesa no existe),
-      // el error DEBE propagarse para que el usuario sepa que algo falló.
-      await localTablesService.markOccupied(payload.table_id, local_uuid);
-      console.log("[OrderRepository] ✅ markOccupied ejecutado exitosamente");
-    } else {
-      console.warn("[OrderRepository] ⚠️ No hay table_id, no se marca mesa");
-    }
-
     return await this.findByLocalUuid(local_uuid) as LocalOrder;
   }
 
