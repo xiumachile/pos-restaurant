@@ -127,6 +127,9 @@ export class SyncEngine {
       case "cash_session":
         console.warn("[SyncEngine] cash_session sync no implementado aún");
         break;
+      case "cash_movement":
+        cloudId = await this.processCashMovement(item, payload);
+        break;
       default:
         throw new Error(`Entity type no soportado: ${item.entity_type}`);
     }
@@ -359,6 +362,75 @@ export class SyncEngine {
       throw new Error(`Acción no soportada para table_status: ${item.action}`);
     }
     await syncApi.updateTableStatus(item.entity_local_uuid, payload.status);
+  }
+
+  /**
+   * Procesa movimientos de caja offline (withdrawal/deposit/adjustment).
+   * 
+   * IMPORTANTE: Solo estos 3 tipos llegan al backend.
+   * - opening/closing: se sincronizan como parte de cash_session
+   * - payment: se sincroniza como billing/payments
+   * 
+   * El backend espera amount positivo (el signo lo da el type).
+   */
+  private async processCashMovement(item: SyncQueueItem, payload: any): Promise<string | null> {
+    if (item.action !== "create") {
+      throw new Error(`Acción no soportada para cash_movement: ${item.action}`);
+    }
+
+    const movementType = payload.type;
+    
+    // Solo withdrawal/deposit/adjustment llegan al backend
+    const syncableTypes = ["withdrawal", "deposit", "adjustment"];
+    if (!syncableTypes.includes(movementType)) {
+      console.log(`[SyncEngine] ⏭️  Saltando ${movementType} (se sincroniza por otra vía)`);
+      return null;
+    }
+
+    // Resolver session_uuid desde cash_session_cloud_id o cash_session_local_uuid
+    let sessionUuid = payload.cash_session_cloud_id;
+    if (!sessionUuid && payload.cash_session_local_uuid) {
+      const { CashSessionRepository } = await import("../../db/repositories/CashSessionRepository");
+      const session = await CashSessionRepository.findByLocalUuid(payload.cash_session_local_uuid);
+      if (!session?.cloud_id) {
+        throw new Error(
+          `Cash session ${payload.cash_session_local_uuid} no está sincronizada. ` +
+          `No se puede crear movimiento sin session_uuid en backend.`
+        );
+      }
+      sessionUuid = session.cloud_id;
+    }
+
+    if (!sessionUuid) {
+      throw new Error("No se pudo resolver session_uuid para el movimiento");
+    }
+
+    // Backend espera amount positivo (el signo lo da el type)
+    const absoluteAmount = Math.abs(payload.amount);
+
+    const movementPayload = {
+      session_uuid: sessionUuid,
+      type: movementType as "withdrawal" | "deposit" | "adjustment",
+      amount: absoluteAmount,
+      reason: payload.reason || `${movementType} offline`,
+      notes: payload.notes || null,
+      authorizer_uuid: payload.authorized_by || null,
+      reference_type: payload.reference_type || null,
+      reference_id: payload.reference_local_uuid || null,
+      idempotency_key: payload.idempotency_key,
+    };
+
+    console.log("[SyncEngine] 📤 Creando movimiento:", JSON.stringify(movementPayload, null, 2));
+
+    const response = await syncApi.createMovement(movementPayload);
+    const cloudId = response.uuid || response.id;
+    
+    if (cloudId) {
+      const { CashMovementRepository } = await import("../../db/repositories/CashMovementRepository");
+      await CashMovementRepository.markAsSynced(item.entity_local_uuid, String(cloudId));
+    }
+    
+    return cloudId ? String(cloudId) : null;
   }
 
   private async handleFailure(item: SyncQueueItem, errorMessage: string): Promise<void> {

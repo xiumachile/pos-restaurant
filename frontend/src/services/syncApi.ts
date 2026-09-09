@@ -30,6 +30,18 @@ export interface PaymentPayload {
   idempotency_key: string;
 }
 
+export interface MovementPayload {
+  session_uuid: string;
+  type: "withdrawal" | "deposit" | "adjustment";
+  amount: number;
+  reason: string;
+  notes?: string | null;
+  authorizer_uuid?: string | null;
+  reference_type?: string | null;
+  reference_id?: string | null;
+  idempotency_key: string;
+}
+
 export class SyncApiClient {
   async createOrder(payload: OrderPayload): Promise<any> {
     const response = await apiClient.post("/orders", payload, {
@@ -70,6 +82,23 @@ export class SyncApiClient {
 
   async createPayment(payload: PaymentPayload): Promise<any> {
     const response = await apiClient.post("/billing/payments", payload, {
+      headers: { "Idempotency-Key": payload.idempotency_key },
+    });
+    return response.data.data;
+  }
+
+  /**
+   * Crea un movimiento de caja (withdrawal/deposit/adjustment).
+   * POST /cashier/movements
+   * 
+   * Backend espera:
+   * - session_uuid: UUID de la sesión (requerido)
+   * - type: "withdrawal" | "deposit" | "adjustment"
+   * - amount: positivo (el signo lo da el type)
+   * - reason: requerido
+   */
+  async createMovement(payload: MovementPayload): Promise<any> {
+    const response = await apiClient.post("/cashier/movements", payload, {
       headers: { "Idempotency-Key": payload.idempotency_key },
     });
     return response.data.data;
