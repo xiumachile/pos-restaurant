@@ -2,6 +2,7 @@ import { localDb } from "./localDb";
 import initialMigration from "./migrations/001_initial.sql?raw";
 import tableMutationsMigration from "./migrations/002_table_local_mutations.sql?raw";
 import backendIdMigration from "./migrations/003_add_backend_id_to_categories.sql?raw";
+import localBillsMigration from "./migrations/004_create_local_bills.sql?raw";
 
 /**
  * Parser robusto para dividir SQL en statements individuales.
@@ -340,6 +341,64 @@ export async function runMigrations(): Promise<void> {
   }
 
   // ═══════════════════════════════════════════════════════════════
+  // MIGRACIÓN 004: local_bills (INDEPENDIENTE)
+  // ═══════════════════════════════════════════════════════════════
+  if (!applied.some(m => m.version === "004")) {
+    console.log("[Migrations] 🚀 Aplicando migración 004_create_local_bills...");
+
+    if (!localBillsMigration || localBillsMigration.trim().length === 0) {
+      throw new Error("Migración 004 vacía o no cargada");
+    }
+
+    const statements = parseSqlStatements(localBillsMigration);
+    console.log(`[Migrations] 🔍 004: Parsed ${statements.length} statements SQL`);
+
+    let executed = 0;
+    let skipped = 0;
+
+    for (let i = 0; i < statements.length; i++) {
+      const stmt = statements[i];
+      const upper = stmt.toUpperCase().trim();
+
+      if (upper.startsWith("--") || upper.startsWith("/*") || stmt.trim().length === 0) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        await db.execute(stmt);
+        executed++;
+        const createMatch = stmt.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["']?(\w+)/i);
+        if (createMatch) {
+          console.log(`[Migrations] ✓ 004: Tabla creada: ${createMatch[1]}`);
+        }
+        const indexMatch = stmt.match(/CREATE\s+INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?["']?(\w+)/i);
+        if (indexMatch) {
+          console.log(`[Migrations] ✓ 004: Índice creado: ${indexMatch[1]}`);
+        }
+      } catch (err: any) {
+        const errMsg = String(err?.message || err || "unknown");
+        if (errMsg.includes("already exists") || err.code === 1) {
+          console.warn(`[Migrations] ⚠️  004: Objeto ya existe, continuando`);
+          skipped++;
+        } else {
+          throw new Error(`Migración 004 falló en statement ${i + 1}: ${errMsg}`);
+        }
+      }
+    }
+
+    await db.execute(
+      "INSERT OR REPLACE INTO migrations (version, checksum) VALUES (?, ?)",
+      ["004", `local-bills-${executed}-statements-${Date.now()}`]
+    );
+
+    console.log(`[Migrations] ✅ 004 Resumen: ${executed} ejecutados, ${skipped} saltados`);
+    console.log("[Migrations] 🎉 Migración 004 aplicada correctamente");
+  } else {
+    console.log("[Migrations] ✅ Migración 004 ya está aplicada");
+  }
+
+    // ═══════════════════════════════════════════════════════════════
   // VERIFICACIÓN DE INTEGRIDAD (independiente de migraciones)
   // ═══════════════════════════════════════════════════════════════
   const criticalTables = [
@@ -347,6 +406,7 @@ export async function runMigrations(): Promise<void> {
     "local_orders",
     "local_order_items",
     "local_tables",
+    "local_bills",
     "table_local_mutations"
   ];
 
