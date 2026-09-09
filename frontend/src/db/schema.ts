@@ -4,6 +4,7 @@ import tableMutationsMigration from "./migrations/002_table_local_mutations.sql?
 import backendIdMigration from "./migrations/003_add_backend_id_to_categories.sql?raw";
 import localBillsMigration from "./migrations/004_create_local_bills.sql?raw";
 import localCashMovementsMigration from "./migrations/005_create_local_cash_movements.sql?raw";
+import localCashSessionsCompanyMigration from "./migrations/006_add_company_to_local_cash_sessions.sql?raw";
 
 /**
  * Parser robusto para dividir SQL en statements individuales.
@@ -458,6 +459,58 @@ export async function runMigrations(): Promise<void> {
   }
 
     // ═══════════════════════════════════════════════════════════════
+  // MIGRACIÓN 006: company_id en local_cash_sessions
+  // ═══════════════════════════════════════════════════════════════
+  if (!applied.some(m => m.version === "006")) {
+    console.log("[Migrations] 🚀 Aplicando migración 006_add_company_to_local_cash_sessions...");
+
+    const statements = parseSqlStatements(localCashSessionsCompanyMigration);
+    console.log(`[Migrations] 🔍 006: Parsed ${statements.length} statements SQL`);
+
+    let executed = 0;
+    let skipped = 0;
+
+    for (let i = 0; i < statements.length; i++) {
+      const stmt = statements[i];
+      const upper = stmt.toUpperCase().trim();
+
+      if (upper.startsWith("--") || upper.startsWith("/*") || stmt.trim().length === 0) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        await db.execute(stmt);
+        executed++;
+      } catch (err: any) {
+        const errMsg = String(err?.message || err || "unknown");
+
+        // Idempotencia defensiva: si company_id ya existe, continuar.
+        if (
+          errMsg.includes("duplicate column name") ||
+          errMsg.includes("already exists") ||
+          errMsg.includes("no such column") === false && stmt.toUpperCase().includes("ADD COLUMN COMPANY_ID")
+        ) {
+          console.warn(`[Migrations] ⚠️  006: Statement ya aplicado o no crítico, continuando: ${errMsg}`);
+          skipped++;
+        } else {
+          throw new Error(`Migración 006 falló en statement ${i + 1}: ${errMsg}`);
+        }
+      }
+    }
+
+    await db.execute(
+      "INSERT OR REPLACE INTO migrations (version, checksum) VALUES (?, ?)",
+      ["006", `cash-sessions-company-${executed}-statements-${Date.now()}`]
+    );
+
+    console.log(`[Migrations] ✅ 006 Resumen: ${executed} ejecutados, ${skipped} saltados`);
+    console.log("[Migrations] 🎉 Migración 006 aplicada correctamente");
+  } else {
+    console.log("[Migrations] ✅ Migración 006 ya está aplicada");
+  }
+
+  // ═══════════════════════════════════════════════════════════════
   // VERIFICACIÓN DE INTEGRIDAD (independiente de migraciones)
   // ═══════════════════════════════════════════════════════════════
   const criticalTables = [

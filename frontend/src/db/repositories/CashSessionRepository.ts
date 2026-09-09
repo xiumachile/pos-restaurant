@@ -63,20 +63,27 @@ export class CashSessionRepository {
   }
 
   /**
-   * Busca la sesión activa para un branch + usuario específico.
-   * 
-   * IMPORTANTE: Filtra por branch_id Y user_id para evitar devolver
-   * la caja equivocada si hay múltiples terminales o usuarios.
+   * Busca la sesión activa para company + branch + terminal + user.
+   *
+   * P0 Caja Offline:
+   * NUNCA debe devolver una caja de otra empresa, sucursal, terminal o usuario.
    */
-  static async findActive(branchId: string, userId: string): Promise<LocalCashSession | null> {
+  static async findActive(
+    companyId: string,
+    branchId: string,
+    userId: string,
+    terminalId: string
+  ): Promise<LocalCashSession | null> {
     const rows = await localDb.select<LocalCashSession>(
       `SELECT * FROM local_cash_sessions 
-       WHERE status = 'open' 
-         AND branch_id = ? 
+       WHERE status = 'open'
+         AND company_id = ?
+         AND branch_id = ?
          AND user_id = ?
+         AND terminal_id = ?
        ORDER BY opened_at DESC 
        LIMIT 1`,
-      [branchId, userId]
+      [companyId, branchId, userId, terminalId]
     );
     return rows[0] || null;
   }

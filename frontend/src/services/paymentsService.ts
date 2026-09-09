@@ -3,6 +3,7 @@ import { CashSessionRepository } from "@/db/repositories/CashSessionRepository";
 import { useAuthStore } from "@/store/useAuthStore";
 import { localPaymentsService } from "./localPaymentsService";
 import { useSyncStore } from "@/store/useSyncStore";
+import { getTerminalId } from "./terminalIdentity";
 import type {
   PaymentMethod,
   CashierDashboard,
@@ -45,10 +46,12 @@ export const paymentsService = {
       try {
         const auth = useAuthStore.getState();
         const user = auth.user;
+        const companyId = user?.company?.uuid ? String(user.company.uuid) : "unknown";
         const branchId = user?.branch_id ? String(user.branch_id) : "unknown";
         const userId = user?.id ? String(user.id) : "unknown";
+        const terminalId = getTerminalId();
         
-        const localSession = await CashSessionRepository.findActive(branchId, userId);
+        const localSession = await CashSessionRepository.findActive(companyId, branchId, userId, terminalId);
         if (localSession) {
           currentSession = CashSessionRepository.toCashSession(localSession);
           console.log(`[paymentsService] ✅ Sesión activa encontrada offline: ${localSession.local_uuid} (cloud: ${localSession.cloud_id || 'N/A'})`);
@@ -87,9 +90,12 @@ export const paymentsService = {
         try {
           const auth = useAuthStore.getState();
           const user = auth.user;
+          const companyId = user?.company?.uuid ? String(user.company.uuid) : "unknown";
           const branchId = user?.branch_id ? String(user.branch_id) : "unknown";
+          const userId = user?.id ? String(user.id) : "unknown";
+          const terminalId = getTerminalId();
           
-          const existing = await CashSessionRepository.findActive(branchId, String(user?.id || "unknown"));
+          const existing = await CashSessionRepository.findActive(companyId, branchId, userId, terminalId);
           const backendSession = dashboard.current_session;
 
           // Si no hay sesión local activa o el cloud_id no coincide, crear/actualizar
@@ -104,6 +110,7 @@ export const paymentsService = {
             await CashSessionRepository.create({
               company_id: user?.company?.uuid ? String(user.company.uuid) : "unknown",
               branch_id: String(branchId),
+              terminal_id: terminalId,
               user_id: user?.id ? String(user.id) : "unknown",
               user_name: backendSession.user?.name || null,
               opening_amount: backendSession.opening_amount,
@@ -171,10 +178,12 @@ export const paymentsService = {
       const auth = useAuthStore.getState();
       const user = auth.user;
       const branchId = user?.branch_id ? String(user.branch_id) : "unknown";
+      const terminalId = getTerminalId();
 
       await CashSessionRepository.create({
         company_id: user?.company?.uuid ? String(user.company.uuid) : "unknown",
         branch_id: String(branchId),
+        terminal_id: terminalId,
         user_id: user?.id ? String(user.id) : "unknown",
         user_name: user?.name || null,
         opening_amount: openingAmount,

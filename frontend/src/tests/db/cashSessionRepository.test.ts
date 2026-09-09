@@ -29,6 +29,7 @@ describe("CashSessionRepository", () => {
       const session = await CashSessionRepository.create({
         company_id: "company-1",
         branch_id: "branch-1",
+        terminal_id: "terminal-1",
         user_id: "user-1",
         user_name: "Juan",
         opening_amount: 50000,
@@ -50,6 +51,7 @@ describe("CashSessionRepository", () => {
       await CashSessionRepository.create({
         company_id: "company-1",
         branch_id: "branch-1",
+        terminal_id: "terminal-1",
         user_id: "user-1",
         opening_amount: 50000,
       });
@@ -57,16 +59,17 @@ describe("CashSessionRepository", () => {
       await CashSessionRepository.create({
         company_id: "company-1",
         branch_id: "branch-2",
+        terminal_id: "terminal-1",
         user_id: "user-1",
         opening_amount: 30000,
       });
 
-      const session1 = await CashSessionRepository.findActive("branch-1", "user-1");
+      const session1 = await CashSessionRepository.findActive("company-1", "branch-1", "user-1", "terminal-1");
       expect(session1).toBeDefined();
       expect(session1?.branch_id).toBe("branch-1");
       expect(session1?.opening_amount).toBe(50000);
 
-      const session2 = await CashSessionRepository.findActive("branch-2", "user-1");
+      const session2 = await CashSessionRepository.findActive("company-1", "branch-2", "user-1", "terminal-1");
       expect(session2).toBeDefined();
       expect(session2?.branch_id).toBe("branch-2");
       expect(session2?.opening_amount).toBe(30000);
@@ -76,11 +79,12 @@ describe("CashSessionRepository", () => {
       await CashSessionRepository.create({
         company_id: "company-1",
         branch_id: "branch-1",
+        terminal_id: "terminal-1",
         user_id: "user-1",
         opening_amount: 50000,
       });
 
-      const session = await CashSessionRepository.findActive("branch-1", "user-2");
+      const session = await CashSessionRepository.findActive("company-1", "branch-1", "user-2", "terminal-1");
       expect(session).toBeNull();
     });
 
@@ -88,11 +92,12 @@ describe("CashSessionRepository", () => {
       await CashSessionRepository.create({
         company_id: "company-1",
         branch_id: "branch-1",
+        terminal_id: "terminal-1",
         user_id: "user-1",
         opening_amount: 50000,
       });
 
-      const session = await CashSessionRepository.findActive("branch-2", "user-1");
+      const session = await CashSessionRepository.findActive("company-1", "branch-2", "user-1", "terminal-1");
       expect(session).toBeNull();
     });
 
@@ -100,22 +105,61 @@ describe("CashSessionRepository", () => {
       const session = await CashSessionRepository.create({
         company_id: "company-1",
         branch_id: "branch-1",
+        terminal_id: "terminal-1",
         user_id: "user-1",
         opening_amount: 50000,
       });
 
       await CashSessionRepository.close(session.local_uuid, 150000);
 
-      const active = await CashSessionRepository.findActive("branch-1", "user-1");
+      const active = await CashSessionRepository.findActive("company-1", "branch-1", "user-1", "terminal-1");
       expect(active).toBeNull();
     });
   });
+
+    it("no debería devolver caja de otro terminal aunque company/branch/user coincidan", async () => {
+      await CashSessionRepository.create({
+        company_id: "company-1",
+        branch_id: "branch-1",
+        terminal_id: "terminal-1",
+        user_id: "user-1",
+        opening_amount: 50000,
+      });
+
+      await CashSessionRepository.create({
+        company_id: "company-1",
+        branch_id: "branch-1",
+        terminal_id: "terminal-2",
+        user_id: "user-1",
+        opening_amount: 30000,
+      });
+
+      const terminal1 = await CashSessionRepository.findActive(
+        "company-1",
+        "branch-1",
+        "user-1",
+        "terminal-1"
+      );
+
+      const terminal2 = await CashSessionRepository.findActive(
+        "company-1",
+        "branch-1",
+        "user-1",
+        "terminal-2"
+      );
+
+      expect(terminal1?.terminal_id).toBe("terminal-1");
+      expect(terminal1?.opening_amount).toBe(50000);
+      expect(terminal2?.terminal_id).toBe("terminal-2");
+      expect(terminal2?.opening_amount).toBe(30000);
+    });
 
   describe("close", () => {
     it("debería cerrar sesión con monto final", async () => {
       const session = await CashSessionRepository.create({
         company_id: "company-1",
         branch_id: "branch-1",
+        terminal_id: "terminal-1",
         user_id: "user-1",
         opening_amount: 50000,
       });
@@ -135,6 +179,7 @@ describe("CashSessionRepository", () => {
       const session = await CashSessionRepository.create({
         company_id: "company-1",
         branch_id: "branch-1",
+        terminal_id: "terminal-1",
         user_id: "user-1",
         opening_amount: 50000,
       });
@@ -153,6 +198,7 @@ describe("CashSessionRepository", () => {
       await CashSessionRepository.create({
         company_id: "company-1",
         branch_id: "branch-1",
+        terminal_id: "terminal-1",
         user_id: "user-1",
         opening_amount: 50000,
       });
@@ -160,6 +206,7 @@ describe("CashSessionRepository", () => {
       const session2 = await CashSessionRepository.create({
         company_id: "company-1",
         branch_id: "branch-1",
+        terminal_id: "terminal-1",
         user_id: "user-2",
         opening_amount: 30000,
       });
@@ -184,6 +231,7 @@ describe("CashSessionRepository", () => {
       const session = await CashSessionRepository.create({
         company_id: "company-1",
         branch_id: "branch-1",
+        terminal_id: "terminal-1",
         user_id: "user-1",
         opening_amount: 50000,
         cloud_id: "cloud-session-123",
