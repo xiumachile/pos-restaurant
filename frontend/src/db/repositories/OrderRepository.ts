@@ -172,28 +172,33 @@ export class OrderRepository {
     const itemUuid = uuidv4();
     const subtotal = item.quantity * item.unit_price;
 
-    await localDb.execute(
-      `INSERT INTO local_order_items (
-        local_uuid, order_local_uuid, product_id, product_name,
-        quantity, unit_price, subtotal, notes, kitchen_status,
-        is_menu_item, menu_item_id, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, CURRENT_TIMESTAMP)`,
-      [
-        itemUuid,
-        orderLocalUuid,
-        item.product_id,
-        item.product_name,
-        item.quantity,
-        item.unit_price,
-        subtotal,
-        item.notes || null,
-        item.is_menu_item ? 1 : 0,
-        item.menu_item_id || null,
-      ]
-    );
+    // TRANSACCIÓN ATÓMICA: item + recálculo de totales
+    // Si recalculateOrderTotals falla, el item NO queda insertado
+    await localDb.transaction(async () => {
+      // 1. Insertar item
+      await localDb.execute(
+        `INSERT INTO local_order_items (
+          local_uuid, order_local_uuid, product_id, product_name,
+          quantity, unit_price, subtotal, notes, kitchen_status,
+          is_menu_item, menu_item_id, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, CURRENT_TIMESTAMP)`,
+        [
+          itemUuid,
+          orderLocalUuid,
+          item.product_id,
+          item.product_name,
+          item.quantity,
+          item.unit_price,
+          subtotal,
+          item.notes || null,
+          item.is_menu_item ? 1 : 0,
+          item.menu_item_id || null,
+        ]
+      );
 
-    // Actualizar totales del pedido
-    await this.recalculateOrderTotals(orderLocalUuid);
+      // 2. Recalcular totales del pedido
+      await this.recalculateOrderTotals(orderLocalUuid);
+    });
 
     return await this.findItemByLocalUuid(itemUuid) as LocalOrderItem;
   }
