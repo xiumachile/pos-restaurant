@@ -5,6 +5,8 @@ type Row = Record<string, any>;
 
 class MockDatabase {
   private tables: Map<string, Row[]> = new Map();
+  private inTransaction: boolean = false;
+  private transactionBackup: Map<string, Row[]> | null = null;
 
   static async load(_conn: string): Promise<MockDatabase> {
     return new MockDatabase();
@@ -88,6 +90,33 @@ class MockDatabase {
   async execute(query: string, params?: any[]): Promise<number> {
     const q = query.trim().toLowerCase();
     const safeParams = params || [];
+
+    // Manejo de transacciones
+    if (q.startsWith("begin")) {
+      this.inTransaction = true;
+      // Crear backup del estado actual
+      this.transactionBackup = new Map();
+      for (const [key, value] of this.tables.entries()) {
+        this.transactionBackup.set(key, [...value]);
+      }
+      return 0;
+    }
+
+    if (q.startsWith("commit")) {
+      this.inTransaction = false;
+      this.transactionBackup = null;
+      return 0;
+    }
+
+    if (q.startsWith("rollback")) {
+      this.inTransaction = false;
+      // Restaurar estado desde backup
+      if (this.transactionBackup) {
+        this.tables = this.transactionBackup;
+        this.transactionBackup = null;
+      }
+      return 0;
+    }
 
     if (q.startsWith("create table")) {
       const match = query.match(/create table\s+(?:if not exists\s+)?(\w+)/i);

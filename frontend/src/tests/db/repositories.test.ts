@@ -307,7 +307,9 @@ describe("Repositorios locales", () => {
 
       const pending = await SyncQueueRepository.getPending();
       const cancelItem = pending.find(
-        p => p.entity_local_uuid === bill.local_uuid && p.action === "cancel"
+        p => p.entity_local_uuid === bill.local_uuid && 
+             p.action === "update" && 
+             JSON.parse(p.payload).status === "cancelled"
       );
       expect(cancelItem).toBeDefined();
     });
