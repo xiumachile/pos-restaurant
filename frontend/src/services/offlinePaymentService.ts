@@ -38,7 +38,7 @@ const PAYABLE_STATUSES: LocalOrder["status"][] = [
 
 export class OfflinePaymentError extends Error {
   constructor(public code: string, message: string) {
-    super(message);
+    super(`${code}: ${message}`);
     this.name = "OfflinePaymentError";
   }
 }
