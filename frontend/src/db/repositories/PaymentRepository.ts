@@ -105,6 +105,32 @@ export class PaymentRepository {
       },
     });
 
+    // Registrar evento CREATE_PAYMENT (Event Sourcing - append-only)
+    try {
+      await EventStore.record({
+        company_id: payload.company_id,
+        branch_id: payload.branch_id,
+        terminal_id: getTerminalId(),
+        user_id: "system", // TODO: obtener de contexto
+        entity_type: "payment",
+        entity_uuid: local_uuid,
+        event_type: "CREATE_PAYMENT",
+        payload: {
+          amount: payment.amount,
+          payment_method: payment.payment_method,
+          payment_method_uuid: paymentMethodUuid,
+          tip_amount: payment.tip_amount,
+          reference_code: payment.reference_code,
+          notes: payload.notes || null,
+          order_local_uuid: payload.order_local_uuid || null,
+          order_cloud_id: payload.order_cloud_id || null,
+        },
+      });
+    } catch (eventErr: any) {
+      // No crítico: si falla registrar evento, el pago sigue siendo válido
+      console.warn("[PaymentRepository] ⚠️ No se pudo registrar evento CREATE_PAYMENT:", eventErr?.message);
+    }
+
     console.log(`[PaymentRepository] 📤 Pago encolado para sync: ${local_uuid}`);
     return payment;
   }
@@ -159,5 +185,56 @@ export class PaymentRepository {
       "UPDATE local_payments SET sync_status = 'failed', sync_error = ? WHERE local_uuid = ?",
       [error, localUuid]
     );
+  }
+
+  /**
+   * Ajusta un pago existente (corrección de monto, método, etc.).
+   * 
+   * IMPORTANTE (Event Sourcing):
+   * NO hace UPDATE en local_payments.
+   * En su lugar, registra un evento ADJUST_PAYMENT con los cambios.
+   * 
+   * Para obtener el estado actual del pago:
+   * EventStore.getEntityState("payment", paymentUuid)
+   * 
+   * @param localUuid UUID del pago a ajustar
+   * @param adjustments Objeto con campos a ajustar (amount, payment_method, etc.)
+   * @param reason Razón del ajuste
+   */
+  static async adjust(
+    localUuid: string,
+    adjustments: {
+      amount?: number;
+      payment_method?: "cash" | "card" | "transfer" | "gift_card";
+      payment_method_uuid?: string;
+      tip_amount?: number;
+      reference_code?: string;
+      notes?: string;
+    },
+    reason: string
+  ): Promise<void> {
+    const payment = await this.findByLocalUuid(localUuid);
+    if (!payment) {
+      throw new Error(`Payment ${localUuid} not found`);
+    }
+
+    // Registrar evento ADJUST_PAYMENT (append-only)
+    await EventStore.record({
+      company_id: payment.company_id,
+      branch_id: payment.branch_id,
+      terminal_id: getTerminalId(),
+      user_id: "system",
+      entity_type: "payment",
+      entity_uuid: localUuid,
+      event_type: "ADJUST_PAYMENT",
+      payload: {
+        ...adjustments,
+        reason,
+        original_payment_uuid: localUuid,
+      },
+      notes: reason,
+    });
+
+    console.log(`[PaymentRepository] 📝 Ajuste registrado para payment ${localUuid}: ${reason}`);
   }
 }
