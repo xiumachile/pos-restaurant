@@ -5,6 +5,7 @@ import type { CashSession } from "@/types/payments";
 export interface LocalCashSession {
   local_uuid: string;
   cloud_id: string | null;
+  company_id: string;
   branch_id: string;
   terminal_id: string | null;
   user_id: string;
@@ -18,27 +19,36 @@ export interface LocalCashSession {
   created_at: string;
 }
 
+export interface CreateCashSessionPayload {
+  company_id: string;
+  branch_id: string;
+  terminal_id?: string;
+  user_id: string;
+  user_name?: string | null;
+  opening_amount: number;
+  opened_at?: string;
+  cloud_id?: string | null;
+  sync_status?: "pending" | "synced";
+}
+
 export class CashSessionRepository {
-  static async create(payload: {
-    branch_id: string;
-    user_id: string;
-    user_name?: string | null;
-    opening_amount: number;
-    opened_at?: string;
-    cloud_id?: string | null;
-    sync_status?: "pending" | "synced";
-  }): Promise<LocalCashSession> {
+  /**
+   * Crea una nueva sesión de caja local.
+   */
+  static async create(payload: CreateCashSessionPayload): Promise<LocalCashSession> {
     const local_uuid = uuidv4();
 
     await localDb.execute(
       `INSERT INTO local_cash_sessions 
-       (local_uuid, cloud_id, branch_id, user_id, user_name, 
+       (local_uuid, cloud_id, company_id, branch_id, terminal_id, user_id, user_name, 
         status, opening_amount, opened_at, sync_status)
-       VALUES (?, ?, ?, ?, ?, 'open', ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?)`,
       [
         local_uuid,
         payload.cloud_id || null,
+        payload.company_id,
         payload.branch_id,
+        payload.terminal_id || null,
         payload.user_id,
         payload.user_name || null,
         payload.opening_amount,
@@ -47,21 +57,33 @@ export class CashSessionRepository {
       ]
     );
 
-    console.log(`[CashSessionRepository] Sesion creada: ${local_uuid} (cloud: ${payload.cloud_id || 'local'})`);
+    console.log(`[CashSessionRepository] Sesión creada: ${local_uuid} (cloud: ${payload.cloud_id || 'local'})`);
     const result = await this.findByLocalUuid(local_uuid);
     return result!;
   }
 
-  static async findActive(): Promise<LocalCashSession | null> {
+  /**
+   * Busca la sesión activa para un branch + usuario específico.
+   * 
+   * IMPORTANTE: Filtra por branch_id Y user_id para evitar devolver
+   * la caja equivocada si hay múltiples terminales o usuarios.
+   */
+  static async findActive(branchId: string, userId: string): Promise<LocalCashSession | null> {
     const rows = await localDb.select<LocalCashSession>(
       `SELECT * FROM local_cash_sessions 
        WHERE status = 'open' 
+         AND branch_id = ? 
+         AND user_id = ?
        ORDER BY opened_at DESC 
-       LIMIT 1`
+       LIMIT 1`,
+      [branchId, userId]
     );
     return rows[0] || null;
   }
 
+  /**
+   * Busca sesión por local_uuid.
+   */
   static async findByLocalUuid(localUuid: string): Promise<LocalCashSession | null> {
     const rows = await localDb.select<LocalCashSession>(
       "SELECT * FROM local_cash_sessions WHERE local_uuid = ?",
@@ -70,6 +92,30 @@ export class CashSessionRepository {
     return rows[0] || null;
   }
 
+  /**
+   * Busca sesión por cloud_id.
+   */
+  static async findByCloudId(cloudId: string): Promise<LocalCashSession | null> {
+    const rows = await localDb.select<LocalCashSession>(
+      "SELECT * FROM local_cash_sessions WHERE cloud_id = ?",
+      [cloudId]
+    );
+    return rows[0] || null;
+  }
+
+  /**
+   * Lista todas las sesiones de un branch.
+   */
+  static async findByBranch(branchId: string): Promise<LocalCashSession[]> {
+    return await localDb.select<LocalCashSession>(
+      "SELECT * FROM local_cash_sessions WHERE branch_id = ? ORDER BY opened_at DESC",
+      [branchId]
+    );
+  }
+
+  /**
+   * Marca sesión como sincronizada con el backend.
+   */
   static async markAsSynced(localUuid: string, cloudId: string): Promise<void> {
     await localDb.execute(
       `UPDATE local_cash_sessions 
@@ -79,6 +125,9 @@ export class CashSessionRepository {
     );
   }
 
+  /**
+   * Cierra la sesión con el monto final.
+   */
   static async close(localUuid: string, closingAmount: number): Promise<void> {
     await localDb.execute(
       `UPDATE local_cash_sessions 
@@ -89,9 +138,45 @@ export class CashSessionRepository {
        WHERE local_uuid = ?`,
       [closingAmount, localUuid]
     );
-    console.log(`[CashSessionRepository] Sesion cerrada localmente: ${localUuid}`);
+    console.log(`[CashSessionRepository] Sesión cerrada localmente: ${localUuid}`);
   }
 
+  /**
+   * Calcula el balance actual de una sesión abierta.
+   * 
+   * Balance = opening_amount + sum(payments en efectivo) - sum(withdrawals) + sum(deposits)
+   * 
+   * NOTA: Por ahora solo considera opening_amount.
+   * TODO: Integrar con CashMovementRepository cuando esté implementado.
+   */
+  static async getBalance(localUuid: string): Promise<{
+    opening_amount: number;
+    cash_payments: number;
+    withdrawals: number;
+    deposits: number;
+    adjustments: number;
+    current_balance: number;
+  }> {
+    const session = await this.findByLocalUuid(localUuid);
+    if (!session) {
+      throw new Error(`Sesión ${localUuid} no encontrada`);
+    }
+
+    // Por ahora solo retornamos opening_amount
+    // TODO: Cuando implementemos CashMovementRepository, calcular balance completo
+    return {
+      opening_amount: session.opening_amount,
+      cash_payments: 0,
+      withdrawals: 0,
+      deposits: 0,
+      adjustments: 0,
+      current_balance: session.opening_amount,
+    };
+  }
+
+  /**
+   * Convierte LocalCashSession a CashSession (tipo del backend).
+   */
   static toCashSession(local: LocalCashSession): CashSession {
     return {
       uuid: local.cloud_id || local.local_uuid,

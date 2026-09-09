@@ -43,7 +43,12 @@ export const paymentsService = {
       // para que CashierPage reconozca que la caja está abierta
       let currentSession: CashSession | null = null;
       try {
-        const localSession = await CashSessionRepository.findActive();
+        const auth = useAuthStore.getState();
+        const user = auth.user;
+        const branchId = user?.branch_id ? String(user.branch_id) : "unknown";
+        const userId = user?.id ? String(user.id) : "unknown";
+        
+        const localSession = await CashSessionRepository.findActive(branchId, userId);
         if (localSession) {
           currentSession = CashSessionRepository.toCashSession(localSession);
           console.log(`[paymentsService] ✅ Sesión activa encontrada offline: ${localSession.local_uuid} (cloud: ${localSession.cloud_id || 'N/A'})`);
@@ -80,14 +85,15 @@ export const paymentsService = {
       // a local_cash_sessions para que esté disponible offline
       if (dashboard.current_session) {
         try {
-          const existing = await CashSessionRepository.findActive();
+          const auth = useAuthStore.getState();
+          const user = auth.user;
+          const branchId = user?.branch_id ? String(user.branch_id) : "unknown";
+          
+          const existing = await CashSessionRepository.findActive(branchId, String(user?.id || "unknown"));
           const backendSession = dashboard.current_session;
 
           // Si no hay sesión local activa o el cloud_id no coincide, crear/actualizar
           if (!existing || existing.cloud_id !== backendSession.uuid) {
-            const auth = useAuthStore.getState();
-            const user = auth.user;
-            const branchId = user?.branch_id ? String(user.branch_id) : "unknown";
 
             // Si hay una sesión local activa pero diferente, cerrarla (fue cerrada en otro terminal)
             if (existing && existing.cloud_id !== backendSession.uuid) {
@@ -96,6 +102,7 @@ export const paymentsService = {
             }
 
             await CashSessionRepository.create({
+              company_id: user?.company?.uuid ? String(user.company.uuid) : "unknown",
               branch_id: String(branchId),
               user_id: user?.id ? String(user.id) : "unknown",
               user_name: backendSession.user?.name || null,
@@ -166,6 +173,7 @@ export const paymentsService = {
       const branchId = user?.branch_id ? String(user.branch_id) : "unknown";
 
       await CashSessionRepository.create({
+        company_id: user?.company?.uuid ? String(user.company.uuid) : "unknown",
         branch_id: String(branchId),
         user_id: user?.id ? String(user.id) : "unknown",
         user_name: user?.name || null,
