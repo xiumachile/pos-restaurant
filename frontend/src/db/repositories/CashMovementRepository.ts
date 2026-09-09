@@ -183,13 +183,16 @@ export class CashMovementRepository {
 
   /**
    * Lista movimientos pendientes de sincronización.
+   * 
+   * NOTA: Filtra en JavaScript porque el mock de SQLite no soporta IN correctamente.
    */
   static async findPendingSync(): Promise<LocalCashMovement[]> {
-    return await localDb.select<LocalCashMovement>(
-      `SELECT * FROM local_cash_movements 
-       WHERE sync_status IN ('pending', 'failed') 
-       ORDER BY created_at ASC`
+    const allMovements = await localDb.select<LocalCashMovement>(
+      `SELECT * FROM local_cash_movements ORDER BY created_at ASC`
     );
+    
+    // Filtrar en JavaScript: solo pending o failed
+    return allMovements.filter(m => m.sync_status === 'pending' || m.sync_status === 'failed');
   }
 
   /**

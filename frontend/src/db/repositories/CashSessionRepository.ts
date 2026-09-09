@@ -151,10 +151,8 @@ export class CashSessionRepository {
   /**
    * Calcula el balance actual de una sesión abierta.
    * 
-   * Balance = opening_amount + sum(payments en efectivo) - sum(withdrawals) + sum(deposits)
-   * 
-   * NOTA: Por ahora solo considera opening_amount.
-   * TODO: Integrar con CashMovementRepository cuando esté implementado.
+   * Balance = opening_amount + sum(movements.amount)
+   * donde amount ya tiene el signo correcto (positivo/negativo según tipo)
    */
   static async getBalance(localUuid: string): Promise<{
     opening_amount: number;
@@ -169,15 +167,43 @@ export class CashSessionRepository {
       throw new Error(`Sesión ${localUuid} no encontrada`);
     }
 
-    // Por ahora solo retornamos opening_amount
-    // TODO: Cuando implementemos CashMovementRepository, calcular balance completo
+    // Obtener todos los movimientos de la sesión
+    const movements = await localDb.select<{ type: string; amount: number }>(
+      "SELECT type, amount FROM local_cash_movements WHERE cash_session_local_uuid = ?",
+      [localUuid]
+    );
+
+    let cash_payments = 0;
+    let withdrawals = 0;
+    let deposits = 0;
+    let adjustments = 0;
+
+    for (const movement of movements) {
+      switch (movement.type) {
+        case "payment":
+          cash_payments += movement.amount;
+          break;
+        case "withdrawal":
+          withdrawals += Math.abs(movement.amount);
+          break;
+        case "deposit":
+          deposits += movement.amount;
+          break;
+        case "adjustment":
+          adjustments += Math.abs(movement.amount);
+          break;
+      }
+    }
+
+    const current_balance = session.opening_amount + cash_payments - withdrawals + deposits - adjustments;
+
     return {
       opening_amount: session.opening_amount,
-      cash_payments: 0,
-      withdrawals: 0,
-      deposits: 0,
-      adjustments: 0,
-      current_balance: session.opening_amount,
+      cash_payments,
+      withdrawals,
+      deposits,
+      adjustments,
+      current_balance,
     };
   }
 
