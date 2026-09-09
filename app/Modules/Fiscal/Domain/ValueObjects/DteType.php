@@ -2,6 +2,8 @@
 
 namespace Modules\Fiscal\Domain\ValueObjects;
 
+use Modules\Orders\Domain\Entities\Order;
+
 /**
  * Tipos de Documentos Tributarios Electrónicos (DTE) según SII Chile.
  * 
@@ -47,7 +49,7 @@ enum DteType: int
     }
 
     /**
-     * Indica si este tipo de DTE aplica IVA (19%).
+     * Indica si este tipo de DTE aplica impuesto afecto.
      */
     public function isTaxable(): bool
     {
@@ -82,11 +84,53 @@ enum DteType: int
     }
 
     /**
-     * Obtiene la tasa de IVA aplicable (0.19 para afectos, 0 para exentos).
+     * Obtiene la tasa tributaria desde los snapshots históricos del Order.
+     *
+     * IMPORTANTE:
+     * No existe una tasa universal hardcodeada. La tasa se toma desde
+     * order_items.tax_rate_snapshot, que fue calculada al momento de crear
+     * el item usando la configuración vigente en la tabla taxes.
+     *
+     * Esto garantiza que:
+     * - Si el impuesto cambia en el futuro, los DTEs antiguos mantienen su tasa histórica.
+     * - No hay que modificar código cuando cambia una tasa fiscal.
+     * - El documento fiscal refleja exactamente lo cobrado.
+     *
+     * @return float Tasa en formato decimal: 19.0000% → 0.19, 21.0000% → 0.21
+     */
+    public function taxRateFromOrder(Order $order): float
+    {
+        if (!$this->isTaxable()) {
+            return 0.0;
+        }
+
+        $items = $order->relationLoaded('items')
+            ? $order->items
+            : $order->items()->get();
+
+        $taxableItem = $items->first(function ($item) {
+            return (float) ($item->tax_rate_snapshot ?? 0) > 0;
+        });
+
+        if (!$taxableItem) {
+            return 0.0;
+        }
+
+        return round(((float) $taxableItem->tax_rate_snapshot) / 100, 6);
+    }
+
+    /**
+     * @deprecated No usar para emisión fiscal.
+     *
+     * No existe una tasa universal en el sistema. La tasa debe obtenerse
+     * desde taxRateFromOrder(), usando los snapshots históricos de la orden.
+     *
+     * Se conserva este método por compatibilidad, pero retorna 0.0 para evitar
+     * asumir una tasa fija hardcodeada.
      */
     public function taxRate(): float
     {
-        return $this->isTaxable() ? 0.19 : 0.0;
+        return 0.0;
     }
 
     /**

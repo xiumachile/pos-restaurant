@@ -44,7 +44,9 @@ Route::prefix('v1/cashier')->middleware(['auth:api', TenantContextMiddleware::cl
     Route::post('/tables/{tableUuid}/charge', [CashierTablesController::class, 'chargeTable'])
         ->name('cashier.tables.charge');
 
+    // FIX P0-02: middleware idempotent para prevenir doble cobro en retries
     Route::post('/bills/{billUuid}/pay', [CashierTablesController::class, 'payBill'])
+        ->middleware('idempotent')
         ->name('cashier.bills.pay');
 });
 

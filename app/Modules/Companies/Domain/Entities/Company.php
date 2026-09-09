@@ -70,6 +70,40 @@ class Company extends Model
     }
 
     /**
+     * Obtiene la configuración de moneda de la empresa.
+     *
+     * Retorna el bloque currency de settings con defaults si no existe.
+     * Ver: docs/architecture/money-and-tax.md
+     *
+     * @return array{code: string, symbol: string, decimals: int, thousands_separator: string, decimal_separator: string}
+     */
+    public function getCurrencyConfig(): array
+    {
+        $settings = $this->settings ?? [];
+
+        return $settings['currency'] ?? [
+            'code' => 'CLP',
+            'symbol' => '$',
+            'decimals' => 0,
+            'thousands_separator' => '.',
+            'decimal_separator' => ',',
+        ];
+    }
+
+    /**
+     * Actualiza la configuración de moneda de la empresa.
+     *
+     * @param array $currencyConfig Estructura currency completa
+     */
+    public function setCurrencyConfig(array $currencyConfig): void
+    {
+        $settings = $this->settings ?? [];
+        $settings['currency'] = array_merge($this->getCurrencyConfig(), $currencyConfig);
+        $this->settings = $settings;
+        $this->save();
+    }
+
+    /**
      * Verifica si la empresa tiene un capability habilitado.
      */
     public function hasCapability(string|CapabilityKey $capabilityKey): bool

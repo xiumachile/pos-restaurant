@@ -8,6 +8,7 @@ use App\Shared\Domain\Console\Commands\GenerateDailyReportCommand;
 use Modules\Orders\Domain\Events\OrderConfirmed;
 use Modules\Recipes\Domain\Listeners\DeductRecipeOnOrderConfirm;
 use Illuminate\Support\ServiceProvider;
+use App\Shared\Domain\Services\MoneyFormatter;
 use App\Shared\Application\TenantContext;
 
 class AppServiceProvider extends ServiceProvider

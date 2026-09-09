@@ -40,8 +40,24 @@ class PrintReceiptOnOrderPaid
             return;
         }
 
+        // Construir etiqueta dinámica del impuesto desde snapshots históricos
+        // Ej: "IVA (19%)", "IVA (21%)", "Impuesto Adicional (10%)"
+        // Esto permite que los tickets reflejen la tasa vigente al momento del pedido,
+        // no una tasa hardcodeada. Ver docs/architecture/money-and-tax.md
+        $taxableItem = $order->items->first(function ($item) {
+            return (float) ($item->tax_rate_snapshot ?? 0) > 0;
+        });
+
+        $taxLabel = 'Impuesto';
+        if ($taxableItem) {
+            $taxName = $taxableItem->tax_name_snapshot ?? 'Impuesto';
+            $taxRate = number_format((float) $taxableItem->tax_rate_snapshot, 2);
+            $taxLabel = "{$taxName} ({$taxRate}%)";
+        }
+
         // Datos del ticket
         $ticketData = [
+            'company' => $order->company,  // Para formateo de moneda vía MoneyFormatter
             'company_name' => $order->company?->trade_name ?? 'Restaurant',
             'branch_name' => $order->branch?->name ?? 'Sucursal',
             'order_number' => $order->order_number,
@@ -56,6 +72,7 @@ class PrintReceiptOnOrderPaid
                 ];
             })->toArray(),
             'subtotal' => (float) $order->subtotal,
+            'tax_label' => $taxLabel,
             'tax' => (float) $order->tax_amount,
             'discount' => (float) $order->discount_amount,
             'total' => (float) $order->total,

@@ -50,8 +50,11 @@ test('DteType identifica boletas como documentos de consumidor final', function 
     expect(DteType::FACTURA_ELECTRONICA->isConsumerDocument())->toBeFalse();
 });
 
-test('DteType tiene tasa de IVA correcta (19% para afectos)', function () {
-    expect(DteType::BOLETA_AFECTA->taxRate())->toBe(0.19);
+test('DteType::taxRate() es deprecated y retorna 0.0', function () {
+    // taxRate() está deprecated porque no existe tasa universal hardcodeada.
+    // La tasa debe obtenerse desde taxRateFromOrder(Order) usando snapshots históricos.
+    // Ver: docs/architecture/money-and-tax.md
+    expect(DteType::BOLETA_AFECTA->taxRate())->toBe(0.0);
     expect(DteType::BOLETA_EXENTA->taxRate())->toBe(0.0);
 });
 
