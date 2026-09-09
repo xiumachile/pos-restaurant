@@ -233,8 +233,11 @@ export class BillRepository {
         branch_id: updated.branch_id,
         entity_type: "bill",
         entity_local_uuid: localUuid,
-        action: "cancel",
-        payload: { reason: finalNotes },
+        action: "update",
+        payload: { 
+          status: "cancelled",
+          reason: finalNotes 
+        },
       });
     }
 
