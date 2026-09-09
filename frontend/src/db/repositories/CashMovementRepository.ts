@@ -2,6 +2,7 @@ import { localDb } from "../localDb";
 import { v4 as uuidv4 } from "uuid";
 import { SyncQueueRepository } from "./SyncQueueRepository";
 import { CashSessionRepository } from "./CashSessionRepository";
+import { EventStore } from "./EventStore";
 
 /**
  * Tipos de movimiento de caja (local).
@@ -138,6 +139,34 @@ export class CashMovementRepository {
       console.log(`[CashMovementRepository] 📤 Movimiento encolado para sync: ${local_uuid}`);
     } else {
       console.log(`[CashMovementRepository] 📝 Movimiento local (no requiere sync propio): ${local_uuid}`);
+    }
+
+    // Registrar evento CREATE_MOVEMENT (Event Sourcing - append-only)
+    try {
+      await EventStore.record({
+        company_id: session.company_id,
+        branch_id: session.branch_id,
+        terminal_id: session.terminal_id || "unknown",
+        user_id: session.user_id,
+        entity_type: "movement",
+        entity_uuid: local_uuid,
+        event_type: "CREATE_MOVEMENT",
+        payload: {
+          type: payload.type,
+          amount: signedAmount,
+          balance_after: balanceAfter,
+          reason: payload.reason || null,
+          notes: payload.notes || null,
+          reference_type: payload.reference_type || null,
+          reference_local_uuid: payload.reference_local_uuid || null,
+          reference_cloud_id: payload.reference_cloud_id || null,
+          cash_session_local_uuid: session.local_uuid,
+          cash_session_cloud_id: session.cloud_id,
+        },
+      });
+    } catch (eventErr: any) {
+      // No crítico: si falla registrar evento, el movimiento sigue siendo válido
+      console.warn("[CashMovementRepository] ⚠️ No se pudo registrar evento CREATE_MOVEMENT:", eventErr?.message);
     }
 
     return movement;

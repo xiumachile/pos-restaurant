@@ -1,6 +1,8 @@
 import { localDb } from "../localDb";
 import { v4 as uuidv4 } from "uuid";
 import { SyncQueueRepository } from "./SyncQueueRepository";
+import { EventStore } from "./EventStore";
+import { getTerminalId } from "../../services/terminalIdentity";
 
 export interface LocalPayment {
   local_uuid: string;
