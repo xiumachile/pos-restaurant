@@ -9,6 +9,7 @@ import {
   Settings,
   LogOut,
   Wifi,
+  Database,
   WifiOff,
 } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -37,6 +38,11 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/cashier", label: "Caja", icon: CreditCard },
   { to: "/reports", label: "Reportes", icon: BarChart3 },
   { to: "/settings", label: "Configuración", icon: Settings },
+  { 
+    to: "/sync-queue", 
+    label: "Sincronización", 
+    icon: Database 
+  },
 ];
 
 /**

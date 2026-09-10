@@ -285,4 +285,88 @@ export class SyncQueueRepository {
     );
   }
 
+
+  /**
+   * Obtiene todos los items de la cola (para panel de diagnóstico).
+   */
+  static async getAll(limit: number = 100): Promise<SyncQueueItem[]> {
+    return await localDb.select<SyncQueueItem>(
+      "SELECT * FROM sync_queue ORDER BY created_at DESC LIMIT ?",
+      [limit]
+    );
+  }
+
+  /**
+   * Obtiene conteo agrupado por status.
+   */
+  static async countByStatus(): Promise<{
+    pending: number;
+    syncing: number;
+    synced: number;
+    failed: number;
+  }> {
+    const results = await localDb.select<{ sync_status: string; count: number }>(
+      `SELECT sync_status, COUNT(*) as count 
+       FROM sync_queue 
+       GROUP BY sync_status`
+    );
+
+    const counts = { pending: 0, syncing: 0, synced: 0, failed: 0 };
+    for (const row of results) {
+      if (row.sync_status in counts) {
+        counts[row.sync_status as keyof typeof counts] = row.count;
+      }
+    }
+    return counts;
+  }
+
+  /**
+   * Elimina un item de la cola (para limpieza manual).
+   */
+  static async deleteById(id: string): Promise<void> {
+    await localDb.execute("DELETE FROM sync_queue WHERE id = ?", [id]);
+  }
+
+  /**
+   * Elimina todos los items fallidos (limpieza masiva).
+   */
+  static async deleteAllFailed(): Promise<number> {
+    const result = await localDb.execute(
+      "DELETE FROM sync_queue WHERE sync_status = 'failed'"
+    );
+    return result;
+  }
+
+  /**
+   * Resetea un item a pending (para reintentar manualmente).
+   */
+  static async resetToPending(id: string): Promise<void> {
+    await localDb.execute(
+      `UPDATE sync_queue 
+       SET sync_status = 'pending', 
+           attempts = 0,
+           last_error = NULL,
+           next_retry_at = NULL,
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id = ?`,
+      [id]
+    );
+  }
+
+  /**
+   * Resetea todos los items fallidos a pending.
+   */
+  static async resetAllFailed(): Promise<number> {
+    const result = await localDb.execute(
+      `UPDATE sync_queue 
+       SET sync_status = 'pending', 
+           attempts = 0,
+           last_error = NULL,
+           next_retry_at = NULL,
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE sync_status = 'failed'`
+    );
+    return result;
+  }
+
 }
