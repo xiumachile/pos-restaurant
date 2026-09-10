@@ -10,6 +10,7 @@ describe("useAuthStore", () => {
       isAuthenticated: false,
     });
     vi.clearAllMocks();
+    localStorage.clear();
   });
 
   const mockUser: User = {
@@ -29,9 +30,9 @@ describe("useAuthStore", () => {
     expect(state.token).toBeNull();
   });
 
-  it("debería autenticar usuario correctamente", () => {
+  it("debería autenticar usuario correctamente", async () => {
     const token = "test-token";
-    useAuthStore.getState().setAuth(mockUser, token);
+    await useAuthStore.getState().setAuth(mockUser, token);
 
     const state = useAuthStore.getState();
     expect(state.isAuthenticated).toBe(true);
@@ -40,12 +41,12 @@ describe("useAuthStore", () => {
     expect(localStorage.setItem).toHaveBeenCalledWith("access_token", token);
   });
 
-  it("debería limpiar autenticación correctamente", () => {
+  it("debería limpiar autenticación correctamente", async () => {
     // Autenticar primero
-    useAuthStore.getState().setAuth(mockUser, "token");
+    await useAuthStore.getState().setAuth(mockUser, "token");
     
     // Limpiar
-    useAuthStore.getState().clearAuth();
+    await useAuthStore.getState().clearAuth();
 
     const state = useAuthStore.getState();
     expect(state.isAuthenticated).toBe(false);
@@ -54,9 +55,9 @@ describe("useAuthStore", () => {
     expect(localStorage.removeItem).toHaveBeenCalledWith("access_token");
   });
 
-  it("debería actualizar usuario sin cambiar token", () => {
+  it("debería actualizar usuario sin cambiar token", async () => {
     const token = "test-token";
-    useAuthStore.getState().setAuth(mockUser, token);
+    await useAuthStore.getState().setAuth(mockUser, token);
 
     const updatedUser = { ...mockUser, name: "Updated Name" };
     useAuthStore.getState().updateUser(updatedUser);

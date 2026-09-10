@@ -1,30 +1,43 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { User } from "@/types/auth";
+import { 
+  getItem, 
+  setItem, 
+  removeItem, 
+  updateSyncCache, 
+  clearSyncCache 
+} from "@/services/secureStorage";
 
 interface AuthState {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
-  setAuth: (user: User, token: string) => void;
-  clearAuth: () => void;
+  setAuth: (user: User, token: string) => Promise<void>;
+  clearAuth: () => Promise<void>;
   updateUser: (user: User) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       token: null,
       isAuthenticated: false,
 
-      setAuth: (user, token) => {
-        localStorage.setItem("access_token", token);
+      setAuth: async (user, token) => {
+        // Guardar en storage seguro (Tauri Store encriptado)
+        await setItem("access_token", token);
+        
+        // Actualizar cache síncrona para interceptors
+        updateSyncCache("access_token", token);
+        
         set({ user, token, isAuthenticated: true });
       },
 
-      clearAuth: () => {
-        localStorage.removeItem("access_token");
+      clearAuth: async () => {
+        await removeItem("access_token");
+        clearSyncCache();
         set({ user: null, token: null, isAuthenticated: false });
       },
 

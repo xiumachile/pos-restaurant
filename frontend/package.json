@@ -17,6 +17,7 @@
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-sql": "^2.4.0",
+    "@tauri-apps/plugin-store": "^2.4.4",
     "axios": "^1.7.9",
     "i18next": "^26.3.6",
     "lucide-react": "^1.31.0",

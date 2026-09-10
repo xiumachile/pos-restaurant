@@ -1,6 +1,8 @@
 import { v4 as uuidv4 } from "uuid";
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { useSyncStore } from "@/store/useSyncStore";
+import { getItemSync } from "@/services/secureStorage";
+import { useAuthStore } from "@/store/useAuthStore";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
 
@@ -42,10 +44,11 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Interceptor request: inyectar JWT
+// Interceptor request: inyectar JWT desde secureStorage (con cache síncrona)
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem("access_token");
+    // Usar versión síncrona (desde cache o localStorage como fallback)
+    const token = getItemSync("access_token");
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -59,8 +62,9 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("auth-storage");
+      // Limpiar auth vía store (que limpia secureStorage también)
+      useAuthStore.getState().clearAuth();
+      
       if (!window.location.pathname.includes("/login")) {
         window.location.href = "/login";
       }

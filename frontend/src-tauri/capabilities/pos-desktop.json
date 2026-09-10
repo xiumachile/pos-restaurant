@@ -10,7 +10,8 @@
     "sql:allow-execute",
     "sql:allow-select",
     "sql:allow-close",
-    "sql:allow-load"
+    "sql:allow-load",
+    "store:default"
   ],
   "platforms": ["linux", "macOS", "windows"]
 }
