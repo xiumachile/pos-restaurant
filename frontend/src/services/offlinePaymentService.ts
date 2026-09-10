@@ -5,6 +5,7 @@ import { PaymentRepository } from "@/db/repositories/PaymentRepository";
 import { SyncQueueRepository } from "@/db/repositories/SyncQueueRepository";
 import { CashMovementRepository } from "@/db/repositories/CashMovementRepository";
 import { CashSessionRepository } from "@/db/repositories/CashSessionRepository";
+import { getAuthContextSafe, getCashierContextSafe } from "./authContext";
 import type { LocalOrder } from "@/db/repositories/OrderRepository";
 import type { LocalBill } from "@/types/bills";
 import type { LocalPayment } from "@/db/repositories/PaymentRepository";
@@ -129,6 +130,7 @@ export const offlinePaymentService = {
           );
         }
 
+        // 🔒 Propagar company/branch/terminal desde el order (IDs garantizados)
         bill = await BillRepository.create({
           company_id: order.company_id,
           branch_id: order.branch_id,
@@ -172,7 +174,7 @@ export const offlinePaymentService = {
         amount
       );
 
-      // 6. Crear el LocalPayment
+      // 6. Crear el LocalPayment (propaga company/branch desde el order)
       const payment = await PaymentRepository.create({
         company_id: order.company_id,
         branch_id: order.branch_id,
@@ -189,24 +191,31 @@ export const offlinePaymentService = {
       let cashMovementCreated = false;
       if (paymentMethod === "cash") {
         try {
-          const terminalId = (await import("./terminalIdentity")).getTerminalId();
-          const userId = order.waiter_id || "unknown"; // usar waiter_id como proxy de user_id
-          const session = await CashSessionRepository.findActive(
-            order.company_id,
-            order.branch_id,
-            userId,
-            terminalId
-          );
-          if (session) {
-            await this.registerCashPayment(
-              session.local_uuid,
-              amount,
-              payment.local_uuid,
-              payment.cloud_id || undefined,
-              notes
+          // 🔒 FIX DE AUDITORÍA: usar contexto del cajero actual (no waiter_id)
+          // El cajero que procesa el pago puede ser diferente al mesero del pedido
+          const ctx = getCashierContextSafe();
+          if (!ctx) {
+            console.warn("[offlinePaymentService] ⚠️ Sin contexto de caja, no se puede registrar movimiento");
+          } else {
+            const session = await CashSessionRepository.findActive(
+              order.company_id,
+              order.branch_id,
+              ctx.user_id,  // ✅ UUID del cajero actual
+              ctx.terminal_id
             );
-            cashMovementCreated = true;
-            console.log(`[offlinePaymentService] ✅ Movimiento de caja registrado: ${amount}`);
+            if (session) {
+              await this.registerCashPayment(
+                session.local_uuid,
+                amount,
+                payment.local_uuid,
+                payment.cloud_id || undefined,
+                notes
+              );
+              cashMovementCreated = true;
+              console.log(`[offlinePaymentService] ✅ Movimiento de caja registrado: ${amount} por ${ctx.user_name}`);
+            } else {
+              console.warn("[offlinePaymentService] ⚠️ No hay sesión de caja abierta para este cajero");
+            }
           }
         } catch (movementErr: any) {
           // No crítico: si falla registrar movimiento, el pago sigue siendo válido
