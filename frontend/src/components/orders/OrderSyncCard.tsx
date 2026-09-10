@@ -1,4 +1,5 @@
-import { Clock, CheckCircle, AlertCircle, RefreshCw, Cloud, CloudOff } from "lucide-react";
+import { Cloud, CloudOff, RefreshCw } from "lucide-react";
+import { SyncBadge, SyncErrorBox } from "@/components/system";
 
 interface OrderSyncCardProps {
   order: {
@@ -17,40 +18,6 @@ interface OrderSyncCardProps {
 }
 
 export function OrderSyncCard({ order, onRetry }: OrderSyncCardProps) {
-  const syncConfig = {
-    pending: {
-      icon: Clock,
-      label: "Pendiente",
-      color: "text-yellow-600",
-      bgColor: "bg-yellow-50",
-      borderColor: "border-yellow-200",
-    },
-    syncing: {
-      icon: RefreshCw,
-      label: "Sincronizando",
-      color: "text-blue-600",
-      bgColor: "bg-blue-50",
-      borderColor: "border-blue-200",
-    },
-    synced: {
-      icon: CheckCircle,
-      label: "Sincronizado",
-      color: "text-green-600",
-      bgColor: "bg-green-50",
-      borderColor: "border-green-200",
-    },
-    failed: {
-      icon: AlertCircle,
-      label: "Error",
-      color: "text-red-600",
-      bgColor: "bg-red-50",
-      borderColor: "border-red-200",
-    },
-  };
-
-  const config = syncConfig[order.sync_status];
-  const Icon = config.icon;
-
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("es-CL", {
       style: "currency",
@@ -69,7 +36,7 @@ export function OrderSyncCard({ order, onRetry }: OrderSyncCardProps) {
   };
 
   return (
-    <div className={`bg-white rounded-lg border-2 p-4 ${config.borderColor}`}>
+    <div className="bg-white rounded-lg border-2 p-4 border-gray-200">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 space-y-2">
           {/* Header */}
@@ -79,9 +46,9 @@ export function OrderSyncCard({ order, onRetry }: OrderSyncCardProps) {
               {order.order_type === "dine_in" ? "Mesa" : "Para llevar"}
             </span>
             {order.cloud_id ? (
-              <Cloud className="w-4 h-4 text-blue-500" />
+              <Cloud className="w-4 h-4 text-blue-500" aria-label="Sincronizado en la nube" />
             ) : (
-              <CloudOff className="w-4 h-4 text-gray-400" />
+              <CloudOff className="w-4 h-4 text-gray-400" aria-label="Solo local" />
             )}
           </div>
 
@@ -105,27 +72,17 @@ export function OrderSyncCard({ order, onRetry }: OrderSyncCardProps) {
             </div>
           </div>
 
-          {/* Sync Status */}
-          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${config.bgColor}`}>
-            <Icon className={`w-5 h-5 ${config.color} ${order.sync_status === "syncing" && "animate-spin"}`} />
-            <span className={`font-medium text-sm ${config.color}`}>
-              {config.label}
-            </span>
-            {order.sync_status === "synced" && order.cloud_id && (
-              <span className="text-xs text-gray-500 ml-auto">
-                ID: {order.cloud_id.substring(0, 8)}...
-              </span>
-            )}
-          </div>
+          {/* Sync Status Badge */}
+          <SyncBadge
+            status={order.sync_status}
+            cloudId={order.cloud_id}
+            showCloudId={true}
+            variant="normal"
+          />
 
           {/* Error Message */}
           {order.sync_status === "failed" && order.sync_error && (
-            <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-800 font-medium mb-1">Error de sincronización:</p>
-              <p className="text-xs text-red-600 font-mono break-all">
-                {order.sync_error}
-              </p>
-            </div>
+            <SyncErrorBox errorMessage={order.sync_error} className="mt-2" />
           )}
         </div>
 
@@ -134,6 +91,7 @@ export function OrderSyncCard({ order, onRetry }: OrderSyncCardProps) {
           <button
             onClick={() => onRetry(order.local_uuid)}
             className="flex items-center gap-2 px-3 py-2 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            aria-label="Reintentar sincronización"
           >
             <RefreshCw className="w-4 h-4" />
             Reintentar
