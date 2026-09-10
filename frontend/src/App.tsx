@@ -10,10 +10,20 @@ import { useCatalogSyncInvalidation } from "./hooks/useCatalog";
 import { DatabaseLoader } from "./components/system/DatabaseLoader";
 import { router } from "./router";
 import i18n from "./i18n/config";
+import { preloadAuthToken } from "./services/secureStorage";
 
 function AppContent() {
   // Refresh automático del JWT cuando queda < 2 minutos
   useAuthRefresh();
+
+  // 🔐 SEGURIDAD: Precargar token desde Tauri Store a cache síncrona
+  // Esto garantiza que los interceptors de axios puedan acceder al token
+  // sin tener que hacer await en cada request
+  useEffect(() => {
+    preloadAuthToken().catch((err) => {
+      console.warn("[App] ⚠️ No se pudo precargar token:", err);
+    });
+  }, []);
 
   // Atajo Ctrl+Shift+O para toggle de modo offline simulado
   // Útil para testing cuando el backend corre en localhost

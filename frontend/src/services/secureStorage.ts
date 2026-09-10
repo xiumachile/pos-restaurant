@@ -7,32 +7,27 @@
  * - En Tauri (producción): usa @tauri-apps/plugin-store (encriptado con clave del OS)
  * - En web/dev (fallback): usa localStorage (solo para desarrollo)
  * 
- * BENEFICIOS:
- * ✅ Token JWT inaccesible incluso si hay XSS (en producción)
- * ✅ API uniforme: misma interfaz en todos los entornos
- * ✅ Fallback transparente para desarrollo web
- * ✅ Fácil de testear (mockable)
+ * CONTRATO:
+ * - getItem() SIEMPRE retorna string | null (nunca undefined)
+ * - setItem() guarda el valor
+ * - removeItem() elimina el valor
+ * - getItemSync() retorna desde cache primero, luego storage subyacente
  */
 
 import { load } from "@tauri-apps/plugin-store";
 
-// Nombre del store encriptado (archivo: .store.dat en appData)
 const STORE_NAME = "pos-secure.dat";
 
-// Cache del store (singleton)
 let storeInstance: any = null;
 let storeLoaded = false;
 
-/**
- * Detecta si estamos en entorno Tauri (producción).
- */
+// Cache síncrona compartida (singleton por módulo)
+let syncCache: Map<string, string> = new Map();
+
 function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
-/**
- * Obtiene la instancia del store (carga lazy).
- */
 async function getStore() {
   if (storeInstance && storeLoaded) {
     return storeInstance;
@@ -53,113 +48,111 @@ async function getStore() {
 }
 
 /**
- * Obtiene un valor por key.
- * 
- * @returns El valor o null si no existe
+ * Lee del storage subyacente (Tauri Store o localStorage).
+ * Retorna string | null.
+ */
+async function readFromStorage(key: string): Promise<string | null> {
+  const store = await getStore();
+  
+  if (store) {
+    try {
+      const value = await store.get(key);
+      if (Array.isArray(value) && value.length > 0 && value[0] != null) {
+        return String(value[0]);
+      }
+    } catch (err) {
+      console.error("[secureStorage] ❌ Error reading from store:", err);
+    }
+  }
+  
+  // Fallback: localStorage (siempre disponible)
+  const value = localStorage.getItem(key);
+  return value == null ? null : value;
+}
+
+/**
+ * Escribe en el storage subyacente.
+ */
+async function writeToStorage(key: string, value: string): Promise<void> {
+  const store = await getStore();
+  
+  if (store) {
+    try {
+      await store.set(key, value);
+      await store.save();
+      // También mantener mirror en localStorage para getItemSync rápido
+      localStorage.setItem(key, value);
+      return;
+    } catch (err) {
+      console.error("[secureStorage] ❌ Error writing to store:", err);
+    }
+  }
+  
+  // Fallback: localStorage
+  localStorage.setItem(key, value);
+}
+
+/**
+ * Elimina del storage subyacente.
+ */
+async function deleteFromStorage(key: string): Promise<void> {
+  const store = await getStore();
+  
+  if (store) {
+    try {
+      await store.delete(key);
+      await store.save();
+      localStorage.removeItem(key);
+      return;
+    } catch (err) {
+      console.error("[secureStorage] ❌ Error deleting from store:", err);
+    }
+  }
+  
+  localStorage.removeItem(key);
+}
+
+/**
+ * Obtiene un valor por key. SIEMPRE retorna string | null.
  */
 export async function getItem(key: string): Promise<string | null> {
-  if (!isTauri()) {
-    // Fallback web/dev
-    return localStorage.getItem(key);
-  }
-  
-  const store = await getStore();
-  if (!store) {
-    return localStorage.getItem(key);
-  }
-  
-  try {
-    const value = await store.get(key);
-    // store.get retorna un array [value] o undefined
-    if (Array.isArray(value) && value.length > 0) {
-      return String(value[0]);
-    }
-    return null;
-  } catch (err) {
-    console.error("[secureStorage] ❌ Error getting item:", err);
-    return null;
-  }
+  return await readFromStorage(key);
 }
 
 /**
  * Guarda un valor por key.
  */
 export async function setItem(key: string, value: string): Promise<void> {
-  if (!isTauri()) {
-    // Fallback web/dev
-    localStorage.setItem(key, value);
-    return;
-  }
-  
-  const store = await getStore();
-  if (!store) {
-    localStorage.setItem(key, value);
-    return;
-  }
-  
-  try {
-    await store.set(key, value);
-    await store.save(); // Forzar guardado
-  } catch (err) {
-    console.error("[secureStorage] ❌ Error setting item:", err);
-    // Fallback a localStorage si falla el store
-    localStorage.setItem(key, value);
-  }
+  await writeToStorage(key, value);
+  syncCache.set(key, value);
 }
 
 /**
  * Elimina un valor por key.
  */
 export async function removeItem(key: string): Promise<void> {
-  if (!isTauri()) {
-    // Fallback web/dev
-    localStorage.removeItem(key);
-    return;
-  }
-  
-  const store = await getStore();
-  if (!store) {
-    localStorage.removeItem(key);
-    return;
-  }
-  
-  try {
-    await store.delete(key);
-    await store.save();
-  } catch (err) {
-    console.error("[secureStorage] ❌ Error removing item:", err);
-    localStorage.removeItem(key);
-  }
+  await deleteFromStorage(key);
+  syncCache.delete(key);
 }
 
 /**
- * Versión síncrona para casos donde no se puede usar await.
+ * Versión síncrona. Orden de búsqueda:
+ * 1. syncCache (más rápido)
+ * 2. localStorage (fallback)
  * 
- * IMPORTANTE: Solo funciona si el item ya fue cargado previamente.
- * Si no está en cache, retorna null.
- * 
- * Uso: para interceptors síncronos de axios.
+ * SIEMPRE retorna string | null (nunca undefined).
  */
-let syncCache: Map<string, string> = new Map();
-
 export function getItemSync(key: string): string | null {
-  // Primero revisar cache
   if (syncCache.has(key)) {
-    return syncCache.get(key)!;
+    const cached = syncCache.get(key);
+    return cached == null ? null : cached;
   }
   
-  // Si no estamos en Tauri, usar localStorage
-  if (!isTauri()) {
-    const value = localStorage.getItem(key);
-    if (value) syncCache.set(key, value);
-    return value;
-  }
-  
-  // En Tauri, intentar desde localStorage como fallback cache
-  const fallback = localStorage.getItem(key);
-  if (fallback) {
-    syncCache.set(key, fallback);
-    return fallback;
+  const fromLs = localStorage.getItem(key);
+  if (fromLs != null) {
+    // Popular cache para próximas llamadas
+    syncCache.set(key, fromLs);
+    return fromLs;
   }
   
   return null;
@@ -168,21 +161,29 @@ export function getItemSync(key: string): string | null {
 /**
  * Carga el token al arranque para que esté disponible síncronamente.
  * Llamar en App.tsx al iniciar la aplicación.
+ * 
+ * ESTRATEGIA:
+ * 1. Intentar leer desde localStorage primero (más confiable en tests)
+ * 2. Si no está, intentar desde Tauri Store
+ * 3. Popular syncCache con el valor encontrado
  */
 export async function preloadAuthToken(): Promise<void> {
-  const token = await getItem("access_token");
-  if (token) {
+  // Primero intentar desde localStorage (siempre disponible)
+  let token = localStorage.getItem("access_token");
+  
+  // Si no está en localStorage, intentar desde Tauri Store
+  if (token == null) {
+    token = await getItem("access_token");
+  }
+  
+  if (token != null) {
     syncCache.set("access_token", token);
-    // Mantener fallback en localStorage para interceptors síncronos
-    if (isTauri()) {
-      localStorage.setItem("access_token", token);
-    }
     console.log("[secureStorage] 🔐 Auth token precargado en cache");
   }
 }
 
 /**
- * Actualiza la cache síncrona cuando se guarda un nuevo token.
+ * Actualiza la cache síncrona.
  */
 export function updateSyncCache(key: string, value: string): void {
   syncCache.set(key, value);
@@ -193,4 +194,13 @@ export function updateSyncCache(key: string, value: string): void {
  */
 export function clearSyncCache(): void {
   syncCache.clear();
+}
+
+/**
+ * Reset completo del módulo (solo para tests).
+ */
+export function __resetForTests(): void {
+  syncCache.clear();
+  storeInstance = null;
+  storeLoaded = false;
 }

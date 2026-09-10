@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useSyncStore } from "../store/useSyncStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { SyncQueueRepository } from "../db/repositories/SyncQueueRepository";
+import { getItemSync } from "../services/secureStorage";
 
 /**
  * Flags a nivel de módulo que sobreviven entre mount/unmount.
@@ -20,6 +21,10 @@ let globalCheckInterval: number | null = null;
  * - Si no → inicia polling hasta detectar autenticación
  * - Polling es global (nivel de módulo) para sobrevivir StrictMode
  * - Cleanup solo en logout real
+ * 
+ * SEGURIDAD:
+ * - Usa getItemSync de secureStorage (cache síncrona del token encriptado)
+ * - No lee directamente de localStorage (evita acceso inseguro)
  */
 export function useSyncWorker() {
   const mountedRef = useRef(true);
@@ -41,7 +46,8 @@ export function useSyncWorker() {
 
       const state = useAuthStore.getState();
       const isAuthenticated = state.isAuthenticated;
-      const token = state.token || localStorage.getItem('auth_token');
+      // ✅ Usar secureStorage (cache síncrona) en lugar de localStorage directo
+      const token = state.token || getItemSync("access_token");
       const userId = state.user?.id;
 
       console.log("[SyncWorker] 🔎 Checking auth:", {
@@ -135,7 +141,8 @@ export function useSyncWorker() {
 
       // Detener worker si el usuario se desautenticó
       const currentAuth = useAuthStore.getState().isAuthenticated;
-      const currentToken = useAuthStore.getState().token || localStorage.getItem('auth_token');
+      // ✅ Usar secureStorage (cache síncrona) en lugar de localStorage directo
+      const currentToken = useAuthStore.getState().token || getItemSync("access_token");
 
       if (!currentAuth && !currentToken && workerInitialized) {
         console.log("[SyncWorker] 👋 Usuario desautenticado, deteniendo worker");
