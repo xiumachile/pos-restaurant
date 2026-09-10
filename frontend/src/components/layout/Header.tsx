@@ -1,14 +1,18 @@
 import { useNavigate } from "react-router-dom";
-import { LogOut, Wifi, WifiOff } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { SyncStatusIndicator } from "@/components/system/SyncStatusIndicator";
 
 /**
- * Header con información del usuario, indicador de conexión y logout.
+ * Header con información del usuario, indicador de sincronización y logout.
+ * 
+ * UI/UX OFFLINE-FIRST:
+ * - SyncStatusIndicator muestra estado de conexión + pendientes + progreso
+ * - 4 estados visuales: 🟢 Online | 🟠 Offline | ↻ Syncing | ⚠ Error
+ * - Botón de sync manual siempre disponible
  */
 export function Header() {
   const { user, logout } = useAuth();
-  const { online, latency } = useOnlineStatus();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -30,26 +34,9 @@ export function Header() {
           </div>
         </div>
 
-        {/* Estado de conexión + Logout */}
+        {/* SyncStatusIndicator + Logout */}
         <div className="flex items-center gap-4">
-          {/* Indicador de conexión */}
-          <div
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${
-              online
-                ? "bg-green-900/30 text-green-400"
-                : "bg-red-900/30 text-red-400"
-            }`}
-            title={
-              online
-                ? `Conectado (${latency}ms)`
-                : "Sin conexión con el servidor"
-            }
-          >
-            {online ? <Wifi size={16} /> : <WifiOff size={16} />}
-            <span className="text-sm font-medium">
-              {online ? "En línea" : "Offline"}
-            </span>
-          </div>
+          <SyncStatusIndicator />
 
           {/* Botón de logout */}
           <button
