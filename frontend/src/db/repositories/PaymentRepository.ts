@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import { SyncQueueRepository } from "./SyncQueueRepository";
 import { EventStore } from "./EventStore";
 import { getTerminalId } from "../../services/terminalIdentity";
+import { getAuthContextSafe } from "../../services/authContext";
 
 export interface LocalPayment {
   local_uuid: string;
@@ -111,7 +112,7 @@ export class PaymentRepository {
         company_id: payload.company_id,
         branch_id: payload.branch_id,
         terminal_id: getTerminalId(),
-        user_id: "system", // TODO: obtener de contexto
+        user_id: getAuthContextSafe()?.user_id ?? "system",
         entity_type: "payment",
         entity_uuid: local_uuid,
         event_type: "CREATE_PAYMENT",
@@ -223,7 +224,7 @@ export class PaymentRepository {
       company_id: payment.company_id,
       branch_id: payment.branch_id,
       terminal_id: getTerminalId(),
-      user_id: "system",
+      user_id: getAuthContextSafe()?.user_id ?? "system",
       entity_type: "payment",
       entity_uuid: localUuid,
       event_type: "ADJUST_PAYMENT",
