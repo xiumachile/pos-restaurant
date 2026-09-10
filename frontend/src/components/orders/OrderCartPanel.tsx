@@ -61,9 +61,8 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
 
     try {
       // 1. Crear pedido local (SQLite + encolado automático)
+      // 🔒 company_id/branch_id/terminal_id se inyectan automáticamente vía authContext
       const order = await OrderRepository.create({
-        company_id: String(user.company_id),
-        branch_id: String(user.branch_id),
         table_id: tableUuid,
         order_type: "dine_in",
       });

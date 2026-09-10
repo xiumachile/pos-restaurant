@@ -149,3 +149,72 @@ describe("authContext", () => {
     });
   });
 });
+
+describe("mergeAuthContext", () => {
+  const mockUser = {
+    id: 1,
+    uuid: "user-merge-test",
+    name: "Merge Test User",
+    email: "merge@test.com",
+    role: "cashier" as const,
+    company_id: 42,
+    branch_id: 7,
+  };
+
+  beforeEach(async () => {
+    await useAuthStore.getState().setAuth(mockUser, "token");
+  });
+
+  afterEach(async () => {
+    await useAuthStore.getState().clearAuth();
+  });
+
+  it("debería inyectar contexto cuando payload no tiene IDs", async () => {
+    const { mergeAuthContext } = await import("@/services/authContext");
+    
+    const result = mergeAuthContext({
+      order_type: "dine_in",
+      table_id: "table-uuid",
+    });
+
+    expect(result.company_id).toBe("42");
+    expect(result.branch_id).toBe("7");
+    expect(result.user_id).toBe("user-merge-test");
+    expect(result.user_name).toBe("Merge Test User");
+    expect(result.order_type).toBe("dine_in");
+    expect(result.table_id).toBe("table-uuid");
+  });
+
+  it("debería respetar IDs del caller cuando están presentes (override)", async () => {
+    const { mergeAuthContext } = await import("@/services/authContext");
+    
+    // Caller explícitamente provee otros IDs (ej: sync desde otro terminal)
+    const result = mergeAuthContext({
+      company_id: "999",
+      branch_id: "888",
+      order_type: "take_out",
+    });
+
+    expect(result.company_id).toBe("999"); // Respeta override
+    expect(result.branch_id).toBe("888");   // Respeta override
+    expect(result.user_id).toBe("user-merge-test"); // Inyecta el faltante
+    expect(result.order_type).toBe("take_out");
+  });
+
+  it("debería preservar todos los campos del payload original", async () => {
+    const { mergeAuthContext } = await import("@/services/authContext");
+    
+    const result = mergeAuthContext({
+      order_type: "dine_in",
+      guest_count: 4,
+      notes: "Mesa especial",
+      custom_field: "custom_value",
+    });
+
+    expect(result.order_type).toBe("dine_in");
+    expect(result.guest_count).toBe(4);
+    expect(result.notes).toBe("Mesa especial");
+    expect(result.custom_field).toBe("custom_value");
+    expect(result.company_id).toBe("42");
+  });
+});

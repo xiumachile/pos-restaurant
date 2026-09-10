@@ -126,3 +126,34 @@ export function validateContext(ctx: {
 
   return true;
 }
+
+/**
+ * Combina el contexto de autorización con un payload parcial.
+ * 
+ * Si el caller provee company_id/branch_id/terminal_id/user_id → los respeta.
+ * Si no → los inyecta desde getAuthContext() automáticamente.
+ * 
+ * USO:
+ *   const payload = mergeAuthContext({ order_type: "dine_in", table_id: "uuid" });
+ *   await OrderRepository.create(payload);
+ * 
+ * PRINCIPIO: "Override explícito > contexto implícito"
+ * - Permite casos donde el caller sabe mejor (ej: sync desde otro terminal)
+ * - Simplifica callers comunes (ya no necesitan construir IDs)
+ * - Backward compatible: callers existentes siguen funcionando
+ */
+export function mergeAuthContext<T extends Record<string, any>>(
+  partial: T
+): T & AuthContext {
+  const ctx = getAuthContext();
+  
+  return {
+    company_id: partial.company_id ?? ctx.company_id,
+    branch_id: partial.branch_id ?? ctx.branch_id,
+    terminal_id: partial.terminal_id ?? ctx.terminal_id,
+    user_id: partial.user_id ?? ctx.user_id,
+    user_name: partial.user_name ?? ctx.user_name,
+    user_role: partial.user_role ?? ctx.user_role,
+    ...partial,
+  } as T & AuthContext;
+}

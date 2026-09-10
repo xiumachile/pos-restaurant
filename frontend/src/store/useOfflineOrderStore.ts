@@ -6,6 +6,7 @@ import {
   type CreateOrderPayload 
 } from "../db/repositories/OrderRepository";
 import { SyncQueueRepository } from "../db/repositories/SyncQueueRepository";
+import { mergeAuthContext } from "../services/authContext";
 
 interface OfflineOrderState {
   // Estado
@@ -43,12 +44,17 @@ export const useOfflineOrderStore = create<OfflineOrderState>((set, get) => ({
   createOrder: async (payload) => {
     set({ isLoading: true, error: null });
     try {
-      const order = await OrderRepository.create(payload);
+      // 🔒 AUTO-INYECCIÓN DE CONTEXTO:
+      // Si el caller no provee company_id/branch_id, los inyecta desde authContext.
+      // Esto simplifica callers (no necesitan pasar user.company_id manualmente).
+      const enrichedPayload = mergeAuthContext(payload);
+      
+      const order = await OrderRepository.create(enrichedPayload);
       
       // Encolar evento de sincronización
       await SyncQueueRepository.enqueue({
-        company_id: payload.company_id,
-        branch_id: payload.branch_id,
+        company_id: enrichedPayload.company_id,
+        branch_id: enrichedPayload.branch_id,
         entity_type: "order",
         entity_local_uuid: order.local_uuid,
         action: "create",
