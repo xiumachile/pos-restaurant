@@ -11,6 +11,7 @@ import { useSyncStore } from "@/store/useSyncStore";
 import { OrderRepository } from "@/db/repositories/OrderRepository";
 import { Plus, Minus, Trash2, Send, ShoppingCart, Loader2, CheckCircle2, AlertCircle, WifiOff } from "lucide-react";
 import { ActiveOrderItems } from "./ActiveOrderItems";
+import { mergeAuthContext } from "@/services/authContext";
 
 interface OrderCartPanelProps {
   tableUuid: string;
@@ -62,10 +63,12 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
     try {
       // 1. Crear pedido local (SQLite + encolado automático)
       // 🔒 company_id/branch_id/terminal_id se inyectan automáticamente vía authContext
-      const order = await OrderRepository.create({
-        table_id: tableUuid,
-        order_type: "dine_in",
-      });
+      const order = await OrderRepository.create(
+        mergeAuthContext({
+          table_id: tableUuid,
+          order_type: "dine_in",
+        })
+      );
 
       setFeedback({
         type: "loading",

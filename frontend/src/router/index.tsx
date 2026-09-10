@@ -14,6 +14,7 @@ const OrdersPage = lazy(() => import("@/pages/OrdersPage").then(m => ({ default:
 const TipSettingsPage = lazy(() => import("@/pages/settings/TipSettingsPage").then(m => ({ default: m.TipSettingsPage })));
 const CatalogSettingsPage = lazy(() => import("@/pages/settings/CatalogSettingsPage").then(m => ({ default: m.CatalogSettingsPage })));
 const CapabilitiesPage = lazy(() => import("@/pages/settings/CapabilitiesPage").then(m => ({ default: m.CapabilitiesPage })));
+const SyncQueuePage = lazy(() => import("@/pages/SyncQueuePage").then(m => ({ default: m.SyncQueuePage })));
 
 // Componente de carga
 function LoadingFallback() {
@@ -167,6 +168,14 @@ export const router = createBrowserRouter([
             element: (
               <Suspense fallback={<LoadingFallback />}>
                 <CapabilitiesPage />
+              </Suspense>
+            )
+          },
+          { 
+            path: "sync-queue", 
+            element: (
+              <Suspense fallback={<LoadingFallback />}>
+                <SyncQueuePage />
               </Suspense>
             )
           },
