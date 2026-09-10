@@ -4,6 +4,7 @@ import { syncApi } from "../syncApi";
 import { pullEngine } from "./PullEngine";
 import { useSyncStore } from "../../store/useSyncStore";
 import { useToastStore } from "../../store/useToastStore";
+import { validateContext } from "../authContext";
 
 /**
  * SyncEngine: Orquesta la sincronización bidireccional entre
@@ -106,6 +107,23 @@ export class SyncEngine {
    */
   private async processItem(item: SyncQueueItem): Promise<void> {
     await SyncQueueRepository.markAsSyncing(item.id);
+
+    // 🔒 VALIDACIÓN MULTI-TENANT: rechazar items que no pertenecen al usuario actual
+    // Esto previene que un terminal procese datos de otra company/branch
+    const isAuthorized = validateContext({
+      company_id: item.company_id,
+      branch_id: item.branch_id,
+    });
+
+    if (!isAuthorized) {
+      const error = `[MultiTenant] Item ${item.id} (${item.entity_type}/${item.action}) ` +
+        `pertenece a company=${item.company_id}, branch=${item.branch_id} ` +
+        `pero el usuario actual tiene diferente contexto. Rechazado por seguridad.`;
+      console.error("[SyncEngine]", error);
+      // Rechazo PERMANENTE: no reintentar (datos maliciosos/de otro tenant)
+      await SyncQueueRepository.markAsPermanentlyFailed(item.id, error);
+      throw new Error(error);
+    }
 
     const payload = this.safeParseJson(item.payload);
     if (!payload) {
@@ -535,6 +553,13 @@ export class SyncEngine {
       toastStore.addToast("error", `Error de sincronización: ${error.message}`);
       store.setProgress(null);
     }
+  }
+  /**
+   * Reset del estado interno (solo para tests).
+   * Garantiza que el flag isProcessing no quede bloqueado.
+   */
+  __resetForTests(): void {
+    this.isProcessing = false;
   }
 }
 

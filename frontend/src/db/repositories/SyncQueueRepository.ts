@@ -264,4 +264,25 @@ export class SyncQueueRepository {
     );
     return results[0]?.count || 0;
   }
+
+  /**
+   * Marca un item como failed PERMANENTEMENTE (sin reintentos).
+   * Usado para rechazos de seguridad (multi-tenant, datos maliciosos).
+   * Fuerza attempts = max_attempts para evitar backoff.
+   */
+  static async markAsPermanentlyFailed(id: string, error: string): Promise<void> {
+    const item = await this.findById(id);
+    if (!item) return;
+
+    await localDb.execute(
+      `UPDATE sync_queue 
+       SET sync_status = 'failed', 
+           attempts = max_attempts, 
+           last_error = ?, 
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id = ?`,
+      [error, id]
+    );
+  }
+
 }
