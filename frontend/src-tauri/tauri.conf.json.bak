@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "\ud83c\udf5c Wok & Mesa \u2014 Sistema POS",
+        "title": "🍜 Wok & Mesa — Sistema POS",
         "width": 1280,
         "height": 800,
         "minWidth": 1024,
@@ -23,7 +23,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' http://localhost:* http://127.0.0.1:* https://api.wokmesa.cl https://*.wokmesa.cl; font-src 'self' data:; media-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"
+      "csp": null
     }
   },
   "bundle": {
