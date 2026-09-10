@@ -4,6 +4,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { localPaymentsService } from "./localPaymentsService";
 import { useSyncStore } from "@/store/useSyncStore";
 import { getTerminalId } from "./terminalIdentity";
+import { getCashierContextSafe } from "./authContext";
 import type {
   PaymentMethod,
   CashierDashboard,
@@ -44,19 +45,19 @@ export const paymentsService = {
       // para que CashierPage reconozca que la caja está abierta
       let currentSession: CashSession | null = null;
       try {
-        const auth = useAuthStore.getState();
-        const user = auth.user;
-        const companyId = user?.company?.uuid ? String(user.company.uuid) : "unknown";
-        const branchId = user?.branch_id ? String(user.branch_id) : "unknown";
-        const userId = user?.id ? String(user.id) : "unknown";
-        const terminalId = getTerminalId();
-        
-        const localSession = await CashSessionRepository.findActive(companyId, branchId, userId, terminalId);
-        if (localSession) {
-          currentSession = CashSessionRepository.toCashSession(localSession);
-          console.log(`[paymentsService] ✅ Sesión activa encontrada offline: ${localSession.local_uuid} (cloud: ${localSession.cloud_id || 'N/A'})`);
+        const ctx = getCashierContextSafe();
+        if (!ctx) {
+          console.warn("[paymentsService] ⚠️ Sin usuario autenticado, no se puede leer sesión offline");
         } else {
-          console.log("[paymentsService] ⚠️ No hay sesión activa en SQLite (caja cerrada)");
+          const localSession = await CashSessionRepository.findActive(
+            ctx.company_id, ctx.branch_id, ctx.user_id, ctx.terminal_id
+          );
+          if (localSession) {
+            currentSession = CashSessionRepository.toCashSession(localSession);
+            console.log(`[paymentsService] ✅ Sesión activa encontrada offline: ${localSession.local_uuid} (cloud: ${localSession.cloud_id || 'N/A'})`);
+          } else {
+            console.log("[paymentsService] ⚠️ No hay sesión activa en SQLite (caja cerrada)");
+          }
         }
       } catch (sessionErr) {
         console.warn("[paymentsService] ⚠️ Error leyendo sesión offline:", sessionErr);
@@ -88,37 +89,37 @@ export const paymentsService = {
       // a local_cash_sessions para que esté disponible offline
       if (dashboard.current_session) {
         try {
-          const auth = useAuthStore.getState();
-          const user = auth.user;
-          const companyId = user?.company?.uuid ? String(user.company.uuid) : "unknown";
-          const branchId = user?.branch_id ? String(user.branch_id) : "unknown";
-          const userId = user?.id ? String(user.id) : "unknown";
-          const terminalId = getTerminalId();
-          
-          const existing = await CashSessionRepository.findActive(companyId, branchId, userId, terminalId);
-          const backendSession = dashboard.current_session;
+          const ctx = getCashierContextSafe();
+          if (!ctx) {
+            console.warn("[paymentsService] ⚠️ Sin usuario autenticado, no se puede sincronizar sesión");
+          } else {
+            const existing = await CashSessionRepository.findActive(
+              ctx.company_id, ctx.branch_id, ctx.user_id, ctx.terminal_id
+            );
+            const backendSession = dashboard.current_session;
 
-          // Si no hay sesión local activa o el cloud_id no coincide, crear/actualizar
-          if (!existing || existing.cloud_id !== backendSession.uuid) {
+            // Si no hay sesión local activa o el cloud_id no coincide, crear/actualizar
+            if (!existing || existing.cloud_id !== backendSession.uuid) {
 
-            // Si hay una sesión local activa pero diferente, cerrarla (fue cerrada en otro terminal)
-            if (existing && existing.cloud_id !== backendSession.uuid) {
-              await CashSessionRepository.close(existing.local_uuid, existing.opening_amount);
-              console.log(`[paymentsService] 🔒 Sesión local anterior cerrada (reemplazada por backend)`);
+              // Si hay una sesión local activa pero diferente, cerrarla (fue cerrada en otro terminal)
+              if (existing && existing.cloud_id !== backendSession.uuid) {
+                await CashSessionRepository.close(existing.local_uuid, existing.opening_amount);
+                console.log(`[paymentsService] 🔒 Sesión local anterior cerrada (reemplazada por backend)`);
+              }
+
+              await CashSessionRepository.create({
+                company_id: ctx.company_id,
+                branch_id: ctx.branch_id,
+                terminal_id: ctx.terminal_id,
+                user_id: ctx.user_id,  // ✅ UUID correcto
+                user_name: backendSession.user?.name || ctx.user_name,
+                opening_amount: backendSession.opening_amount,
+                opened_at: backendSession.opened_at,
+                cloud_id: backendSession.uuid,
+                sync_status: "synced",
+              });
+              console.log(`[paymentsService] ✅ Sesión del backend sincronizada a SQLite: ${backendSession.uuid}`);
             }
-
-            await CashSessionRepository.create({
-              company_id: user?.company?.uuid ? String(user.company.uuid) : "unknown",
-              branch_id: String(branchId),
-              terminal_id: terminalId,
-              user_id: user?.id ? String(user.id) : "unknown",
-              user_name: backendSession.user?.name || null,
-              opening_amount: backendSession.opening_amount,
-              opened_at: backendSession.opened_at,
-              cloud_id: backendSession.uuid,
-              sync_status: "synced",
-            });
-            console.log(`[paymentsService] ✅ Sesión del backend sincronizada a SQLite: ${backendSession.uuid}`);
           }
         } catch (syncErr) {
           console.warn("[paymentsService] ⚠️ Error sincronizando sesión a SQLite:", syncErr);
@@ -175,23 +176,23 @@ export const paymentsService = {
     // cuando no haya conexión. Esto permite que CashierPage muestre
     // "caja abierta" aunque el backend esté inaccesible.
     try {
-      const auth = useAuthStore.getState();
-      const user = auth.user;
-      const branchId = user?.branch_id ? String(user.branch_id) : "unknown";
-      const terminalId = getTerminalId();
-
-      await CashSessionRepository.create({
-        company_id: user?.company?.uuid ? String(user.company.uuid) : "unknown",
-        branch_id: String(branchId),
-        terminal_id: terminalId,
-        user_id: user?.id ? String(user.id) : "unknown",
-        user_name: user?.name || null,
-        opening_amount: openingAmount,
-        opened_at: session.opened_at,
-        cloud_id: session.uuid,
-        sync_status: "synced",
-      });
-      console.log(`[paymentsService] ✅ Sesión guardada localmente: ${session.uuid}`);
+      const ctx = getCashierContextSafe();
+      if (!ctx) {
+        console.warn("[paymentsService] ⚠️ Sin usuario autenticado, no se puede guardar sesión localmente");
+      } else {
+        await CashSessionRepository.create({
+          company_id: ctx.company_id,
+          branch_id: ctx.branch_id,
+          terminal_id: ctx.terminal_id,
+          user_id: ctx.user_id,  // ✅ UUID correcto
+          user_name: ctx.user_name,
+          opening_amount: openingAmount,
+          opened_at: session.opened_at,
+          cloud_id: session.uuid,
+          sync_status: "synced",
+        });
+        console.log(`[paymentsService] ✅ Sesión guardada localmente: ${session.uuid}`);
+      }
     } catch (localErr) {
       // No crítico: si falla guardar localmente, la sesión sigue funcionando online
       console.warn("[paymentsService] ⚠️ No se pudo guardar sesión localmente:", localErr);

@@ -157,3 +157,53 @@ export function mergeAuthContext<T extends Record<string, any>>(
     ...partial,
   } as T & AuthContext;
 }
+
+/**
+ * Contexto específico para operaciones de caja (CashSession/CashMovement).
+ * Incluye company_id, branch_id, terminal_id, user_id (UUID) y user_name.
+ */
+export interface CashierContext {
+  company_id: string;
+  branch_id: string;
+  terminal_id: string;
+  user_id: string;     // UUID del usuario (no ID numérico)
+  user_name: string | null;
+}
+
+/**
+ * Obtiene el contexto para operaciones de caja de forma segura.
+ * 
+ * Retorna null si no hay usuario autenticado (no lanza error).
+ * 
+ * USO:
+ *   const ctx = getCashierContextSafe();
+ *   if (!ctx) return; // Sin auth, no se puede operar caja
+ *   await CashSessionRepository.create({ ...ctx, opening_amount: 100 });
+ * 
+ * FIX DEL BUG PREVIO:
+ * - El código anterior usaba user.id (number) → "1", "2" como strings
+ * - El backend espera user.uuid (string) → "uuid-xyz-123"
+ * - Este helper SIEMPRE usa user.uuid (correcto para auditoría)
+ */
+export function getCashierContextSafe(): CashierContext | null {
+  const user = useAuthStore.getState().user;
+  if (!user) return null;
+
+  // Validar campos críticos
+  if (!user.uuid) {
+    console.warn("[authContext] ⚠️ Usuario sin UUID, contexto inválido");
+    return null;
+  }
+
+  return {
+    company_id: user.company?.uuid 
+      ? String(user.company.uuid) 
+      : user.company_id 
+        ? String(user.company_id) 
+        : "unknown",
+    branch_id: user.branch_id ? String(user.branch_id) : "unknown",
+    terminal_id: getTerminalId(),
+    user_id: user.uuid,  // ✅ UUID correcto (no user.id)
+    user_name: user.name || null,
+  };
+}

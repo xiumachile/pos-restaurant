@@ -218,3 +218,94 @@ describe("mergeAuthContext", () => {
     expect(result.company_id).toBe("42");
   });
 });
+
+describe("getCashierContextSafe", () => {
+  const mockUser = {
+    id: 42,  // number
+    uuid: "user-uuid-cashier",  // string UUID (lo correcto)
+    name: "Cashier Test User",
+    email: "cashier@test.com",
+    role: "cashier" as const,
+    company_id: 10,
+    branch_id: 5,
+    company: {
+      id: 10,
+      uuid: "company-uuid-abc",
+      trade_name: "Test Company",
+    },
+    branch: {
+      id: 5,
+      name: "Test Branch",
+      code: "TB01",
+    },
+  };
+
+  beforeEach(async () => {
+    await useAuthStore.getState().setAuth(mockUser, "token");
+  });
+
+  afterEach(async () => {
+    await useAuthStore.getState().clearAuth();
+  });
+
+  it("debería retornar contexto completo cuando hay usuario", async () => {
+    const { getCashierContextSafe } = await import("@/services/authContext");
+    
+    const ctx = getCashierContextSafe();
+
+    expect(ctx).not.toBeNull();
+    expect(ctx?.company_id).toBe("company-uuid-abc");  // UUID de company
+    expect(ctx?.branch_id).toBe("5");
+    expect(ctx?.user_id).toBe("user-uuid-cashier");  // ✅ UUID, NO "42"
+    expect(ctx?.user_name).toBe("Cashier Test User");
+    expect(ctx?.terminal_id).toBeTruthy();
+  });
+
+  it("debería retornar null si no hay usuario autenticado", async () => {
+    await useAuthStore.getState().clearAuth();
+    
+    const { getCashierContextSafe } = await import("@/services/authContext");
+    const ctx = getCashierContextSafe();
+
+    expect(ctx).toBeNull();
+  });
+
+  it("debería usar user.uuid (no user.id) para user_id", async () => {
+    // Validación crítica del FIX de bug
+    const { getCashierContextSafe } = await import("@/services/authContext");
+    const ctx = getCashierContextSafe();
+
+    // user.id es 42 (number), pero user_id debe ser el UUID
+    expect(ctx?.user_id).toBe("user-uuid-cashier");
+    expect(ctx?.user_id).not.toBe("42");
+    expect(ctx?.user_id).not.toBe(42);
+  });
+
+  it("debería usar company.uuid cuando está disponible", async () => {
+    const { getCashierContextSafe } = await import("@/services/authContext");
+    const ctx = getCashierContextSafe();
+
+    // company_id debe ser el UUID de company, no el número
+    expect(ctx?.company_id).toBe("company-uuid-abc");
+    expect(ctx?.company_id).not.toBe("10");
+  });
+
+  it("debería hacer fallback a company_id numérico si company.uuid no está", async () => {
+    // Usuario sin company.uuid (edge case)
+    const userWithoutCompanyUuid = {
+      ...mockUser,
+      company: {
+        id: 10,
+        uuid: "",  // vacío
+        trade_name: "Test Company",
+      },
+    };
+    await useAuthStore.getState().setAuth(userWithoutCompanyUuid, "token");
+    
+    const { getCashierContextSafe } = await import("@/services/authContext");
+    const ctx = getCashierContextSafe();
+
+    // Fallback al company_id numérico
+    expect(ctx?.company_id).toBe("10");
+  });
+});
