@@ -7,6 +7,7 @@ import localCashMovementsMigration from "./migrations/005_create_local_cash_move
 import localCashSessionsCompanyMigration from "./migrations/006_add_company_to_local_cash_sessions.sql?raw";
 import offlineEventsMigration from "./migrations/007_create_offline_events.sql?raw";
 import localPrintJobsMigration from "./migrations/008_create_local_print_jobs.sql?raw";
+import printerConfigsMigration from "./migrations/009_create_printer_configs.sql?raw";
 
 /**
  * Parser robusto para dividir SQL en statements individuales.
@@ -610,6 +611,50 @@ export async function runMigrations(): Promise<void> {
 
     console.log(`[Migrations] ✅ 008 Resumen: ${executed} ejecutados, ${skipped} saltados`);
     console.log("[Migrations] 🎉 Migración 008 aplicada correctamente");
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // MIGRACIÓN 009: printer_configs (Configuración de impresoras)
+  // ═══════════════════════════════════════════════════════════════
+  if (!applied.some(m => m.version === "009")) {
+    console.log("[Migrations] 🚀 Aplicando migración 009_create_printer_configs...");
+
+    const statements = parseSqlStatements(printerConfigsMigration);
+    console.log(`[Migrations] 🔍 009: Parsed ${statements.length} statements SQL`);
+
+    let executed = 0;
+    let skipped = 0;
+
+    for (let i = 0; i < statements.length; i++) {
+      const stmt = statements[i];
+      const upper = stmt.toUpperCase().trim();
+
+      if (upper.startsWith("--") || upper.startsWith("/*") || stmt.trim().length === 0) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        await db.execute(stmt);
+        executed++;
+      } catch (err: any) {
+        const errMsg = err?.message || String(err);
+        if (errMsg.toLowerCase().includes("already exists") || errMsg.toLowerCase().includes("duplicate")) {
+          console.warn(`[Migrations] ⚠️  009: Statement ya aplicado, continuando`);
+          skipped++;
+          continue;
+        }
+        throw new Error(`Migración 009 falló en statement ${i + 1}: ${errMsg}`);
+      }
+    }
+
+    await db.execute(
+      "INSERT INTO migrations (version, description) VALUES (?, ?)",
+      ["009", `printer-configs-${executed}-statements-${Date.now()}`]
+    );
+
+    console.log(`[Migrations] ✅ 009 Resumen: ${executed} ejecutados, ${skipped} saltados`);
+    console.log("[Migrations] 🎉 Migración 009 aplicada correctamente");
   } else {
     console.log("[Migrations] ✅ Migración 008 ya está aplicada");
   }
