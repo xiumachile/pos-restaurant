@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { printEngine } from '../services/printing/PrintEngine';
+import { offlinePrintEngine } from '../services/printing/OfflinePrintEngine';
 import { useAuthStore } from '../store/useAuthStore';
 
 /**
@@ -10,10 +11,20 @@ import { useAuthStore } from '../store/useAuthStore';
 let printEngineRefCount = 0;
 
 /**
- * Hook que inicia el PrintEngine cuando el usuario está autenticado
- * y lo detiene al cerrar sesión.
- *
- * IDEMPOTENTE: El engine solo se inicia/detiene cuando cambia el
+ * Hook que inicia AMBOS motores de impresión cuando el usuario está autenticado
+ * y los detiene al cerrar sesión.
+ * 
+ * MOTORES GESTIONADOS:
+ * 1. printEngine (OnlinePrintEngine): Polling del backend para jobs del cloud
+ * 2. offlinePrintEngine (OfflinePrintEngine): Polling de SQLite para jobs locales
+ * 
+ * ARQUITECTURA HÍBRIDA:
+ * - Ambos motores corren en paralelo
+ * - OnlinePrintEngine: Solo funciona cuando hay conexión al backend
+ * - OfflinePrintEngine: SIEMPRE funciona (incluso offline)
+ * - Si el backend falla, los jobs locales siguen imprimiéndose
+ * 
+ * IDEMPOTENTE: Los engines solo se inician/detienen cuando cambia el
  * contador de referencias, no en cada mount/unmount de StrictMode.
  */
 export function usePrintEngine() {
@@ -30,15 +41,24 @@ export function usePrintEngine() {
     if (isAuthenticated) {
       if (printEngineRefCount === 0) {
         printEngineRefCount++;
+        
+        // Iniciar AMBOS motores
         printEngine.start();
+        offlinePrintEngine.start();
+        
         console.log("[PrintEngine] 📊 Ref count:", printEngineRefCount);
+        console.log("[PrintEngine] 🚀 Ambos motores iniciados (online + offline)");
       }
     } else {
       if (printEngineRefCount > 0) {
         printEngineRefCount--;
         if (printEngineRefCount === 0) {
+          // Detener AMBOS motores
           printEngine.stop();
+          offlinePrintEngine.stop();
+          
           console.log("[PrintEngine] 📊 Ref count:", printEngineRefCount);
+          console.log("[PrintEngine] ⏹️  Ambos motores detenidos");
         }
       }
     }
