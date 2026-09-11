@@ -5,6 +5,7 @@ import { PaymentRepository } from "@/db/repositories/PaymentRepository";
 import { SyncQueueRepository } from "@/db/repositories/SyncQueueRepository";
 import { CashMovementRepository } from "@/db/repositories/CashMovementRepository";
 import { CashSessionRepository } from "@/db/repositories/CashSessionRepository";
+import { LocalPrintJobRepository } from "@/db/repositories/LocalPrintJobRepository";
 import { getAuthContextSafe, getCashierContextSafe } from "./authContext";
 import type { LocalOrder } from "@/db/repositories/OrderRepository";
 import type { LocalBill } from "@/types/bills";
@@ -236,6 +237,39 @@ export const offlinePaymentService = {
         if (order.table_id) {
           await this.releaseTableOffline(order.table_id);
           tableReleased = true;
+        }
+      }
+
+      // 8. Encolar impresión automática del ticket (si bill está pagada)
+      if (updatedBill.status === "paid") {
+        try {
+          const ctx = (await import("./authContext")).getCashierContextSafe();
+          if (ctx) {
+            await LocalPrintJobRepository.create({
+              job_type: "receipt",
+              entity_type: "bill",
+              entity_uuid: updatedBill.local_uuid,
+              payload: {
+                bill_number: updatedBill.bill_number,
+                grand_total: updatedBill.grand_total,
+                payment_method: paymentMethod,
+                amount,
+                tip_amount: tipAmount,
+              },
+              printer_name: "receipt-printer",
+              printer_type: "receipt",
+              company_id: ctx.company_id,
+              branch_id: ctx.branch_id,
+              terminal_id: ctx.terminal_id,
+              user_id: ctx.user_id,
+              user_name: ctx.user_name || undefined,
+              reference_number: `Cuenta #${updatedBill.bill_number}`,
+            });
+            console.log(`[offlinePaymentService] 🖨️  Ticket de pago encolado para impresión`);
+          }
+        } catch (printErr: any) {
+          // No crítico: si falla encolar impresión, el pago sigue siendo válido
+          console.warn("[offlinePaymentService] ⚠️ No se pudo encolar impresión:", printErr?.message);
         }
       }
 

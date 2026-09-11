@@ -241,6 +241,23 @@ export class LocalPrintJobRepository {
   }
 
   /**
+   * Marca un job como "failed" permanentemente (sin retry).
+   * Usado para errores críticos que no son transitorios
+   * (ej: job sin bytes ESC/POS, datos corruptos).
+   */
+  static async markAsPermanentlyFailed(localUuid: string, error: string): Promise<void> {
+    await localDb.execute(
+      `UPDATE local_print_jobs 
+       SET status = 'failed', 
+           error_message = ?,
+           attempts = max_attempts,
+           updated_at = datetime('now')
+       WHERE local_uuid = ?`,
+      [error, localUuid]
+    );
+  }
+
+  /**
    * Cuenta jobs por status.
    */
   static async countByStatus(): Promise<{
