@@ -120,7 +120,7 @@ export const offlineCashCloseService = {
       };
 
       for (const mov of movements) {
-        if (mov.reference_type === "payment" && mov.type === "sale") {
+        if (mov.reference_type === "payment" && mov.type === "payment") {
           // Inferir método de pago desde reference_uuid o metadata
           // Por ahora, asumimos que todos los sales son cash
           // TODO: mejorar esto cuando tengamos payment_method en movements
@@ -190,7 +190,7 @@ export const offlineCashCloseService = {
         branch_id: ctx.branch_id,
         entity_type: "cash_session",
         entity_local_uuid: session.local_uuid,
-        action: "close",
+        action: "update",  // close es un update del estado de la sesión
         payload: {
           session_uuid: session.local_uuid,
           closing_amount: closingAmount,

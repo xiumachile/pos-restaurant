@@ -36,20 +36,20 @@ export class TauriNetworkPrinterAdapter implements PrinterAdapter {
   }
 
   async print(bytes: Uint8Array, connection: PrinterConnection): Promise<void> {
-    // 1. Validar que es conexión de red
-    if (connection.type !== "network" && connection.type !== "usb") {
+    // 1. Validar que es conexión TCP (red)
+    if (connection.type !== "tcp") {
       throw new Error(
-        `TauriNetworkPrinterAdapter solo soporta conexiones de red. Recibido: ${connection.type}`
+        `TauriNetworkPrinterAdapter solo soporta conexiones TCP. Recibido: ${connection.type}`
       );
     }
 
-    // 2. Extraer IP y puerto
-    const ip = (connection as any).ip || (connection as any).address;
-    const port = (connection as any).port ?? this.defaultPort;
+    // 2. Extraer IP y puerto (campo correcto: host)
+    const ip = connection.host;
+    const port = connection.port ?? this.defaultPort;
 
     if (!ip) {
       throw new Error(
-        "Conexión de red requiere 'ip' o 'address' en PrinterConnection"
+        "Conexión TCP requiere 'host' en PrinterConnection"
       );
     }
 

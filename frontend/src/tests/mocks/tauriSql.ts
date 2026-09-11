@@ -3,6 +3,60 @@
  */
 type Row = Record<string, any>;
 
+/**
+ * Parser mínimo para expresiones SQLite tipo:
+ *   CURRENT_TIMESTAMP
+ *   datetime('now')
+ *   datetime('now', '-3 minutes')
+ *   datetime('now', '+2 hours')
+ *
+ * Necesario para tests de recuperación/retry que dependen de timestamps antiguos.
+ */
+function parseSqlDateTime(val: string): string {
+  const trimmed = val.trim();
+
+  if (trimmed.toUpperCase() === "CURRENT_TIMESTAMP") {
+    return new Date().toISOString();
+  }
+
+  const match = trimmed.match(
+    /^datetime\s*\(\s*['"]now['"]\s*(?:,\s*['"]([+-]?\d+)\s+(second|minute|hour|day)s?['"]\s*)?\)$/i
+  );
+
+  if (!match) {
+    return new Date().toISOString();
+  }
+
+  const offsetStr = match[1];
+  const unit = match[2]?.toLowerCase();
+
+  const date = new Date();
+
+  if (!offsetStr || !unit) {
+    return date.toISOString();
+  }
+
+  const offset = parseInt(offsetStr, 10);
+
+  switch (unit) {
+    case "second":
+      date.setSeconds(date.getSeconds() + offset);
+      break;
+    case "minute":
+      date.setMinutes(date.getMinutes() + offset);
+      break;
+    case "hour":
+      date.setHours(date.getHours() + offset);
+      break;
+    case "day":
+      date.setDate(date.getDate() + offset);
+      break;
+  }
+
+  return date.toISOString();
+}
+
+
 class MockDatabase {
   private tables: Map<string, Row[]> = new Map();
   private inTransaction: boolean = false;
@@ -30,7 +84,7 @@ class MockDatabase {
       if (val === "?") {
         result.push(params[paramIdx++]);
       } else if (val === "CURRENT_TIMESTAMP" || val.startsWith("datetime(")) {
-        result.push(new Date().toISOString());
+        result.push(parseSqlDateTime(val));
       } else if ((val.startsWith("'") && val.endsWith("'")) || 
                  (val.startsWith('"') && val.endsWith('"'))) {
         result.push(val.slice(1, -1));
@@ -186,7 +240,7 @@ class MockDatabase {
                 if (val === "?") {
                   resolvedVal = safeParams[paramIdx++];
                 } else if (val === "CURRENT_TIMESTAMP" || val.startsWith("datetime(")) {
-                  resolvedVal = new Date().toISOString();
+                  resolvedVal = parseSqlDateTime(val);
                 } else if (/^COALESCE\s*\(/i.test(val)) {
                   // Soporte para expresiones como:
                   // COALESCE(?, cloud_id)

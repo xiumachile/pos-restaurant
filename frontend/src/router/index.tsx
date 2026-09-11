@@ -15,6 +15,7 @@ const TipSettingsPage = lazy(() => import("@/pages/settings/TipSettingsPage").th
 const CatalogSettingsPage = lazy(() => import("@/pages/settings/CatalogSettingsPage").then(m => ({ default: m.CatalogSettingsPage })));
 const CapabilitiesPage = lazy(() => import("@/pages/settings/CapabilitiesPage").then(m => ({ default: m.CapabilitiesPage })));
 const SyncQueuePage = lazy(() => import("@/pages/SyncQueuePage").then(m => ({ default: m.SyncQueuePage })));
+const PrinterSettingsPage = lazy(() => import("@/pages/settings/PrinterSettingsPage").then(m => ({ default: m.PrinterSettingsPage })));
 
 // Componente de carga
 function LoadingFallback() {
@@ -74,6 +75,16 @@ function SettingsPage() {
           <h2 className="font-bold text-lg mb-1">Capacidades</h2>
           <p className="text-sm text-slate-400">
             Habilita o deshabilita funcionalidades
+          </p>
+        </a>
+        <a
+          href="/settings/printers"
+          className="bg-slate-800 hover:bg-slate-700 rounded-lg p-6 transition-colors border border-slate-700"
+        >
+          <div className="text-2xl mb-2">🖨️</div>
+          <h2 className="font-bold text-lg mb-1">Impresoras</h2>
+          <p className="text-sm text-slate-400">
+            Configura impresoras térmicas (boletas, cocina, bar)
           </p>
         </a>
       </div>

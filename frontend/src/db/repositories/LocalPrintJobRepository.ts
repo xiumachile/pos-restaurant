@@ -46,6 +46,7 @@ export interface CreatePrintJobPayload {
   user_name?: string;
   reference_number?: string;
   idempotency_key?: string;
+  max_attempts?: number;
 }
 
 // Timeout para considerar un job "printing" como abandonado (2 minutos)
@@ -70,7 +71,7 @@ export class LocalPrintJobRepository {
         company_id, branch_id, terminal_id, user_id, user_name,
         reference_number, status, attempts, max_attempts,
         created_at, updated_at
-      ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, 5, datetime('now'), datetime('now'))`,
+      ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?, datetime('now'), datetime('now'))`,
       [
         localUuid,
         idempotencyKey,
@@ -87,6 +88,7 @@ export class LocalPrintJobRepository {
         data.user_id,
         data.user_name || null,
         data.reference_number || null,
+        data.max_attempts ?? 5,
       ]
     );
 
