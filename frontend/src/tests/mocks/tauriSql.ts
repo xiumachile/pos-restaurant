@@ -182,10 +182,36 @@ class MockDatabase {
                 const val = assignment.substring(eqIdx + 1).trim();
 
                 let resolvedVal: any;
+
                 if (val === "?") {
                   resolvedVal = safeParams[paramIdx++];
                 } else if (val === "CURRENT_TIMESTAMP" || val.startsWith("datetime(")) {
                   resolvedVal = new Date().toISOString();
+                } else if (/^COALESCE\s*\(/i.test(val)) {
+                  // Soporte para expresiones como:
+                  // COALESCE(?, cloud_id)
+                  const coalesceMatch = val.match(
+                    /^COALESCE\s*\(\s*(\?)\s*,\s*(\w+)\s*\)$/i
+                  );
+
+                  if (coalesceMatch) {
+                    const newValue = safeParams[paramIdx++];
+                    const fallbackColumn = coalesceMatch[2];
+
+                    // SQLite COALESCE: si el nuevo valor es NULL,
+                    // conserva el valor actual de la columna.
+                    resolvedVal = {
+                      __coalesce: true,
+                      value: newValue,
+                      fallbackColumn,
+                    };
+                  } else {
+                    // Expresión COALESCE no soportada por este mock.
+                    // Consumimos los parámetros para no desalinear el WHERE.
+                    const questionMarks = (val.match(/\\?/g) || []).length;
+                    paramIdx += questionMarks;
+                    resolvedVal = val;
+                  }
                 } else if ((val.startsWith("'") && val.endsWith("'")) || 
                            (val.startsWith('"') && val.endsWith('"'))) {
                   resolvedVal = val.slice(1, -1);
@@ -210,7 +236,18 @@ class MockDatabase {
         for (const row of rows) {
           if (!whereClause || this.matchesWhere(row, whereClause, safeParams.slice(paramIdx))) {
             for (const { col, value } of assignments) {
-              row[col] = value;
+              if (
+                value &&
+                typeof value === "object" &&
+                value.__coalesce === true
+              ) {
+                row[col] =
+                  value.value !== null && value.value !== undefined
+                    ? value.value
+                    : row[value.fallbackColumn];
+              } else {
+                row[col] = value;
+              }
             }
             affected++;
           }

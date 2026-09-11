@@ -6,6 +6,7 @@ import localBillsMigration from "./migrations/004_create_local_bills.sql?raw";
 import localCashMovementsMigration from "./migrations/005_create_local_cash_movements.sql?raw";
 import localCashSessionsCompanyMigration from "./migrations/006_add_company_to_local_cash_sessions.sql?raw";
 import offlineEventsMigration from "./migrations/007_create_offline_events.sql?raw";
+import localPrintJobsMigration from "./migrations/008_create_local_print_jobs.sql?raw";
 
 /**
  * Parser robusto para dividir SQL en statements individuales.
@@ -563,6 +564,57 @@ export async function runMigrations(): Promise<void> {
   }
 
   // ═══════════════════════════════════════════════════════════════
+  // MIGRACIÓN 008: local_print_jobs (Impresión offline-first)
+  // ═══════════════════════════════════════════════════════════════
+  if (!applied.some(m => m.version === "008")) {
+    console.log("[Migrations] 🚀 Aplicando migración 008_create_local_print_jobs...");
+
+    const statements = parseSqlStatements(localPrintJobsMigration);
+    console.log(`[Migrations] 🔍 008: Parsed ${statements.length} statements SQL`);
+
+    let executed = 0;
+    let skipped = 0;
+
+    for (let i = 0; i < statements.length; i++) {
+      const stmt = statements[i];
+      const upper = stmt.toUpperCase().trim();
+
+      if (upper.startsWith("--") || upper.startsWith("/*") || stmt.trim().length === 0) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        await db.execute(stmt);
+        executed++;
+      } catch (err: any) {
+        const errMsg = String(err?.message || err || "unknown");
+
+        if (
+          errMsg.includes("already exists") ||
+          errMsg.includes("duplicate") ||
+          errMsg.includes("table local_print_jobs already exists")
+        ) {
+          console.warn(`[Migrations] ⚠️  008: Statement ya aplicado, continuando`);
+          skipped++;
+        } else {
+          throw new Error(`Migración 008 falló en statement ${i + 1}: ${errMsg}`);
+        }
+      }
+    }
+
+    await db.execute(
+      "INSERT OR REPLACE INTO migrations (version, checksum) VALUES (?, ?)",
+      ["008", `local-print-jobs-${executed}-statements-${Date.now()}`]
+    );
+
+    console.log(`[Migrations] ✅ 008 Resumen: ${executed} ejecutados, ${skipped} saltados`);
+    console.log("[Migrations] 🎉 Migración 008 aplicada correctamente");
+  } else {
+    console.log("[Migrations] ✅ Migración 008 ya está aplicada");
+  }
+
+  // ═══════════════════════════════════════════════════════════════
   // VERIFICACIÓN DE INTEGRIDAD (independiente de migraciones)
   // ═══════════════════════════════════════════════════════════════
   const criticalTables = [
@@ -574,7 +626,8 @@ export async function runMigrations(): Promise<void> {
     "local_cash_sessions",
     "local_cash_movements",
     "offline_events",
-    "table_local_mutations"
+    "table_local_mutations",
+    "local_print_jobs"
   ];
 
   console.log("[Migrations] 🔍 Verificando integridad de tablas críticas...");
