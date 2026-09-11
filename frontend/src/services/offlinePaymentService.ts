@@ -1,13 +1,13 @@
 import { localDb } from "@/db/localDb";
-import { OrderRepository } from "@/db/repositories/OrderRepository";
+import { OrderRepository, type LocalOrder } from "@/db/repositories/OrderRepository";
 import { BillRepository } from "@/db/repositories/BillRepository";
 import { PaymentRepository } from "@/db/repositories/PaymentRepository";
 import { SyncQueueRepository } from "@/db/repositories/SyncQueueRepository";
 import { CashMovementRepository } from "@/db/repositories/CashMovementRepository";
 import { CashSessionRepository } from "@/db/repositories/CashSessionRepository";
 import { LocalPrintJobRepository } from "@/db/repositories/LocalPrintJobRepository";
+import { ticketToBase64, type ReceiptData } from "@/services/printing/ticketFormatters";
 import { getAuthContextSafe, getCashierContextSafe } from "./authContext";
-import type { LocalOrder } from "@/db/repositories/OrderRepository";
 import type { LocalBill } from "@/types/bills";
 import type { LocalPayment } from "@/db/repositories/PaymentRepository";
 
@@ -245,17 +245,41 @@ export const offlinePaymentService = {
         try {
           const ctx = (await import("./authContext")).getCashierContextSafe();
           if (ctx) {
+            // Obtener items del order para construir el receipt completo
+            const items = orderLocalUuid
+              ? await OrderRepository.findItemsByOrderLocalUuid(orderLocalUuid)
+              : [];
+
+            // Construir ReceiptData con todos los campos necesarios
+            const receiptData: ReceiptData = {
+              billNumber: updatedBill.bill_number,
+              items: items.map((item) => ({
+                name: item.product_name,
+                quantity: item.quantity,
+                unitPrice: item.unit_price,
+                subtotal: item.subtotal,
+                notes: item.notes,
+              })),
+              subtotal: updatedBill.subtotal,
+              taxTotal: updatedBill.tax_total,
+              tipAmount: updatedBill.tip_amount,
+              grandTotal: updatedBill.grand_total,
+              paymentMethod: paymentMethod,
+              paidAmount: updatedBill.paid_amount,
+              remainingAmount: updatedBill.remaining_amount,
+              cashierName: ctx.user_name || undefined,
+              createdAt: new Date(),
+            };
+
+            // Generar bytes ESC/POS como base64 (100% offline)
+            const escposBase64 = ticketToBase64.receipt(receiptData);
+
             await LocalPrintJobRepository.create({
               job_type: "receipt",
               entity_type: "bill",
               entity_uuid: updatedBill.local_uuid,
-              payload: {
-                bill_number: updatedBill.bill_number,
-                grand_total: updatedBill.grand_total,
-                payment_method: paymentMethod,
-                amount,
-                tip_amount: tipAmount,
-              },
+              payload: receiptData,
+              escpos_base64: escposBase64,
               printer_name: "receipt-printer",
               printer_type: "receipt",
               company_id: ctx.company_id,
@@ -265,7 +289,7 @@ export const offlinePaymentService = {
               user_name: ctx.user_name || undefined,
               reference_number: `Cuenta #${updatedBill.bill_number}`,
             });
-            console.log(`[offlinePaymentService] 🖨️  Ticket de pago encolado para impresión`);
+            console.log(`[offlinePaymentService] 🖨️  Ticket de pago encolado (${escposBase64.length} bytes base64)`);
           }
         } catch (printErr: any) {
           // No crítico: si falla encolar impresión, el pago sigue siendo válido
