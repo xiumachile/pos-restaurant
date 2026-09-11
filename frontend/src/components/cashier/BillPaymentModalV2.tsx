@@ -2,6 +2,8 @@ import { useState, useCallback } from "react";
 import type { Bill } from "@/types/bills";
 import type { PaymentMethod } from "@/types/payments";
 import { usePaymentMethods, usePayBill, useInvalidateCashier } from "@/hooks/usePayments";
+import { useOfflinePayment } from "@/hooks/useOfflinePayment";
+import { useConnectionMode } from "@/hooks/useConnectionMode";
 import { formatPrice } from "@/types/catalog";
 import {
   X,
@@ -63,7 +65,8 @@ export function BillPaymentModalV2({
   const [errors, setErrors] = useState<string[]>([]);
 
   const { data: methods = [] } = usePaymentMethods();
-  const payBill = usePayBill();
+  const isOffline = useConnectionMode();
+  const payBill = isOffline ? useOfflinePayment() : usePayBill();
   const invalidate = useInvalidateCashier();
 
   const billTotal = effectiveBills.reduce((sum, b) => sum + b.total, 0);
