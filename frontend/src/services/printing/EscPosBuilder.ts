@@ -306,7 +306,11 @@ export class EscPosBuilder {
 
   /**
    * Construye y retorna como string legible (para debugging).
-   * Los bytes no imprimibles se muestran como [XX].
+   * 
+   * Los bytes imprimibles Latin1 (0x20-0xFF excepto DEL 0x7F) se muestran como caracteres.
+   * Los bytes de control (< 0x20 y 0x7F) se muestran como [0xXX].
+   * 
+   * Esto incluye vocales acentuadas (ó, é, ñ) comunes en tickets en español.
    */
   buildDebug(): string {
     const bytes = this.build();
@@ -314,9 +318,9 @@ export class EscPosBuilder {
     
     for (let i = 0; i < bytes.length; i++) {
       const byte = bytes[i];
-      // Tratar como imprimible solo caracteres ASCII estándar (0x20-0x7E)
-      // Excluir caracteres de control (< 0x20) y extended ASCII (> 0x7E)
-      if (byte >= 0x20 && byte <= 0x7E) {
+      // Latin1 imprimible: 0x20-0x7E (ASCII) + 0x80-0xFF (extended)
+      // Excluir DEL (0x7F) y caracteres de control (< 0x20)
+      if ((byte >= 0x20 && byte <= 0x7E) || byte >= 0x80) {
         parts.push(String.fromCharCode(byte));
       } else {
         parts.push(`[0x${byte.toString(16).padStart(2, "0")}]`);
