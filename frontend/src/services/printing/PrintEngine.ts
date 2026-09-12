@@ -42,14 +42,18 @@ export class PrintEngine {
     console.log(`[PrintEngine] 🚀 Iniciado (clientId: ${this.clientId}, poll: ${this.pollIntervalMs}ms)`);
 
     // Primera ejecución inmediata
+    // NOTA: El .catch() aquí es solo para evitar unhandled promise rejection.
+    // processPendingJobs() tiene su propio try/catch que maneja errores de forma defensiva
+    // y deja los jobs en estado 'failed' para retry manual o reintentos automáticos.
     this.processPendingJobs().catch(err => {
-      console.error('[PrintEngine] Error en primera ejecución:', err);
+      console.error('[PrintEngine] Error inesperado en primera ejecución (ver logs de processPendingJobs):', err);
     });
 
     // Polling periódico
     this.intervalId = setInterval(() => {
+      // Ver comentario arriba sobre el patrón defensivo
       this.processPendingJobs().catch(err => {
-        console.error('[PrintEngine] Error en polling:', err);
+        console.error('[PrintEngine] Error inesperado en polling (ver logs de processPendingJobs):', err);
       });
     }, this.pollIntervalMs);
   }
