@@ -15,90 +15,14 @@ vi.mock("@tauri-apps/plugin-sql", async () => {
  * PRINCIPIO P0 DE INTEGRIDAD:
  * "NUNCA marcar como 'synced' un entity_type que no tiene handler"
  * 
- * COMPORTAMIENTO ESPERADO:
- * - Primer intento: error + vuelta a 'pending' con backoff (retry)
- * - Intentos subsiguientes: mismo comportamiento
- * - Después de max_attempts: marcado como 'failed'
- * - NUNCA marcado como 'synced'
- * 
- * Esto es correcto: el sistema reintenta en caso de errores transitorios,
- * pero lo crítico es que NUNCA miente diciendo que sincronizó algo
- * que no envió al backend.
+ * NOTA: cash_session ahora tiene handler (SyncEngine.cashSession.test.ts)
+ * por lo que solo testeamos bill y entity_types desconocidos aquí.
  */
 describe("SyncEngine - Entity types no implementados", () => {
   beforeEach(async () => {
     await localDb.getConnection();
     await runMigrations();
     await localDb.execute("DELETE FROM sync_queue");
-  });
-
-  describe("cash_session", () => {
-    it("debería NUNCA marcar como 'synced' cuando no está implementado", async () => {
-      // Encolar un cash_session
-      const itemId = await SyncQueueRepository.enqueue({
-        company_id: "company-1",
-        branch_id: "branch-1",
-        entity_type: "cash_session",
-        entity_local_uuid: "session-uuid-123",
-        action: "update",
-        payload: {
-          session_uuid: "session-uuid-123",
-          closing_amount: 350000,
-        },
-      });
-
-      // Procesar batch
-      await syncEngine.processBatch();
-
-      // Verificar que NO quedó como 'synced' (esto era el bug P0)
-      const item = await SyncQueueRepository.findById(itemId);
-      expect(item).toBeDefined();
-      expect(item?.sync_status).not.toBe("synced");  // ← PRINCIPIO P0
-      expect(item?.sync_status).toBe("pending");      // ← Retry programado
-      expect(item?.attempts).toBe(1);
-      expect(item?.last_error).toContain("cash_session sync not implemented");
-      expect(item?.last_error).toContain("P0");
-    });
-
-    it("debería quedar como 'failed' permanente tras agotar reintentos", async () => {
-      // Encolar cash_session con max_attempts = 2 para test rápido
-      const itemId = await SyncQueueRepository.enqueue({
-        company_id: "company-1",
-        branch_id: "branch-1",
-        entity_type: "cash_session",
-        entity_local_uuid: "session-uuid-456",
-        action: "update",
-        payload: {
-          session_uuid: "session-uuid-456",
-          closing_amount: 350000,
-        },
-      });
-
-      // Reducir max_attempts a 2 para acelerar test
-      await localDb.execute(
-        "UPDATE sync_queue SET max_attempts = 2 WHERE id = ?",
-        [itemId]
-      );
-
-      // Intento 1 → queda pending
-      await syncEngine.processBatch();
-      let item = await SyncQueueRepository.findById(itemId);
-      expect(item?.sync_status).toBe("pending");
-      expect(item?.attempts).toBe(1);
-
-      // Forzar next_retry_at al pasado para que el siguiente batch lo procese
-      await localDb.execute(
-        "UPDATE sync_queue SET next_retry_at = datetime('now', '-1 hour') WHERE id = ?",
-        [itemId]
-      );
-
-      // Intento 2 → agota max_attempts, queda failed permanente
-      await syncEngine.processBatch();
-      item = await SyncQueueRepository.findById(itemId);
-      expect(item?.sync_status).toBe("failed");
-      expect(item?.attempts).toBe(2);
-      expect(item?.last_error).toContain("cash_session sync not implemented");
-    });
   });
 
   describe("bill", () => {
@@ -120,7 +44,7 @@ describe("SyncEngine - Entity types no implementados", () => {
       const item = await SyncQueueRepository.findById(itemId);
       expect(item).toBeDefined();
       expect(item?.sync_status).not.toBe("synced");  // ← PRINCIPIO P0
-      expect(item?.sync_status).toBe("pending");
+      expect(item?.sync_status).toBe("pending");      // ← Retry programado
       expect(item?.attempts).toBe(1);
       expect(item?.last_error).toContain("bill sync not implemented");
     });

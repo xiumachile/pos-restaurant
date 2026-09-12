@@ -42,6 +42,19 @@ export interface MovementPayload {
   idempotency_key: string;
 }
 
+export interface CashSessionOpenPayload {
+  opening_amount: number;
+  notes?: string | null;
+  idempotency_key: string;
+}
+
+export interface CashSessionClosePayload {
+  closing_amount: number;
+  notes?: string | null;
+  idempotency_key: string;
+}
+
+
 export class SyncApiClient {
   async createOrder(payload: OrderPayload): Promise<any> {
     const response = await apiClient.post("/orders", payload, {
@@ -106,6 +119,35 @@ export class SyncApiClient {
 
   async updateTableStatus(uuid: string, status: string): Promise<any> {
     const response = await apiClient.put(`/tables/${uuid}/status`, { status });
+    return response.data.data;
+  }
+
+
+  /**
+   * Abre una nueva sesión de caja.
+   * POST /cash-sessions/open
+   */
+  async openCashSession(payload: CashSessionOpenPayload): Promise<any> {
+    const response = await apiClient.post("/cash-sessions/open", {
+      opening_amount: payload.opening_amount,
+      notes: payload.notes || null,
+    }, {
+      headers: { "Idempotency-Key": payload.idempotency_key },
+    });
+    return response.data.data;
+  }
+
+  /**
+   * Cierra una sesión de caja existente.
+   * POST /cash-sessions/{uuid}/close
+   */
+  async closeCashSession(uuid: string, payload: CashSessionClosePayload): Promise<any> {
+    const response = await apiClient.post(`/cash-sessions/${uuid}/close`, {
+      closing_amount: payload.closing_amount,
+      notes: payload.notes || null,
+    }, {
+      headers: { "Idempotency-Key": payload.idempotency_key },
+    });
     return response.data.data;
   }
 

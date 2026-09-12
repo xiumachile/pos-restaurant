@@ -143,7 +143,8 @@ export class SyncEngine {
         await this.processTableStatus(item, payload);
         break;
       case "cash_session":
-        throw new Error("cash_session sync not implemented (P0: requiere implementación urgente)");
+        cloudId = await this.processCashSession(item, payload);
+        break;
       case "cash_movement":
         cloudId = await this.processCashMovement(item, payload);
         break;
@@ -562,6 +563,75 @@ export class SyncEngine {
   __resetForTests(): void {
     this.isProcessing = false;
   }
+
+  /**
+   * Procesa sesiones de caja offline (open/close).
+   * 
+   * IMPORTANTE: El backend solo tiene endpoints para:
+   * - POST /cash-sessions/open (crear sesión)
+   * - POST /cash-sessions/{uuid}/close (cerrar sesión)
+   * 
+   * No hay endpoint para actualizar sesión abierta (solo close).
+   */
+  private async processCashSession(item: SyncQueueItem, payload: any): Promise<string | null> {
+    const { CashSessionRepository } = await import("../../db/repositories/CashSessionRepository");
+
+    switch (item.action) {
+      case "create": {
+        // Abrir nueva sesión de caja
+        if (!payload.opening_amount && payload.opening_amount !== 0) {
+          throw new Error("opening_amount es requerido para abrir sesión de caja");
+        }
+
+        const idempotencyKey = payload.idempotency_key || `cash-open-${item.entity_local_uuid}`;
+
+        console.log(`[SyncEngine] 🔓 Abriendo sesión de caja: ${item.entity_local_uuid}`);
+
+        const response = await syncApi.openCashSession({
+          opening_amount: payload.opening_amount,
+          notes: payload.notes || null,
+          idempotency_key: idempotencyKey,
+        });
+
+        const cloudId = response.uuid || response.id;
+        if (cloudId) {
+          await CashSessionRepository.markAsSynced(item.entity_local_uuid, String(cloudId));
+        }
+        return cloudId ? String(cloudId) : null;
+      }
+
+      case "update": {
+        // Cerrar sesión de caja
+        const session = await CashSessionRepository.findByLocalUuid(item.entity_local_uuid);
+        if (!session?.cloud_id) {
+          throw new Error("Sesión de caja sin cloud_id, no se puede cerrar");
+        }
+
+        if (!payload.closing_amount && payload.closing_amount !== 0) {
+          throw new Error("closing_amount es requerido para cerrar sesión de caja");
+        }
+
+        const idempotencyKey = payload.idempotency_key || `cash-close-${item.entity_local_uuid}`;
+
+        console.log(`[SyncEngine] 🔒 Cerrando sesión de caja: ${session.cloud_id}`);
+
+        const response = await syncApi.closeCashSession(session.cloud_id, {
+          closing_amount: payload.closing_amount,
+          notes: payload.notes || null,
+          idempotency_key: idempotencyKey,
+        });
+
+        // La sesión ya está marcada como closed localmente por offlineCashCloseService
+        // Solo necesitamos confirmar que el backend la procesó correctamente
+        const cloudId = response.uuid || response.id;
+        return cloudId ? String(cloudId) : session.cloud_id;
+      }
+
+      default:
+        throw new Error(`Acción no soportada para cash_session: ${item.action}`);
+    }
+  }
+
 }
 
 export const syncEngine = new SyncEngine();
