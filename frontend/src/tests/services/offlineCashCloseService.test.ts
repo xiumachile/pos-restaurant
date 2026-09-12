@@ -191,8 +191,6 @@ describe("offlineCashCloseService", () => {
         branch_id: "branch-1",
         amount: 100000,
         payment_method: "cash",
-        status: "completed",
-        idempotency_key: "cash-1",
       });
 
       const cardPayment = await PaymentRepository.create({
@@ -200,8 +198,6 @@ describe("offlineCashCloseService", () => {
         branch_id: "branch-1",
         amount: 180000,
         payment_method: "card",
-        status: "completed",
-        idempotency_key: "card-1",
       });
 
       const transferPayment = await PaymentRepository.create({
@@ -209,8 +205,6 @@ describe("offlineCashCloseService", () => {
         branch_id: "branch-1",
         amount: 70000,
         payment_method: "transfer",
-        status: "completed",
-        idempotency_key: "transfer-1",
       });
 
       // Crear movimientos de caja referenciando los payments

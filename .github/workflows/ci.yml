@@ -91,6 +91,12 @@ jobs:
       - name: Install dependencies
         run: cd frontend && npm ci
       
+      - name: TypeScript check (all files including tests)
+        run: cd frontend && npx tsc --noEmit
+        # tsc --noEmit valida TODOS los archivos .ts/.tsx incluyendo tests.
+        # vite build (en el step Build) NO compila tests, por eso necesitamos
+        # este step explícito para detectar errores de tipos en tests.
+      
       - name: Build
         run: cd frontend && npm run build
       
