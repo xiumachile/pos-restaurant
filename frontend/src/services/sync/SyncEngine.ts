@@ -143,11 +143,12 @@ export class SyncEngine {
         await this.processTableStatus(item, payload);
         break;
       case "cash_session":
-        console.warn("[SyncEngine] cash_session sync no implementado aún");
-        break;
+        throw new Error("cash_session sync not implemented (P0: requiere implementación urgente)");
       case "cash_movement":
         cloudId = await this.processCashMovement(item, payload);
         break;
+      case "bill":
+        throw new Error("bill sync not implemented (requiere implementación)");
       default:
         throw new Error(`Entity type no soportado: ${item.entity_type}`);
     }
