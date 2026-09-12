@@ -3,6 +3,8 @@ import { persist } from "zustand/middleware";
 import type { CartItem, CartTotals, TableCart } from "@/types/cart";
 import type { Product } from "@/types/catalog";
 import { parsePrice } from "@/types/catalog";
+import { calculateTax } from "@/utils/money";
+import { IVA_RATE } from "@/config/tax";
 
 function generateUUID(): string {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -142,7 +144,7 @@ export const useCartStore = create<CartState>()(
           (sum, item) => sum + parsePrice(item.product.base_price) * item.quantity,
           0
         );
-        const tax = subtotal * 0.19;
+        const tax = calculateTax(subtotal, IVA_RATE);
         const itemCount = cart.items.reduce((sum, i) => sum + i.quantity, 0);
 
         return { subtotal, tax, total: subtotal + tax, itemCount };

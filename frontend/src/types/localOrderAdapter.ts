@@ -1,6 +1,8 @@
 import type { Order, OrderItem, OrderStatus, OrderType } from "./orders";
 import { isValidLocalStatus } from "@/services/sync/statusMapper";
 import type { LocalOrder, LocalOrderItem } from "../db/repositories/OrderRepository";
+import { calculateTax } from "@/utils/money";
+import { IVA_RATE } from "@/config/tax";
 
 /**
  * Extensión del tipo Order con metadatos locales.
@@ -44,7 +46,7 @@ export function adaptLocalOrder(
 
   // Calcular subtotal desde items si no está en el order
   const subtotal = order.subtotal ?? adaptedItems.reduce((sum, i) => sum + i.subtotal, 0);
-  const taxAmount = (order as any).tax_amount ?? Math.round(subtotal * 0.19);
+  const taxAmount = (order as any).tax_amount ?? calculateTax(subtotal, IVA_RATE);
   const total = order.grand_total ?? (subtotal + taxAmount);
 
   return {

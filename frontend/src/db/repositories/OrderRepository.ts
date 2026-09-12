@@ -2,6 +2,8 @@ import { localDb } from "../localDb";
 import { SyncQueueRepository } from "./SyncQueueRepository";
 import { localTablesService } from "@/services/localTablesService";
 import { v4 as uuidv4 } from "uuid";
+import { calculateTax, roundToCents, sumMoney } from "@/utils/money";
+import { IVA_RATE } from "@/config/tax";
 
 export interface LocalOrder {
   local_uuid: string;
@@ -205,6 +207,9 @@ export class OrderRepository {
 
   /**
    * Recalcula subtotal, tax y total del pedido.
+   * 
+   * ADR-010: Usa helpers de Money para garantizar que todos los montos
+   * sean enteros (CLP no tiene centavos fraccionarios).
    */
   static async recalculateOrderTotals(orderLocalUuid: string): Promise<void> {
     const items = await localDb.select<any>(
@@ -212,9 +217,13 @@ export class OrderRepository {
       [orderLocalUuid]
     );
 
-    const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
-    const taxRate = 0.19; // 19% IVA Chile
-    const taxTotal = subtotal * taxRate;
+    // Sumar subtotales con redondeo explícito (evita acumulación de floats)
+    const subtotal = sumMoney(items.map(item => item.subtotal));
+    
+    // Calcular IVA con redondeo (19% Chile)
+    const taxTotal = calculateTax(subtotal, IVA_RATE);
+    
+    // Grand total como suma de enteros (ya redondeados)
     const grandTotal = subtotal + taxTotal;
 
     await localDb.execute(
