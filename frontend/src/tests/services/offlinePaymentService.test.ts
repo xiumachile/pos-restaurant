@@ -209,7 +209,7 @@ describe("offlinePaymentService", () => {
   });
 
   describe("createPaymentOffline - sync queue", () => {
-    it("debería encolar bill, payment y table update", async () => {
+    it("debería encolar payment y table update (bill NO se encola por ADR-009)", async () => {
       const order = await OrderRepository.create({
         company_id: "company-1",
         branch_id: "branch-1",
@@ -231,10 +231,13 @@ describe("offlinePaymentService", () => {
 
       const pending = await SyncQueueRepository.getPending();
 
-      expect(pending.length).toBeGreaterThanOrEqual(3);
+      // ADR-009: bill NO se encola (backend la reconstruye desde order + payment)
+      // Solo payment y table update se encolan
+      expect(pending.length).toBeGreaterThanOrEqual(2);
 
+      // Verificar que NO hay items de bill (ADR-009)
       const billItems = pending.filter(p => p.entity_type === "bill");
-      expect(billItems.length).toBeGreaterThanOrEqual(1);
+      expect(billItems).toHaveLength(0);
 
       const paymentItems = pending.filter(p => p.entity_type === "payment");
       expect(paymentItems).toHaveLength(1);

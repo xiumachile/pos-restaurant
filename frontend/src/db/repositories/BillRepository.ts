@@ -88,20 +88,10 @@ export class BillRepository {
 
     const bill = (await this.findByLocalUuid(local_uuid)) as LocalBill;
 
-    // Encolar automáticamente para sincronización
-    await SyncQueueRepository.enqueue({
-      company_id: payload.company_id,
-      branch_id: payload.branch_id,
-      entity_type: "bill",
-      entity_local_uuid: local_uuid,
-      action: "create",
-      payload: {
-        ...bill,
-        idempotency_key,
-      },
-    });
-
-    console.log(`[BillRepository] 📤 Bill encolada para sync: ${local_uuid}`);
+    // NOTA (ADR-009): Las bills NO se sincronizan como entidades independientes.
+    // El backend las reconstruye automáticamente desde order + payments sincronizados.
+    // El endpoint POST /bills no existe en el backend.
+    console.log(`[BillRepository] 📝 Bill creada localmente (no sincronizable): ${local_uuid}`);
     return bill;
   }
 
@@ -184,22 +174,9 @@ export class BillRepository {
       [newPaidAmount, newRemainingAmount, newStatus, localUuid]
     );
 
-    // Encolar update para sync
+    // NOTA (ADR-009): Las bills NO se sincronizan como entidades independientes.
+    // El backend reconstruye bills desde order + payments sincronizados.
     const updated = await this.findByLocalUuid(localUuid);
-    if (updated) {
-      await SyncQueueRepository.enqueue({
-        company_id: updated.company_id,
-        branch_id: updated.branch_id,
-        entity_type: "bill",
-        entity_local_uuid: localUuid,
-        action: "update",
-        payload: {
-          paid_amount: newPaidAmount,
-          remaining_amount: newRemainingAmount,
-          status: newStatus,
-        },
-      });
-    }
 
     return updated!;
   }
@@ -226,20 +203,9 @@ export class BillRepository {
       [finalNotes, localUuid]
     );
 
+    // NOTA (ADR-009): Las bills NO se sincronizan como entidades independientes.
+    // El backend reconstruye bills desde order + payments sincronizados.
     const updated = await this.findByLocalUuid(localUuid);
-    if (updated) {
-      await SyncQueueRepository.enqueue({
-        company_id: updated.company_id,
-        branch_id: updated.branch_id,
-        entity_type: "bill",
-        entity_local_uuid: localUuid,
-        action: "update",
-        payload: { 
-          status: "cancelled",
-          reason: finalNotes 
-        },
-      });
-    }
 
     return updated!;
   }

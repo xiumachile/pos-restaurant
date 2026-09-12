@@ -183,7 +183,7 @@ describe("Repositorios locales", () => {
   });
 
   describe("BillRepository", () => {
-    it("debería crear una bill local con paid_amount=0 y encolarla para sync", async () => {
+    it("debería crear una bill local con paid_amount=0 (NO se encola por ADR-009)", async () => {
       const bill = await BillRepository.create({
         company_id: "company-1",
         branch_id: "branch-1",
@@ -204,11 +204,11 @@ describe("Repositorios locales", () => {
       expect(bill.idempotency_key).toMatch(/^[a-f0-9-]{36}$/);
 
       // Verificar que se encoló para sync
+      // ADR-009: Las bills NO se encolan en sync_queue.
+      // El backend reconstruye bills desde order + payments sincronizados.
       const pending = await SyncQueueRepository.getPending();
       const billQueueItem = pending.find(p => p.entity_local_uuid === bill.local_uuid);
-      expect(billQueueItem).toBeDefined();
-      expect(billQueueItem?.entity_type).toBe("bill");
-      expect(billQueueItem?.action).toBe("create");
+      expect(billQueueItem).toBeUndefined(); // NO debe estar encolada
     });
 
     it("debería registrar pago y actualizar remaining_amount y status", async () => {
@@ -229,11 +229,13 @@ describe("Repositorios locales", () => {
       expect(updated.status).toBe("partial");
 
       // Verificar que se encoló el update para sync
+      // ADR-009: Las bills NO se encolan en sync_queue.
+      // Solo verificar que la bill se actualizó correctamente en SQLite.
       const pending = await SyncQueueRepository.getPending();
       const updates = pending.filter(
         p => p.entity_local_uuid === bill.local_uuid && p.action === "update"
       );
-      expect(updates).toHaveLength(1);
+      expect(updates).toHaveLength(0); // NO debe haber updates encolados
     });
 
     it("debería cambiar status a 'paid' cuando remaining_amount llega a 0", async () => {
@@ -290,7 +292,7 @@ describe("Repositorios locales", () => {
       expect(updated?.sync_status).toBe("synced");
     });
 
-    it("debería cancelar una bill y encolar cancelación", async () => {
+    it("debería cancelar una bill localmente (NO se encola por ADR-009)", async () => {
       const bill = await BillRepository.create({
         company_id: "company-1",
         branch_id: "branch-1",
@@ -305,13 +307,15 @@ describe("Repositorios locales", () => {
       const updated = await BillRepository.findByLocalUuid(bill.local_uuid);
       expect(updated?.status).toBe("cancelled");
 
+      // ADR-009: Las bills NO se encolan en sync_queue.
+      // Solo verificar que la bill se marcó como cancelled en SQLite.
       const pending = await SyncQueueRepository.getPending();
       const cancelItem = pending.find(
         p => p.entity_local_uuid === bill.local_uuid && 
              p.action === "update" && 
              JSON.parse(p.payload).status === "cancelled"
       );
-      expect(cancelItem).toBeDefined();
+      expect(cancelItem).toBeUndefined(); // NO debe estar encolada
     });
 
     it("debería listar bills abiertas por branch", async () => {
