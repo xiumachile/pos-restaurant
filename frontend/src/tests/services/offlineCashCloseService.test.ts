@@ -4,6 +4,7 @@ import { runMigrations } from "@/db/schema";
 import { offlineCashCloseService } from "@/services/offlineCashCloseService";
 import { CashSessionRepository } from "@/db/repositories/CashSessionRepository";
 import { CashMovementRepository } from "@/db/repositories/CashMovementRepository";
+import { PaymentRepository } from "@/db/repositories/PaymentRepository";
 import { LocalPrintJobRepository } from "@/db/repositories/LocalPrintJobRepository";
 
 vi.mock("@tauri-apps/plugin-sql", async () => {
@@ -174,4 +175,119 @@ describe("offlineCashCloseService", () => {
       expect(payload.movements[0].reason).toBe("Cambio");
     });
   });
+
+    it("clasifica ventas por método de pago real (cash/card/transfer)", async () => {
+      const session = await CashSessionRepository.create({
+        company_id: "company-1",
+        branch_id: "branch-1",
+        user_id: "user-1",
+        user_name: "Juan Pérez",
+        opening_amount: 50000,
+      });
+
+      // Crear 3 payments con diferentes métodos
+      const cashPayment = await PaymentRepository.create({
+        company_id: "company-1",
+        branch_id: "branch-1",
+        amount: 100000,
+        payment_method: "cash",
+        status: "completed",
+        idempotency_key: "cash-1",
+      });
+
+      const cardPayment = await PaymentRepository.create({
+        company_id: "company-1",
+        branch_id: "branch-1",
+        amount: 180000,
+        payment_method: "card",
+        status: "completed",
+        idempotency_key: "card-1",
+      });
+
+      const transferPayment = await PaymentRepository.create({
+        company_id: "company-1",
+        branch_id: "branch-1",
+        amount: 70000,
+        payment_method: "transfer",
+        status: "completed",
+        idempotency_key: "transfer-1",
+      });
+
+      // Crear movimientos de caja referenciando los payments
+      await CashMovementRepository.create(session.local_uuid, {
+        type: "payment",
+        amount: 100000,
+        reason: "Pago en efectivo",
+        reference_type: "payment",
+        reference_local_uuid: cashPayment.local_uuid,
+      });
+
+      await CashMovementRepository.create(session.local_uuid, {
+        type: "payment",
+        amount: 180000,
+        reason: "Pago con tarjeta",
+        reference_type: "payment",
+        reference_local_uuid: cardPayment.local_uuid,
+      });
+
+      await CashMovementRepository.create(session.local_uuid, {
+        type: "payment",
+        amount: 70000,
+        reason: "Transferencia",
+        reference_type: "payment",
+        reference_local_uuid: transferPayment.local_uuid,
+      });
+
+      await offlineCashCloseService.closeSession({
+        sessionUuid: session.local_uuid,
+        closingAmount: 400000,
+      });
+
+      // Verificar que la copia de caja tiene clasificación correcta
+      const jobs = await LocalPrintJobRepository.getAll();
+      const cashJob = jobs.find((j) => j.entity_type === "cash_session");
+
+      expect(cashJob).toBeDefined();
+      const payload = JSON.parse(cashJob!.payload);
+      
+      expect(payload.cashSales).toBe(100000);
+      expect(payload.cardSales).toBe(180000);
+      expect(payload.transferSales).toBe(70000);
+      expect(payload.totalSales).toBe(350000);
+    });
+
+    it("maneja movimientos sin payment asociado (edge case)", async () => {
+      const session = await CashSessionRepository.create({
+        company_id: "company-1",
+        branch_id: "branch-1",
+        user_id: "user-1",
+        user_name: "Juan Pérez",
+        opening_amount: 50000,
+      });
+
+      // Crear movimiento con reference_local_uuid inexistente
+      await CashMovementRepository.create(session.local_uuid, {
+        type: "payment",
+        amount: 50000,
+        reason: "Pago orphan",
+        reference_type: "payment",
+        reference_local_uuid: "non-existent-uuid",
+      });
+
+      // No debe fallar, solo warn en consola
+      const result = await offlineCashCloseService.closeSession({
+        sessionUuid: session.local_uuid,
+        closingAmount: 100000,
+      });
+
+      expect(result.sessionUuid).toBe(session.local_uuid);
+
+      // El movimiento orphan no debe contar en ventas
+      const jobs = await LocalPrintJobRepository.getAll();
+      const cashJob = jobs.find((j) => j.entity_type === "cash_session");
+      const payload = JSON.parse(cashJob!.payload);
+      
+      expect(payload.totalSales).toBe(0);
+    });
+
 });

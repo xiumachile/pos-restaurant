@@ -1,5 +1,6 @@
 import { CashSessionRepository } from "@/db/repositories/CashSessionRepository";
 import { CashMovementRepository } from "@/db/repositories/CashMovementRepository";
+import { PaymentRepository } from "@/db/repositories/PaymentRepository";
 import { LocalPrintJobRepository } from "@/db/repositories/LocalPrintJobRepository";
 import { SyncQueueRepository } from "@/db/repositories/SyncQueueRepository";
 import { ticketToBase64, type CashCopyData } from "@/services/printing/ticketFormatters";
@@ -112,19 +113,42 @@ export const offlineCashCloseService = {
       // 5. Obtener movimientos para la copia
       const movements = await CashMovementRepository.findBySession(session.local_uuid);
 
-      // 6. Calcular ventas por método
+      // 6. Calcular ventas por método (consulta real de payments)
       const salesByMethod = {
         cash: 0,
         card: 0,
         transfer: 0,
       };
 
+      // 6a. Extraer UUIDs de payments referenciados en movimientos
+      const paymentUuids = movements
+        .filter(m => m.reference_type === "payment" && m.reference_local_uuid)
+        .map(m => m.reference_local_uuid!);
+
+      // 6b. Batch query de todos los payments (evita N+1 queries)
+      const payments = await PaymentRepository.findByLocalUuids(paymentUuids);
+      const paymentsMap = new Map(payments.map(p => [p.local_uuid, p]));
+
+      // 6c. Clasificar cada movimiento según payment_method real
       for (const mov of movements) {
         if (mov.reference_type === "payment" && mov.type === "payment") {
-          // Inferir método de pago desde reference_uuid o metadata
-          // Por ahora, asumimos que todos los sales son cash
-          // TODO: mejorar esto cuando tengamos payment_method en movements
-          salesByMethod.cash += mov.amount;
+          const payment = paymentsMap.get(mov.reference_local_uuid!);
+          if (payment) {
+            switch (payment.payment_method) {
+              case "cash":
+                salesByMethod.cash += mov.amount;
+                break;
+              case "card":
+                salesByMethod.card += mov.amount;
+                break;
+              case "transfer":
+                salesByMethod.transfer += mov.amount;
+                break;
+              // gift_card no se incluye en ventas por método
+            }
+          } else {
+            console.warn(`[offlineCashCloseService] ⚠️ Movimiento ${mov.local_uuid} referencia payment inexistente: ${mov.reference_local_uuid}`);
+          }
         }
       }
 

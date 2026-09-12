@@ -158,6 +158,21 @@ export class PaymentRepository {
   }
 
   /**
+   * Busca múltiples payments por local_uuid (batch query).
+   * Útil para clasificar movimientos de caja por método de pago.
+   */
+  static async findByLocalUuids(localUuids: string[]): Promise<LocalPayment[]> {
+    if (localUuids.length === 0) return [];
+    
+    const placeholders = localUuids.map(() => '?').join(',');
+    const results = await localDb.select<LocalPayment>(
+      `SELECT * FROM local_payments WHERE local_uuid IN (${placeholders})`,
+      localUuids
+    );
+    return results;
+  }
+
+  /**
    * Calcula el total pagado de un pedido.
    */
   static async getTotalPaidByOrderLocalUuid(orderLocalUuid: string): Promise<number> {
