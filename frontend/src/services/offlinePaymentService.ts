@@ -188,39 +188,52 @@ export const offlinePaymentService = {
         notes,
       });
 
-      // 7. Si es pago en efectivo y hay sesión abierta, registrar como movimiento de caja
-      let cashMovementCreated = false;
+      // 7. Si es pago en efectivo y hay sesión abierta, registrar movimiento de caja
+      //
+      // POLÍTICA DE ATOMICIDAD (fix de integridad financiera):
+      // - Si hay sesión de caja abierta → movimiento ATÓMICO con el pago
+      //   (si falla registerCashPayment, propaga → ROLLBACK de toda la transacción)
+      // - Si no hay sesión de caja → pago válido pero sin movimiento (warning)
+      //   (permite delivery/takeout o cajero que no abrió caja)
+      // - Métodos card/transfer → sin requerimientos de caja
+      //
+      // Esto previene el escenario crítico:
+      //   Venta: $50.000 / Pago: $50.000 / Caja: $0 (movimiento no registrado)
       if (paymentMethod === "cash") {
-        try {
-          // 🔒 FIX DE AUDITORÍA: usar contexto del cajero actual (no waiter_id)
-          // El cajero que procesa el pago puede ser diferente al mesero del pedido
-          const ctx = getCashierContextSafe();
-          if (!ctx) {
-            console.warn("[offlinePaymentService] ⚠️ Sin contexto de caja, no se puede registrar movimiento");
-          } else {
-            const session = await CashSessionRepository.findActive(
-              order.company_id,
-              order.branch_id,
-              ctx.user_id,  // ✅ UUID del cajero actual
-              ctx.terminal_id
+        const ctx = getCashierContextSafe();
+        if (ctx) {
+          const session = await CashSessionRepository.findActive(
+            order.company_id,
+            order.branch_id,
+            ctx.user_id,  // ✅ UUID del cajero actual (no waiter_id)
+            ctx.terminal_id
+          );
+          
+          if (session) {
+            // 🔒 ATÓMICO: si falla, propaga → ROLLBACK automático de la transacción
+            // No se crea payment "huérfano" sin movimiento de caja
+            await this.registerCashPayment(
+              session.local_uuid,
+              amount,
+              payment.local_uuid,
+              payment.cloud_id || undefined,
+              notes
             );
-            if (session) {
-              await this.registerCashPayment(
-                session.local_uuid,
-                amount,
-                payment.local_uuid,
-                payment.cloud_id || undefined,
-                notes
-              );
-              cashMovementCreated = true;
-              console.log(`[offlinePaymentService] ✅ Movimiento de caja registrado: ${amount} por ${ctx.user_name}`);
-            } else {
-              console.warn("[offlinePaymentService] ⚠️ No hay sesión de caja abierta para este cajero");
-            }
+            console.log(`[offlinePaymentService] ✅ Movimiento de caja registrado: ${amount} por ${ctx.user_name}`);
+          } else {
+            // Sin sesión abierta: pago válido pero sin registro en caja
+            // Legítimo para delivery, takeout o cajero que no abrió caja
+            console.warn(
+              "[offlinePaymentService] ⚠️ Sin sesión de caja abierta para cajero " +
+              `${ctx.user_name} (${ctx.user_id}). Pago en efectivo registrado sin movimiento de caja.`
+            );
           }
-        } catch (movementErr: any) {
-          // No crítico: si falla registrar movimiento, el pago sigue siendo válido
-          console.warn("[offlinePaymentService] ⚠️ No se pudo registrar movimiento de caja:", movementErr?.message);
+        } else {
+          // Sin contexto de cajero: pago válido (puede ser auto-cobro o contexto perdido)
+          console.warn(
+            "[offlinePaymentService] ⚠️ Sin contexto de cajero. " +
+            "Pago en efectivo registrado sin movimiento de caja."
+          );
         }
       }
 
