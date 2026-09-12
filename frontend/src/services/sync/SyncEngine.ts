@@ -602,29 +602,42 @@ export class SyncEngine {
 
       case "update": {
         // Cerrar sesión de caja
-        const session = await CashSessionRepository.findByLocalUuid(item.entity_local_uuid);
-        if (!session?.cloud_id) {
-          throw new Error("Sesión de caja sin cloud_id, no se puede cerrar");
+        // Buscar por local_uuid primero, si no encuentra buscar por cloud_id (retry pattern)
+        let session = await CashSessionRepository.findByLocalUuid(item.entity_local_uuid);
+        if (!session) {
+          // Retry pattern: entity_local_uuid puede ser cloud_id si falló el update local
+          session = await CashSessionRepository.findByCloudId(item.entity_local_uuid);
         }
+        
+        if (!session) {
+          throw new Error(`Sesión de caja no encontrada: ${item.entity_local_uuid}`);
+        }
+
+        // Si la sesión no tiene cloud_id, no se puede cerrar en backend
+        if (!session.cloud_id) {
+          throw new Error("Sesión de caja sin cloud_id, no se puede cerrar en backend");
+        }
+
+        const cloudId = session.cloud_id;
 
         if (!payload.closing_amount && payload.closing_amount !== 0) {
           throw new Error("closing_amount es requerido para cerrar sesión de caja");
         }
 
-        const idempotencyKey = payload.idempotency_key || `cash-close-${item.entity_local_uuid}`;
+        const idempotencyKey = payload.idempotency_key || `cash-close-${cloudId}`;
 
-        console.log(`[SyncEngine] 🔒 Cerrando sesión de caja: ${session.cloud_id}`);
+        console.log(`[SyncEngine] 🔒 Cerrando sesión de caja: ${cloudId}`);
 
-        const response = await syncApi.closeCashSession(session.cloud_id, {
+        const response = await syncApi.closeCashSession(cloudId, {
           closing_amount: payload.closing_amount,
           notes: payload.notes || null,
           idempotency_key: idempotencyKey,
         });
 
-        // La sesión ya está marcada como closed localmente por offlineCashCloseService
-        // Solo necesitamos confirmar que el backend la procesó correctamente
-        const cloudId = response.uuid || response.id;
-        return cloudId ? String(cloudId) : session.cloud_id;
+        // Cerrar localmente con sync_status='synced' (ya se sincronizó con backend)
+        await CashSessionRepository.close(item.entity_local_uuid, payload.closing_amount, 'synced');
+
+        return cloudId;
       }
 
       default:

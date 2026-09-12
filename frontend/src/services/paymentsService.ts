@@ -1,5 +1,6 @@
 import apiClient from "./apiClient";
 import { CashSessionRepository } from "@/db/repositories/CashSessionRepository";
+import { SyncQueueRepository } from "@/db/repositories/SyncQueueRepository";
 import { useAuthStore } from "@/store/useAuthStore";
 import { localPaymentsService } from "./localPaymentsService";
 import { useSyncStore } from "@/store/useSyncStore";
@@ -175,8 +176,8 @@ export const paymentsService = {
     // FIX OFFLINE: Guardar la sesión localmente para que esté disponible
     // cuando no haya conexión. Esto permite que CashierPage muestre
     // "caja abierta" aunque el backend esté inaccesible.
+    const ctx = getCashierContextSafe();
     try {
-      const ctx = getCashierContextSafe();
       if (!ctx) {
         console.warn("[paymentsService] ⚠️ Sin usuario autenticado, no se puede guardar sesión localmente");
       } else {
@@ -194,8 +195,30 @@ export const paymentsService = {
         console.log(`[paymentsService] ✅ Sesión guardada localmente: ${session.uuid}`);
       }
     } catch (localErr) {
-      // No crítico: si falla guardar localmente, la sesión sigue funcionando online
-      console.warn("[paymentsService] ⚠️ No se pudo guardar sesión localmente:", localErr);
+      console.error("[paymentsService] ❌ Error crítico: sesión abierta en backend pero no guardada en SQLite");
+      console.error("   Encolando retry para próxima sync:", localErr);
+
+      // Encolar retry en sync_queue
+      try {
+        if (ctx) {
+          await SyncQueueRepository.enqueue({
+            company_id: ctx.company_id,
+            branch_id: ctx.branch_id,
+            entity_type: "cash_session",
+            entity_local_uuid: session.uuid,  // cloud_id del backend
+            action: "create",
+            payload: {
+              opening_amount: openingAmount,
+              opened_at: session.opened_at,
+              user_name: ctx.user_name,
+            },
+          });
+          console.log("[paymentsService] ✅ Retry encolado en sync_queue");
+        }
+      } catch (enqueueErr) {
+        console.error("[paymentsService] ❌ FALLA CRÍTICA: No se pudo encolar retry:", enqueueErr);
+        throw new Error("INCONSISTENCIA: Sesión abierta en backend pero no se pudo guardar localmente ni encolar retry");
+      }
     }
 
     return session;
@@ -228,7 +251,33 @@ export const paymentsService = {
         console.log(`[paymentsService] ✅ Sesión cerrada localmente: ${rows[0].local_uuid}`);
       }
     } catch (localErr) {
-      console.warn("[paymentsService] ⚠️ No se pudo cerrar sesión localmente:", localErr);
+      console.error("[paymentsService] ❌ Error crítico: sesión cerrada en backend pero no en SQLite");
+      console.error("   Encolando retry para próxima sync:", localErr);
+
+      // Encolar retry en sync_queue
+      try {
+        const ctx = getCashierContextSafe();
+        if (ctx) {
+          await SyncQueueRepository.enqueue({
+            company_id: ctx.company_id,
+            branch_id: ctx.branch_id,
+            entity_type: "cash_session",
+            entity_local_uuid: sessionUuid,  // cloud_id del backend
+            action: "update",
+            payload: {
+              closing_amount: closingAmount,
+              notes: notes || null,
+              closed_at: new Date().toISOString(),
+            },
+          });
+          console.log("[paymentsService] ✅ Retry encolado en sync_queue");
+        } else {
+          console.error("[paymentsService] ❌ FALLA CRÍTICA: Sin contexto, no se puede encolar retry");
+        }
+      } catch (enqueueErr) {
+        console.error("[paymentsService] ❌ FALLA CRÍTICA: No se pudo encolar retry:", enqueueErr);
+        throw new Error("INCONSISTENCIA: Sesión cerrada en backend pero no se pudo actualizar localmente ni encolar retry");
+      }
     }
 
     return session;

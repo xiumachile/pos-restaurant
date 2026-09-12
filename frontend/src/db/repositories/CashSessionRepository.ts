@@ -135,17 +135,42 @@ export class CashSessionRepository {
   /**
    * Cierra la sesión con el monto final.
    */
-  static async close(localUuid: string, closingAmount: number): Promise<void> {
+  /**
+   * Cierra una sesión de caja localmente.
+   * 
+   * @param uuidOrCloudId - Puede ser local_uuid o cloud_id (para retry de sync)
+   * @param closingAmount - Monto de cierre contado por el cajero
+   * @param syncStatus - Estado de sync ('pending' si necesita sync, 'synced' si ya se sincronizó)
+   */
+  static async close(
+    uuidOrCloudId: string, 
+    closingAmount: number,
+    syncStatus: 'pending' | 'synced' = 'pending'
+  ): Promise<void> {
+    // Intentar primero por local_uuid
+    let session = await this.findByLocalUuid(uuidOrCloudId);
+    
+    if (!session) {
+      // Si no encontró por local_uuid, intentar por cloud_id (retry pattern)
+      session = await this.findByCloudId(uuidOrCloudId);
+    }
+    
+    if (!session) {
+      console.warn(`[CashSessionRepository] Sesión no encontrada: ${uuidOrCloudId}`);
+      return;
+    }
+
     await localDb.execute(
       `UPDATE local_cash_sessions 
        SET status = 'closed', 
            closing_amount = ?, 
            closed_at = CURRENT_TIMESTAMP,
-           sync_status = 'pending'
+           sync_status = ?
        WHERE local_uuid = ?`,
-      [closingAmount, localUuid]
+      [closingAmount, syncStatus, session.local_uuid]
     );
-    console.log(`[CashSessionRepository] Sesión cerrada localmente: ${localUuid}`);
+
+    console.log(`[CashSessionRepository] Sesión cerrada localmente: ${session.local_uuid} (sync: ${syncStatus})`);
   }
 
   /**
