@@ -1,5 +1,6 @@
 import type { TableBill } from "@/types/tableBill";
 import { formatPrice } from "@/types/catalog";
+import { IVA_PERCENTAGE } from "@/config/tax";
 import { useMemo } from "react";
 
 interface PrintablePrecuentaProps {
@@ -133,7 +134,7 @@ export function PrintablePrecuenta({ tableBill }: PrintablePrecuentaProps) {
             <span>{formatPrice(tableBill.subtotal)}</span>
           </div>
           <div className="flex justify-between text-xs">
-            <span>IVA (19%):</span>
+            <span>IVA ({IVA_PERCENTAGE}%):</span>
             <span>{formatPrice(tableBill.tax_amount)}</span>
           </div>
           <div className="flex justify-between font-bold border-t-2 border-black pt-1 mt-1">

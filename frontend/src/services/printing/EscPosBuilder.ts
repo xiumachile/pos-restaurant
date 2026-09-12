@@ -28,7 +28,7 @@
  *     .line("Cuenta #42-1")
  *     .separator()
  *     .leftRight("Subtotal", "$15.000")
- *     .leftRight("IVA (19%)", "$2.850")
+ *     .leftRight(`IVA (${IVA_PERCENTAGE}%)`, "$2.850")
  *     .separator()
  *     .bold()
  *     .leftRight("TOTAL", "$17.850")
@@ -63,6 +63,8 @@ export interface EscPosBuilderOptions {
   /** Charset para encoding (default: "latin1") */
   charset?: "latin1" | "utf8";
 }
+
+import { IVA_PERCENTAGE } from "@/config/tax";
 
 export class EscPosBuilder {
   private buffer: number[] = [];

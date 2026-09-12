@@ -6,6 +6,7 @@ import { useInvalidateCashier } from "@/hooks/usePayments";
 import { useTableOrders } from "@/hooks/useTableOrders";
 import { aggregateOrders } from "@/types/orders";
 import { getTranslatedName, formatPrice, parsePrice } from "@/types/catalog";
+import { IVA_PERCENTAGE } from "@/config/tax";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useSyncStore } from "@/store/useSyncStore";
 import { OrderRepository } from "@/db/repositories/OrderRepository";
@@ -302,7 +303,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
               <span>{formatPrice(totals.subtotal)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-slate-400">IVA (19%)</span>
+              <span className="text-slate-400">IVA ({IVA_PERCENTAGE}%)</span>
               <span>{formatPrice(totals.tax)}</span>
             </div>
             <div className="flex justify-between text-lg font-bold pt-2 border-t border-slate-700">

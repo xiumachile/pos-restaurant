@@ -1,4 +1,5 @@
 import { EscPosBuilder, formatCLP, formatDateTime } from "./EscPosBuilder";
+import { IVA_PERCENTAGE } from "@/config/tax";
 
 /**
  * Formatters para generar tickets ESC/POS 100% offline.
@@ -145,7 +146,7 @@ export function formatReceipt(data: ReceiptData): EscPosBuilder {
   // Totales
   builder.leftRight("Subtotal:", formatCLP(data.subtotal));
   if (data.taxTotal > 0) {
-    builder.leftRight("IVA (19%):", formatCLP(data.taxTotal));
+    builder.leftRight(`IVA (${IVA_PERCENTAGE}%):`, formatCLP(data.taxTotal));
   }
   if (data.tipAmount > 0) {
     builder.leftRight("Propina:", formatCLP(data.tipAmount));
@@ -255,7 +256,7 @@ export function formatCustomerTicket(data: CustomerTicketData): EscPosBuilder {
   // Totales
   builder.leftRight("Subtotal:", formatCLP(data.subtotal));
   if (data.taxTotal > 0) {
-    builder.leftRight("IVA (19%):", formatCLP(data.taxTotal));
+    builder.leftRight(`IVA (${IVA_PERCENTAGE}%):`, formatCLP(data.taxTotal));
   }
   
   builder.doubleSeparator();

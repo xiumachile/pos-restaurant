@@ -2,6 +2,7 @@ import { memo, useMemo } from "react";
 import type { Order } from "@/types/orders";
 import { aggregateOrders } from "@/types/orders";
 import { formatPrice } from "@/types/catalog";
+import { IVA_PERCENTAGE } from "@/config/tax";
 import { Receipt, WifiOff, AlertCircle } from "lucide-react";
 
 interface ActiveOrderItemsProps {
@@ -95,7 +96,7 @@ export const ActiveOrderItems = memo(function ActiveOrderItems({ orders }: Activ
           <span className="text-slate-200">{formatPrice(aggregated.subtotal)}</span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-slate-400">IVA (19%)</span>
+          <span className="text-slate-400">IVA ({IVA_PERCENTAGE}%)</span>
           <span className="text-slate-200">{formatPrice(aggregated.tax)}</span>
         </div>
         <div className="flex justify-between text-base font-bold pt-1 border-t border-blue-700/30">

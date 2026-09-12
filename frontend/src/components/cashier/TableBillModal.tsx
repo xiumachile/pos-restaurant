@@ -5,6 +5,7 @@ import {
   usePrepareTableBills,
 } from "@/hooks/usePayments";
 import { formatPrice } from "@/types/catalog";
+import { IVA_PERCENTAGE } from "@/config/tax";
 import {
   X,
   Loader2,
@@ -239,7 +240,7 @@ export function TableBillModal({
                 <span className="text-white">{formatPrice(tableBill.subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-slate-400">IVA (19%)</span>
+                <span className="text-slate-400">IVA ({IVA_PERCENTAGE}%)</span>
                 <span className="text-white">{formatPrice(tableBill.tax_amount)}</span>
               </div>
               <div className="flex justify-between text-2xl font-bold pt-3 border-t border-slate-700">
