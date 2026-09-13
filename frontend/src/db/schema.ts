@@ -11,6 +11,7 @@ import printerConfigsMigration from "./migrations/009_create_printer_configs.sql
 import chileanModelMigration from "./migrations/011_convert_to_chilean_model.sql?raw";
 import multiTenancyMigration from "./migrations/012_add_tenant_to_local_tables.sql?raw";
 import tableMutationsTenancyMigration from "./migrations/013_add_tenant_to_table_mutations.sql?raw";
+import tenantBackfillMigration from "./migrations/014_backfill_and_validate_tenant.sql?raw";
 
 /**
  * Parser robusto para dividir SQL en statements individuales.
@@ -812,6 +813,98 @@ export async function runMigrations(): Promise<void> {
     console.log("[Migrations] 🎉 Migración 013 aplicada correctamente");
   } else {
     console.log("[Migrations] ✅ Migración 013 ya está aplicada");
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // MIGRACIÓN 014: Backfill + validación de tenant (ADR-012)
+  // ═══════════════════════════════════════════════════════════════
+  if (!applied.some(m => m.version === "014")) {
+    console.log("[Migrations] 🚀 Aplicando migración 014_backfill_and_validate_tenant...");
+
+    const statements = parseSqlStatements(tenantBackfillMigration);
+    console.log(`[Migrations] 🔍 014: Parsed ${statements.length} statements SQL`);
+
+    let executed = 0;
+    let skipped = 0;
+
+    for (let i = 0; i < statements.length; i++) {
+      const stmt = statements[i];
+      const upper = stmt.toUpperCase().trim();
+
+      if (upper.startsWith("--") || upper.startsWith("/*") || stmt.trim().length === 0) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        await db.execute(stmt);
+        executed++;
+      } catch (err: any) {
+        const errMsg = String(err?.message || err || "unknown");
+        if (
+          errMsg.includes("already exists") ||
+          errMsg.includes("duplicate") ||
+          errMsg.includes("duplicate column")
+        ) {
+          console.warn(`[Migrations] ⚠️  014: Statement ya aplicado, continuando: ${errMsg}`);
+          skipped++;
+        } else {
+          throw new Error(`Migración 014 falló en statement ${i + 1}: ${errMsg}`);
+        }
+      }
+    }
+
+    await db.execute(
+      "INSERT INTO migrations (version, checksum) VALUES (?, ?)",
+      ["014", `tenant-backfill-${executed}-statements-${Date.now()}`]
+    );
+
+    console.log(`[Migrations] ✅ 014 Resumen: ${executed} ejecutados, ${skipped} saltados`);
+    console.log("[Migrations] 🎉 Migración 014 aplicada correctamente");
+  } else {
+    console.log("[Migrations] ✅ Migración 014 ya está aplicada");
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // VALIDACIÓN DE INTEGRIDAD DE TENANT (ADR-012)
+  // ═══════════════════════════════════════════════════════════════
+  // Esta verificación corre en CADA startup para detectar datos
+  // corruptos que puedan haberse creado por bugs en código antiguo.
+  console.log("[Migrations] 🔍 Verificando integridad de tenant (ADR-012)...");
+
+  const tenantTables = [
+    "local_tables",
+    "local_products",
+    "local_categories",
+    "local_payment_methods",
+    "printer_configs",
+    "table_local_mutations",
+  ];
+
+  let totalInvalid = 0;
+  for (const table of tenantTables) {
+    try {
+      const rows = await db.select<{ count: number }>(
+        `SELECT COUNT(*) as count FROM ${table} WHERE company_id IS NULL OR branch_id IS NULL`
+      );
+      const invalidCount = rows[0]?.count || 0;
+      if (invalidCount > 0) {
+        console.error(`[Migrations] ❌ ALERTA: ${table} tiene ${invalidCount} filas sin tenant`);
+        totalInvalid += invalidCount;
+      } else {
+        console.log(`[Migrations] ✅ ${table}: todas las filas tienen tenant`);
+      }
+    } catch (err: any) {
+      console.warn(`[Migrations] ⚠️  No se pudo verificar ${table}: ${err?.message || err}`);
+    }
+  }
+
+  if (totalInvalid > 0) {
+    console.warn(`[Migrations] ⚠️  Total de filas sin tenant: ${totalInvalid}`);
+    console.warn("[Migrations] ⚠️  Esto NO bloquea el startup, pero indica un bug de ADR-012");
+    console.warn("[Migrations] ⚠️  Las consultas a estos datos pueden fallar o retornar vacío");
+  } else {
+    console.log("[Migrations] ✅ Integridad de tenant verificada: 0 filas sin company_id/branch_id");
   }
 
   // ═══════════════════════════════════════════════════════════════

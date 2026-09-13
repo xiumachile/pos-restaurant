@@ -4,6 +4,37 @@
 **Estado**: Aceptado  
 **Decisores**: Equipo de desarrollo
 
+## Estado actual
+
+**✅ IMPLEMENTACIÓN COMPLETA** (commits `2437978`, `b1b177f`, `94425bf`, `595715b`, `40bb905`)
+
+### Tablas con aislamiento multi-tenant
+
+| Tabla | company_id | branch_id | Índice | Refactor |
+|-------|:----------:|:---------:|:------:|:--------:|
+| `local_orders` | ✅ | ✅ | ✅ | (previo) |
+| `local_bills` | ✅ | ✅ | ✅ | (previo) |
+| `local_payments` | ✅ | ✅ | ✅ | (previo) |
+| `local_cash_sessions` | ✅ | ✅ | ✅ | (previo) |
+| `local_tables` | ✅ | ✅ | ✅ | ✅ |
+| `local_products` | ✅ | ✅ | ✅ | ✅ |
+| `local_categories` | ✅ | ✅ | ✅ | ✅ |
+| `local_payment_methods` | ✅ | ✅ | ✅ | ✅ |
+| `printer_configs` | ✅ | ✅ | ✅ | ✅ |
+| `table_local_mutations` | ✅ | ✅ | ✅ | ✅ |
+
+### Tests de aislamiento
+
+- `src/tests/services/multiTenantIsolation.test.ts` (6 tests pasando)
+- Valida que Empresa 1 no ve/modifica datos de Empresa 2 en el mismo terminal
+
+### Verificación en runtime
+
+`schema.ts` valida en cada startup que **0 filas** existan sin tenant en las tablas críticas.
+Si detecta filas sin `company_id`/`branch_id`, loguea una alerta (no bloquea el startup).
+
+---
+
 ## Contexto
 
 ### Problema detectado
