@@ -233,9 +233,17 @@ export class PrinterConfigRepository {
 
   /**
    * Elimina una impresora del tenant actual (hard delete).
+   * Lanza error si la impresora no existe o no pertenece al tenant actual.
    */
   static async delete(localUuid: string): Promise<void> {
     const { company_id, branch_id } = this.getContext();
+    
+    // Validar que la impresora existe y pertenece al tenant
+    const existing = await this.findByLocalUuid(localUuid);
+    if (!existing) {
+      throw new Error(`Impresora ${localUuid} no encontrada o no pertenece al tenant actual`);
+    }
+    
     await localDb.execute(
       "DELETE FROM printer_configs WHERE local_uuid = ? AND company_id = ? AND branch_id = ?",
       [localUuid, company_id, branch_id]

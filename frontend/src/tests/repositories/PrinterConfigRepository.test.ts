@@ -14,11 +14,17 @@ describe("PrinterConfigRepository", () => {
     // Mock useAuthStore para que PrinterConfigRepository.getContext() funcione
     useAuthStore.setState({
       user: {
+        id: 1,
         uuid: "user-123",
+        trade_name: "Test User",
         name: "Test User",
-        company: { uuid: "company-1", name: "Test Company" },
-        branch_id: "branch-1",
-      },
+        email: "test@example.com",
+        role: "cashier",
+        company: { id: 1, uuid: "company-1", trade_name: "Test Company" },
+        company_id: 1,
+        branch_id: 1,
+        branch: { id: 1, name: "branch-1", code: "BR1" },
+      } as any,
     });
 
     await localDb.getConnection();
