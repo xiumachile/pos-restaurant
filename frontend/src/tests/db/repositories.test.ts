@@ -85,11 +85,14 @@ describe("Repositorios locales", () => {
       const updatedOrder = await OrderRepository.findByLocalUuid(order.local_uuid);
       
       // Subtotal: 2*5000 + 1*2000 = 12000
-      // Tax (19%): 2280
-      // Total: 14280
+      // Neto: 12000 / 1.19 = 10084
+      // IVA: 12000 - 10084 = 1916
+      // Total venta: 12000
       expect(updatedOrder?.subtotal).toBe(12000);
-      expect(updatedOrder?.tax_total).toBe(2280);
-      expect(updatedOrder?.grand_total).toBe(14280);
+      expect(updatedOrder?.net_amount).toBe(10084);
+      expect(updatedOrder?.tax_total).toBe(1916);
+      expect(updatedOrder?.grand_total).toBe(12000);
+      expect(updatedOrder?.amount_due).toBe(12000);
 
       const items = await OrderRepository.findItemsByOrderLocalUuid(order.local_uuid);
       expect(items).toHaveLength(2);
@@ -188,17 +191,19 @@ describe("Repositorios locales", () => {
         company_id: "company-1",
         branch_id: "branch-1",
         bill_number: "BILL-001",
-        subtotal: 10000,
-        tax_total: 1900,
-        grand_total: 11900,
+        subtotal: 10000,  // IVA incluido
       });
 
       expect(bill).toBeDefined();
       expect(bill.local_uuid).toMatch(/^[a-f0-9-]{36}$/);
       expect(bill.bill_number).toBe("BILL-001");
-      expect(bill.grand_total).toBe(11900);
+      expect(bill.subtotal).toBe(10000);
+      expect(bill.net_amount).toBe(8403);  // 10000 / 1.19
+      expect(bill.tax_total).toBe(1597);   // 10000 - 8403
+      expect(bill.grand_total).toBe(10000);
+      expect(bill.amount_due).toBe(10000);
       expect(bill.paid_amount).toBe(0);
-      expect(bill.remaining_amount).toBe(11900);
+      expect(bill.remaining_amount).toBe(10000);
       expect(bill.status).toBe("open");
       expect(bill.sync_status).toBe("pending");
       expect(bill.idempotency_key).toMatch(/^[a-f0-9-]{36}$/);
@@ -225,7 +230,7 @@ describe("Repositorios locales", () => {
       const updated = await BillRepository.registerPayment(bill.local_uuid, 5000);
 
       expect(updated.paid_amount).toBe(5000);
-      expect(updated.remaining_amount).toBe(6900);
+      expect(updated.remaining_amount).toBe(5000);
       expect(updated.status).toBe("partial");
 
       // Verificar que se encoló el update para sync

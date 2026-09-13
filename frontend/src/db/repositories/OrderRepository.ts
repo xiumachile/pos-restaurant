@@ -27,11 +27,14 @@ export interface LocalOrder {
     | "paid"               // Pagado
     | "closed"             // Cerrado (final)
     | "cancelled";         // Cancelado (terminal)
-  subtotal: number;
-  discount_total: number;
-  tax_total: number;
-  tip_amount: number;
-  grand_total: number;
+  // ADR-011: Semántica chilena (precios IVA incluido)
+  subtotal: number;        // subtotal_gross (IVA incluido)
+  discount_total: number;  // discount_amount
+  net_amount: number;      // subtotal / 1.19 (desglose tributario)
+  tax_total: number;       // subtotal - net_amount (IVA desglosado)
+  tip_amount: number;      // propina (separada, no tributaria)
+  grand_total: number;     // subtotal - discount (total venta IVA incluido)
+  amount_due: number;      // grand_total + tip_amount (total a cobrar)
   guest_count: number;
   waiter_id: string | null;
   waiter_name: string | null;
@@ -91,15 +94,16 @@ export class OrderRepository {
 
     // TRANSACCIÓN ATÓMICA: todas las operaciones deben completarse juntas
     await localDb.transaction(async () => {
-      // 1. Crear order
+      // 1. Crear order con modelo chileno (ADR-011)
+      // Inicialmente con valores 0, se recalculan al agregar items
       await localDb.execute(
         `INSERT INTO local_orders (
           local_uuid, company_id, branch_id, terminal_id, table_id,
           order_number, order_type, status, subtotal, discount_total,
-          tax_total, tip_amount, grand_total, guest_count,
+          net_amount, tax_total, tip_amount, grand_total, amount_due, guest_count,
           waiter_id, waiter_name, notes, idempotency_key, sync_status,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
         [
           local_uuid,
           payload.company_id,
@@ -210,26 +214,60 @@ export class OrderRepository {
    * 
    * ADR-010: Usa helpers de Money para garantizar que todos los montos
    * sean enteros (CLP no tiene centavos fraccionarios).
+   * 
+   * ADR-011: Semántica chilena (precios IVA incluido)
+   * - subtotal = suma de item.subtotal (IVA incluido)
+   * - net_amount = roundToCents(subtotal / 1.19)
+   * - tax_amount = subtotal - net_amount
+   * - grand_total = subtotal - discount
+   * - amount_due = grand_total + tip_amount
    */
   static async recalculateOrderTotals(orderLocalUuid: string): Promise<void> {
+    const order = await this.findByLocalUuid(orderLocalUuid);
+    if (!order) return;
+
     const items = await localDb.select<any>(
       "SELECT subtotal FROM local_order_items WHERE order_local_uuid = ?",
       [orderLocalUuid]
     );
 
-    // Sumar subtotales con redondeo explícito (evita acumulación de floats)
+    // ADR-011: Suma de precios IVA incluido
     const subtotal = sumMoney(items.map(item => item.subtotal));
-    
-    // Calcular IVA con redondeo (19% Chile)
-    const taxTotal = calculateTax(subtotal, IVA_RATE);
-    
-    // Grand total como suma de enteros (ya redondeados)
-    const grandTotal = subtotal + taxTotal;
+    const discountTotal = order.discount_total || 0;
+    const tipAmount = order.tip_amount || 0;
+
+    // ADR-011: Desglose tributario (IVA incluido en precios)
+    const netAmount = roundToCents(subtotal / 1.19);
+    const taxTotal = subtotal - netAmount;
+
+    // ADR-011: Totales
+    const grandTotal = subtotal - discountTotal;
+    const amountDue = grandTotal + tipAmount;
 
     await localDb.execute(
-      `UPDATE local_orders SET subtotal = ?, tax_total = ?, grand_total = ?, updated_at = CURRENT_TIMESTAMP WHERE local_uuid = ?`,
-      [subtotal, taxTotal, grandTotal, orderLocalUuid]
+      `UPDATE local_orders 
+       SET subtotal = ?, discount_total = ?, net_amount = ?, 
+           tax_total = ?, tip_amount = ?, grand_total = ?, amount_due = ?,
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE local_uuid = ?`,
+      [subtotal, discountTotal, netAmount, taxTotal, tipAmount, grandTotal, amountDue, orderLocalUuid]
     );
+  }
+
+  /**
+   * Actualiza el monto de propina del pedido.
+   * 
+   * ADR-011: La propina es separada del consumo y no afecta IVA.
+   * Al actualizar tip_amount, recalcula amount_due automáticamente.
+   */
+  static async updateTipAmount(orderLocalUuid: string, tipAmount: number): Promise<void> {
+    await localDb.execute(
+      `UPDATE local_orders SET tip_amount = ?, updated_at = CURRENT_TIMESTAMP WHERE local_uuid = ?`,
+      [tipAmount, orderLocalUuid]
+    );
+    
+    // Recalcular amount_due con la nueva propina
+    await this.recalculateOrderTotals(orderLocalUuid);
   }
 
   /**

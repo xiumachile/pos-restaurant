@@ -8,6 +8,7 @@ import localCashSessionsCompanyMigration from "./migrations/006_add_company_to_l
 import offlineEventsMigration from "./migrations/007_create_offline_events.sql?raw";
 import localPrintJobsMigration from "./migrations/008_create_local_print_jobs.sql?raw";
 import printerConfigsMigration from "./migrations/009_create_printer_configs.sql?raw";
+import chileanModelMigration from "./migrations/011_convert_to_chilean_model.sql?raw";
 
 /**
  * Parser robusto para dividir SQL en statements individuales.
@@ -657,6 +658,58 @@ export async function runMigrations(): Promise<void> {
     console.log("[Migrations] 🎉 Migración 009 aplicada correctamente");
   } else {
     console.log("[Migrations] ✅ Migración 008 ya está aplicada");
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // MIGRACIÓN 011: Modelo chileno (ADR-011)
+  // ═══════════════════════════════════════════════════════════════
+  if (!applied.some(m => m.version === "011")) {
+    console.log("[Migrations] 🚀 Aplicando migración 011_convert_to_chilean_model...");
+
+    const statements = parseSqlStatements(chileanModelMigration);
+    console.log(`[Migrations] 🔍 011: Parsed ${statements.length} statements SQL`);
+
+    let executed = 0;
+    let skipped = 0;
+
+    for (let i = 0; i < statements.length; i++) {
+      const stmt = statements[i];
+      const upper = stmt.toUpperCase().trim();
+
+      if (upper.startsWith("--") || upper.startsWith("/*") || stmt.trim().length === 0) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        await db.execute(stmt);
+        executed++;
+      } catch (err: any) {
+        const errMsg = String(err?.message || err || "unknown");
+
+        if (
+          errMsg.includes("already exists") ||
+          errMsg.includes("duplicate") ||
+          errMsg.includes("duplicate column")
+        ) {
+          console.warn(`[Migrations] ⚠️  011: Statement ya aplicado, continuando: ${errMsg}`);
+          skipped++;
+          continue;
+        }
+
+        throw new Error(`Migración 011 falló en statement ${i + 1}: ${errMsg}`);
+      }
+    }
+
+    await db.execute(
+      "INSERT OR REPLACE INTO migrations (version, checksum) VALUES (?, ?)",
+      ["011", `chilean-model-${executed}-statements-${Date.now()}`]
+    );
+
+    console.log(`[Migrations] ✅ 011 Resumen: ${executed} ejecutados, ${skipped} saltados`);
+    console.log("[Migrations] 🎉 Migración 011 aplicada correctamente");
+  } else {
+    console.log("[Migrations] ✅ Migración 011 ya está aplicada");
   }
 
   // ═══════════════════════════════════════════════════════════════

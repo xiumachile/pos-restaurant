@@ -14,11 +14,14 @@ export interface LocalBill {
   order_local_uuid: string | null;
   order_cloud_id: string | null;
   bill_number: string;
-  subtotal: number;
+  // ADR-011: Semántica chilena
+  subtotal: number;        // subtotal_gross
   discount_total: number;
+  net_amount: number;
   tax_total: number;
   tip_amount: number;
-  grand_total: number;
+  grand_total: number;     // total venta IVA incluido
+  amount_due: number;      // grand_total + tip_amount
   paid_amount: number;
   remaining_amount: number;
   status: BillStatus;
@@ -54,18 +57,23 @@ export class BillRepository {
     const idempotency_key = uuidv4();
     const now = new Date().toISOString();
 
+    // ADR-011: Calcular desglose tributario (IVA incluido en precios)
+    const subtotal = payload.subtotal;
     const discount_total = payload.discount_total ?? 0;
-    const tax_total = payload.tax_total ?? 0;
     const tip_amount = payload.tip_amount ?? 0;
+    const net_amount = Math.round(subtotal / 1.19);
+    const tax_total = subtotal - net_amount;
+    const grand_total = subtotal - discount_total;
+    const amount_due = grand_total + tip_amount;
 
     await localDb.execute(
       `INSERT INTO local_bills (
         local_uuid, company_id, branch_id, terminal_id,
         order_local_uuid, order_cloud_id, bill_number,
-        subtotal, discount_total, tax_total, tip_amount, grand_total,
+        subtotal, discount_total, net_amount, tax_total, tip_amount, grand_total, amount_due,
         paid_amount, remaining_amount, status,
         idempotency_key, sync_status, notes, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'open', ?, 'pending', ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'open', ?, 'pending', ?, ?)`,
       [
         local_uuid,
         payload.company_id,
@@ -74,12 +82,14 @@ export class BillRepository {
         payload.order_local_uuid || null,
         payload.order_cloud_id || null,
         payload.bill_number,
-        payload.subtotal,
+        subtotal,
         discount_total,
+        net_amount,
         tax_total,
         tip_amount,
-        payload.grand_total,
-        payload.grand_total, // remaining_amount = grand_total
+        grand_total,
+        amount_due,
+        amount_due, // remaining_amount = amount_due
         idempotency_key,
         payload.notes || null,
         now,
@@ -161,8 +171,9 @@ export class BillRepository {
       throw new Error(`Bill ${localUuid} is ${bill.status}, cannot receive payment`);
     }
 
+    // ADR-011: Usar amount_due (incluye propina) en lugar de grand_total
     const newPaidAmount = bill.paid_amount + amount;
-    const newRemainingAmount = Math.max(0, bill.grand_total - newPaidAmount);
+    const newRemainingAmount = Math.max(0, bill.amount_due - newPaidAmount);
     const newStatus: BillStatus =
       newRemainingAmount <= 0.01 ? "paid" : newPaidAmount > 0 ? "partial" : "open";
 

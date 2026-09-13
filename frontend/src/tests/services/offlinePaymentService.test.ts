@@ -60,16 +60,16 @@ describe("offlinePaymentService", () => {
       const result = await offlinePaymentService.createPaymentOffline({
         orderLocalUuid: order.local_uuid,
         paymentMethod: "cash",
-        amount: 11900,
+        amount: 10000,
       });
 
       expect(result.payment).toBeDefined();
-      expect(result.payment.amount).toBe(11900);
+      expect(result.payment.amount).toBe(10000);
       expect(result.payment.status).toBe("pending");
 
       expect(result.bill).toBeDefined();
       expect(result.bill!.status).toBe("paid");
-      expect(result.bill!.paid_amount).toBe(11900);
+      expect(result.bill!.paid_amount).toBe(10000);
       expect(result.bill!.remaining_amount).toBe(0);
 
       expect(result.orderPaid).toBe(true);
@@ -115,7 +115,7 @@ describe("offlinePaymentService", () => {
       const result2 = await offlinePaymentService.createPaymentOffline({
         orderLocalUuid: order.local_uuid,
         paymentMethod: "card",
-        amount: 6900,
+        amount: 5000,
       });
 
       expect(result2.bill!.status).toBe("paid");
@@ -140,7 +140,7 @@ describe("offlinePaymentService", () => {
       const result = await offlinePaymentService.createPaymentOffline({
         orderLocalUuid: order.local_uuid,
         paymentMethod: "cash",
-        amount: 5950,
+        amount: 5000,
       });
 
       expect(result.orderPaid).toBe(true);
@@ -226,7 +226,7 @@ describe("offlinePaymentService", () => {
       await offlinePaymentService.createPaymentOffline({
         orderLocalUuid: order.local_uuid,
         paymentMethod: "cash",
-        amount: 5950,
+        amount: 5000,
       });
 
       const pending = await SyncQueueRepository.getPending();

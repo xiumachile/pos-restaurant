@@ -80,7 +80,7 @@ describe("offlinePaymentService - Impresión offline", () => {
     await offlinePaymentService.createPaymentOffline({
       orderLocalUuid: order!.local_uuid,
       paymentMethod: "cash",
-      amount: 25585,
+      amount: 21500,
     });
 
     const jobs = await LocalPrintJobRepository.getAll();
@@ -100,7 +100,7 @@ describe("offlinePaymentService - Impresión offline", () => {
     await offlinePaymentService.createPaymentOffline({
       orderLocalUuid: order!.local_uuid,
       paymentMethod: "cash",
-      amount: 25585,
+      amount: 21500,
     });
 
     const jobs = await LocalPrintJobRepository.getAll();
@@ -124,7 +124,7 @@ describe("offlinePaymentService - Impresión offline", () => {
     await offlinePaymentService.createPaymentOffline({
       orderLocalUuid: order!.local_uuid,
       paymentMethod: "cash",
-      amount: 25585,
+      amount: 21500,
     });
 
     const jobs = await LocalPrintJobRepository.getAll();
@@ -156,7 +156,7 @@ describe("offlinePaymentService - Impresión offline", () => {
     const result = await offlinePaymentService.createPaymentOffline({
       orderLocalUuid: order!.local_uuid,
       paymentMethod: "cash",
-      amount: 25585,
+      amount: 21500,
     });
 
     // El pago debe seguir siendo exitoso

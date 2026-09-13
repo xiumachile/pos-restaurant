@@ -14,8 +14,10 @@ export interface LocalPayment {
   order_cloud_id: string | null;
   payment_method: "cash" | "card" | "transfer" | "gift_card";
   payment_method_uuid: string | null;
-  amount: number;
-  tip_amount: number;
+  // ADR-011: Montos del pago
+  amount: number;       // Total recibido (sale_amount + tip_amount)
+  sale_amount: number;  // Porción que va a la venta
+  tip_amount: number;   // Porción que es propina
   reference_code: string | null;
   status: "pending" | "completed" | "failed";
   idempotency_key: string;
@@ -68,12 +70,16 @@ export class PaymentRepository {
       paymentMethodUuid = await this.resolvePaymentMethodUuid(payload.payment_method);
     }
 
+    // ADR-011: Calcular sale_amount (porción de venta)
+    const tipAmount = payload.tip_amount || 0;
+    const saleAmount = payload.amount - tipAmount;
+
     await localDb.execute(
       `INSERT INTO local_payments (
         local_uuid, company_id, branch_id, order_local_uuid, order_cloud_id,
-        payment_method, amount, tip_amount, reference_code, status,
+        payment_method, amount, sale_amount, tip_amount, reference_code, status,
         idempotency_key, sync_status, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 'pending', CURRENT_TIMESTAMP)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 'pending', CURRENT_TIMESTAMP)`,
       [
         local_uuid,
         payload.company_id,
@@ -82,7 +88,8 @@ export class PaymentRepository {
         payload.order_cloud_id || null,
         payload.payment_method,
         payload.amount,
-        payload.tip_amount || 0,
+        saleAmount,
+        tipAmount,
         payload.reference_code || null,
         idempotency_key,
       ]
