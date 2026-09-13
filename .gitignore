@@ -38,3 +38,9 @@ Thumbs.db
 *.pem
 *.key
 secrets/
+
+# Base de datos local SQLite
+frontend/local.db
+frontend/*.db
+frontend/*.db-journal
+frontend/*.db-wal
