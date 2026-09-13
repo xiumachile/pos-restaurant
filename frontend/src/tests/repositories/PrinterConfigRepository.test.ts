@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { localDb } from "@/db/localDb";
 import { runMigrations } from "@/db/schema";
 import { PrinterConfigRepository } from "@/db/repositories/PrinterConfigRepository";
+import { useAuthStore } from "@/store/useAuthStore";
 
 vi.mock("@tauri-apps/plugin-sql", async () => {
   const mod = await import("../mocks/tauriSql");
@@ -10,6 +11,16 @@ vi.mock("@tauri-apps/plugin-sql", async () => {
 
 describe("PrinterConfigRepository", () => {
   beforeEach(async () => {
+    // Mock useAuthStore para que PrinterConfigRepository.getContext() funcione
+    useAuthStore.setState({
+      user: {
+        uuid: "user-123",
+        name: "Test User",
+        company: { uuid: "company-1", name: "Test Company" },
+        branch_id: "branch-1",
+      },
+    });
+
     await localDb.getConnection();
     await runMigrations();
     await localDb.execute("DELETE FROM printer_configs");
