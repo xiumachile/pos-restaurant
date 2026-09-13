@@ -35,12 +35,12 @@ describe("Repositorios locales", () => {
 
     // Seed de mesas (necesario para tests que pasan table_id)
     await localDb.execute(
-      `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status)
-       VALUES ('table-1', '1', 'Principal', 4, 'available')`
+      `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status, company_id, branch_id)
+       VALUES ('table-1', '1', 'Principal', 4, 'available', 'company-1', 'branch-1')`
     );
     await localDb.execute(
-      `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status)
-       VALUES ('table-2', '2', 'Principal', 4, 'available')`
+      `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status, company_id, branch_id)
+       VALUES ('table-2', '2', 'Principal', 4, 'available', 'company-1', 'branch-1')`
     );
   });
 

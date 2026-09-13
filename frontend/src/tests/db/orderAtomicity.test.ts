@@ -50,8 +50,8 @@ describe("OrderRepository - Atomicidad", () => {
   it("debería crear order + mesa + sync en una sola transacción", async () => {
     // Crear mesa primero
     await localDb.execute(
-      `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status)
-       VALUES ('table-1', '1', 'Principal', 4, 'available')`
+      `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status, company_id, branch_id)
+       VALUES ('table-1', '1', 'Principal', 4, 'available', 'company-1', 'branch-1')`
     );
 
     // Crear order

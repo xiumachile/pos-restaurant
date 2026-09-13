@@ -31,8 +31,8 @@ describe("kitchenPrintService", () => {
 
     // Seed mesa
     await localDb.execute(
-      `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status)
-       VALUES ('table-1', '7', 'Principal', 4, 'available')`
+      `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status, company_id, branch_id)
+       VALUES ('table-1', '7', 'Principal', 4, 'available', 'company-1', 'branch-1')`
     );
 
     vi.clearAllMocks();

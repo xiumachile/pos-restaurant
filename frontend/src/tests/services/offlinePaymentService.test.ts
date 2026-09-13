@@ -34,8 +34,8 @@ describe("offlinePaymentService", () => {
     await localDb.execute("DELETE FROM table_local_mutations");
 
     await localDb.execute(
-      `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status)
-       VALUES ('table-1', '1', 'Principal', 4, 'occupied')`
+      `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status, company_id, branch_id)
+       VALUES ('table-1', '1', 'Principal', 4, 'occupied', 'company-1', 'branch-1')`
     );
   });
 

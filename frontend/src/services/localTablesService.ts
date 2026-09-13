@@ -1,4 +1,5 @@
 import { localDb } from "@/db/localDb";
+import { getCashierContextSafe } from "./authContext";
 import type { RestaurantTable, TableStatus } from "@/types/tables";
 
 /**
@@ -11,6 +12,8 @@ export interface TableMutation {
   pending_status: string;
   pending_order_uuid: string | null;
   created_at: string;
+  company_id: string;
+  branch_id: string;
 }
 
 /**
@@ -23,37 +26,68 @@ export interface TableMutation {
  *
  * El estado visible al usuario se calcula como:
  *   visible_status = table_local_mutations.pending_status ?? local_tables.status
+ *
+ * ADR-012: TODAS las operaciones filtran por company_id + branch_id
+ * para garantizar aislamiento multi-tenant local.
  */
 export const localTablesService = {
   /**
-   * Obtiene todas las mutaciones pendientes.
+   * Obtiene el contexto actual o null si no hay usuario autenticado.
+   */
+  _getContext() {
+    return getCashierContextSafe();
+  },
+
+  /**
+   * Obtiene todas las mutaciones pendientes del tenant actual.
    */
   async getPendingMutations(): Promise<TableMutation[]> {
+    const ctx = this._getContext();
+    if (!ctx) {
+      console.warn("[localTablesService] ⚠️ Sin contexto, retornando mutaciones vacías");
+      return [];
+    }
+
     return await localDb.select<TableMutation>(
-      "SELECT * FROM table_local_mutations ORDER BY created_at ASC"
+      "SELECT * FROM table_local_mutations WHERE company_id = ? AND branch_id = ? ORDER BY created_at ASC",
+      [ctx.company_id, ctx.branch_id]
     );
   },
 
   /**
    * Obtiene la mutación pendiente para una mesa específica (si existe).
+   * Filtra por tenant actual para prevenir acceso cruzado.
    */
   async getMutation(tableUuid: string): Promise<TableMutation | null> {
+    const ctx = this._getContext();
+    if (!ctx) {
+      console.warn("[localTablesService] ⚠️ Sin contexto, retornando null");
+      return null;
+    }
+
     return await localDb.selectOne<TableMutation>(
-      "SELECT * FROM table_local_mutations WHERE table_uuid = ?",
-      [tableUuid]
+      "SELECT * FROM table_local_mutations WHERE table_uuid = ? AND company_id = ? AND branch_id = ?",
+      [tableUuid, ctx.company_id, ctx.branch_id]
     );
   },
 
   /**
-   * Lee el status visible de todas las mesas.
+   * Lee el status visible de todas las mesas del tenant actual.
    * Prioriza mutaciones locales sobre estado del cloud.
    *
    * Retorna un mapa uuid -> status para aplicar como overlay.
    */
   async getStatusOverrides(): Promise<Map<string, string>> {
-    // 1. Obtener mutaciones pendientes (prioridad alta)
+    const ctx = this._getContext();
+    if (!ctx) {
+      console.warn("[localTablesService] ⚠️ Sin contexto, retornando mapa vacío");
+      return new Map();
+    }
+
+    // 1. Obtener mutaciones pendientes del tenant actual (prioridad alta)
     const mutations = await localDb.select<TableMutation>(
-      "SELECT table_uuid, pending_status FROM table_local_mutations"
+      "SELECT table_uuid, pending_status FROM table_local_mutations WHERE company_id = ? AND branch_id = ?",
+      [ctx.company_id, ctx.branch_id]
     );
 
     const map = new Map<string, string>();
@@ -69,7 +103,8 @@ export const localTablesService = {
       // Solo si hay pocas mutaciones, traer el resto desde local_tables
       // para tener información completa en fallback offline
       const cloudTables = await localDb.select<{ uuid: string; status: string }>(
-        "SELECT uuid, status FROM local_tables"
+        "SELECT uuid, status FROM local_tables WHERE company_id = ? AND branch_id = ?",
+        [ctx.company_id, ctx.branch_id]
       );
       for (const t of cloudTables) {
         if (!map.has(t.uuid)) {
@@ -82,12 +117,18 @@ export const localTablesService = {
   },
 
   /**
-   * Lee TODAS las mesas desde SQLite con toda su información.
+   * Lee TODAS las mesas del tenant actual desde SQLite con toda su información.
    * Usado como fallback cuando no hay caché del backend disponible.
    *
    * El status visible se calcula priorizando mutaciones locales.
    */
   async getAllTables(): Promise<RestaurantTable[]> {
+    const ctx = this._getContext();
+    if (!ctx) {
+      console.warn("[localTablesService] ⚠️ Sin contexto, retornando mesas vacías");
+      return [];
+    }
+
     interface TableRow {
       uuid: string;
       table_number: string;
@@ -100,7 +141,7 @@ export const localTablesService = {
       pending_order_uuid: string | null;
     }
 
-    // Traer todo en una sola query con LEFT JOIN
+    // Traer todo en una sola query con LEFT JOIN, filtrado por tenant
     const tables = await localDb.select<TableRow>(
       `SELECT 
          t.uuid, t.table_number, t.area_name, t.capacity, 
@@ -108,8 +149,13 @@ export const localTablesService = {
          t.last_updated,
          m.pending_status, m.pending_order_uuid
        FROM local_tables t
-       LEFT JOIN table_local_mutations m ON t.uuid = m.table_uuid
-       ORDER BY t.area_name, t.table_number`
+       LEFT JOIN table_local_mutations m 
+         ON t.uuid = m.table_uuid 
+         AND m.company_id = t.company_id 
+         AND m.branch_id = t.branch_id
+       WHERE t.company_id = ? AND t.branch_id = ?
+       ORDER BY t.area_name, t.table_number`,
+      [ctx.company_id, ctx.branch_id]
     );
 
     return tables.map(t => {
@@ -136,7 +182,7 @@ export const localTablesService = {
    * Marca una mesa como ocupada (update optimista al crear pedido offline).
    *
    * IMPLEMENTACIÓN FASE 4:
-   * 1. Verificar que la mesa existe en SQLite
+   * 1. Verificar que la mesa existe en SQLite y pertenece al tenant
    * 2. INSERT/REPLACE en table_local_mutations (marca mutación pendiente)
    * 3. UPDATE de local_tables.status (para reflejo inmediato en UI)
    *
@@ -144,36 +190,44 @@ export const localTablesService = {
    * lanzará error "no such table" que se propagará al caller.
    * PullEngine detectará la mutación y NO sobrescribirá el estado
    * hasta que la orden se sincronice exitosamente.
+   *
+   * ADR-012: Requiere company_id y branch_id explícitos (tenant isolation).
    */
-  async markOccupied(tableUuid: string, orderLocalUuid: string): Promise<void> {
-    console.log("[localTablesService] 🪑 markOccupied:", { tableUuid, orderLocalUuid });
+  async markOccupied(
+    tableUuid: string, 
+    orderLocalUuid: string,
+    companyId: string,
+    branchId: string
+  ): Promise<void> {
+    console.log("[localTablesService] 🪑 markOccupied:", { 
+      tableUuid, orderLocalUuid, companyId, branchId 
+    });
 
-    // 0. Verificar que la mesa existe en local_tables
+    // 0. Verificar que la mesa existe en local_tables Y pertenece al tenant
     const tableCheck = await localDb.select<{ uuid: string }>(
-      "SELECT uuid FROM local_tables WHERE uuid = ?",
-      [tableUuid]
+      "SELECT uuid FROM local_tables WHERE uuid = ? AND company_id = ? AND branch_id = ?",
+      [tableUuid, companyId, branchId]
     );
     if (tableCheck.length === 0) {
-      throw new Error(`[localTablesService] Mesa ${tableUuid} no existe en SQLite. PullEngine debe sincronizar las mesas primero.`);
+      throw new Error(`[localTablesService] Mesa ${tableUuid} no existe en SQLite o no pertenece al tenant actual (${companyId}/${branchId}). PullEngine debe sincronizar las mesas primero.`);
     }
 
-    // 1. Registrar mutación pendiente (autoridad principal)
-    // Si table_local_mutations no existe, esto lanzará "no such table"
+    // 1. Registrar mutación pendiente (autoridad principal) con tenant
     await localDb.execute(
       `INSERT OR REPLACE INTO table_local_mutations 
-       (table_uuid, pending_status, pending_order_uuid, created_at)
-       VALUES (?, 'occupied', ?, CURRENT_TIMESTAMP)`,
-      [tableUuid, orderLocalUuid]
+       (table_uuid, pending_status, pending_order_uuid, company_id, branch_id, created_at)
+       VALUES (?, 'occupied', ?, ?, ?, CURRENT_TIMESTAMP)`,
+      [tableUuid, orderLocalUuid, companyId, branchId]
     );
 
-    // 2. Actualizar local_tables para reflejo inmediato
+    // 2. Actualizar local_tables para reflejo inmediato (filtrado por tenant)
     await localDb.execute(
       `UPDATE local_tables 
        SET status = 'occupied', 
            current_order_uuid = ?, 
            last_updated = CURRENT_TIMESTAMP 
-       WHERE uuid = ?`,
-      [orderLocalUuid, tableUuid]
+       WHERE uuid = ? AND company_id = ? AND branch_id = ?`,
+      [orderLocalUuid, tableUuid, companyId, branchId]
     );
 
     console.log("[localTablesService] ✅ Mutación registrada + local_tables actualizado");
@@ -183,25 +237,33 @@ export const localTablesService = {
    * Marca una mesa como disponible (update optimista tras pago).
    *
    * Elimina la mutación pendiente y actualiza local_tables.
+   * ADR-012: Filtrado por tenant obligatorio.
    */
   async markAvailable(tableUuid: string): Promise<void> {
-    console.log("[localTablesService] 🟢 markAvailable:", tableUuid);
+    const ctx = this._getContext();
+    if (!ctx) {
+      throw new Error("[localTablesService] ❌ Sin contexto de usuario, no se puede liberar mesa");
+    }
+
+    console.log("[localTablesService] 🟢 markAvailable:", { 
+      tableUuid, company_id: ctx.company_id, branch_id: ctx.branch_id 
+    });
 
     try {
-      // 1. Eliminar mutación pendiente
+      // 1. Eliminar mutación pendiente del tenant actual
       await localDb.execute(
-        "DELETE FROM table_local_mutations WHERE table_uuid = ?",
-        [tableUuid]
+        "DELETE FROM table_local_mutations WHERE table_uuid = ? AND company_id = ? AND branch_id = ?",
+        [tableUuid, ctx.company_id, ctx.branch_id]
       );
 
-      // 2. Actualizar local_tables
+      // 2. Actualizar local_tables del tenant actual
       await localDb.execute(
         `UPDATE local_tables 
          SET status = 'available', 
              current_order_uuid = NULL, 
              last_updated = CURRENT_TIMESTAMP 
-         WHERE uuid = ?`,
-        [tableUuid]
+         WHERE uuid = ? AND company_id = ? AND branch_id = ?`,
+        [tableUuid, ctx.company_id, ctx.branch_id]
       );
 
       console.log("[localTablesService] ✅ Mutación eliminada + local_tables actualizado");
@@ -216,25 +278,40 @@ export const localTablesService = {
    * Usado por PullEngine DESPUÉS de confirmar que el cloud refleja el estado.
    *
    * NO toca local_tables (el PullEngine ya lo actualizó).
+   * ADR-012: Requiere tenant explícito (llamado desde PullEngine).
    */
-  async clearMutation(tableUuid: string): Promise<void> {
+  async clearMutation(
+    tableUuid: string, 
+    companyId: string, 
+    branchId: string
+  ): Promise<void> {
     await localDb.execute(
-      "DELETE FROM table_local_mutations WHERE table_uuid = ?",
-      [tableUuid]
+      "DELETE FROM table_local_mutations WHERE table_uuid = ? AND company_id = ? AND branch_id = ?",
+      [tableUuid, companyId, branchId]
     );
   },
 
   /**
-   * Limpia TODAS las mutaciones pendientes.
+   * Limpia TODAS las mutaciones pendientes del tenant actual.
    * Usado tras full sync exitoso o logout.
    */
   async clearAllMutations(): Promise<number> {
+    const ctx = this._getContext();
+    if (!ctx) {
+      console.warn("[localTablesService] ⚠️ Sin contexto, no se pueden limpiar mutaciones");
+      return 0;
+    }
+
     const countRows = await localDb.select<{ count: number }>(
-      "SELECT COUNT(*) as count FROM table_local_mutations"
+      "SELECT COUNT(*) as count FROM table_local_mutations WHERE company_id = ? AND branch_id = ?",
+      [ctx.company_id, ctx.branch_id]
     );
     const count = countRows[0]?.count || 0;
-    const rowsAffected = await localDb.execute("DELETE FROM table_local_mutations");
-    console.log(`[localTablesService] 🧹 ${count} mutaciones eliminadas`);
-    return rowsAffected;
+    await localDb.execute(
+      "DELETE FROM table_local_mutations WHERE company_id = ? AND branch_id = ?",
+      [ctx.company_id, ctx.branch_id]
+    );
+    console.log(`[localTablesService] 🧹 ${count} mutaciones eliminadas para tenant ${ctx.company_id}/${ctx.branch_id}`);
+    return count;
   },
 };

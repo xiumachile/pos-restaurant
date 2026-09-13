@@ -154,8 +154,14 @@ export class OrderRepository {
       });
 
       // 3. Marcar mesa como occupied (si existe table_id)
+      // ADR-012: Pasar company_id y branch_id explícitos (tenant isolation)
       if (payload.table_id) {
-        await localTablesService.markOccupied(payload.table_id, local_uuid);
+        await localTablesService.markOccupied(
+          payload.table_id, 
+          local_uuid,
+          payload.company_id,
+          payload.branch_id
+        );
       }
     });
 

@@ -10,6 +10,7 @@ import localPrintJobsMigration from "./migrations/008_create_local_print_jobs.sq
 import printerConfigsMigration from "./migrations/009_create_printer_configs.sql?raw";
 import chileanModelMigration from "./migrations/011_convert_to_chilean_model.sql?raw";
 import multiTenancyMigration from "./migrations/012_add_tenant_to_local_tables.sql?raw";
+import tableMutationsTenancyMigration from "./migrations/013_add_tenant_to_table_mutations.sql?raw";
 
 /**
  * Parser robusto para dividir SQL en statements individuales.
@@ -761,6 +762,56 @@ export async function runMigrations(): Promise<void> {
     console.log("[Migrations] 🎉 Migración 012 aplicada correctamente");
   } else {
     console.log("[Migrations] ✅ Migración 012 ya está aplicada");
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // MIGRACIÓN 013: Tenant en table_local_mutations (ADR-012)
+  // ═══════════════════════════════════════════════════════════════
+  if (!applied.some(m => m.version === "013")) {
+    console.log("[Migrations] 🚀 Aplicando migración 013_add_tenant_to_table_mutations...");
+
+    const statements = parseSqlStatements(tableMutationsTenancyMigration);
+    console.log(`[Migrations] 🔍 013: Parsed ${statements.length} statements SQL`);
+
+    let executed = 0;
+    let skipped = 0;
+
+    for (let i = 0; i < statements.length; i++) {
+      const stmt = statements[i];
+      const upper = stmt.toUpperCase().trim();
+
+      if (upper.startsWith("--") || upper.startsWith("/*") || stmt.trim().length === 0) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        await db.execute(stmt);
+        executed++;
+      } catch (err: any) {
+        const errMsg = String(err?.message || err || "unknown");
+        if (
+          errMsg.includes("already exists") ||
+          errMsg.includes("duplicate") ||
+          errMsg.includes("duplicate column")
+        ) {
+          console.warn(`[Migrations] ⚠️  013: Statement ya aplicado, continuando: ${errMsg}`);
+          skipped++;
+        } else {
+          throw new Error(`Migración 013 falló en statement ${i + 1}: ${errMsg}`);
+        }
+      }
+    }
+
+    await db.execute(
+      "INSERT INTO migrations (version, checksum) VALUES (?, ?)",
+      ["013", `table-mutations-tenancy-${executed}-statements-${Date.now()}`]
+    );
+
+    console.log(`[Migrations] ✅ 013 Resumen: ${executed} ejecutados, ${skipped} saltados`);
+    console.log("[Migrations] 🎉 Migración 013 aplicada correctamente");
+  } else {
+    console.log("[Migrations] ✅ Migración 013 ya está aplicada");
   }
 
   // ═══════════════════════════════════════════════════════════════

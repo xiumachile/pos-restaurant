@@ -271,11 +271,13 @@ export class PullEngine {
         }
       } else {
         // ✅ Sin mutación: aplicar estado del cloud normalmente
+        // ADR-012: Incluir company_id y branch_id en el INSERT
+        const { companyId, branchId } = this.getCurrentTenantContext();
         await localDb.execute(
           `INSERT OR REPLACE INTO local_tables 
-           (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated) 
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [table.uuid, table.table_number, table.area_name, table.capacity, table.status, table.current_order_uuid, table.updated_at]
+           (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated, company_id, branch_id) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [table.uuid, table.table_number, table.area_name, table.capacity, table.status, table.current_order_uuid, table.updated_at, companyId, branchId]
         );
         synced++;
       }
@@ -453,6 +455,26 @@ export class PullEngine {
       console.warn("[PullEngine] ⚠️ Error leyendo auth store:", error);
     }
     return "1";
+  }
+
+  /**
+   * ADR-012: Obtiene el contexto actual del usuario autenticado.
+   * Usado para filtrar operaciones locales por tenant (company_id + branch_id).
+   */
+  private getCurrentTenantContext(): { companyId: string; branchId: string } {
+    try {
+      const user = useAuthStore.getState().user;
+      const companyId = user?.company?.uuid 
+        ? String(user.company.uuid) 
+        : user?.company_id 
+          ? String(user.company_id) 
+          : "company-1";
+      const branchId = user?.branch_id ? String(user.branch_id) : "branch-1";
+      return { companyId, branchId };
+    } catch (error) {
+      console.warn("[PullEngine] ⚠️ Error leyendo tenant context:", error);
+      return { companyId: "company-1", branchId: "branch-1" };
+    }
   }
 }
 
