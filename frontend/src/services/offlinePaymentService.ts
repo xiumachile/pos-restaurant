@@ -98,7 +98,7 @@ export const offlinePaymentService = {
       );
     }
 
-    const order = await OrderRepository.findByLocalUuid(orderLocalUuid);
+    let order = await OrderRepository.findByLocalUuid(orderLocalUuid);
     if (!order) {
       throw new OfflinePaymentError(
         "ORDER_NOT_FOUND",
@@ -131,19 +131,39 @@ export const offlinePaymentService = {
           );
         }
 
+        // 🔒 ADR-011: Si el payload incluye tipAmount, actualizar order primero
+        // Esto garantiza consistencia Order ↔ Bill ↔ Payment
+        const effectiveTipAmount = tipAmount > 0 ? tipAmount : order.tip_amount;
+        
+        // Usar variable local para evitar problemas de tipo con reasignación
+        let effectiveOrder = order;
+        
+        if (effectiveTipAmount !== order.tip_amount) {
+          await OrderRepository.updateTipAmount(orderLocalUuid, effectiveTipAmount);
+          // Recargar order con el nuevo tip_amount
+          const updatedOrder = await OrderRepository.findByLocalUuid(orderLocalUuid);
+          if (!updatedOrder) {
+            throw new OfflinePaymentError(
+              "ORDER_UPDATE_FAILED",
+              `Failed to update order tip_amount for ${orderLocalUuid}`
+            );
+          }
+          effectiveOrder = updatedOrder;
+        }
+
         // 🔒 Propagar company/branch/terminal desde el order (IDs garantizados)
         bill = await BillRepository.create({
-          company_id: order.company_id,
-          branch_id: order.branch_id,
-          terminal_id: order.terminal_id || undefined,
-          order_local_uuid: order.local_uuid,
-          order_cloud_id: order.cloud_id || undefined,
-          bill_number: `${order.order_number}-1`,
-          subtotal: order.subtotal,
-          discount_total: order.discount_total,
-          tax_total: order.tax_total,
-          tip_amount: order.tip_amount,
-          grand_total: order.grand_total,
+          company_id: effectiveOrder.company_id,
+          branch_id: effectiveOrder.branch_id,
+          terminal_id: effectiveOrder.terminal_id || undefined,
+          order_local_uuid: effectiveOrder.local_uuid,
+          order_cloud_id: effectiveOrder.cloud_id || undefined,
+          bill_number: `${effectiveOrder.order_number}-1`,
+          subtotal: effectiveOrder.subtotal,
+          discount_total: effectiveOrder.discount_total,
+          tax_total: effectiveOrder.tax_total,
+          tip_amount: effectiveOrder.tip_amount,  // ✅ Usa effectiveOrder.tip_amount (ya actualizado)
+          grand_total: effectiveOrder.grand_total,
         });
       }
 
@@ -176,6 +196,7 @@ export const offlinePaymentService = {
       );
 
       // 6. Crear el LocalPayment (propaga company/branch desde el order)
+      // 🔒 ADR-011: Usar order.tip_amount (no payload.tipAmount) para consistencia
       const payment = await PaymentRepository.create({
         company_id: order.company_id,
         branch_id: order.branch_id,
@@ -183,7 +204,7 @@ export const offlinePaymentService = {
         order_cloud_id: order.cloud_id || undefined,
         payment_method: paymentMethod,
         amount,
-        tip_amount: tipAmount,
+        tip_amount: order.tip_amount,  // ✅ Usa order.tip_amount (consistente con Bill)
         reference_code: referenceCode,
         notes,
       });
@@ -407,7 +428,7 @@ export const offlinePaymentService = {
     totalRemaining: number;
     isPaid: boolean;
   }> {
-    const order = await OrderRepository.findByLocalUuid(orderLocalUuid);
+    let order = await OrderRepository.findByLocalUuid(orderLocalUuid);
     if (!order) {
       return {
         order: null,

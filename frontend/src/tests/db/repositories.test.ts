@@ -192,6 +192,7 @@ describe("Repositorios locales", () => {
         branch_id: "branch-1",
         bill_number: "BILL-001",
         subtotal: 10000,  // IVA incluido
+        grand_total: 10000,
       });
 
       expect(bill).toBeDefined();
