@@ -174,26 +174,36 @@ export class PullEngine {
   // Métodos de upsert completo (eliminan y recrean)
   private async upsertCategories(categories: any[]): Promise<void> {
     if (categories.length === 0) return;
-    await localDb.execute("DELETE FROM local_categories");
+    // ADR-012: DELETE filtrado por tenant (no borra datos de otras empresas)
+    const { companyId, branchId } = this.getCurrentTenantContext();
+    await localDb.execute(
+      "DELETE FROM local_categories WHERE company_id = ? AND branch_id = ?",
+      [companyId, branchId]
+    );
     for (const cat of categories) {
       await localDb.execute(
-        `INSERT OR REPLACE INTO local_categories (uuid, backend_id, name_translations, sort_order, is_active, last_updated) 
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [cat.uuid, cat.id, JSON.stringify(cat.name_translations), cat.sort_order || 0, cat.is_active ? 1 : 0, cat.updated_at]
+        `INSERT OR REPLACE INTO local_categories (uuid, backend_id, name_translations, sort_order, is_active, last_updated, company_id, branch_id) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [cat.uuid, cat.id, JSON.stringify(cat.name_translations), cat.sort_order || 0, cat.is_active ? 1 : 0, cat.updated_at, companyId, branchId]
       );
     }
   }
 
   private async upsertProducts(products: any[]): Promise<void> {
     if (products.length === 0) return;
-    await localDb.execute("DELETE FROM local_products");
+    // ADR-012: DELETE filtrado por tenant (no borra datos de otras empresas)
+    const { companyId, branchId } = this.getCurrentTenantContext();
+    await localDb.execute(
+      "DELETE FROM local_products WHERE company_id = ? AND branch_id = ?",
+      [companyId, branchId]
+    );
     for (const prod of products) {
       await localDb.execute(
         `INSERT OR REPLACE INTO local_products 
-         (uuid, category_id, sku, name_translations, description_translations, base_price, tax_rate, is_combo, kitchen_zone_id, is_active, last_updated) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (uuid, category_id, sku, name_translations, description_translations, base_price, tax_rate, is_combo, kitchen_zone_id, is_active, last_updated, company_id, branch_id) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [prod.uuid, prod.category_id, prod.sku, JSON.stringify(prod.name_translations), JSON.stringify(prod.description_translations || {}), 
-         prod.base_price, prod.tax_rate, prod.is_combo ? 1 : 0, prod.kitchen_zone_id, prod.is_active ? 1 : 0, prod.updated_at]
+         prod.base_price, prod.tax_rate, prod.is_combo ? 1 : 0, prod.kitchen_zone_id, prod.is_active ? 1 : 0, prod.updated_at, companyId, branchId]
       );
     }
   }
@@ -290,44 +300,53 @@ export class PullEngine {
 
   private async upsertPaymentMethods(methods: any[]): Promise<void> {
     if (methods.length === 0) return;
-    await localDb.execute("DELETE FROM local_payment_methods");
+    // ADR-012: DELETE filtrado por tenant (no borra datos de otras empresas)
+    const { companyId, branchId } = this.getCurrentTenantContext();
+    await localDb.execute(
+      "DELETE FROM local_payment_methods WHERE company_id = ? AND branch_id = ?",
+      [companyId, branchId]
+    );
     for (const method of methods) {
       await localDb.execute(
-        `INSERT OR REPLACE INTO local_payment_methods (uuid, code, type, is_active, last_updated) 
-         VALUES (?, ?, ?, ?, ?)`,
-        [method.uuid, method.code, method.type, method.is_active ? 1 : 0, method.updated_at]
+        `INSERT OR REPLACE INTO local_payment_methods (uuid, code, type, is_active, last_updated, company_id, branch_id) 
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [method.uuid, method.code, method.type, method.is_active ? 1 : 0, method.updated_at, companyId, branchId]
       );
     }
   }
 
   // Métodos de upsert incremental (solo actualizan o eliminan según flag deleted)
   private async upsertCategoriesIncremental(categories: any[]): Promise<void> {
+    // ADR-012: Obtener tenant context UNA VEZ (fuera del loop)
+    const { companyId, branchId } = this.getCurrentTenantContext();
     for (const cat of categories) {
       if (cat.deleted) {
-        // Eliminar localmente
-        await localDb.execute("DELETE FROM local_categories WHERE uuid = ?", [cat.uuid]);
+        // Eliminar localmente (filtrado por tenant)
+        await localDb.execute("DELETE FROM local_categories WHERE uuid = ? AND company_id = ? AND branch_id = ?", [cat.uuid, companyId, branchId]);
       } else {
         // Insertar o actualizar (incluye backend_id)
         await localDb.execute(
-          `INSERT OR REPLACE INTO local_categories (uuid, backend_id, name_translations, sort_order, is_active, last_updated) 
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [cat.uuid, cat.id, JSON.stringify(cat.name_translations), cat.sort_order || 0, cat.is_active ? 1 : 0, cat.updated_at]
+          `INSERT OR REPLACE INTO local_categories (uuid, backend_id, name_translations, sort_order, is_active, last_updated, company_id, branch_id) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [cat.uuid, cat.id, JSON.stringify(cat.name_translations), cat.sort_order || 0, cat.is_active ? 1 : 0, cat.updated_at, companyId, branchId]
         );
       }
     }
   }
 
   private async upsertProductsIncremental(products: any[]): Promise<void> {
+    // ADR-012: Obtener tenant context UNA VEZ (fuera del loop)
+    const { companyId, branchId } = this.getCurrentTenantContext();
     for (const prod of products) {
       if (prod.deleted) {
-        await localDb.execute("DELETE FROM local_products WHERE uuid = ?", [prod.uuid]);
+        await localDb.execute("DELETE FROM local_products WHERE uuid = ? AND company_id = ? AND branch_id = ?", [prod.uuid, companyId, branchId]);
       } else {
         await localDb.execute(
           `INSERT OR REPLACE INTO local_products 
-           (uuid, category_id, sku, name_translations, description_translations, base_price, tax_rate, is_combo, kitchen_zone_id, is_active, last_updated) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (uuid, category_id, sku, name_translations, description_translations, base_price, tax_rate, is_combo, kitchen_zone_id, is_active, last_updated, company_id, branch_id) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [prod.uuid, prod.category_id, prod.sku, JSON.stringify(prod.name_translations), JSON.stringify(prod.description_translations || {}), 
-           prod.base_price, prod.tax_rate, prod.is_combo ? 1 : 0, prod.kitchen_zone_id, prod.is_active ? 1 : 0, prod.updated_at]
+           prod.base_price, prod.tax_rate, prod.is_combo ? 1 : 0, prod.kitchen_zone_id, prod.is_active ? 1 : 0, prod.updated_at, companyId, branchId]
         );
       }
     }
@@ -415,14 +434,16 @@ export class PullEngine {
   }
 
   private async upsertPaymentMethodsIncremental(methods: any[]): Promise<void> {
+    // ADR-012: Obtener tenant context UNA VEZ (fuera del loop)
+    const { companyId, branchId } = this.getCurrentTenantContext();
     for (const method of methods) {
       if (method.deleted) {
-        await localDb.execute("DELETE FROM local_payment_methods WHERE uuid = ?", [method.uuid]);
+        await localDb.execute("DELETE FROM local_payment_methods WHERE uuid = ? AND company_id = ? AND branch_id = ?", [method.uuid, companyId, branchId]);
       } else {
         await localDb.execute(
-          `INSERT OR REPLACE INTO local_payment_methods (uuid, code, type, is_active, last_updated) 
-           VALUES (?, ?, ?, ?, ?)`,
-          [method.uuid, method.code, method.type, method.is_active ? 1 : 0, method.updated_at]
+          `INSERT OR REPLACE INTO local_payment_methods (uuid, code, type, is_active, last_updated, company_id, branch_id) 
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [method.uuid, method.code, method.type, method.is_active ? 1 : 0, method.updated_at, companyId, branchId]
         );
       }
     }

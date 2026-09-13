@@ -113,8 +113,8 @@ describe("PullEngine", () => {
   it("debería aplicar política Cloud wins (sobrescribe datos locales)", async () => {
     // Insertar datos locales antiguos
     await localDb.execute(
-      `INSERT INTO local_products (uuid, name_translations, base_price, is_active) 
-       VALUES ('prod-1', '{"es": "Nombre Antiguo"}', 1000, 1)`
+      `INSERT INTO local_products (uuid, name_translations, base_price, is_active, company_id, branch_id) 
+       VALUES ('prod-1', '{"es": "Nombre Antiguo"}', 1000, 1, 'company-1', 'branch-1')`
     );
 
     // Mock: servidor retorna producto con precio actualizado
@@ -228,8 +228,8 @@ describe("PullEngine - Modo Incremental", () => {
   it("debería eliminar registros localmente cuando deleted=true", async () => {
     // Insertar producto local
     await localDb.execute(
-      `INSERT INTO local_products (uuid, name_translations, base_price, is_active) 
-       VALUES ('prod-eliminar', '{"es": "Producto Viejo"}', 1000, 1)`
+      `INSERT INTO local_products (uuid, name_translations, base_price, is_active, company_id, branch_id) 
+       VALUES ('prod-eliminar', '{"es": "Producto Viejo"}', 1000, 1, 'company-1', 'branch-1')`
     );
 
     // Simular sync previa
