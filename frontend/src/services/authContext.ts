@@ -142,19 +142,44 @@ export function validateContext(ctx: {
  * - Simplifica callers comunes (ya no necesitan construir IDs)
  * - Backward compatible: callers existentes siguen funcionando
  */
+/**
+ * ADR-013: Tenant inmutable en contexto de autenticación
+ * 
+ * Campos que NO pueden ser overrideados (siempre del auth context):
+ * - company_id, branch_id, terminal_id
+ * - user_id, user_name, user_role
+ * 
+ * Si un caller intenta pasar estos campos, se ignoran con warning.
+ */
 export function mergeAuthContext<T extends Record<string, any>>(
   partial: T
 ): T & AuthContext {
   const ctx = getAuthContext();
   
+  // ADR-013: Validar que caller no intenta override de tenant
+  const tenantFields = ['company_id', 'branch_id', 'terminal_id', 'user_id', 'user_name', 'user_role'];
+  const attemptedOverrides = tenantFields.filter(field => field in partial);
+  
+  if (attemptedOverrides.length > 0 && process.env.NODE_ENV === 'development') {
+    console.warn(
+      `[mergeAuthContext] ⚠️ Intento de override de campos de tenant ignorado: ${attemptedOverrides.join(', ')}. ` +
+      `Estos campos SIEMPRE vienen del contexto autenticado (ADR-013).`
+    );
+  }
+  
+  // Remover campos de tenant del partial para evitar override
+  const safePartial = { ...partial };
+  tenantFields.forEach(field => delete safePartial[field]);
+  
   return {
-    company_id: partial.company_id ?? ctx.company_id,
-    branch_id: partial.branch_id ?? ctx.branch_id,
-    terminal_id: partial.terminal_id ?? ctx.terminal_id,
-    user_id: partial.user_id ?? ctx.user_id,
-    user_name: partial.user_name ?? ctx.user_name,
-    user_role: partial.user_role ?? ctx.user_role,
-    ...partial,
+    ...safePartial,
+    // ADR-013: Estos campos SIEMPRE vienen del contexto autenticado
+    company_id: ctx.company_id,
+    branch_id: ctx.branch_id,
+    terminal_id: ctx.terminal_id,
+    user_id: ctx.user_id,
+    user_name: ctx.user_name,
+    user_role: ctx.user_role,
   } as T & AuthContext;
 }
 

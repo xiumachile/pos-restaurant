@@ -185,7 +185,7 @@ describe("mergeAuthContext", () => {
     expect(result.table_id).toBe("table-uuid");
   });
 
-  it("debería respetar IDs del caller cuando están presentes (override)", async () => {
+  it("debería IGNORAR override de tenant (ADR-013: tenant inmutable)", async () => {
     const { mergeAuthContext } = await import("@/services/authContext");
     
     // Caller explícitamente provee otros IDs (ej: sync desde otro terminal)
@@ -195,10 +195,37 @@ describe("mergeAuthContext", () => {
       order_type: "take_out",
     });
 
-    expect(result.company_id).toBe("999"); // Respeta override
-    expect(result.branch_id).toBe("888");   // Respeta override
-    expect(result.user_id).toBe("user-merge-test"); // Inyecta el faltante
+    // ADR-013: Estos campos SIEMPRE vienen del contexto autenticado
+    expect(result.company_id).toBe("42");  // ❌ NO respeta override
+    expect(result.branch_id).toBe("7");    // ❌ NO respeta override
+    expect(result.user_id).toBe("user-merge-test");  // ❌ NO respeta override
+    
+    // Pero campos de negocio sí se preservan
     expect(result.order_type).toBe("take_out");
+  });
+
+
+
+  it("debería loguear warning cuando caller intenta override de tenant (ADR-013)", async () => {
+    // Mockear NODE_ENV para que sea 'development' (requerido para warning)
+    const originalEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'development';
+    
+    const { mergeAuthContext } = await import("@/services/authContext");
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    
+    mergeAuthContext({
+      company_id: "malicious-company",
+      branch_id: "malicious-branch",
+      order_type: "take_out",
+    });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Intento de override de campos de tenant ignorado")
+    );
+    
+    consoleSpy.mockRestore();
+    process.env.NODE_ENV = originalEnv;
   });
 
   it("debería preservar todos los campos del payload original", async () => {
