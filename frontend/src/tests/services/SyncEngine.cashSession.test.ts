@@ -5,6 +5,7 @@ import { SyncQueueRepository } from "@/db/repositories/SyncQueueRepository";
 import { CashSessionRepository } from "@/db/repositories/CashSessionRepository";
 import { syncEngine } from "@/services/sync/SyncEngine";
 import { syncApi } from "@/services/syncApi";
+import { mockAuthContext } from "../testUtils";
 
 vi.mock("@tauri-apps/plugin-sql", async () => {
   const mod = await import("../mocks/tauriSql");
@@ -16,6 +17,7 @@ const mockSyncApi = vi.mocked(syncApi);
 
 describe("SyncEngine - Cash Session Sync", () => {
   beforeEach(async () => {
+    mockAuthContext();
     await localDb.getConnection();
     await runMigrations();
     await localDb.execute("DELETE FROM sync_queue");

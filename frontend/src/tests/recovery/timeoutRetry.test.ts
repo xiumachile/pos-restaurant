@@ -21,6 +21,7 @@ import { OrderRepository } from "../../db/repositories/OrderRepository";
 import { SyncQueueRepository } from "../../db/repositories/SyncQueueRepository";
 import { syncEngine } from "../../services/sync/SyncEngine";
 import { apiClient } from "../../services/apiClient";
+import { mockAuthContext } from "../testUtils";
 
 /**
  * ESCENARIO B: Timeout + retry
@@ -36,6 +37,7 @@ describe("Recovery - B. Timeout + retry", () => {
   });
 
   beforeEach(async () => {
+    mockAuthContext();
     // Limpieza COMPLETA de todas las tablas relacionadas
     await localDb.execute("DELETE FROM sync_queue");
     await localDb.execute("DELETE FROM local_payments");

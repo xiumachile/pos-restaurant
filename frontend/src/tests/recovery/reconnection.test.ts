@@ -22,6 +22,7 @@ import { PaymentRepository } from "../../db/repositories/PaymentRepository";
 import { SyncQueueRepository } from "../../db/repositories/SyncQueueRepository";
 import { syncEngine } from "../../services/sync/SyncEngine";
 import { apiClient } from "../../services/apiClient";
+import { mockAuthContext } from "../testUtils";
 
 /**
  * ESCENARIO D: Offline → Online (reconnection)
@@ -33,6 +34,7 @@ describe("Recovery - D. Offline → Online (reconnection)", () => {
   });
 
   beforeEach(async () => {
+    mockAuthContext();
     await localDb.execute("DELETE FROM sync_queue");
     await localDb.execute("DELETE FROM local_payments");
     await localDb.execute("DELETE FROM offline_events");

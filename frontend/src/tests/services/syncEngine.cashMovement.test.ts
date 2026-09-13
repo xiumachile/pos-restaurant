@@ -22,6 +22,7 @@ import { CashSessionRepository } from "../../db/repositories/CashSessionReposito
 import { CashMovementRepository } from "../../db/repositories/CashMovementRepository";
 import { syncEngine } from "../../services/sync/SyncEngine";
 import { apiClient } from "../../services/apiClient";
+import { mockAuthContext } from "../testUtils";
 
 describe("SyncEngine - Cash Movements", () => {
   let sessionUuid: string;
@@ -33,6 +34,7 @@ describe("SyncEngine - Cash Movements", () => {
   });
 
   beforeEach(async () => {
+    mockAuthContext();
     await localDb.execute("DELETE FROM sync_queue");
     await localDb.execute("DELETE FROM local_cash_movements");
     await localDb.execute("DELETE FROM local_cash_sessions");

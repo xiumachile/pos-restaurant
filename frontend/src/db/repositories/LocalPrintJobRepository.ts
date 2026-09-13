@@ -126,15 +126,11 @@ export class LocalPrintJobRepository {
    * Esto ocurre cuando el proceso se interrumpe (crash, corte de energía).
    */
   static async recoverAbandonedPrinting(): Promise<number> {
-    const cutoff = new Date(
-      Date.now() - PRINTING_TIMEOUT_MINUTES * 60 * 1000
-    ).toISOString();
-
     const abandoned = await localDb.select<LocalPrintJob>(
       `SELECT * FROM local_print_jobs 
        WHERE status = 'printing' 
-         AND updated_at < ?`,
-      [cutoff]
+         AND updated_at < datetime('now', ?)`,
+      [`-${PRINTING_TIMEOUT_MINUTES} minutes`]
     );
 
     if (abandoned.length === 0) return 0;
@@ -309,8 +305,12 @@ export class LocalPrintJobRepository {
    * Obtiene todos los jobs (para panel de diagnóstico).
    */
   static async getAll(limit: number = 100): Promise<LocalPrintJob[]> {
+    // created_at (CURRENT_TIMESTAMP) tiene resolución de 1 segundo: si dos
+    // jobs se crean en el mismo segundo quedan con el mismo valor, y el
+    // orden entre ellos sería indefinido. rowid (implícito, orden de
+    // inserción) desempata de forma estable.
     return await localDb.select<LocalPrintJob>(
-      "SELECT * FROM local_print_jobs ORDER BY created_at DESC LIMIT ?",
+      "SELECT * FROM local_print_jobs ORDER BY created_at DESC, rowid DESC LIMIT ?",
       [limit]
     );
   }

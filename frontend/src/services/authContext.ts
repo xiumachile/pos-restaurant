@@ -78,15 +78,16 @@ export function getAuthContextSafe(): AuthContext | null {
 }
 
 /**
- * Valida que un contexto coincide con el usuario actual.
- * Usado por SyncEngine para rechazar items maliciosos.
+ * ADR-014: Valida que un contexto coincide con el usuario actual (FAIL-SECURE).
+ * 
+ * Usado por SyncEngine para rechazar items maliciosos o de otros tenants.
  * 
  * COMPORTAMIENTO:
  * - Con usuario autenticado: valida estrictamente company/branch/user
- * - Sin usuario autenticado: PERMISIVO (retorna true)
- *   → Esto permite que tests legacy funcionen sin configurar auth
- *   → En producción, SyncEngine siempre corre con usuario autenticado
- *   → Log de warning cuando no hay auth (auditoría)
+ * - Sin usuario autenticado: FAIL-SECURE (retorna false)
+ *   → Operaciones sin auth son BLOQUEADAS por seguridad
+ *   → Tests deben mockear auth context en beforeEach()
+ *   → Log de error cuando se bloquea (auditoría)
  */
 export function validateContext(ctx: {
   company_id?: string;
@@ -95,13 +96,14 @@ export function validateContext(ctx: {
 }): boolean {
   const current = getAuthContextSafe();
   
-  // Sin usuario autenticado → permisivo (tests/dev)
+  // ADR-014: Fail-secure - sin usuario autenticado = DENEGAR
   if (!current) {
-    console.warn(
-      "[authContext] ⚠️ Validación multi-tenant sin usuario autenticado. " +
-      "Permitiendo operación (modo test/dev)."
+    console.error(
+      "[authContext] ❌ Validación rechazada: sin usuario autenticado. " +
+      "Operación bloqueada (fail-secure). " +
+      "Tests deben mockear auth context en beforeEach()."
     );
-    return true;
+    return false;
   }
 
   // Con usuario autenticado → validación estricta

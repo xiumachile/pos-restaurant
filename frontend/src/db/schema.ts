@@ -653,7 +653,7 @@ export async function runMigrations(): Promise<void> {
     }
 
     await db.execute(
-      "INSERT INTO migrations (version, description) VALUES (?, ?)",
+      "INSERT OR REPLACE INTO migrations (version, checksum) VALUES (?, ?)",
       ["009", `printer-configs-${executed}-statements-${Date.now()}`]
     );
 

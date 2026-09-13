@@ -21,6 +21,7 @@ import { SyncQueueRepository } from "../../db/repositories/SyncQueueRepository";
 import { syncEngine } from "../../services/sync/SyncEngine";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useSyncStore } from "../../store/useSyncStore";
+import { mockAuthContext } from "../testUtils";
 
 /**
  * Tests de validación multi-tenant en SyncEngine.
@@ -40,6 +41,7 @@ describe("SyncEngine - Validación Multi-Tenant", () => {
   };
 
   beforeEach(async () => {
+    mockAuthContext();
     await localDb.getConnection();
     await runMigrations();
     
@@ -166,7 +168,7 @@ describe("SyncEngine - Validación Multi-Tenant", () => {
       await useAuthStore.getState().clearAuth();
     });
 
-    it("debería procesar items cuando no hay usuario autenticado (modo test/dev)", async () => {
+    it("debería rechazar items cuando no hay usuario autenticado (ADR-014: fail-secure)", async () => {
       // Escenario: tests legacy sin configurar auth
       // Comportamiento: permisivo (no rechaza) para no romper tests legacy
       await useAuthStore.getState().clearAuth();
@@ -197,9 +199,9 @@ describe("SyncEngine - Validación Multi-Tenant", () => {
 
       await syncEngine.processBatch();
 
-      // Sin usuario autenticado → permisivo → item se procesa
+      // ADR-014: Sin usuario autenticado → FAIL-SECURE → item rechazado
       const item = await SyncQueueRepository.findById(itemId);
-      expect(item?.sync_status).toBe("synced");
+      expect(item?.sync_status).toBe("failed");
     });
 
     it("debería procesar múltiples items mixtos (solo autorizados)", async () => {

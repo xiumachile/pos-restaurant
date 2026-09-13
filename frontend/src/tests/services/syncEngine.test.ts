@@ -21,6 +21,7 @@ import { SyncQueueRepository } from "../../db/repositories/SyncQueueRepository";
 import { OrderRepository } from "../../db/repositories/OrderRepository";
 import { syncEngine } from "../../services/sync/SyncEngine";
 import { apiClient } from "../../services/apiClient";
+import { mockAuthContext } from "../testUtils";
 
 describe("SyncEngine", () => {
   beforeAll(async () => {
@@ -29,6 +30,8 @@ describe("SyncEngine", () => {
   });
 
   beforeEach(async () => {
+    // ADR-014: mockAuthContext con valores que coinciden con los tests (c1/b1)
+    mockAuthContext({ companyId: "c1", branchId: "b1" });
     await localDb.execute("DELETE FROM sync_queue");
     await localDb.execute("DELETE FROM local_order_items");
     await localDb.execute("DELETE FROM local_orders");

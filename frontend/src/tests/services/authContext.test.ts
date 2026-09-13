@@ -140,12 +140,12 @@ describe("authContext", () => {
       expect(validateContext({})).toBe(true);
     });
 
-    it("debería retornar true si no hay usuario autenticado (modo permisivo)", async () => {
-      // Sin usuario autenticado, validateContext es permisivo
-      // para no romper tests legacy que no configuran auth.
-      // En producción, SyncEngine SIEMPRE corre con usuario autenticado.
+    it("debería rechazar operación sin usuario autenticado (ADR-014: fail-secure)", async () => {
+      // ADR-014: Sin auth = DENEGAR (fail-secure)
+      // Esto previene que SyncEngine procese items de otros tenants
+      // cuando no hay usuario autenticado.
       await useAuthStore.getState().clearAuth();
-      expect(validateContext({ company_id: "42" })).toBe(true);
+      expect(validateContext({ company_id: "42" })).toBe(false);
     });
   });
 });

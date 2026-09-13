@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { localDb } from '@/db/localDb';
+import { runMigrations } from '@/db/schema';
 import { OrderRepository } from '@/db/repositories/OrderRepository';
 
 // Mock Tauri SQL antes de importar localDb
@@ -15,6 +16,7 @@ vi.mock('@tauri-apps/api/core', () => ({
 describe('OrderRepository - Money integrity (ADR-011: Modelo chileno)', () => {
   beforeEach(async () => {
     await localDb.getConnection();
+    await runMigrations();
     await localDb.execute('DELETE FROM local_order_items');
     await localDb.execute('DELETE FROM local_orders');
   });

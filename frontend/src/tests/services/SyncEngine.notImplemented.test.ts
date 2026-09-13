@@ -3,6 +3,7 @@ import { localDb } from "@/db/localDb";
 import { runMigrations } from "@/db/schema";
 import { SyncQueueRepository } from "@/db/repositories/SyncQueueRepository";
 import { syncEngine } from "@/services/sync/SyncEngine";
+import { mockAuthContext } from "../testUtils";
 
 vi.mock("@tauri-apps/plugin-sql", async () => {
   const mod = await import("../mocks/tauriSql");
@@ -20,6 +21,7 @@ vi.mock("@tauri-apps/plugin-sql", async () => {
  */
 describe("SyncEngine - Entity types no implementados", () => {
   beforeEach(async () => {
+    mockAuthContext();
     await localDb.getConnection();
     await runMigrations();
     await localDb.execute("DELETE FROM sync_queue");
