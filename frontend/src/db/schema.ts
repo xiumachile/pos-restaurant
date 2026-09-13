@@ -887,7 +887,7 @@ export async function runMigrations(): Promise<void> {
       const rows = await db.select<{ count: number }>(
         `SELECT COUNT(*) as count FROM ${table} WHERE company_id IS NULL OR branch_id IS NULL`
       );
-      const invalidCount = rows[0]?.count || 0;
+      const invalidCount = (rows.length > 0 && rows[0]) ? rows[0].count : 0;
       if (invalidCount > 0) {
         console.error(`[Migrations] ❌ ALERTA: ${table} tiene ${invalidCount} filas sin tenant`);
         totalInvalid += invalidCount;
