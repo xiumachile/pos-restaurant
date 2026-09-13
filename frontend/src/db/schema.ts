@@ -884,10 +884,12 @@ export async function runMigrations(): Promise<void> {
   let totalInvalid = 0;
   for (const table of tenantTables) {
     try {
-      const rows = await db.select<{ count: number }>(
+      // Cast doble (unknown intermedio) porque la firma de db.select<T> está
+      // tipada como T en lugar de T[], pero el runtime retorna array (tech debt).
+      const rows = (await db.select<{ count: number }>(
         `SELECT COUNT(*) as count FROM ${table} WHERE company_id IS NULL OR branch_id IS NULL`
-      );
-      const invalidCount = (rows.length > 0 && rows[0]) ? rows[0].count : 0;
+      )) as unknown as Array<{ count: number }>;
+      const invalidCount = rows[0]?.count ?? 0;
       if (invalidCount > 0) {
         console.error(`[Migrations] ❌ ALERTA: ${table} tiene ${invalidCount} filas sin tenant`);
         totalInvalid += invalidCount;
