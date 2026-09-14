@@ -152,6 +152,7 @@ describe("Recovery - F. Crash durante sync", () => {
   });
 
   it("debería manejar crash en medio de batch (algunos items procesados, otros no)", async () => {
+    mockAuthContext({ companyId: "company-f3", branchId: "branch-f3" });
     // Crear 3 órdenes
     const orders = [];
     for (let i = 1; i <= 3; i++) {
