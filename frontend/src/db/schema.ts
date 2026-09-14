@@ -1,4 +1,5 @@
 import { localDb } from "./localDb";
+import { fixInconsistentMigrations } from "./fix_migrations";
 import initialMigration from "./migrations/001_initial.sql?raw";
 import tableMutationsMigration from "./migrations/002_table_local_mutations.sql?raw";
 import backendIdMigration from "./migrations/003_add_backend_id_to_categories.sql?raw";
@@ -952,6 +953,9 @@ export async function runMigrations(): Promise<void> {
   }
 
   console.log("[Migrations] ✅ Integridad de base de datos verificada");
+  
+  // Aplicar correcciones para migraciones inconsistentes
+  await fixInconsistentMigrations();
 }
 
 /**
