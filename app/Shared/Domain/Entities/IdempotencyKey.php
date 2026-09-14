@@ -2,8 +2,11 @@
 
 namespace App\Shared\Domain\Entities;
 
+use App\Shared\Domain\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Modules\Branches\Domain\Entities\Branch;
+use Modules\Companies\Domain\Entities\Company;
 use Modules\Identity\Domain\Entities\User;
 
 /**
@@ -11,10 +14,17 @@ use Modules\Identity\Domain\Entities\User;
  * 
  * Principio arquitectónico #7: Todas las mutaciones de venta/pago
  * deben ser idempotentes usando el header Idempotency-Key.
+ * 
+ * ADR-002: Scoped a tenant (company_id + key = unique).
+ * Dos tenants pueden usar la misma key sin colisionar.
  */
 class IdempotencyKey extends Model
 {
+    use BelongsToTenant;
+
     protected $fillable = [
+        'company_id',
+        'branch_id',
         'key',
         'request_hash',
         'response_body',
@@ -33,6 +43,16 @@ class IdempotencyKey extends Model
     protected $attributes = [
         'response_code' => null,
     ];
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
 
     public function user(): BelongsTo
     {

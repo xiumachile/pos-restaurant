@@ -2,6 +2,7 @@
 
 namespace App\Shared\Http\Middleware;
 
+use App\Shared\Application\TenantContext;
 use App\Shared\Domain\Entities\IdempotencyKey;
 use Closure;
 use Illuminate\Http\Request;
@@ -15,11 +16,17 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
  * Exige el header Idempotency-Key (UUIDv4) y cachea respuestas
  * para prevenir procesamiento duplicado en reintentos.
  * 
- * Principio arquitectónico #7: Idempotencia en mutaciones.
+ * ADR-015: Scoped a tenant cuando hay contexto, global cuando no hay.
+ * - Con tenant context: cachea en Redis + DB con scope de tenant
+ * - Sin tenant context: cachea en Redis + DB sin scope (tests legacy)
  */
 class IdempotencyKeyMiddleware
 {
     protected const DEFAULT_TTL_HOURS = 24;
+
+    public function __construct(
+        private TenantContext $tenantContext
+    ) {}
 
     public function handle(Request $request, Closure $next): SymfonyResponse
     {
@@ -29,7 +36,6 @@ class IdempotencyKeyMiddleware
         }
 
         // F2.1: En testing, activar idempotencia solo si el header está presente
-        // Esto permite que tests específicos validen idempotencia enviando el header
         if (app()->environment('testing') && !$request->hasHeader('Idempotency-Key')) {
             return $next($request);
         }
@@ -50,17 +56,27 @@ class IdempotencyKeyMiddleware
             ], 400);
         }
 
+        // ADR-015: Obtener tenant context para scope
+        $companyId = $this->tenantContext->companyId();
+        $branchId = $this->tenantContext->branchId();
+        $hasTenantContext = $this->tenantContext->hasCompany();
+
         $requestHash = $this->generateRequestHash($request);
+
+        // Cache key SCOPED por tenant (ADR-015: prevenir cross-tenant leakage)
+        $cacheKey = $hasTenantContext
+            ? "idempotency:{$companyId}:{$idempotencyKey}"
+            : "idempotency:global:{$idempotencyKey}";
 
         // ESTRATEGIA HÍBRIDA (ADR-007): Redis como cache + SQL como fuente de verdad
         // Paso 1: Check Redis (O(1), fast path)
-        $cacheKey = 'idempotency:' . $idempotencyKey;
         $cachedResponse = Cache::get($cacheKey);
 
         if ($cachedResponse) {
             if ($cachedResponse['request_hash'] === $requestHash) {
                 Log::info('IdempotencyKey: Returning cached response from Redis', [
                     'key' => $idempotencyKey,
+                    'company_id' => $companyId,
                     'endpoint' => $request->path(),
                 ]);
 
@@ -76,13 +92,27 @@ class IdempotencyKeyMiddleware
             ], 409);
         }
 
-        // Paso 2: Check SQL (fuente de verdad, fallback si Redis no tiene)
-        $existing = IdempotencyKey::where('key', $idempotencyKey)->first();
+        // Paso 2: Check SQL (fuente de verdad) — SCOPED por tenant si hay contexto
+        $query = IdempotencyKey::query();
+        
+        if ($hasTenantContext) {
+            // Con tenant: buscar solo en el scope del tenant
+            $query->where('company_id', $companyId);
+        } else {
+            // Sin tenant (tests legacy): buscar solo registros sin tenant
+            // IMPORTANTE: Deshabilitar global scopes de BelongsToTenant
+            // porque agregan where('company_id', null) que no es igual a whereNull
+            $query = IdempotencyKey::withoutGlobalScopes()
+                ->whereNull('company_id');
+        }
+        
+        $existing = $query->where('key', $idempotencyKey)->first();
 
         if ($existing && $existing->hasValidResponse()) {
             if ($existing->request_hash === $requestHash) {
                 Log::info('IdempotencyKey: Returning cached response from SQL', [
                     'key' => $idempotencyKey,
+                    'company_id' => $companyId,
                     'endpoint' => $request->path(),
                 ]);
 
@@ -116,29 +146,30 @@ class IdempotencyKeyMiddleware
                 'response_body' => json_decode($response->getContent(), true),
             ];
 
-            // Write-through: SQL (durabilidad) + Redis (performance)
-            IdempotencyKey::create([
+            // Write-through: Redis SIEMPRE, DB SIEMPRE (con o sin tenant)
+            Cache::put($cacheKey, $responseData, now()->addHours(self::DEFAULT_TTL_HOURS));
+
+            // ADR-015: Guardar en DB con scope de tenant si hay contexto, sin scope si no hay
+            $dbData = [
                 'key' => $idempotencyKey,
                 'request_hash' => $requestHash,
                 'response_code' => $response->getStatusCode(),
                 'response_body' => $responseData['response_body'],
                 'expires_at' => now()->addHours(self::DEFAULT_TTL_HOURS),
-            ]);
+            ];
 
-            Cache::put($cacheKey, $responseData, now()->addHours(self::DEFAULT_TTL_HOURS));
+            // Solo agregar company_id/branch_id si hay tenant context
+            if ($hasTenantContext) {
+                $dbData['company_id'] = $companyId;
+                $dbData['branch_id'] = $branchId;
+            }
+
+            // IMPORTANTE: Usar withoutGlobalScopes al crear para evitar
+            // que BelongsToTenant agregue company_id automáticamente
+            IdempotencyKey::withoutGlobalScopes()->create($dbData);
         }
 
         return $response;
-    }
-
-    /**
-     * Detecta si el request actual está probando específicamente este middleware.
-     * Se activa cuando el endpoint es /api/v1/test-idempotent (usado por IdempotencyTest).
-     */
-    protected function isTestingMiddleware(Request $request): bool
-    {
-        return $request->is('api/v1/test-idempotent*')
-            || $request->is('test-idempotent*');
     }
 
     protected function isValidUuid(string $uuid): bool

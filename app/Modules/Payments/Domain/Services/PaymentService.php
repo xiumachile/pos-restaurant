@@ -39,7 +39,11 @@ class PaymentService
         ) {
             $order = Order::lockForUpdate()->find($order->id);
 
-            $existing = Payment::where('idempotency_key', $idempotencyKey)->first();
+            // ADR-002: Scope por tenant para prevenir cross-tenant leakage
+            $existing = Payment::where('company_id', $order->company_id)
+                ->where('branch_id', $order->branch_id)
+                ->where('idempotency_key', $idempotencyKey)
+                ->first();
             if ($existing) {
                 return $existing;
             }
