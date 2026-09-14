@@ -34,7 +34,7 @@ describe("Recovery - D. Offline → Online (reconnection)", () => {
   });
 
   beforeEach(async () => {
-    mockAuthContext();
+    // Nota: cada test mockea su propio tenant antes de crear orders
     await localDb.execute("DELETE FROM sync_queue");
     await localDb.execute("DELETE FROM local_payments");
     await localDb.execute("DELETE FROM offline_events");
@@ -52,6 +52,7 @@ describe("Recovery - D. Offline → Online (reconnection)", () => {
   });
 
   it("debería sincronizar múltiples orders offline tras reconexión", async () => {
+    mockAuthContext({ companyId: "company-d1", branchId: "branch-d1" });
     const order1 = await OrderRepository.create({
       company_id: "company-d1",
       branch_id: "branch-d1",
@@ -88,6 +89,7 @@ describe("Recovery - D. Offline → Online (reconnection)", () => {
   });
 
   it("debería sincronizar order y mantener payment en cola para siguiente batch", async () => {
+    mockAuthContext({ companyId: "company-d2", branchId: "branch-d2" });
     const order = await OrderRepository.create({
       company_id: "company-d2",
       branch_id: "branch-d2",
@@ -128,6 +130,7 @@ describe("Recovery - D. Offline → Online (reconnection)", () => {
   });
 
   it("debería mantener integridad de datos después de múltiples operaciones offline", async () => {
+    mockAuthContext({ companyId: "company-d3", branchId: "branch-d3" });
     // Crear 3 orders con payments cada una
     const operations = [];
     for (let i = 1; i <= 3; i++) {
@@ -178,6 +181,7 @@ describe("Recovery - D. Offline → Online (reconnection)", () => {
   });
 
   it("debería mantener idempotency_keys consistentes entre offline y online", async () => {
+    mockAuthContext({ companyId: "company-d4", branchId: "branch-d4" });
     const order = await OrderRepository.create({
       company_id: "company-d4",
       branch_id: "branch-d4",

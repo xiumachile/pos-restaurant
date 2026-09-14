@@ -63,8 +63,17 @@ export class SyncEngine {
           });
 
           await this.processItem(item);
-          stats.processed++;
-          stats.success++;
+          
+          // ADR-014: Verificar si el item fue rechazado permanentemente (multi-tenant)
+          const updatedItem = await SyncQueueRepository.findById(item.id);
+          if (updatedItem?.sync_status === "failed" && updatedItem.attempts === updatedItem.max_attempts) {
+            // Rechazo permanente: contar como failed sin handleFailure()
+            stats.processed++;
+            stats.failed++;
+          } else {
+            stats.processed++;
+            stats.success++;
+          }
         } catch (error: any) {
           console.error(`[SyncEngine] Error procesando ${item.id}:`, error);
           
@@ -121,8 +130,9 @@ export class SyncEngine {
         `pero el usuario actual tiene diferente contexto. Rechazado por seguridad.`;
       console.error("[SyncEngine]", error);
       // Rechazo PERMANENTE: no reintentar (datos maliciosos/de otro tenant)
+      // NO lanzar error para evitar que handleFailure() incremente attempts
       await SyncQueueRepository.markAsPermanentlyFailed(item.id, error);
-      throw new Error(error);
+      return; // Salir silenciosamente, el item ya está marcado como failed
     }
 
     const payload = this.safeParseJson(item.payload);

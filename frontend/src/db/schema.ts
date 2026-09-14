@@ -1,5 +1,4 @@
 import { localDb } from "./localDb";
-import { fixInconsistentMigrations } from "./fix_migrations";
 import initialMigration from "./migrations/001_initial.sql?raw";
 import tableMutationsMigration from "./migrations/002_table_local_mutations.sql?raw";
 import backendIdMigration from "./migrations/003_add_backend_id_to_categories.sql?raw";
@@ -9,7 +8,8 @@ import localCashSessionsCompanyMigration from "./migrations/006_add_company_to_l
 import offlineEventsMigration from "./migrations/007_create_offline_events.sql?raw";
 import localPrintJobsMigration from "./migrations/008_create_local_print_jobs.sql?raw";
 import printerConfigsMigration from "./migrations/009_create_printer_configs.sql?raw";
-import chileanModelMigration from "./migrations/011_convert_to_chilean_model.sql?raw";
+import moneyIntegerMigration from "./migrations/010_convert_money_to_integer.sql?raw";
+import chileanColumnsMigration from "./migrations/011_add_chilean_columns.sql?raw";
 import multiTenancyMigration from "./migrations/012_add_tenant_to_local_tables.sql?raw";
 import tableMutationsTenancyMigration from "./migrations/013_add_tenant_to_table_mutations.sql?raw";
 import tenantBackfillMigration from "./migrations/014_backfill_and_validate_tenant.sql?raw";
@@ -670,7 +670,7 @@ export async function runMigrations(): Promise<void> {
   if (!applied.some(m => m.version === "011")) {
     console.log("[Migrations] 🚀 Aplicando migración 011_convert_to_chilean_model...");
 
-    const statements = parseSqlStatements(chileanModelMigration);
+    const statements = parseSqlStatements(chileanColumnsMigration);
     console.log(`[Migrations] 🔍 011: Parsed ${statements.length} statements SQL`);
 
     let executed = 0;
@@ -955,7 +955,6 @@ export async function runMigrations(): Promise<void> {
   console.log("[Migrations] ✅ Integridad de base de datos verificada");
   
   // Aplicar correcciones para migraciones inconsistentes
-  await fixInconsistentMigrations();
 }
 
 /**

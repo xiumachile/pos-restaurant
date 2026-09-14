@@ -42,7 +42,7 @@ describe("Recovery - F. Crash durante sync", () => {
   });
 
   beforeEach(async () => {
-    mockAuthContext();
+    // Nota: cada test mockea su propio tenant
     await localDb.execute("DELETE FROM sync_queue");
     await localDb.execute("DELETE FROM local_payments");
     await localDb.execute("DELETE FROM offline_events");
@@ -60,6 +60,7 @@ describe("Recovery - F. Crash durante sync", () => {
   });
 
   it("debería recuperar tras crash simulado (reintento con mismo idempotency_key)", async () => {
+    mockAuthContext({ companyId: "company-f1", branchId: "branch-f1" });
     const order = await OrderRepository.create({
       company_id: "company-f1",
       branch_id: "branch-f1",
@@ -86,8 +87,10 @@ describe("Recovery - F. Crash durante sync", () => {
     const firstIdempotencyKey = firstCall[2].headers["Idempotency-Key"];
 
     // Resetear backoff para simular "después del crash"
+    const pastDate = new Date(Date.now() - 60000).toISOString();
     await localDb.execute(
-      "UPDATE sync_queue SET next_retry_at = datetime('now', '-1 minute')"
+      "UPDATE sync_queue SET next_retry_at = ?",
+      [pastDate]
     );
 
     // Segundo intento: backend retorna el MISMO order (idempotencia)
@@ -180,6 +183,7 @@ describe("Recovery - F. Crash durante sync", () => {
   });
 
   it("debería permitir continuar tras crash sin duplicados", async () => {
+    mockAuthContext({ companyId: "company-f4", branchId: "branch-f4" });
     const order = await OrderRepository.create({
       company_id: "company-f4",
       branch_id: "branch-f4",
@@ -191,8 +195,10 @@ describe("Recovery - F. Crash durante sync", () => {
     await syncEngine.processBatch();
 
     // Reset backoff
+    const pastDate2 = new Date(Date.now() - 60000).toISOString();
     await localDb.execute(
-      "UPDATE sync_queue SET next_retry_at = datetime('now', '-1 minute')"
+      "UPDATE sync_queue SET next_retry_at = ?",
+      [pastDate2]
     );
 
     // Intento 2: crash
@@ -200,8 +206,10 @@ describe("Recovery - F. Crash durante sync", () => {
     await syncEngine.processBatch();
 
     // Reset backoff
+    const pastDate3 = new Date(Date.now() - 60000).toISOString();
     await localDb.execute(
-      "UPDATE sync_queue SET next_retry_at = datetime('now', '-1 minute')"
+      "UPDATE sync_queue SET next_retry_at = ?",
+      [pastDate3]
     );
 
     // Intento 3: éxito

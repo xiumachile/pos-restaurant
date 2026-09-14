@@ -1,4 +1,5 @@
 import { useAuthStore } from "@/store/useAuthStore";
+import type { User } from "@/types/auth";
 
 /**
  * Mockea el contexto de autenticación para tests.
@@ -6,49 +7,58 @@ import { useAuthStore } from "@/store/useAuthStore";
  * ADR-014: Fail-secure en validateContext()
  * Sin auth mockeado, validateContext() retorna false y bloquea operaciones.
  * 
- * NOTA: useAuthStore usa persist middleware de zustand, que puede interferir
- * en tests. Este helper fuerza el estado síncrono sin depender de persistencia.
+ * NOTA: Acepta strings para company_id/branch_id (como usan los tests),
+ * pero internamente convierte a numbers para satisfacer el tipo User.
+ * getAuthContext() luego convierte de vuelta a strings para las queries.
  * 
  * Uso:
  *   beforeEach(() => {
- *     mockAuthContext();
+ *     mockAuthContext({ companyId: "company-1", branchId: "branch-1" });
  *   });
  * 
  * @param options - Opciones para customizar el contexto mockeado
  */
 export function mockAuthContext(options?: {
-  companyId?: string;
-  branchId?: string;
+  companyId?: string | number;
+  branchId?: string | number;
   userId?: string;
   userName?: string;
 }) {
-  const mockUser = {
+  // Extraer valores (aceptar string o number)
+  const companyId = options?.companyId || "company-1";
+  const branchId = options?.branchId || "branch-1";
+  
+  // Convertir a number para el tipo User (si es string, parsear)
+  const companyIdNum = typeof companyId === "string" ? parseInt(companyId.replace(/\D/g, "")) || 1 : companyId;
+  const branchIdNum = typeof branchId === "string" ? parseInt(branchId.replace(/\D/g, "")) || 1 : branchId;
+  
+  // Crear usuario compatible con el tipo User
+  const mockUser: User = {
     id: 1,
     uuid: options?.userId || "test-user-123",
     name: options?.userName || "Test User",
     email: "test@example.com",
-    role: "cashier" as const,
-    // ADR-014: getAuthContext() requiere estos campos DIRECTOS (no anidados)
-    company_id: options?.companyId || "company-1",
-    branch_id: options?.branchId || "branch-1",
+    role: "cashier",
+    company_id: companyIdNum,
+    branch_id: branchIdNum,
     company: {
-      id: 1,
-      uuid: options?.companyId || "company-1",
+      id: companyIdNum,
+      uuid: String(companyId),
       trade_name: "Test Company",
     },
     branch: {
-      id: 1,
-      name: options?.branchId || "branch-1",
-      code: "BR1",
+      id: branchIdNum,
+      uuid: String(branchId),  // ← Preservar string original del backend
+      name: String(branchId),
+      code: `BR${branchIdNum}`,
     },
   };
 
-  // Forzar estado síncrono, ignorando persistencia
   useAuthStore.setState({
     user: mockUser,
     isAuthenticated: true,
     token: "test-token",
-  }, false, "mockAuthContext"); // false = no merge, reemplaza completamente
+  });
   
   // Verificar que el estado se aplicó correctamente
   const state = useAuthStore.getState();
@@ -62,12 +72,11 @@ export function mockAuthContext(options?: {
 
 /**
  * Limpia el auth context después de tests.
- * Forza estado null sin depender de persistencia.
  */
 export function clearAuthContext() {
   useAuthStore.setState({
     user: null,
     isAuthenticated: false,
     token: null,
-  }, false, "clearAuthContext"); // false = no merge, reemplaza completamente
+  });
 }

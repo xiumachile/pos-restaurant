@@ -13,6 +13,7 @@ export interface User {
   };
   branch?: {
     id: number;
+    uuid?: string;  // ← Agregado para preservar string original del backend
     name: string;
     code: string;
   };

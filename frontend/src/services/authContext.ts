@@ -55,9 +55,18 @@ export function getAuthContext(): AuthContext {
     );
   }
 
+  // ADR-014: Preferir company.uuid / branch.uuid (string original del backend)
+  // porque los tests y la DB usan strings como "company-1" / "branch-1" (no numbers).
+  const company_id = user.company?.uuid 
+    ? String(user.company.uuid) 
+    : String(user.company_id);
+  const branch_id = user.branch?.uuid 
+    ? String(user.branch.uuid) 
+    : String(user.branch_id);
+
   return {
-    company_id: String(user.company_id),
-    branch_id: String(user.branch_id),
+    company_id,
+    branch_id,
     terminal_id: getTerminalId(),
     user_id: user.uuid,
     user_name: user.name,

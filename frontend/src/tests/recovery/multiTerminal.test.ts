@@ -44,7 +44,7 @@ describe("Recovery - E. Dos terminales simultáneos", () => {
   });
 
   beforeEach(async () => {
-    mockAuthContext();
+    // Nota: cada test mockea su propio tenant
     await localDb.execute("DELETE FROM sync_queue");
     await localDb.execute("DELETE FROM local_payments");
     await localDb.execute("DELETE FROM offline_events");
@@ -64,6 +64,7 @@ describe("Recovery - E. Dos terminales simultáneos", () => {
   });
 
   it("debería permitir dos sesiones de caja diferentes en la misma branch", async () => {
+    mockAuthContext({ companyId: "company-e1", branchId: "branch-e1" });
     const sessionA = await CashSessionRepository.create({
       company_id: "company-e1",
       branch_id: "branch-e1",
@@ -104,6 +105,7 @@ describe("Recovery - E. Dos terminales simultáneos", () => {
   });
 
   it("debería permitir órdenes simultáneas desde dos terminales", async () => {
+    mockAuthContext({ companyId: "company-e2", branchId: "branch-e2" });
     // Terminal A crea una orden
     const orderA = await OrderRepository.create({
       company_id: "company-e2",
@@ -138,6 +140,7 @@ describe("Recovery - E. Dos terminales simultáneos", () => {
   });
 
   it("debería permitir pagos simultáneos desde dos terminales", async () => {
+    mockAuthContext({ companyId: "company-e3", branchId: "branch-e3" });
     const orderA = await OrderRepository.create({
       company_id: "company-e3",
       branch_id: "branch-e3",
@@ -178,6 +181,7 @@ describe("Recovery - E. Dos terminales simultáneos", () => {
   });
 
   it("debería sincronizar ambas terminales sin conflictos", async () => {
+    mockAuthContext({ companyId: "company-e4", branchId: "branch-e4" });
     // Crear 2 orders simultáneas
     const orderA = await OrderRepository.create({
       company_id: "company-e4",

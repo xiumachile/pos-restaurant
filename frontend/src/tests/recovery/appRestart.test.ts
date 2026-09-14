@@ -44,7 +44,7 @@ describe("Recovery - C. Kill/Restart App", () => {
   });
 
   beforeEach(async () => {
-    mockAuthContext();
+    // Nota: cada test mockea su propio tenant
     await localDb.execute("DELETE FROM sync_queue");
     await localDb.execute("DELETE FROM local_payments");
     await localDb.execute("DELETE FROM offline_events");
@@ -80,6 +80,7 @@ describe("Recovery - C. Kill/Restart App", () => {
   });
 
   it("debería persistir payment pendiente después de 'reiniciar la app'", async () => {
+    mockAuthContext({ companyId: "company-c2", branchId: "branch-c2" });
     const order = await OrderRepository.create({
       company_id: "company-c2",
       branch_id: "branch-c2",
@@ -109,6 +110,7 @@ describe("Recovery - C. Kill/Restart App", () => {
   });
 
   it("debería persistir SyncQueue entre 'reinicios' y sincronizar después", async () => {
+    mockAuthContext({ companyId: "company-c3", branchId: "branch-c3" });
     const order = await OrderRepository.create({
       company_id: "company-c3",
       branch_id: "branch-c3",
@@ -146,6 +148,7 @@ describe("Recovery - C. Kill/Restart App", () => {
   });
 
   it("debería persistir eventos de EventStore entre 'reinicios'", async () => {
+    mockAuthContext({ companyId: "company-c4", branchId: "branch-c4" });
     const order = await OrderRepository.create({
       company_id: "company-c4",
       branch_id: "branch-c4",
