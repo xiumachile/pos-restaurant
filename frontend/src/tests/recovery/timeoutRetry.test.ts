@@ -57,8 +57,8 @@ describe("Recovery - B. Timeout + retry", () => {
 
   it("debería reintentar con el mismo idempotency_key tras timeout", async () => {
     const order = await OrderRepository.create({
-      company_id: "company-b1",
-      branch_id: "branch-b1",
+      company_id: "company-1",
+      branch_id: "branch-1",
       order_type: "dine_in",
     });
 
@@ -78,8 +78,10 @@ describe("Recovery - B. Timeout + retry", () => {
     expect(idempotencyKey).toMatch(/^[a-f0-9-]{36}$/);
 
     // Resetear backoff manualmente (simular paso del tiempo)
+    const pastDate = new Date(Date.now() - 60000).toISOString();
     await localDb.execute(
-      "UPDATE sync_queue SET next_retry_at = datetime('now', '-1 minute')"
+      "UPDATE sync_queue SET next_retry_at = ?",
+      [pastDate]
     );
 
     vi.clearAllMocks();
@@ -99,8 +101,8 @@ describe("Recovery - B. Timeout + retry", () => {
 
   it("debería mantener order pendiente tras timeout (con backoff)", async () => {
     const order = await OrderRepository.create({
-      company_id: "company-b2",
-      branch_id: "branch-b2",
+      company_id: "company-1",
+      branch_id: "branch-1",
       order_type: "dine_in",
     });
 
@@ -140,8 +142,8 @@ describe("Recovery - B. Timeout + retry", () => {
 
   it("debería recuperar tras timeout + éxito (resetear backoff)", async () => {
     const order = await OrderRepository.create({
-      company_id: "company-b3",
-      branch_id: "branch-b3",
+      company_id: "company-1",
+      branch_id: "branch-1",
       order_type: "dine_in",
     });
 
@@ -162,8 +164,10 @@ describe("Recovery - B. Timeout + retry", () => {
     expect(localOrder?.sync_status).toBe("pending");
 
     // Resetear backoff manualmente (simular paso del tiempo)
+    const pastDate = new Date(Date.now() - 60000).toISOString();
     await localDb.execute(
-      "UPDATE sync_queue SET next_retry_at = datetime('now', '-1 minute')"
+      "UPDATE sync_queue SET next_retry_at = ?",
+      [pastDate]
     );
 
     // Éxito en reintento
