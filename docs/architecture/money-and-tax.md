@@ -492,3 +492,134 @@ CREDIT TipsPayable (2200) $1,000
 
 **Todos validados en `tests/Feature/FinancialRulesTest.php`**
 
+
+---
+
+## REGLAS DE BILLING (Puntos 47-56)
+
+### Definición Formal de Bill
+
+**Bill** es la representación financiera consistente de una cuenta a cobrar, derivada de un Order.
+
+**Fuente de verdad**: Bill es una proyección de:
+- **Order** (items, precios, impuestos, descuentos)
+- **Payments** (pagos efectivos recibidos)
+
+**Fórmula fundamental**:
+LOCAL BILL = f(ORDER + PAYMENTS)
+
+### Jerarquía de Entidades
+Order (1) ──→ (N) Bill ──→ (N) Payment
+
+- Un Order puede tener 1 o N Bills (split)
+- Un Bill puede tener 0 o N Payments (parciales)
+- Un Payment puede existir sin Bill (pago directo a Order)
+
+### Campos Financieros de Bill
+
+| Campo | Significado | Fórmula |
+|-------|-------------|---------|
+| `subtotal` | Base imponible bruta | Copia de Order.subtotal |
+| `tax_amount` | IVA incluido | Copia de Order.tax_amount |
+| `discount_amount` | Descuento aplicado | Copia de Order.discount_amount |
+| `tip_amount` | Propina (separada) | Suma de tips de Payments asociados |
+| `total` | Monto a cobrar | subtotal + tax - discount + tip |
+| `paid_amount` | Total efectivamente pagado | SUM(Payments.total_amount) |
+| `remaining_amount` | Saldo pendiente | total - paid_amount |
+
+### Estados de Bill (BillStatus)
+OPEN → PARTIAL → PAID
+↓ ↓
+CANCELLED
+
+- **OPEN**: `paid_amount = 0`, `remaining_amount = total`
+- **PARTIAL**: `0 < paid_amount < total`
+- **PAID**: `paid_amount ≥ total` (o `remaining_amount ≤ 0`)
+- **CANCELLED**: Bill cancelado (por split o anulación)
+
+### Reglas de Propina en Bill (Punto 50)
+
+**Regla crítica**: La propina se contabiliza UNA sola vez.
+
+**Fuente única de verdad para propinas**: Tabla `payments`.
+
+```sql
+-- Reporte correcto (NO duplica)
+SELECT SUM(tip_amount) FROM payments WHERE order_id = X;
+
+-- Reporte INCORRECTO (triple contabilidad)
+SELECT tip FROM orders + tip FROM bills + tip FROM payments  -- ❌
+Uso correcto de registerPaymentAmount():
+// Frontend debe pasar TOTAL_AMOUNT (amount + tip), no solo amount
+$bill->registerPaymentAmount((float) $payment->total_amount);
+Split Bill (3 Modalidades)
+Modalidad 1: Split Equal (partes iguales)
+$bills = $billingService->splitEqual($order, $parts);
+// Requiere: $parts >= 2
+// Distribuye subtotal, tax, discount proporcionalmente
+// Residuos por redondeo → primera bill
+Modalidad 2: Split By Items (cada comensal paga lo suyo)
+$bills = $billingService->splitByItems($order, $groups);
+// groups = [['item_ids' => [...], 'guest_count' => N], ...]
+// Tax y discount proporcionales al subtotal de cada grupo
+// Ajuste de redondeo → última bill
+Modalidad 3: Split By Amounts (montos personalizados)
+$bills = $billingService->splitByAmounts($order, $amounts);
+// amounts = [5000, 3000, 3900]
+// Tolerancia de $1 por redondeo
+// Última bill absorbe diferencia
+Reconstrucción de Bill (Puntos 55-56)
+Criterio de cierre: Una Bill reconstruida después de offline/sync debe producir exactamente el mismo resultado financiero.
+Algoritmo de reconstrucción:
+1. Capturar payment_ids ANTES de borrar bill
+2. Borrar bill (simular pérdida)
+3. Reconstruir desde:
+   - Order: subtotal, tax, discount, tip
+   - Payments (por payment_ids): paid, tip
+4. Aplicar registerPaymentAmount(paid + tip)
+5. Verificar: total, paid, remaining, status, tip coinciden
+Validado por test: CRITERIO DE CIERRE: Bill reconstruido produce mismo resultado financiero
+Consistencia Bill ↔ Order (Limitación Conocida)
+Estado actual: Bill NO se sincroniza automáticamente cuando Order cambia después de crear la bill.
+Comportamiento:
+✅ Si Order cambia antes de crear bill → bill usa datos correctos
+⚠️ Si Order cambia después de crear bill → bill queda desactualizado
+Workaround: Recrear bills desde Order antes de pagar
+$billingService->createSingleBill($order); // idempotente
+Roadmap futuro: Observer de Order que invalida bills cuando hay cambios en items.
+Merge/Split/Move de Mesas
+Estado: No implementado en MVP.
+Roadmap futuro:
+Merge: Combinar 2 orders en 1 bill
+Move: Transferir items entre orders
+Split de mesa: Dividir items de un order en múltiples orders
+Validaciones Obligatorias
+1. Integridad de split:
+SUM(bill_i.total) = order.total (con tolerancia de $1 por redondeo)
+2. No sobrepago en bill:
+payment.total_amount <= bill.remaining_amount
+3. Idempotencia:
+createSingleBill() con bill existente → retorna bill existente
+splitEqual() con bills existentes → cancela y recrea
+4. Cross-tenant isolation:
+Bill usa BelongsToTenant → queries automáticamente scoped
+Casos de Prueba Validados (BillIntegrityTest)
+Bill refleja estado financiero del Order
+Payment sin Bill (pago directo)
+Payment a través de Bill
+registerPaymentAmount con propina
+Propina contada una sola vez
+Pago parcial actualiza estado
+Split equal (2+ partes)
+Split by items
+Split by amounts
+Reconstrucción desde Order + Payments
+Criterio de cierre (mismo resultado financiero)
+Todos validados en tests/Feature/BillIntegrityTest.php (11 passed, 2 skipped por limitaciones conocidas)
+Anti-patrones Comunes
+❌ Anti-patrón	✅ Patrón correcto
+Sumar bill.tip + order.tip + payment.tip	Sumar solo payment.tip
+registerPaymentAmount($payment->amount) con propina	registerPaymentAmount($payment->total_amount)
+Filtrar bills manualmente por company_id	Usar Bill::query() (BelongsToTenant automático)
+Modificar bill manualmente después de split	Usar BillingService (transacciones DB)
+Asumir bill se actualiza con cambios de order	Recrear bill antes de pagar
