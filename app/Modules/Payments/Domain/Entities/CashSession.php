@@ -118,14 +118,16 @@ class CashSession extends Model
         bool $includeMovements = true,
         bool $onlyCashTipsPaidOut = false
     ): float {
+        // ADR-011 FIX: Filtrar por method_code case-insensitive
+        // Los payments se guardan con method_code = PaymentMethod.code (minúsculas)
         $cashSales = (float) $this->payments()
             ->where('status', 'completed')
-            ->where('method_code', 'CASH')
+            ->whereRaw('LOWER(method_code) = ?', ['cash'])
             ->sum('amount');
         
         $cashTips = (float) $this->payments()
             ->where('status', 'completed')
-            ->where('method_code', 'CASH')
+            ->whereRaw('LOWER(method_code) = ?', ['cash'])
             ->sum('tip_amount');
         
         $brutExpected = (float) $this->opening_amount + $cashSales + $cashTips;

@@ -108,17 +108,30 @@ class PaymentService
         return $order->status->isChargeable();
     }
 
+    /**
+     * Calcula monto disponible para pago usando modelo BRUTO (ADR-011).
+     * 
+     * amount_due = gross - discount + tip
+     * available = amount_due - paidAmount
+     */
     private function getAvailableAmount(Order $order, ?Bill $bill): float
     {
         if ($bill) {
             return (float) $bill->remaining_amount;
         }
 
+        // Usar amount_due (ADR-011) en vez de total (legacy)
+        $amountDue = (float) ($order->amount_due ?? $order->total);
+        
         $paidAmount = (float) Payment::where('order_id', $order->id)
             ->completed()
             ->sum('amount');
 
-        return (float) $order->total - $paidAmount;
+        $paidTips = (float) Payment::where('order_id', $order->id)
+            ->completed()
+            ->sum('tip_amount');
+
+        return $amountDue - ($paidAmount + $paidTips);
     }
 
     private function updateOrderPaymentStatus(Order $order): void
