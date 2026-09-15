@@ -21,12 +21,14 @@ class AuditLog extends Model
         'company_id',
         'branch_id',
         'user_id',
+        'user_name',
         'action',
         'entity_type',
         'entity_id',
         'entity_uuid',
-        'old_values',
-        'new_values',
+        'payload',
+        'changes',
+        'reason',
         'ip_address',
         'user_agent',
         'occurred_at',
@@ -35,10 +37,27 @@ class AuditLog extends Model
     protected function casts(): array
     {
         return [
-            'old_values' => 'array',
-            'new_values' => 'array',
+            'payload' => 'array',
+            'changes' => 'array',
             'occurred_at' => 'datetime',
         ];
+    }
+
+
+    /**
+     * Prevenir actualizaciones (inmutabilidad).
+     */
+    public function update(array $attributes = [], array $options = [])
+    {
+        throw new \RuntimeException('AuditLog es inmutable: no se puede actualizar.');
+    }
+
+    /**
+     * Prevenir eliminaciones (inmutabilidad).
+     */
+    public function delete()
+    {
+        throw new \RuntimeException('AuditLog es inmutable: no se puede eliminar.');
     }
 
     public function company(): BelongsTo

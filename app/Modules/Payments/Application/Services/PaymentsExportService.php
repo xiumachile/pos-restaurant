@@ -15,7 +15,12 @@ class PaymentsExportService implements PaymentsExportServiceInterface
         
         $query = DB::table('payment_methods')
             ->where('company_id', $companyId)  // FIX P0: Filtrar por company_id
-            ->where('branch_id', $branchId);
+            ->where(function ($q) use ($branchId) {
+                // Payment methods pueden ser globales por company (branch_id NULL)
+                // o específicos de una sucursal.
+                $q->where('branch_id', $branchId)
+                  ->orWhereNull('branch_id');
+            });
 
         if ($since) {
             $query->where('updated_at', '>', $since);

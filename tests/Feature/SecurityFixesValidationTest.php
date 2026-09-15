@@ -105,11 +105,15 @@ test('FIX P0: PaymentsExportService filtra por company_id', function () {
 
 test('FIX P0: AuditLog filtra por company_id (BelongsToTenant)', function () {
     // Crear audit logs para ambos tenants
+    // Incluir campos NOT NULL requeridos: entity_type, entity_id
     AuditLog::create([
         'company_id' => $this->companyA->id,
         'branch_id' => $this->branchA->id,
         'user_id' => $this->userA->id,
         'action' => 'test_action',
+        'entity_type' => 'order',
+        'entity_id' => 1,
+        'entity_uuid' => \Illuminate\Support\Str::uuid()->toString(),
         'occurred_at' => now(),
     ]);
     AuditLog::create([
@@ -117,6 +121,9 @@ test('FIX P0: AuditLog filtra por company_id (BelongsToTenant)', function () {
         'branch_id' => $this->branchB->id,
         'user_id' => $this->userB->id,
         'action' => 'test_action',
+        'entity_type' => 'order',
+        'entity_id' => 2,
+        'entity_uuid' => \Illuminate\Support\Str::uuid()->toString(),
         'occurred_at' => now(),
     ]);
 

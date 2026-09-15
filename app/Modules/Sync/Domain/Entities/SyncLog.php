@@ -2,6 +2,7 @@
 
 namespace Modules\Sync\Domain\Entities;
 
+use App\Shared\Domain\Traits\BelongsToTenant;
 use App\Shared\Domain\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,7 +18,6 @@ use Modules\Sync\Domain\ValueObjects\SyncAction;
  */
 class SyncLog extends Model
 {
-    use App\Shared\Domain\Traits\BelongsToTenant;
     use BelongsToTenant;
     use HasUuid;
 

@@ -290,34 +290,48 @@ test('DB::table sin company_id filtra todos los tenants', function () {
 // ═══════════════════════════════════════════════════
 // TEST 7: CatalogExportService sin filtro (CRÍTICO)
 // ═══════════════════════════════════════════════════
-test('CatalogExportService no filtra por tenant (P0)', function () {
-    // Crear productos para ambos tenants
-    Product::create([
+test('CatalogExportService filtra por company_id y branch_id', function () {
+    \Modules\Catalog\Domain\Entities\Category::create([
         'company_id' => $this->companyA->id,
+        'branch_id' => $this->branchA->id,
+        'name_translations' => ['es' => 'Cat A'],
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    \Modules\Catalog\Domain\Entities\Category::create([
+        'company_id' => $this->companyB->id,
+        'branch_id' => $this->branchB->id,
+        'name_translations' => ['es' => 'Cat B'],
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    \Modules\Catalog\Domain\Entities\Product::create([
+        'company_id' => $this->companyA->id,
+        'branch_id' => $this->branchA->id,
         'name_translations' => ['es' => 'Producto A'],
         'base_price' => 10000,
         'is_active' => true,
     ]);
-    Product::create([
+
+    \Modules\Catalog\Domain\Entities\Product::create([
         'company_id' => $this->companyB->id,
+        'branch_id' => $this->branchB->id,
         'name_translations' => ['es' => 'Producto B'],
         'base_price' => 20000,
         'is_active' => true,
     ]);
 
-    $exportService = app(CatalogExportService::class);
-    
-    // Intentar exportar como Tenant B
     $this->actingAs($this->userB, 'api');
-    
-    try {
-        $exported = $exportService->export($this->companyB->id);
-        
-        // Si el servicio filtra correctamente, solo debe exportar productos de B
-        $productsCount = count($exported['products'] ?? []);
-        expect($productsCount)->toBe(1, 'Export solo incluye productos del tenant actual');
-    } catch (\Exception $e) {
-        // Si falla, documentar el error
-        $this->fail('CatalogExportService tiene bug cross-tenant: ' . $e->getMessage());
-    }
+
+    $exportService = app(CatalogExportService::class);
+
+    $categories = $exportService->getChangedCategories($this->branchB->id, null);
+    $products = $exportService->getChangedProducts($this->branchB->id, null);
+
+    expect($categories->count())->toBe(1)
+        ->and($categories->first()['name_translations']['es'])->toBe('Cat B')
+        ->and($products->count())->toBe(1)
+        ->and($products->first()['name_translations']['es'])->toBe('Producto B');
 });
