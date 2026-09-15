@@ -37,9 +37,13 @@ class Order extends Model
         'priority',
         'cashier_id',
         'subtotal',
+        'subtotal_gross',
+        'net_amount',
         'tax_amount',
         'discount_amount',
+        'tip_amount',
         'total',
+        'amount_due',
         'notes',
         'customer_name',
         'customer_phone',
@@ -73,9 +77,13 @@ class Order extends Model
             'pickup_at' => 'datetime',
         'priority' => \Modules\Orders\Domain\ValueObjects\OrderPriority::class,
             'subtotal' => 'decimal:2',
+            'subtotal_gross' => 'decimal:2',
+            'net_amount' => 'decimal:2',
             'tax_amount' => 'decimal:2',
             'discount_amount' => 'decimal:2',
+            'tip_amount' => 'decimal:2',
             'total' => 'decimal:2',
+            'amount_due' => 'decimal:2',
             'confirmed_at' => 'datetime',
             'served_at' => 'datetime',
             'picked_up_at' => 'datetime',
@@ -175,15 +183,36 @@ class Order extends Model
         return $this->items()->exists();
     }
 
+    /**
+     * Recalcula totales del pedido usando modelo BRUTO (ADR-011).
+     * 
+     * Fórmula:
+     * - subtotal_gross = SUM(items.subtotal)  [IVA incluido]
+     * - net_amount = ROUND(subtotal_gross / 1.19, 2)
+     * - tax_amount = subtotal_gross - net_amount
+     * - grand_total = subtotal_gross - discount_amount
+     * - amount_due = grand_total + tip_amount
+     */
     public function recalculateTotals(): void
     {
-        $this->subtotal = $this->items()->sum('subtotal');
+        // Calcular subtotal_gross desde items (IVA incluido)
+        $this->subtotal_gross = $this->items()->sum('subtotal');
         
-        // Calcular impuesto sumando tax_amount de cada item
-        // (cada item ya tiene su impuesto calculado según su producto/categoría)
-        $this->tax_amount = $this->items()->sum('tax_amount');
+        // Calcular net_amount (bruto / 1.19)
+        $this->net_amount = round($this->subtotal_gross / 1.19, 2);
         
-        $this->total = $this->subtotal + $this->tax_amount - $this->discount_amount;
+        // Calcular tax_amount (bruto - neto)
+        $this->tax_amount = round($this->subtotal_gross - $this->net_amount, 2);
+        
+        // Calcular grand_total (bruto - descuento)
+        $grandTotal = $this->subtotal_gross - ($this->discount_amount ?? 0);
+        
+        // Calcular amount_due (grand_total + propina)
+        $this->amount_due = $grandTotal + ($this->tip_amount ?? 0);
+        
+        // Mantener campos legacy para compatibilidad temporal
+        $this->subtotal = $this->subtotal_gross;
+        $this->total = $grandTotal;
     }
 
     /**

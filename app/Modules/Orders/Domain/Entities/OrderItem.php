@@ -50,50 +50,26 @@ class OrderItem extends Model
     protected static function booted(): void
     {
         static::saving(function (OrderItem $item) {
+            // ADR-011: unit_price_snapshot es BRUTO (IVA incluido)
             $item->subtotal = $item->unit_price_snapshot * $item->quantity;
             
-            // Si el tax_amount ya fue seteado explícitamente por el controller
-            // (con su snapshot de rate), respetar ese cálculo.
-            // Esto permite que OrderItemController calcule impuestos usando
-            // product.tax_rate legacy sin que el evento saving() lo sobreescriba.
-            if ($item->tax_amount !== null && $item->tax_amount > 0 && $item->tax_rate_snapshot !== null) {
-                return; // Tax ya calculado - preservar snapshot histórico
-            }
+            // ADR-011: NO calcular tax_amount por item
+            // El tax se calcula a nivel de Order usando modelo bruto:
+            // net_amount = gross / 1.19, tax_amount = gross - net_amount
+            // 
+            // Esto es porque los precios del catálogo son BRUTOS (IVA incluido)
+            // y el cálculo de tax debe hacerse sobre el total del order,
+            // no item por item (evita errores de redondeo).
             
-            // Calcular impuesto por línea (fallback)
-            $tax = null;
-            
-            if ($item->product_id && $item->product) {
-                // Caso 1: Hay producto asociado → usar su impuesto efectivo
-                $tax = $item->product->getEffectiveTax();
-                
-                // FALLBACK LEGACY: si getEffectiveTax() retorna null (no hay tax_id
-                // ni default), pero el producto tiene tax_rate legacy, usarlo.
-                // Esto mantiene compatibilidad con productos antiguos que solo
-                // tienen tax_rate configurado sin tax_id.
-                if (!$tax && $item->product->tax_rate !== null && $item->product->tax_rate > 0) {
-                    $item->tax_amount = round($item->subtotal * ((float) $item->product->tax_rate / 100), 2);
-                    $item->tax_rate_snapshot = (float) $item->product->tax_rate;
-                    $item->tax_name_snapshot = null; // Legacy no tiene nombre
-                    return;
-                }
-            } else {
-                // Caso 2: Sin producto (item custom, combo, etc.) → usar Tax default de la empresa
-                $tax = \Modules\Tax\Domain\Entities\Tax::where('company_id', $item->company_id)
-                    ->where('is_default', true)
-                    ->where('is_active', true)
-                    ->first();
-            }
-            
-            if ($tax) {
-                $item->tax_amount = $tax->calculate($item->subtotal, $item->quantity);
-                $item->tax_rate_snapshot = $tax->effectiveRate();
-                $item->tax_name_snapshot = $tax->name;
-            } else {
-                // Sin impuesto configurado
+            // Mantener tax_amount = 0 para compatibilidad con schema
+            if ($item->tax_amount === null) {
                 $item->tax_amount = 0;
-                $item->tax_rate_snapshot = null;
-                $item->tax_name_snapshot = null;
+            }
+            
+            // Mantener snapshots para auditoría
+            if ($item->tax_rate_snapshot === null) {
+                $item->tax_rate_snapshot = 19.00; // IVA Chile
+                $item->tax_name_snapshot = 'IVA 19%';
             }
         });
     }
