@@ -786,3 +786,35 @@ Asumir bill se actualiza con cambios de order	Recrear bill antes de pagar
 4. Validar con CrossTenantIdempotencyTest
 
 **Impacto actual**: Ninguno. El sistema funciona correctamente.
+
+### DEUDA TÉCNICA: Migraciones de Idempotencia Scoped (P2)
+
+**Estado**: Pendiente de aplicar
+
+**Migraciones bloqueadas**:
+- `2026_09_15_000001_scope_idempotency_keys_to_tenant.php`
+- `2026_09_15_000002_scope_payments_idempotency_key_to_tenant.php`
+
+**Bloqueador**: Migración antigua con bug en `company.settings`
+- Archivo: `2026_09_07_100000_add_currency_config_to_company_settings.php:34`
+- Error: `Cannot access offset of type string on string`
+- Causa: Alguna company tiene `settings` como string en vez de array
+
+**Mitigación actual**:
+- PaymentService filtra por `company_id + branch_id` antes de crear payment
+- Cross-tenant leakage IMPOSIBLE a nivel de aplicación
+- CrossTenantIdempotencyTest valida que dos tenants pueden usar misma key sin colisionar
+
+**Riesgo residual**:
+- UNIQUE constraint en DB es global (no scoped)
+- Si dos tenants usan exactamente la misma UUID v4 como key → colisión operativa
+- Probabilidad: ~2^-122 (prácticamente 0)
+- NO hay cross-tenant leakage (protegido a nivel aplicación)
+
+**Plan de remediación** (futuro):
+1. Diagnosticar `company.settings` con datos reales
+2. Migración para normalizar a array
+3. Aplicar migraciones de idempotencia scoped
+4. Validar con CrossTenantIdempotencyTest
+
+**Impacto actual**: Ninguno. El sistema funciona correctamente.
