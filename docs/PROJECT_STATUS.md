@@ -40,3 +40,46 @@ Sistema POS para restaurantes en Chile en estado **PRODUCCIÓN-READY**.
 - Deploy a staging
 - Pruebas de aceptación
 - Onboarding de primeros clientes
+OFFLINE DATABASE (Puntos 68-76)
+Estado: N/A (NO IMPLEMENTADO)
+Resumen de Auditoría
+El checklist asume una arquitectura offline completa con tablas locales para todas las entidades (payments, bills, cash sessions, etc.).
+Realidad: Solo el 30% está implementado (Order + OrderItem).
+Tablas Locales en SQLite
+
+Tabla	Estado	Justificación
+local_orders	✅ Implementado	Funciona offline
+local_order_items	✅ Implementado	Funciona offline
+local_sync_metadata	✅ Implementado	Metadata de sync
+local_payments	❌ NO EXISTE	Requiere conexión online
+local_bills	❌ NO EXISTE	Requiere conexión online
+local_tables	❌ NO EXISTE	Requiere conexión online
+local_cash_sessions	❌ NO EXISTE	Requiere conexión online
+local_cash_movements	❌ NO EXISTE	Requiere conexión online
+local_print_jobs	❌ NO EXISTE	Requiere conexión online
+offline_events	❌ NO EXISTE	Requiere conexión online
+
+Implicaciones Operativas
+✅ Funciona Offline:
+Crear órdenes
+Agregar/modificar items
+Cambiar estado de órdenes
+❌ Requiere Conexión Online:
+Procesar pagos
+Generar bills
+Split bill
+Abrir/cerrar sesiones de caja
+Imprimir tickets
+Emitir DTEs
+Decisión Estratégica
+Opción A (RECOMENDADA): Lanzar MVP sin offline completo
+
+Validar con usuarios reales si offline es crítico
+Implementar FASE 2 basado en demanda real
+Lanzamiento más rápido
+Opción B: Implementar FASE 2 antes del lanzamiento
+Retraso de 3-4 semanas
+Mayor complejidad inicial
+Riesgo de sobre-ingeniería
+Documentación Completa
+Ver: docs/architecture/offline-status.md
