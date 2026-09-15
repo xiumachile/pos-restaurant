@@ -28,7 +28,8 @@ class InventoryController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = InventoryItem::query();
+        $query = InventoryItem::query()
+            ->where('company_id', $request->user()->company_id);  // FIX P1: Filtrar por company_id
 
         // Filtros
         if ($request->has('status')) {

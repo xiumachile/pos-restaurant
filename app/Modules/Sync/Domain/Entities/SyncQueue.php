@@ -18,6 +18,9 @@ use Modules\Sync\Domain\ValueObjects\SyncAction;
  */
 class SyncQueue extends Model
 {
+    use App\Shared\Domain\Traits\BelongsToTenant;
+    use App\Shared\Domain\Traits\BelongsToTenant;
+    use BelongsToTenant;
     use HasUuid;
     use SoftDeletes;
 

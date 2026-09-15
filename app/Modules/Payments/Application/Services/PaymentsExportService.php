@@ -11,7 +11,10 @@ class PaymentsExportService implements PaymentsExportServiceInterface
 {
     public function getChangedPaymentMethods(int $branchId, ?Carbon $since): Collection
     {
+        $companyId = auth()->user()->company_id;
+        
         $query = DB::table('payment_methods')
+            ->where('company_id', $companyId)  // FIX P0: Filtrar por company_id
             ->where('branch_id', $branchId);
 
         if ($since) {

@@ -17,6 +17,8 @@ use Modules\Sync\Domain\ValueObjects\SyncAction;
  */
 class SyncLog extends Model
 {
+    use App\Shared\Domain\Traits\BelongsToTenant;
+    use BelongsToTenant;
     use HasUuid;
 
     protected $table = 'sync_log';

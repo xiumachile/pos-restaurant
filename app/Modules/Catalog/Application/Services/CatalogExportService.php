@@ -11,7 +11,10 @@ class CatalogExportService implements CatalogExportServiceInterface
 {
     public function getChangedCategories(int $branchId, ?Carbon $since): Collection
     {
+        $companyId = auth()->user()->company_id;
+        
         $query = DB::table('categories')
+            ->where('company_id', $companyId)  // FIX P0: Filtrar por company_id
             ->where('branch_id', $branchId);
 
         if ($since) {
@@ -32,7 +35,10 @@ class CatalogExportService implements CatalogExportServiceInterface
 
     public function getChangedProducts(int $branchId, ?Carbon $since): Collection
     {
+        $companyId = auth()->user()->company_id;
+        
         $query = DB::table('products')
+            ->where('company_id', $companyId)  // FIX P0: Filtrar por company_id
             ->where('branch_id', $branchId);
 
         if ($since) {
