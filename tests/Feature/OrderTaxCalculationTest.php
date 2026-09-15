@@ -124,8 +124,8 @@ test('OrderItem calcula tax_amount automáticamente al guardar', function () {
     // subtotal = 12000 * 2 = 24000
     expect((float) $item->subtotal)->toBe(24000.00);
     
-    // tax_amount = 24000 * 0.19 = 4560
-    expect((float) $item->tax_amount)->toBe(4560.00);
+    // ADR-011: tax_amount en OrderItem es 0 (se calcula a nivel de Order)
+    expect((float) $item->tax_amount)->toBe(0.00);
     
     // tax_rate_snapshot = 19.00
     // ADR-011: base_price es BRUTO (IVA incluido)

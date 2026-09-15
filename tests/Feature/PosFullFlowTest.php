@@ -139,12 +139,20 @@ test('flujo POS completo: pos-session → login → orden → pago', function ()
     
     $itemResponse->assertStatus(201);
 
-    // PASO 3.6: Verificar totales calculados por la orden
+    // PASO 3.6: Verificar totales calculados por la orden (ADR-011: modelo BRUTO)
     $order = \Modules\Orders\Domain\Entities\Order::where('uuid', $orderUuid)->firstOrFail();
     
-    expect((float) $order->subtotal)->toBe(10000.0);
-    expect((float) $order->tax_amount)->toBe(1900.0);
-    expect((float) $order->total)->toBe(11900.0);
+    // subtotal_gross = 10000 (IVA incluido)
+    expect((float) $order->subtotal_gross)->toBe(10000.0);
+    
+    // net_amount = 10000 / 1.19 = 8403.36
+    expect((float) $order->net_amount)->toBe(8403.36);
+    
+    // tax_amount = 10000 - 8403.36 = 1596.64
+    expect((float) $order->tax_amount)->toBe(1596.64);
+    
+    // amount_due = 10000 (sin propina)
+    expect((float) $order->amount_due)->toBe(10000.0);
 
     // Actualizar estado directamente a 'served' para permitir pagos
     // (las transiciones de estado ya tienen sus propios tests)
