@@ -321,3 +321,174 @@ POST /orders: crear order
 POST /orders/{uuid}/items: agregar items
 POST /billing/payments: crear payment (bill_uuid opcional)
 POST /orders/{uuid}/split: crear bills (solo online)
+
+---
+
+## REGLAS FINANCIERAS FORMALES (Puntos 37-45)
+
+### Definiciones Formales
+
+**Subtotal (subtotal_gross)**: Suma de precios de catálogo de todos los items del pedido.
+- Incluye IVA (modelo chileno)
+- Fórmula: `SUM(items.unit_price × items.quantity)`
+- Ejemplo: 2 hamburguesas × $5,000 = $10,000
+
+**Descuento (discount_amount)**: Reducción aplicada al subtotal bruto.
+- Se aplica ANTES de calcular IVA
+- Fórmula: monto fijo o porcentaje del subtotal
+- Ejemplo: $2,000 de descuento
+
+**Neto (net_amount)**: Base imponible sin IVA.
+- Fórmula: `ROUND(subtotal_gross / 1.19, 2)`
+- Ejemplo: $10,000 / 1.19 = $8,403.36
+
+**IVA (tax_amount)**: Impuesto al valor agregado (19% en Chile).
+- Fórmula: `subtotal_gross - net_amount`
+- Ejemplo: $10,000 - $8,403.36 = $1,596.64
+
+**Total venta (grand_total)**: Monto total de la venta sin propina.
+- Fórmula: `subtotal_gross - discount_amount`
+- Ejemplo: $10,000 - $2,000 = $8,000
+
+**Propina (tip_amount)**: Monto adicional opcional del cliente.
+- NO forma parte del valor gravado (punto 44)
+- Se mantiene separada del valor de venta (punto 45)
+- Se incluye en el monto efectivamente recibido
+- Ejemplo: $1,000
+
+**Total cobrado (amount_due)**: Monto final a cobrar al cliente.
+- Fórmula: `grand_total + tip_amount`
+- Ejemplo: $8,000 + $1,000 = $9,000
+
+**Saldo pendiente (remaining_amount)**: Monto faltante por pagar.
+- Fórmula: `amount_due - paid_amount`
+- Ejemplo: $10,000 - $5,000 = $5,000
+
+**Vuelto**: Diferencia cuando el pago excede el monto debido.
+- NO permitido en el sistema (lanza excepción)
+- El cliente debe pagar exactamente amount_due o menos
+
+### Reglas de Redondeo (Punto 40)
+
+1. **Precisión**: Todos los cálculos usan 2 decimales
+2. **Método**: `ROUND(valor, 2)` (redondeo bancario)
+3. **Momento**: Redondeo se aplica DESPUÉS de cada operación
+4. **Validación**: `net_amount + tax_amount = subtotal_gross` (con tolerancia de $0.01)
+
+### Reglas de Descuento (Punto 41)
+
+1. **Orden de aplicación**: Descuento se aplica ANTES de calcular IVA
+2. **Base imponible**: El descuento reduce la base imponible
+3. **Fórmula**: `grand_total = subtotal_gross - discount_amount`
+4. **IVA recalculado**: Se calcula sobre el monto después del descuento
+
+### Impuestos por Producto/Categoría/Company (Punto 42)
+
+1. **Jerarquía de impuestos**:
+   - Producto tiene `tax_id` → usar ese impuesto
+   - Producto no tiene `tax_id` → usar `tax_id` de categoría
+   - Categoría no tiene `tax_id` → usar impuesto default de empresa
+   
+2. **Tipos de impuestos**:
+   - `PERCENT`: Porcentaje (ej: IVA 19%)
+   - `FIXED`: Monto fijo por unidad (ej: $500 por litro)
+   - `EXEMPT`: Exento (0%)
+
+3. **Cálculo**:
+   - Percent: `tax = base_amount × (rate / 100)`
+   - Fixed: `tax = rate × quantity`
+   - Exempt: `tax = 0`
+
+### Pagos Parciales y Múltiples (Punto 43)
+
+1. **Pago parcial**:
+   - Permitido: `payment_amount < amount_due`
+   - Actualiza `remaining_amount`
+   - Order permanece en estado `SERVED`
+   
+2. **Pago completo**:
+   - `payment_amount = amount_due`
+   - `remaining_amount = 0`
+   - Order transiciona a `PAID`
+   
+3. **Múltiples pagos**:
+   - Permitido: varios payments sobre el mismo order
+   - Suma de payments no puede exceder `amount_due`
+   - Cada payment tiene su propio `idempotency_key`
+   
+4. **Split bill**:
+   - Order puede tener múltiples bills
+   - Cada bill tiene su propio `remaining_amount`
+   - Payments se asocian a bills específicos
+
+### Propina (Puntos 44-45)
+
+1. **NO forma parte del valor gravado** (punto 44):
+   - Propina no afecta cálculo de IVA
+   - Propina no afecta base imponible
+   
+2. **Separada pero incluida** (punto 45):
+   - Se mantiene en campo separado: `tip_amount`
+   - Se incluye en `amount_due`: `amount_due = grand_total + tip_amount`
+   - Se incluye en `payment.total_amount`: `total_amount = amount + tip_amount`
+   
+3. **Contabilización**:
+   - Propina va a cuenta separada: `TipsPayable (2200)`
+   - No se mezcla con ingresos de venta
+
+### Validaciones Obligatorias
+
+1. **Integridad matemática**:
+net_amount + tax_amount = subtotal_gross (±$0.01)
+grand_total = subtotal_gross - discount_amount
+amount_due = grand_total + tip_amount
+remaining_amount = amount_due - paid_amount
+
+2. **No sobrepago**:
+payment_amount <= remaining_amount
+
+3. **No reembolso excesivo**:
+refund_amount <= payment_amount - already_refunded
+
+4. **Idempotencia**:
+Mismo idempotency_key → mismo payment (sin duplicados)
+
+### Ejemplo Completo (Punto 39)
+
+**Venta**: Hamburguesa $10,000 + Papas $3,000 + Propina $1,000
+Items:
+Hamburguesa: $10,000 (IVA incluido)
+Papas: $3,000 (IVA incluido)
+─────────────────────────────────────
+Subtotal: $13,000 (subtotal_gross)
+Cálculos:
+Neto: $13,000 / 1.19 = $10,924.37
+IVA: $13,000 - $10,924.37 = $2,075.63
+Grand total: $13,000 (sin descuento)
+Propina: $1,000
+─────────────────────────────────────
+Amount due: $14,000 (total cobrado)
+Pago:
+Cliente paga: $14,000 en efectivo
+Vuelto: $0
+Asiento contable:
+DEBIT Cash (1100) $14,000
+CREDIT Revenue (4100) $10,924.37
+CREDIT TaxPayable (2100) $2,075.63
+CREDIT TipsPayable (2200) $1,000
+
+### Casos de Prueba Obligatorios (Punto 46)
+
+- [x] Venta de $10,000
+- [x] Venta + propina
+- [x] Descuento
+- [x] Pago parcial
+- [x] Pago completo
+- [x] Pago con vuelto (rechazado)
+- [x] Múltiples pagos
+- [x] Split bill
+- [x] Redondeo
+- [x] Producto exento
+
+**Todos validados en `tests/Feature/FinancialRulesTest.php`**
+
