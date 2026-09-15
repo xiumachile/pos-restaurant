@@ -83,3 +83,44 @@ Mayor complejidad inicial
 Riesgo de sobre-ingeniería
 Documentación Completa
 Ver: docs/architecture/offline-status.md
+OFFLINE PAYMENTS (Puntos 77-87)
+Estado: N/A (NO IMPLEMENTADO)
+Resumen de Auditoría
+El checklist asume arquitectura "thick client" con lógica compleja de pagos offline en el frontend (TypeScript + IndexedDB/SQLite local).
+Realidad: Arquitectura "thin client" donde toda la lógica de pagos está en el backend Laravel. El frontend es minimalista (Laravel Blade + JavaScript básico).
+Puntos del Checklist
+Punto	Estado	Justificación
+77. Revisar offlinePaymentService.ts	❌ N/A	No existe en frontend
+78. Pago offline atómico	❌ N/A	No hay pagos offline
+79. Transacción local	❌ N/A	No hay transacciones locales
+80. CORREGIR amount/sale_amount/tip_amount	❌ N/A	Lógica está en backend
+81. Semántica: sale_amount + tip_amount	✅ VÁLIDO EN BACKEND	PaymentService
+82. Ejemplo: Venta + Propina	✅ VÁLIDO EN BACKEND	PaymentService
+83. Tests para los tres valores	✅ EXISTE EN BACKEND	FinancialRulesTest
+84. Cash genera CashMovement	✅ VÁLIDO EN BACKEND	PaymentLedgerService
+85. Tarjeta NO genera CashMovement	✅ VÁLIDO EN BACKEND	PaymentLedgerService
+86. Pago completo actualiza entidades	✅ VÁLIDO EN BACKEND	PaymentService
+87. Probar interrupción/reinicio	✅ VÁLIDO EN BACKEND	DB::transaction
+
+Conclusión: 9 puntos N/A, 2 puntos válidos en backend.
+Garantías en Backend
+Atomicidad: DB::transaction en PaymentService
+Consistencia: lockForUpdate en Order
+Idempotencia: UNIQUE constraint + lógica en PaymentService
+Semántica: amount + tip_amount = total_amount
+Recuperación: Idempotencia previene doble pago por retry
+Limitación Conocida
+Actualización de mesa: Eventual (evento OrderPaid), no transaccional.
+Impacto: Si el evento falla, la mesa queda ocupada pero el pago está registrado correctamente. Preferible a perder el pago.
+Decisión Estratégica
+
+Opción A (RECOMENDADA): Mantener arquitectura thin client
+Simplicidad > funcionalidad offline completa
+Menor riesgo de bugs
+Lanzamiento más rápido
+Opción B: Migrar a thick client (FASE 2)
+24-32 horas adicionales
+Mayor complejidad
+Solo si hay demanda real de usuarios
+Documentación Completa
+Ver: docs/architecture/offline-payments-status.md
