@@ -87,7 +87,10 @@ class LocalDatabaseManager
                 return false;
             }
 
-            return true;
+            
+            // 6. Habilitar WAL mode para mejor recuperación
+            $this->enableWalMode();
+return true;
         } catch (\Throwable $e) {
             Log::error('LocalDatabaseManager: Initialization failed', [
                 'error' => $e->getMessage(),
@@ -193,70 +196,26 @@ class LocalDatabaseManager
     {
         return $this->databasePath;
     }
+    /**
+     * Configura WAL mode para mejor concurrencia y recuperación.
+     * 
+     * WAL (Write-Ahead Logging) permite:
+     * - Múltiples lectores simultáneos
+     * - Mejor recuperación ante crashes
+     * - Transacciones más rápidas
+     */
+    public function enableWalMode(): bool
+    {
+        try {
+            DB::connection($this->connectionName)->statement('PRAGMA journal_mode=WAL;');
+            Log::info('LocalDatabaseManager: WAL mode enabled');
+            return true;
+        } catch (\Throwable $e) {
+            Log::error('LocalDatabaseManager: Failed to enable WAL mode', [
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
 }
-
-    /**
-     * Configura WAL mode para mejor concurrencia y recuperación.
-     * 
-     * WAL (Write-Ahead Logging) permite:
-     * - Múltiples lectores simultáneos
-     * - Mejor recuperación ante crashes
-     * - Transacciones más rápidas
-     */
-    public function enableWalMode(): bool
-    {
-        try {
-            DB::connection($this->connectionName)->statement('PRAGMA journal_mode=WAL;');
-            Log::info('LocalDatabaseManager: WAL mode enabled');
-            return true;
-        } catch (\Throwable $e) {
-            Log::error('LocalDatabaseManager: Failed to enable WAL mode', [
-                'error' => $e->getMessage(),
-            ]);
-            return false;
-        }
-    }
-
-    /**
-     * Configura WAL mode para mejor concurrencia y recuperación.
-     * 
-     * WAL (Write-Ahead Logging) permite:
-     * - Múltiples lectores simultáneos
-     * - Mejor recuperación ante crashes
-     * - Transacciones más rápidas
-     */
-    public function enableWalMode(): bool
-    {
-        try {
-            DB::connection($this->connectionName)->statement('PRAGMA journal_mode=WAL;');
-            Log::info('LocalDatabaseManager: WAL mode enabled');
-            return true;
-        } catch (\Throwable $e) {
-            Log::error('LocalDatabaseManager: Failed to enable WAL mode', [
-                'error' => $e->getMessage(),
-            ]);
-            return false;
-        }
-    }
-
-    /**
-     * Configura WAL mode para mejor concurrencia y recuperación.
-     * 
-     * WAL (Write-Ahead Logging) permite:
-     * - Múltiples lectores simultáneos
-     * - Mejor recuperación ante crashes
-     * - Transacciones más rápidas
-     */
-    public function enableWalMode(): bool
-    {
-        try {
-            DB::connection($this->connectionName)->statement('PRAGMA journal_mode=WAL;');
-            Log::info('LocalDatabaseManager: WAL mode enabled');
-            return true;
-        } catch (\Throwable $e) {
-            Log::error('LocalDatabaseManager: Failed to enable WAL mode', [
-                'error' => $e->getMessage(),
-            ]);
-            return false;
-        }
-    }
