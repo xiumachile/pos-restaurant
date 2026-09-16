@@ -98,6 +98,29 @@ expect($content)->toContain('Procedimientos de Backup')
 test('punto 159: datos offline se pueden recuperar vía sincronización', function () {
 $manager = app(LocalDatabaseManager::class);
 $manager->initialize();
+
+    // Crear tabla sync_queue si no existe (en tests puede no estar migrada)
+    $db = \Illuminate\Support\Facades\DB::connection('sqlite_local');
+    
+    $tableExists = $db->select("SELECT name FROM sqlite_master WHERE type='table' AND name='sync_queue'");
+    
+    if (empty($tableExists)) {
+        $db->statement('CREATE TABLE IF NOT EXISTS sync_queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            company_id INTEGER NOT NULL,
+            branch_id INTEGER NOT NULL,
+            entity_type TEXT NOT NULL,
+            entity_id INTEGER NOT NULL,
+            entity_uuid TEXT NOT NULL,
+            action TEXT NOT NULL,
+            payload TEXT,
+            status TEXT NOT NULL DEFAULT "pending",
+            attempts INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT,
+            updated_at TEXT
+        )');
+    }
+
 // Simular datos pendientes de sincronización
 \Illuminate\Support\Facades\DB::connection('sqlite_local')->table('sync_queue')->insert([
     'company_id' => $this->company->id,
