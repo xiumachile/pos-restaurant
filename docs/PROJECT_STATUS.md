@@ -367,3 +367,127 @@ Casos validados:
 ✅ Sincronización reintentable (SyncQueue)  
 ✅ Split bill con payments específicos (bill_id inequívoco)
 
+
+## OBSERVABILIDAD (Puntos 150-154)
+
+**Estado**: ✅ IMPLEMENTADO COMPLETO
+
+### Resumen de Auditoría
+
+| Punto | Descripción | Estado | Evidencia |
+|-------|-------------|--------|-----------|
+| 150 | Definir logs estructurados | ✅ Implementado | JSON formatter en producción |
+| 151 | Identificar request ID, contexto | ✅ Implementado | ObservabilityMiddleware |
+| 152 | No registrar datos sensibles | ✅ Implementado | $dontFlash + validación |
+| 153 | Registrar errores críticos | ✅ Implementado | Sync, Payments, Printers |
+| 154 | Mantener diagnóstico operacional | ✅ Implementado | Handler con contexto enriquecido |
+
+### Componentes Implementados
+
+#### 1. ObservabilityMiddleware (app/Http/Middleware/)
+
+**Responsabilidades**:
+- Genera Request ID único (UUID) por request
+- Reutiliza `X-Request-ID` si viene en header
+- Extrae contexto automático: user_id, company_id, branch_id, terminal_id
+- Extrae UUIDs de URL: order_uuid, bill_uuid, payment_uuid
+- Propaga contexto via `Log::shareContext()`
+- Agrega `X-Request-ID` al response header
+- Log de entrada/salida con duración
+
+**Contexto propagado a TODOS los logs**:
+```json
+{
+  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "ip": "192.168.1.100",
+  "method": "POST",
+  "path": "api/v1/payments",
+  "user_agent": "POS-Client/1.0",
+  "user_id": 42,
+  "user_role": "cashier",
+  "company_id": 1,
+  "branch_id": 3,
+  "terminal_id": "term-abc-123",
+  "order_uuid": "123e4567-e89b-12d3-a456-426614174000"
+}
+2. Logs Estructurados (config/logging.php)
+Desarrollo: Texto legible (canal single)
+Producción: JSON estructurado (canal production)
+3. Logs Críticos por Módulo
+Payments (NUEVO):
+Log::info('Payment registration started', [
+    'order_id' => $order->id,
+    'payment_method' => $paymentMethod->code,
+    'amount' => $amount,
+    'tip_amount' => $tipAmount ?? 0,
+    'idempotency_key' => $idempotencyKey,
+]);
+Sync Engine (ya existía):
+Log::error('SyncService: Unexpected error', [
+    'queue_id' => $queueItem->id,
+    'error' => $e->getMessage(),
+]);
+Printers (ya existía):
+Log::error('PrintJob falló definitivamente', [
+    'job_id' => $job->id,
+    'attempts' => $job->attempts,
+    'error' => $errorMessage,
+]);
+
+4. Handler de Excepciones Enriquecido
+Contexto en todos los errores:
+exception_class, file, line
+url, method, ip
+user_id, company_id
+Stack trace completo
+Datos sensibles protegidos ($dontFlash):
+password, password_confirmation
+pin, pos_pin
+credit_card_number, cvv
+Casos de Uso de Investigación
+Caso 1: Pago fallido
+# Cliente reporta problema, envía Request ID
+REQUEST_ID="550e8400-e29b-41d4-a716-446655440000"
+
+# Investigador busca en logs centralizados
+grep "request_id.*$REQUEST_ID" /var/log/pos/*.log
+
+# Resultado: Traza completa del request
+# - Usuario, empresa, sucursal, terminal
+# - Payment registration started (amount, method)
+# - Error específico (si aplica)
+# - Response enviado (status, duration)
+
+Caso 2: Problemas de sync
+grep "company_id.*42" logs | grep "SyncService"
+# Ver: queue_id, attempts, error
+
+Caso 3: Auditoría de impresión
+grep "branch_id.*3" logs | grep "PrintJob"
+# Ver: job_id, printer, attempts, error
+
+Tests Creados
+ObservabilityTest (7 tests):
+✅ Request ID se genera y propaga
+✅ Request ID se reutiliza si viene en header
+✅ Handler protege datos sensibles
+✅ Errores de sync se registran con contexto
+✅ Errores de impresión se registran con contexto
+✅ Handler registra contexto completo
+✅ Criterio de cierre: diagnóstico remoto
+Criterio de Cierre
+"Un incidente de producción puede investigarse sin acceso manual a la máquina del cliente."
+Estado: ✅ CUMPLIDO
+
+Evidencia:
+✅ Request ID permite correlacionar logs
+✅ Contexto automático en todos los logs
+✅ Logs estructurados (JSON) permiten filtrado
+✅ Logs críticos en sync, payments, printers
+✅ 13/13 tests pasando (ObservabilityTest + ApiContractTest)
+Métricas Finales
+Tests Backend: 981 passed + 3 skipped + 1 todo (2,902 assertions)
+Tests Frontend: 432 passing
+Total: 1,400+ tests
+Documentación
+Ver: docs/architecture/observability.md

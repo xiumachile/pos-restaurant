@@ -1,6 +1,7 @@
 <?php
 
 namespace Modules\Payments\Domain\Services;
+use Illuminate\Support\Facades\Log;
 
 use Illuminate\Support\Facades\DB;
 use Modules\Orders\Domain\Entities\Order;
@@ -38,6 +39,15 @@ class PaymentService
             $bill, $cashSession, $userId, $tipAmount, $referenceCode, $notes
         ) {
             $order = Order::lockForUpdate()->find($order->id);
+
+
+            Log::info('Payment registration started', [
+                'order_id' => $order->id,
+                'payment_method' => $paymentMethod->code,
+                'amount' => $amount,
+                'tip_amount' => $tipAmount ?? 0,
+                'idempotency_key' => $idempotencyKey,
+            ]);
 
             // ADR-002: Scope por tenant para prevenir cross-tenant leakage
             $existing = Payment::where('company_id', $order->company_id)

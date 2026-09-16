@@ -24,11 +24,15 @@ return Application::configure(basePath: dirname(__DIR__))
         ['prefix' => 'api', 'middleware' => ['api', 'auth:api']]
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Alias de middleware existentes
         $middleware->alias([
             'role' => \App\Shared\Http\Middleware\CheckRole::class,
             'capability' => \App\Shared\Http\Middleware\CheckCompanyCapability::class,
             'idempotent' => IdempotencyKeyMiddleware::class,
         ]);
+        
+        // Agregar ObservabilityMiddleware al final (Punto 150-151)
+        $middleware->append(\App\Http\Middleware\ObservabilityMiddleware::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         // AuthenticationException → 401 JSON
@@ -50,6 +54,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 403);
             }
         });
+        
         // OrderNotModifiableException → 422 JSON
         $exceptions->render(function (OrderNotModifiableException $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
