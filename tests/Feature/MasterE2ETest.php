@@ -243,7 +243,7 @@ test('MASTER E2E: flujo completo de restaurante (16 pasos)', function () {
         tipAmount: 500.00
     );
 
-    expect($payment->status)->toBe('completed')
+    expect($payment->status->value)->toBe('completed')
         ->and((float) $payment->amount)->toBe(10000.00)
         ->and((float) $payment->tip_amount)->toBe(500.00)
         ->and((float) $payment->total_amount)->toBe(10500.00);
