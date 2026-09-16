@@ -200,8 +200,11 @@ describe("useOfflinePayment", () => {
       });
     });
 
+    // P0-1 FIX: El hook ahora SIEMPRE pasa billLocalUuid explícito
+    // para prevenir ambigüedad en split bill
     expect(offlinePaymentService.createPaymentOffline).toHaveBeenCalledWith({
       orderLocalUuid: "order-local-uuid",
+      billLocalUuid: "bill-local-uuid", // ← Ahora siempre se pasa
       paymentMethod: "cash",
       amount: 5000,
       tipAmount: 500,
