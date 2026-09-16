@@ -160,3 +160,90 @@ Validación empírica:
 Atomicidad garantizada por transacciones DB
 Documentación Completa
 Ver: docs/architecture/cashier-status.md
+
+SYNC ENGINE (Puntos 104-116)
+Estado: ✅ IMPLEMENTADO (protocolo completo y validado)
+Resumen de Auditoría
+El sistema implementa un protocolo de sincronización bidireccional robusto, reintentable, idempotente y recuperable.
+Arquitectura: Cliente offline (SQLite) ↔ Servidor (PostgreSQL) con cola de sincronización (sync_queue).
+Puntos del Checklist
+Punto	Descripción	Estado	Justificación
+104	Documentar protocolo de sincronización	✅ Documentado	docs/architecture/sync-protocol.md
+105	Definir event types, entity types, etc.	✅ Definido	Enums y documentación completa
+106	Definir duplicados	✅ Definido	Idempotency key previene duplicados
+107	Definir eventos fuera de orden	✅ Definido	Procesamiento en orden cronológico
+108	Definir timeout	✅ Definido	30 segundos + reintentos
+109	Definir conflictos entre terminales	✅ Definido	ConflictResolver con 4 estrategias
+110	Definir resolución de conflictos	✅ Definido	SERVER_WINS, CLIENT_WINS, MERGE, MANUAL
+111	Probar 1000 eventos de sync	✅ Validado	SyncStressTest pasando
+112	Probar 1 hora offline	✅ Validado	SyncStressTest pasando
+113	Simular pérdida de red	✅ Validado	SyncStressTest pasando
+114	Simular red intermitente	✅ Validado	SyncStressTest pasando
+115	Simular timeout	✅ Validado	SyncStressTest pasando
+116	Simular reinicio	✅ Validado	SyncStressTest pasando
+
+Conclusión: 13/13 puntos implementados y validados
+Protocolo de Sincronización
+Conceptos clave:
+Event types: CREATE, UPDATE, DELETE, PULL
+Entity types: Order, OrderItem (solo estos tienen soporte offline completo)
+Local UUID vs Cloud ID: UUID global + ID local + server_id
+Idempotency key: Previene duplicados en reintentos
+Sync status: PENDING, SYNCED, CONFLICT, FAILED
+Retry con backoff: 5 reintentos máx con delay exponencial (5s, 10s, 20s, 40s, 80s)
+Conflictos: Detectados por versión, resueltos con 4 estrategias
+Timeout: 30 segundos por operación
+Permanent failure: Después de 5 reintentos fallidos
+Documentación completa: docs/architecture/sync-protocol.md
+API Endpoints
+Endpoint	Método	Descripción
+/api/v1/sync/push	POST	Cliente envía cambios locales
+/api/v1/sync/pull	POST	Cliente descarga cambios del servidor
+/api/v1/sync/status	GET	Estadísticas de sincronización
+/api/v1/sync/health	GET	Salud del sistema de sync
+/api/v1/sync/changes	GET	Cambios incrementales desde last_pull_at
+
+Tests de Stress (SyncStressTest)
+✅ 1000 eventos de sync se procesan correctamente
+✅ 1 hora offline acumula cambios y sincroniza al recuperar conexión
+✅ Pérdida de red durante push no causa duplicados (idempotencia)
+✅ Red intermitente con backoff exponencial eventualmente sincroniza todo
+✅ Timeout del servidor no causa duplicados (idempotencia)
+✅ Reinicio del cliente durante sync recupera progreso correctamente
+
+Total: 6 tests, todas pasando
+Tests Existentes
+✅ SyncServiceTest: 8 tests (lógica de push/pull)
+✅ SyncableTraitTest: 8 tests (trait Syncable)
+✅ SyncEndToEndTest: 7 tests (flujo completo offline → online)
+✅ SyncFinalE2ETest: 7 tests (auditoría completa)
+✅ SyncFullIntegrationTest: 7 tests (integración bidireccional)
+✅ SyncPullTest: 6 tests (descarga de cambios)
+✅ SyncAdapterTest: 8 tests (transformaciones de datos)
+✅ SyncStressTest: 6 tests (escenarios adversos)
+
+Total: 57+ tests, todas pasando
+Garantías Implementadas
+Garantía	Mecanismo	Validación
+Reintentable	Backoff exponencial (5 reintentos máx)	✅ SyncStressTest
+Idempotente	Idempotency key previene duplicados	✅ SyncStressTest
+Recuperable	Recuperación completa después de crash	✅ SyncStressTest
+Orden cronológico	ORDER BY created_at ASC en sync_queue	✅ SyncServiceTest
+Resolución de conflictos	ConflictResolver con 4 estrategias	✅ ConflictResolver tests
+Auditoría completa	SyncLog registra todas las operaciones	✅ SyncFinalE2ETest
+
+Criterio de Cierre
+"Sync es reintentable, idempotente y recuperable."
+Estado: ✅ CUMPLIDO
+Validación empírica:
+57+ tests pasando
+6 tests de stress validando escenarios adversos
+Idempotencia probada en pérdida de red y timeout
+Recuperación probada en reinicio del cliente
+Limitaciones Conocidas
+⚠️ Solo Order y OrderItem tienen soporte offline completo
+⚠️ Conflictos en campos críticos requieren resolución manual
+⚠️ Máximo 5 reintentos antes de permanent failure
+Justificación: Documentadas en docs/architecture/sync-protocol.md
+Documentación Completa
+Ver: docs/architecture/sync-protocol.md (documento de 400+ líneas)
