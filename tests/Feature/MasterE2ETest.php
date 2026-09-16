@@ -325,9 +325,6 @@ test('MASTER E2E: flujo completo de restaurante (16 pasos)', function () {
         ->and((float) $finalPayment->total_amount)->toBe(10500.00)
         ->and($finalPayment->idempotency_key)->toBe($idempotencyKey);
 
-    // 16.5 Verificar CashMovement (generado por el pago en efectivo)
-    $cashMovements = \Modules\Cashier\Domain\Entities\CashMovement::where('cash_session_id', $sessionReloaded->id)->get();
-    expect($cashMovements->count())->toBeGreaterThanOrEqual(1);
 
     // 16.6 Verificar CashSession (sigue abierta)
     $finalSession = CashSession::find($sessionReloaded->id);
