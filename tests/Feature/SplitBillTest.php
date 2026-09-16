@@ -14,6 +14,7 @@ use Modules\Orders\Domain\ValueObjects\OrderStatus;
 use Modules\Orders\Domain\ValueObjects\OrderType;
 use Modules\Payments\Domain\Entities\Bill;
 use Modules\Payments\Domain\Entities\CashSession;
+use Modules\Payments\Domain\Entities\Payment;
 use Modules\Payments\Domain\Entities\PaymentMethod;
 use Modules\Payments\Domain\Services\BillingService;
 use Modules\Payments\Domain\Services\CashSessionService;
@@ -136,7 +137,7 @@ test('split bill: dividir cuenta en 2 partes iguales', function () {
     }
 
     // Verificar que la suma de bills = total de orden
-    $totalBills = $bills->sum(fn($b) => (float) $b->total);
+    $totalBills = array_sum(array_map(fn($b) => (float) $b->total, $bills));
     expect((float) $totalBills)->toBe(22000.00);
 });
 

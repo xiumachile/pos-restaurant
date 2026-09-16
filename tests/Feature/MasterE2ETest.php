@@ -145,10 +145,11 @@ test('MASTER E2E: flujo completo de restaurante (16 pasos)', function () {
         'table_number' => 'A1',
         'capacity' => 4,
         'area_code' => 'MAIN',
+        'area_name_translations' => ['es' => 'Salón Principal'],
         'status' => 'available',
     ]);
 
-    expect($table->status)->toBe('available');
+    expect($table->status->value)->toBe('available');
 
     // ═══════════════════════════════════════════════════
     // PASO 4: CREAR ORDEN
@@ -273,7 +274,7 @@ test('MASTER E2E: flujo completo de restaurante (16 pasos)', function () {
     $table->save();
 
     $table->refresh();
-    expect($table->status)->toBe('available');
+    expect($table->status->value)->toBe('available');
 
     // ═══════════════════════════════════════════════════
     // PASO 13: REINICIAR APLICACIÓN (simular)
@@ -340,7 +341,7 @@ test('MASTER E2E: flujo completo de restaurante (16 pasos)', function () {
 
     // 16.8 Verificar Table
     $finalTable = RestaurantTable::find($table->id);
-    expect($finalTable->status)->toBe('available');
+    expect($finalTable->status->value)->toBe('available');
 
     // 16.9 Verificar Sync status
     expect($finalOrder->sync_status)->not->toBeNull();
