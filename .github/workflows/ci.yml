@@ -4,18 +4,26 @@ on:
   push:
     branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
+  # ─────────────────────────────────────────────────────────
+  # 1. Backend - Pest Tests (con PostgreSQL)
+  # ─────────────────────────────────────────────────────────
   backend:
     name: Backend (Pest)
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 20
+
     services:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_DB: pos_restaurant
+          POSTGRES_DB: pos_restaurant_test
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: secret
         ports:
@@ -25,35 +33,27 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
-          extensions: mbstring, zip, bcmath, intl, pdo_pgsql
+          php-version: '8.3'
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_pgsql, bcmath, intl, gd, redis
           coverage: none
-      
+
       - name: Install Composer dependencies
-        run: composer install --prefer-dist --no-progress
-      
-      - name: Copy .env
-        run: cp .env.example .env
-      
-      - name: Generate app key
-        run: php artisan key:generate
-      
-      - name: Create test database
+        uses: ramsey/composer-install@v3
+
+      - name: Prepare application
         run: |
-          PGPASSWORD=secret psql -h 127.0.0.1 -U postgres -c "CREATE DATABASE pos_restaurant_test;"
-        env:
-          PGPASSWORD: secret
-      
+          cp .env.example .env
+          php artisan key:generate
+
       - name: Run migrations
-        run: php artisan migrate --force
         env:
           DB_CONNECTION: pgsql
           DB_HOST: 127.0.0.1
@@ -61,9 +61,9 @@ jobs:
           DB_DATABASE: pos_restaurant_test
           DB_USERNAME: postgres
           DB_PASSWORD: secret
-      
+        run: php artisan migrate --force
+
       - name: Run Pest tests
-        run: ./vendor/bin/pest --parallel
         env:
           DB_CONNECTION: pgsql
           DB_HOST: 127.0.0.1
@@ -72,33 +72,144 @@ jobs:
           DB_USERNAME: postgres
           DB_PASSWORD: secret
           APP_ENV: testing
+        run: php artisan test --stop-on-failure
 
+  # ─────────────────────────────────────────────────────────
+  # 2. Frontend - TypeScript, Build, Vitest
+  # ─────────────────────────────────────────────────────────
   frontend:
-    name: Frontend (Vitest)
+    name: Frontend (TS + Build + Vitest)
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
-      - name: Setup Node
+
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '20'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
-      
+
       - name: Install dependencies
-        run: cd frontend && npm ci
-      
-      - name: TypeScript check (all files including tests)
-        run: cd frontend && npx tsc --noEmit
-        # tsc --noEmit valida TODOS los archivos .ts/.tsx incluyendo tests.
-        # vite build (en el step Build) NO compila tests, por eso necesitamos
-        # este step explícito para detectar errores de tipos en tests.
-      
-      - name: Build
-        run: cd frontend && npm run build
-      
-      - name: Run tests
-        run: cd frontend && npm test -- --run
+        run: npm ci
+
+      - name: TypeScript type check
+        run: npm run typecheck
+
+      - name: Run Vitest (CI mode)
+        run: npm run test:ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+          retention-days: 7
+
+  # ─────────────────────────────────────────────────────────
+  # 3. Tauri Build Validation
+  # ─────────────────────────────────────────────────────────
+  tauri-build:
+    name: Tauri Build Validation
+    needs: frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install Linux dependencies (Tauri)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: frontend/src-tauri
+
+      - name: Install Tauri CLI
+        working-directory: frontend
+        run: npm install --save-dev @tauri-apps/cli
+
+      - name: Validate Tauri build
+        working-directory: frontend
+        run: npx tauri build --debug --no-bundle
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ""
+
+  # ─────────────────────────────────────────────────────────
+  # 4. Secret Scan (gitleaks)
+  # ─────────────────────────────────────────────────────────
+  secret-scan:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ─────────────────────────────────────────────────────────
+  # 5. Gate - Todos los checks deben pasar
+  # ─────────────────────────────────────────────────────────
+  ci-gate:
+    name: CI Gate (all checks passed)
+    needs: [backend, frontend, tauri-build, secret-scan]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Check all jobs succeeded
+        run: |
+          if [[ "${{ needs.backend.result }}" != "success" ]] || \
+             [[ "${{ needs.frontend.result }}" != "success" ]] || \
+             [[ "${{ needs.tauri-build.result }}" != "success" ]] || \
+             [[ "${{ needs.secret-scan.result }}" != "success" ]]; then
+            echo "❌ CI Gate failed"
+            echo "Backend: ${{ needs.backend.result }}"
+            echo "Frontend: ${{ needs.frontend.result }}"
+            echo "Tauri Build: ${{ needs.tauri-build.result }}"
+            echo "Secret Scan: ${{ needs.secret-scan.result }}"
+            exit 1
+          fi
+          echo "✅ All CI checks passed"
