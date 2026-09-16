@@ -70,8 +70,10 @@ export function useOfflinePayment() {
       const paymentType = paymentMethod.type as "cash" | "card" | "transfer" | "gift_card";
 
       // 4. Llamar a offlinePaymentService
+      // P0-1 FIX: Pasar billLocalUuid explícito para prevenir ambigüedad en split bill
       const result = await offlinePaymentService.createPaymentOffline({
         orderLocalUuid: bill.order_local_uuid,
+        billLocalUuid: bill.local_uuid, // ← Especificar bill exacta
         paymentMethod: paymentType,
         amount: payload.amount ?? bill.remaining_amount,
         tipAmount: payload.tip_amount,

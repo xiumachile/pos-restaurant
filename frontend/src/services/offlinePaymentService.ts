@@ -21,6 +21,13 @@ export interface CreatePaymentOfflinePayload {
   referenceCode?: string;
   notes?: string;
   autoCreateBill?: boolean; // default: true
+  /**
+   * P0-1 FIX: UUID de bill específico a pagar.
+   * Si se provee, se usa esta bill explícitamente.
+   * Si NO se provee y hay múltiples bills (split bill), lanza error
+   * para prevenir ambigüedad (pagar la bill equivocada).
+   */
+  billLocalUuid?: string;
 }
 
 export interface CreatePaymentOfflineResult {
@@ -78,6 +85,7 @@ export const offlinePaymentService = {
       referenceCode,
       notes,
       autoCreateBill = true,
+      billLocalUuid,
     } = payload;
 
     // ═══════════════════════════════════════════════════════
@@ -119,8 +127,32 @@ export const offlinePaymentService = {
 
     return await localDb.transaction(async () => {
       // 1. Buscar bill existente del order
+      // P0-1 FIX: Lógica defensiva para split bill
       const existingBills = await BillRepository.findByOrder(orderLocalUuid);
-      let bill: LocalBill | null = existingBills[0] || null;
+      let bill: LocalBill | null;
+
+      if (billLocalUuid) {
+        // Búsqueda explícita por billLocalUuid (preferido en split bill)
+        bill = existingBills.find(b => b.local_uuid === billLocalUuid) ?? null;
+        if (!bill && !autoCreateBill) {
+          throw new OfflinePaymentError(
+            "BILL_NOT_FOUND",
+            `Bill ${billLocalUuid} not found for order ${orderLocalUuid}`
+          );
+        }
+      } else if (existingBills.length > 1) {
+        // P0-1 FIX: Rechazar ambigüedad en split bill
+        // Si hay múltiples bills y no se especifica cuál pagar, fallar explícitamente
+        throw new OfflinePaymentError(
+          "MULTIPLE_BILLS_FOUND",
+          `Order ${orderLocalUuid} has ${existingBills.length} bills. ` +
+            `Please specify billLocalUuid to indicate which bill to pay. ` +
+            `Available bills: ${existingBills.map(b => b.local_uuid).join(", ")}`
+        );
+      } else {
+        // Comportamiento original: 0 o 1 bill
+        bill = existingBills[0] ?? null;
+      }
 
       // 2. Si no existe bill y autoCreateBill=true, crear una
       if (!bill) {
