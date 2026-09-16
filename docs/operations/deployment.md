@@ -7,7 +7,7 @@
 ## Requisitos del Sistema
 
 ### Backend (Laravel)
-- **PHP**: 8.3+
+- **PHP**: 8.4+
 - **PostgreSQL**: 16+
 - **Redis**: 7+
 - **Composer**: 2.x
@@ -36,16 +36,16 @@ sudo apt install -y \
   nginx \
   postgresql-16 \
   redis-server \
-  php8.3-fpm \
-  php8.3-pgsql \
-  php8.3-bcmath \
-  php8.3-intl \
-  php8.3-gd \
-  php8.3-redis \
+  php8.4-fpm \
+  php8.4-pgsql \
+  php8.4-bcmath \
+  php8.4-intl \
+  php8.4-gd \
+  php8.4-redis \
   composer
 
 # Iniciar servicios
-sudo systemctl enable --now postgresql redis php8.3-fpm nginx
+sudo systemctl enable --now postgresql redis php8.4-fpm nginx
 
 2. Configurar PostgreSQL
 # Crear usuario y base de datos
@@ -108,7 +108,7 @@ server {
     error_page 404 /index.php;
 
     location ~ \.php$ {
-        fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;
+        fastcgi_pass unix:/var/run/php/php8.4-fpm.sock;
         fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
         include fastcgi_params;
     }
