@@ -136,7 +136,7 @@ class LedgerService
     /**
      * Obtiene el balance de una cuenta.
      */
-    public function getAccountBalance(int $accountId, ?string $fromDate = null, ?string $toDate = null): float
+    public function getAccountBalance(int $accountId, ?string $fromDate = null, ?string $toDate = null): int  // ADR-018
     {
         $account = Account::findOrFail($accountId);
 
@@ -150,8 +150,8 @@ class LedgerService
             $query->whereHas('journalEntry', fn($q) => $q->where('entry_date', '<=', $toDate));
         }
 
-        $debits = $query->sum('debit_amount');
-        $credits = $query->sum('credit_amount');
+        $debits = (int) $query->sum('debit_amount');  // ADR-018
+        $credits = (int) $query->sum('credit_amount');  // ADR-018
 
         return $account->type->normalBalance() === 'debit'
             ? $debits - $credits

@@ -138,7 +138,7 @@ test('crea refund completo (100%)', function () {
 
     expect($refund)->toBeInstanceOf(Refund::class)
         ->and($refund->status)->toBe(RefundStatus::COMPLETED)
-        ->and($refund->amount)->toBe(11900.0)
+        ->and($refund->amount)->toBe(11900)  // ADR-018: int
         ->and($refund->journal_entry_id)->not->toBeNull()
         ->and($refund->processed_at)->not->toBeNull();
 
@@ -152,8 +152,8 @@ test('crea refund completo (100%)', function () {
     $cashBalance = $this->ledgerService->getAccountBalance($this->cashAccount->id);
     $revenueBalance = $this->ledgerService->getAccountBalance($this->revenueAccount->id);
 
-    expect($cashBalance)->toBe(0.0)
-        ->and($revenueBalance)->toBe(0.0);
+    expect($cashBalance)->toBe(0)  // ADR-018: int
+        ->and($revenueBalance)->toBe(0);  // ADR-018: int
 });
 
 test('crea refund parcial (50%)', function () {
@@ -165,11 +165,11 @@ test('crea refund parcial (50%)', function () {
     );
 
     expect($refund->status)->toBe(RefundStatus::COMPLETED)
-        ->and($refund->amount)->toBe(5000.0);
+        ->and($refund->amount)->toBe(5000);  // ADR-018: int
 
     // Balance de efectivo: 11900 - 5000 = 6900
     $cashBalance = $this->ledgerService->getAccountBalance($this->cashAccount->id);
-    expect($cashBalance)->toBe(6900.0);
+    expect($cashBalance)->toBe(6900);  // ADR-018: int
 });
 
 test('rechaza refund que excede monto del payment', function () {
@@ -194,7 +194,7 @@ test('idempotencia: mismo idempotency_key retorna refund existente', function ()
     expect($refund1->id)->toBe($refund2->id);
 
     $totalRefunded = Refund::totalRefundedFor($this->payment->id);
-    expect($totalRefunded)->toBe(1000.0);
+    expect($totalRefunded)->toBe(1000);  // ADR-018: int
 });
 
 test('obtiene refunds de un payment', function () {
@@ -213,7 +213,7 @@ test('calcula total reembolsado correctamente', function () {
 
     $total = Refund::totalRefundedFor($this->payment->id);
 
-    expect($total)->toBe(3500.0);
+    expect($total)->toBe(3500);  // ADR-018: int
 });
 
 test('refund parcial permite refund adicional hasta el máximo', function () {
@@ -225,5 +225,5 @@ test('refund parcial permite refund adicional hasta el máximo', function () {
     expect($refund2->status)->toBe(RefundStatus::COMPLETED);
 
     $total = Refund::totalRefundedFor($this->payment->id);
-    expect($total)->toBe(11900.0);
+    expect($total)->toBe(11900);  // ADR-018: int
 });

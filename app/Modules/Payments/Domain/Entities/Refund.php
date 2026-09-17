@@ -85,7 +85,7 @@ class Refund extends Model
     /**
      * Calcula el total reembolsado de un payment (excluyendo este refund si aún no está completed).
      */
-    public static function totalRefundedFor(int $paymentId, ?int $excludeRefundId = null): float
+    public static function totalRefundedFor(int $paymentId, ?int $excludeRefundId = null): int  // ADR-018: CLP entero
     {
         $query = self::where('payment_id', $paymentId)
             ->where('status', RefundStatus::COMPLETED);
@@ -94,6 +94,6 @@ class Refund extends Model
             $query->where('id', '!=', $excludeRefundId);
         }
 
-        return (float) $query->sum('amount');
+        return (int) $query->sum('amount');
     }
 }
