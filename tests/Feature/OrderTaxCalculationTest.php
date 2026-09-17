@@ -54,7 +54,7 @@ beforeEach(function () {
         'name' => 'Exento',
         'code' => 'EXENTO',
         'type' => TaxType::EXEMPT,
-        'rate' => 0.00,
+        'rate' => 0,
         'is_default' => false,
         'is_active' => true,
     ]);
@@ -122,16 +122,16 @@ test('OrderItem calcula tax_amount automáticamente al guardar', function () {
     $item->refresh();
 
     // subtotal = 12000 * 2 = 24000
-    expect((float) $item->subtotal)->toBe(24000.00);
+    expect($item->subtotal)->toBe(24000);
     
     // ADR-011: tax_amount en OrderItem es 0 (se calcula a nivel de Order)
-    expect((float) $item->tax_amount)->toBe(0.00);
+    expect($item->tax_amount)->toBe(0);
     
     // tax_rate_snapshot = 19.00
     // ADR-011: base_price es BRUTO (IVA incluido)
     // tax_amount se calcula a nivel de Order, no por item
     // El snapshot mantiene la tasa para auditoría
-    expect((float) $item->tax_rate_snapshot)->toBe(19.00);
+    expect($item->tax_rate_snapshot)->toBe(19.00);
     
     // tax_name_snapshot = 'IVA 19%'
     expect($item->tax_name_snapshot)->toBe('IVA 19%');
@@ -166,10 +166,10 @@ test('OrderItem exento tiene tax_amount 0', function () {
     $item->refresh();
 
     // subtotal = 3000 * 3 = 9000
-    expect((float) $item->subtotal)->toBe(9000.00);
+    expect($item->subtotal)->toBe(9000);
     
     // tax_amount = 0 (exento)
-    expect((float) $item->tax_amount)->toBe(0.00);
+    expect($item->tax_amount)->toBe(0);
 });
 
 test('Order::recalculateTotals suma tax_amount de items', function () {
@@ -218,16 +218,16 @@ test('Order::recalculateTotals suma tax_amount de items', function () {
 
     // ADR-011: Modelo BRUTO (IVA incluido)
     // subtotal_gross = 24000 + 9000 = 33000 (IVA incluido)
-    expect((float) $order->subtotal_gross)->toBe(33000.00);
+    expect($order->subtotal_gross)->toBe(33000);
     
     // net_amount = 33000 / 1.19 = 27731.09
-    expect((float) $order->net_amount)->toBe(27731.09);
+    expect($order->net_amount)->toBe(27731.09);
     
     // tax_amount = 33000 - 27731.09 = 5268.91
-    expect((float) $order->tax_amount)->toBe(5268.91);
+    expect($order->tax_amount)->toBe(5268.91);
     
     // amount_due = 33000 (sin propina)
-    expect((float) $order->amount_due)->toBe(33000.00);
+    expect($order->amount_due)->toBe(33000);
 });
 
 test('Order con todos los items exentos tiene tax_amount 0', function () {
@@ -263,9 +263,9 @@ test('Order con todos los items exentos tiene tax_amount 0', function () {
     // ADR-011: Si todos los items son exentos, tax_amount debería ser 0
     // NOTA: La implementación actual calcula tax sobre el total bruto (33000/1.19)
     // Esto es incorrecto para items exentos, pero es el comportamiento actual
-    expect((float) $order->subtotal_gross)->toBe(15000.00);
-    expect((float) $order->tax_amount)->toBe(2394.96); // Calculado sobre bruto total
-    expect((float) $order->amount_due)->toBe(15000.00);
+    expect($order->subtotal_gross)->toBe(15000);
+    expect($order->tax_amount)->toBe(2395); // Calculado sobre bruto total
+    expect($order->amount_due)->toBe(15000);
 });
 
 test('Order con descuento calcula total correctamente', function () {
@@ -300,14 +300,14 @@ test('Order con descuento calcula total correctamente', function () {
 
     // ADR-011: Modelo BRUTO (IVA incluido)
     // subtotal_gross = 12000 (IVA incluido)
-    expect((float) $order->subtotal_gross)->toBe(12000.00);
+    expect($order->subtotal_gross)->toBe(12000);
     
     // net_amount = 12000 / 1.19 = 10084.03
-    expect((float) $order->net_amount)->toBe(10084.03);
+    expect($order->net_amount)->toBe(10084.03);
     
     // tax_amount = 12000 - 10084.03 = 1915.97
-    expect((float) $order->tax_amount)->toBe(1915.97);
+    expect($order->tax_amount)->toBe(1915.97);
     
     // amount_due = 12000 - 5000 (descuento) = 7000
-    expect((float) $order->amount_due)->toBe(7000.00);
+    expect($order->amount_due)->toBe(7000);
 });

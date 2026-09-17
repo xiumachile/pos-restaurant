@@ -72,8 +72,8 @@ test('Mismo idempotency_key + mismo payload retorna mismo payment (sin duplicar)
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -123,8 +123,8 @@ test('Mismo key + mismo payload produce exactamente el mismo resultado', functio
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -171,8 +171,8 @@ test('Mismo key + diferente payload retorna payment existente (sin validar paylo
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -203,7 +203,7 @@ test('Mismo key + diferente payload retorna payment existente (sin validar paylo
 
     // Actualmente retorna el primer payment (no valida payload)
     expect($payment1->id)->toBe($payment2->id)
-        ->and((float) $payment2->amount)->toBe(5000.00, 'Retorna primer pago, no valida payload');
+        ->and((float) $payment2->amount)->toBe(5000, 'Retorna primer pago, no valida payload');
 
     // Solo existe 1 payment
     $count = \Modules\Payments\Domain\Entities\Payment::where('order_id', $order->id)->count();
@@ -222,8 +222,8 @@ test('Doble click rápido no crea doble pago (idempotencia protege)', function (
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -270,8 +270,8 @@ test('Timeout + retry no crea doble pago (cliente reusa misma key)', function ()
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -319,8 +319,8 @@ test('Dos terminales con diferente key pueden pagar el mismo order (pagos parcia
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -354,7 +354,7 @@ test('Dos terminales con diferente key pueden pagar el mismo order (pagos parcia
 
     // Total pagado debe ser $10,000
     $totalPaid = \Modules\Payments\Domain\Entities\Payment::where('order_id', $order->id)->sum('amount');
-    expect((float) $totalPaid)->toBe(10000.00);
+    expect((float) $totalPaid)->toBe(10000);
 });
 
 // ═══════════════════════════════════════════════════
@@ -369,8 +369,8 @@ test('CRITERIO DE CIERRE: Nunca aparece doble pago por retry o concurrencia', fu
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -403,5 +403,5 @@ test('CRITERIO DE CIERRE: Nunca aparece doble pago por retry o concurrencia', fu
 
     // Total pagado debe ser exactamente $10,000 (no $50,000)
     $totalPaid = \Modules\Payments\Domain\Entities\Payment::where('order_id', $order->id)->sum('amount');
-    expect((float) $totalPaid)->toBe(10000.00, 'No hay doble cobro');
+    expect((float) $totalPaid)->toBe(10000, 'No hay doble cobro');
 });

@@ -437,7 +437,7 @@ test('Order recalculateTotals calcula subtotal IVA y total', function () {
 
     // ADR-011: Modelo BRUTO (IVA incluido)
     expect($order->subtotal_gross)->toEqual(10000);
-    expect($order->net_amount)->toEqual(8403.36); // 10000 / 1.19
-    expect($order->tax_amount)->toEqual(1596.64); // 10000 - 8403.36
+    expect($order->net_amount)->toEqual(8403); // 10000 / 1.19
+    expect($order->tax_amount)->toEqual(1597); // 10000 - 8403
     expect($order->amount_due)->toEqual(10000);
 });

@@ -129,12 +129,12 @@ test('MASTER E2E: flujo completo de restaurante (16 pasos)', function () {
         $this->company->id,
         $this->branch->id,
         $this->cashier->id,
-        50000.00,
+        50000,
         'Apertura Master E2E'
     );
 
     expect($cashSession->status)->toBe(CashSessionStatus::OPEN)
-        ->and((float) $cashSession->opening_amount)->toBe(50000.00);
+        ->and((float) $cashSession->opening_amount)->toBe(50000);
 
     // ═══════════════════════════════════════════════════
     // PASO 3: CREAR MESA
@@ -163,8 +163,8 @@ test('MASTER E2E: flujo completo de restaurante (16 pasos)', function () {
         'type' => OrderType::DINE_IN,
         'status' => OrderStatus::DRAFT,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -179,11 +179,11 @@ test('MASTER E2E: flujo completo de restaurante (16 pasos)', function () {
         'quantity' => 1,
         'unit_price_snapshot' => 10000,
         'subtotal' => 10000,
-        'tax_amount' => 1596.64,
+        'tax_amount' => 1597,
     ]);
 
     expect($order->status)->toBe(OrderStatus::DRAFT)
-        ->and((float) $order->total)->toBe(10000.00);
+        ->and($order->total)->toBe(10000);
 
     // ═══════════════════════════════════════════════════
     // PASO 5: KITCHEN (confirmar orden)
@@ -211,8 +211,8 @@ test('MASTER E2E: flujo completo de restaurante (16 pasos)', function () {
     $bill = $this->billingService->createSingleBill($order);
 
     expect($bill->status)->toBe(BillStatus::OPEN)
-        ->and((float) $bill->total)->toBe(10000.00)
-        ->and((float) $bill->remaining_amount)->toBe(10000.00);
+        ->and($bill->total)->toBe(10000)
+        ->and($bill->remaining_amount)->toBe(10000);
 
     // ═══════════════════════════════════════════════════
     // PASO 8: OFFLINE (simular desconexión)
@@ -235,28 +235,28 @@ test('MASTER E2E: flujo completo de restaurante (16 pasos)', function () {
     $payment = $this->paymentService->registerPayment(
         order: $order,
         paymentMethod: $this->cashMethod,
-        amount: 10000.00,
+        amount: 10000,
         idempotencyKey: $idempotencyKey,
         bill: $bill,
         cashSession: $cashSession,
         userId: $this->cashier->id,
-        tipAmount: 500.00
+        tipAmount: 500
     );
 
     expect($payment->status->value)->toBe('completed')
-        ->and((float) $payment->amount)->toBe(10000.00)
-        ->and((float) $payment->tip_amount)->toBe(500.00)
-        ->and((float) $payment->total_amount)->toBe(10500.00);
+        ->and($payment->amount)->toBe(10000)
+        ->and($payment->tip_amount)->toBe(500)
+        ->and($payment->total_amount)->toBe(10500);
 
     // ═══════════════════════════════════════════════════
     // PASO 10: VUELTO (change = 15000 - 10500 = 4500)
     // El cliente pagó $15,000 y el total es $10,500
     // El vuelto es $4,500 (no se registra en DB, solo cálculo)
     // ═══════════════════════════════════════════════════
-    $amountGiven = 15000.00;
-    $change = $amountGiven - (float) $payment->total_amount;
+    $amountGiven = 15000;
+    $change = $amountGiven - $payment->total_amount;
     
-    expect($change)->toBe(4500.00);
+    expect($change)->toBe(4500);
 
     // ═══════════════════════════════════════════════════
     // PASO 11: PRINT (simular trabajo de impresión)
@@ -307,7 +307,7 @@ test('MASTER E2E: flujo completo de restaurante (16 pasos)', function () {
     // 16.1 Verificar Order
     $finalOrder = Order::where('order_number', 'ORD-MASTER-001')->first();
     expect($finalOrder)->not->toBeNull()
-        ->and((float) $finalOrder->total)->toBe(10000.00);
+        ->and((float) $finalOrder->total)->toBe(10000);
 
     // 16.2 Verificar OrderItems
     $finalItems = OrderItem::where('order_id', $finalOrder->id)->get();
@@ -322,7 +322,7 @@ test('MASTER E2E: flujo completo de restaurante (16 pasos)', function () {
     // 16.4 Verificar Payment
     $finalPayment = Payment::where('order_id', $finalOrder->id)->first();
     expect($finalPayment)->not->toBeNull()
-        ->and((float) $finalPayment->total_amount)->toBe(10500.00)
+        ->and((float) $finalPayment->total_amount)->toBe(10500)
         ->and($finalPayment->idempotency_key)->toBe($idempotencyKey);
 
 
@@ -350,15 +350,15 @@ test('MASTER E2E: flujo completo de restaurante (16 pasos)', function () {
     // VERIFICACIÓN FINAL: Integridad financiera
     // ═══════════════════════════════════════════════════
     $totalPaid = Payment::where('order_id', $finalOrder->id)->sum('total_amount');
-    expect((float) $totalPaid)->toBe(10500.00, 'Total pagado = venta + propina');
+    expect((float) $totalPaid)->toBe(10500, 'Total pagado = venta + propina');
 
     // Cerrar sesión de caja
     $closedSession = $this->cashSessionService->closeSession(
         $finalSession,
-        (float) $finalSession->opening_amount + 10500.00,
+        (float) $finalSession->opening_amount + 10500,
         'Cierre Master E2E'
     );
 
     expect($closedSession->status)->toBe(CashSessionStatus::CLOSED)
-        ->and((float) $closedSession->difference)->toBe(0.00);
+        ->and((float) $closedSession->difference)->toBe(0);
 });

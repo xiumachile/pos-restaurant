@@ -68,11 +68,11 @@ test('flujo completo: abrir → vender → cobrar → retirar → cerrar', funct
         $this->company->id,
         $this->branch->id,
         $this->user->id,
-        50000.00,
+        50000,
         'Apertura inicial'
     );
 
-    expect($session->opening_amount)->toBe('50000.00')
+    expect($session->opening_amount)->toBe('50000')
         ->and($session->status->value)->toBe('open');
 
     // 2. VENTA: Crear orden de $10,000
@@ -83,8 +83,8 @@ test('flujo completo: abrir → vender → cobrar → retirar → cerrar', funct
         'type' => OrderType::DINE_IN,
         'status' => OrderStatus::SERVED,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -95,15 +95,15 @@ test('flujo completo: abrir → vender → cobrar → retirar → cerrar', funct
     $payment = $this->paymentService->registerPayment(
         order: $order,
         paymentMethod: $this->cashMethod,
-        amount: 10000.00,
+        amount: 10000,
         idempotencyKey: Str::uuid()->toString(),
         bill: null,
         cashSession: $session,
         userId: $this->user->id,
-        tipAmount: 0.00
+        tipAmount: 0
     );
 
-    expect($payment->amount)->toBe('10000.00')
+    expect($payment->amount)->toBe('10000')
         ->and($payment->cash_session_id)->toBe($session->id);
 
     // 4. RETIRO: Retirar $5,000 de caja
@@ -114,18 +114,18 @@ test('flujo completo: abrir → vender → cobrar → retirar → cerrar', funct
         'cash_session_id' => $session->id,
         'user_id' => $this->user->id,
         'type' => MovementType::WITHDRAWAL,
-        'amount' => 5000.00,
+        'amount' => 5000,
         'reason' => 'Retiro parcial',
-        'balance_after' => 55000.00, // 50000 + 10000 - 5000
+        'balance_after' => 55000, // 50000 + 10000 - 5000
     ]);
 
-    expect($movement->amount)->toBe('5000.00')
+    expect($movement->amount)->toBe('5000')
         ->and($movement->type->value)->toBe('withdrawal');
 
     // 5. CIERRE: Cerrar caja con conteo de $55,000
     $closedSession = $this->cashSessionService->closeSession(
         $session,
-        55000.00,
+        55000,
         'Cierre sin diferencia'
     );
 
@@ -138,9 +138,9 @@ test('flujo completo: abrir → vender → cobrar → retirar → cerrar', funct
     // - Diferencia: $0
 
     expect($closedSession->status->value)->toBe('closed')
-        ->and((float) $closedSession->expected_amount)->toBe(55000.00)
-        ->and((float) $closedSession->closing_amount)->toBe(55000.00)
-        ->and((float) $closedSession->difference)->toBe(0.00);
+        ->and((float) $closedSession->expected_amount)->toBe(55000)
+        ->and((float) $closedSession->closing_amount)->toBe(55000)
+        ->and((float) $closedSession->difference)->toBe(0);
 });
 
 test('cierre con diferencia positiva (sobrante)', function () {
@@ -148,7 +148,7 @@ test('cierre con diferencia positiva (sobrante)', function () {
         $this->company->id,
         $this->branch->id,
         $this->user->id,
-        50000.00
+        50000
     );
 
     $order = Order::create([
@@ -158,8 +158,8 @@ test('cierre con diferencia positiva (sobrante)', function () {
         'type' => OrderType::DINE_IN,
         'status' => OrderStatus::SERVED,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -168,26 +168,26 @@ test('cierre con diferencia positiva (sobrante)', function () {
     $this->paymentService->registerPayment(
         order: $order,
         paymentMethod: $this->cashMethod,
-        amount: 10000.00,
+        amount: 10000,
         idempotencyKey: Str::uuid()->toString(),
         bill: null,
         cashSession: $session,
         userId: $this->user->id,
-        tipAmount: 0.00
+        tipAmount: 0
     );
 
     // Cierre con $62,000 (sobrante de $2,000)
     $closedSession = $this->cashSessionService->closeSession(
         $session,
-        62000.00
+        62000
     );
 
     // Esperado: 50000 + 10000 = 60000
     // Contado: 62000
     // Diferencia: +2000 (sobrante)
-    expect((float) $closedSession->expected_amount)->toBe(60000.00)
-        ->and((float) $closedSession->closing_amount)->toBe(62000.00)
-        ->and((float) $closedSession->difference)->toBe(2000.00);
+    expect((float) $closedSession->expected_amount)->toBe(60000)
+        ->and((float) $closedSession->closing_amount)->toBe(62000)
+        ->and((float) $closedSession->difference)->toBe(2000);
 });
 
 test('cierre con diferencia negativa (faltante)', function () {
@@ -195,7 +195,7 @@ test('cierre con diferencia negativa (faltante)', function () {
         $this->company->id,
         $this->branch->id,
         $this->user->id,
-        50000.00
+        50000
     );
 
     $order = Order::create([
@@ -205,8 +205,8 @@ test('cierre con diferencia negativa (faltante)', function () {
         'type' => OrderType::DINE_IN,
         'status' => OrderStatus::SERVED,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -215,26 +215,26 @@ test('cierre con diferencia negativa (faltante)', function () {
     $this->paymentService->registerPayment(
         order: $order,
         paymentMethod: $this->cashMethod,
-        amount: 10000.00,
+        amount: 10000,
         idempotencyKey: Str::uuid()->toString(),
         bill: null,
         cashSession: $session,
         userId: $this->user->id,
-        tipAmount: 0.00
+        tipAmount: 0
     );
 
     // Cierre con $58,000 (faltante de $2,000)
     $closedSession = $this->cashSessionService->closeSession(
         $session,
-        58000.00
+        58000
     );
 
     // Esperado: 50000 + 10000 = 60000
     // Contado: 58000
     // Diferencia: -2000 (faltante)
-    expect((float) $closedSession->expected_amount)->toBe(60000.00)
-        ->and((float) $closedSession->closing_amount)->toBe(58000.00)
-        ->and((float) $closedSession->difference)->toBe(-2000.00);
+    expect((float) $closedSession->expected_amount)->toBe(60000)
+        ->and((float) $closedSession->closing_amount)->toBe(58000)
+        ->and((float) $closedSession->difference)->toBe(-2000);
 });
 
 test('ventas con tarjeta NO afectan balance de efectivo', function () {
@@ -242,7 +242,7 @@ test('ventas con tarjeta NO afectan balance de efectivo', function () {
         $this->company->id,
         $this->branch->id,
         $this->user->id,
-        50000.00
+        50000
     );
 
     // Venta en efectivo de $10,000
@@ -253,8 +253,8 @@ test('ventas con tarjeta NO afectan balance de efectivo', function () {
         'type' => OrderType::DINE_IN,
         'status' => OrderStatus::SERVED,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -263,12 +263,12 @@ test('ventas con tarjeta NO afectan balance de efectivo', function () {
     $this->paymentService->registerPayment(
         order: $order1,
         paymentMethod: $this->cashMethod,
-        amount: 10000.00,
+        amount: 10000,
         idempotencyKey: Str::uuid()->toString(),
         bill: null,
         cashSession: $session,
         userId: $this->user->id,
-        tipAmount: 0.00
+        tipAmount: 0
     );
 
     // Venta con tarjeta de $15,000
@@ -279,8 +279,8 @@ test('ventas con tarjeta NO afectan balance de efectivo', function () {
         'type' => OrderType::DINE_IN,
         'status' => OrderStatus::SERVED,
         'subtotal_gross' => 15000,
-        'net_amount' => 12605.04,
-        'tax_amount' => 2394.96,
+        'net_amount' => 12605,
+        'tax_amount' => 2395,
         'amount_due' => 15000,
         'subtotal' => 15000,
         'total' => 15000,
@@ -289,26 +289,26 @@ test('ventas con tarjeta NO afectan balance de efectivo', function () {
     $this->paymentService->registerPayment(
         order: $order2,
         paymentMethod: $this->cardMethod,
-        amount: 15000.00,
+        amount: 15000,
         idempotencyKey: Str::uuid()->toString(),
         bill: null,
         cashSession: $session,
         userId: $this->user->id,
-        tipAmount: 0.00,
+        tipAmount: 0,
         referenceCode: 'AUTH123'
     );
 
     // Cierre con $60,000 (solo efectivo)
     $closedSession = $this->cashSessionService->closeSession(
         $session,
-        60000.00
+        60000
     );
 
     // Esperado: 50000 + 10000 (solo efectivo) = 60000
     // La venta con tarjeta NO afecta el balance de efectivo
-    expect((float) $closedSession->expected_amount)->toBe(60000.00)
-        ->and((float) $closedSession->closing_amount)->toBe(60000.00)
-        ->and((float) $closedSession->difference)->toBe(0.00);
+    expect((float) $closedSession->expected_amount)->toBe(60000)
+        ->and((float) $closedSession->closing_amount)->toBe(60000)
+        ->and((float) $closedSession->difference)->toBe(0);
 });
 
 test('depósito aumenta balance esperado', function () {
@@ -316,7 +316,7 @@ test('depósito aumenta balance esperado', function () {
         $this->company->id,
         $this->branch->id,
         $this->user->id,
-        50000.00
+        50000
     );
 
     // Depósito de $10,000
@@ -326,21 +326,21 @@ test('depósito aumenta balance esperado', function () {
         'cash_session_id' => $session->id,
         'user_id' => $this->user->id,
         'type' => MovementType::DEPOSIT,
-        'amount' => 10000.00,
+        'amount' => 10000,
         'reason' => 'Depósito adicional',
-        'balance_after' => 60000.00,
+        'balance_after' => 60000,
     ]);
 
     // Cierre con $60,000
     $closedSession = $this->cashSessionService->closeSession(
         $session,
-        60000.00
+        60000
     );
 
     // Esperado: 50000 + 10000 (depósito) = 60000
-    expect((float) $closedSession->expected_amount)->toBe(60000.00)
-        ->and((float) $closedSession->closing_amount)->toBe(60000.00)
-        ->and((float) $closedSession->difference)->toBe(0.00);
+    expect((float) $closedSession->expected_amount)->toBe(60000)
+        ->and((float) $closedSession->closing_amount)->toBe(60000)
+        ->and((float) $closedSession->difference)->toBe(0);
 });
 
 test('criterio de cierre: atomicidad en cierre de caja', function () {
@@ -348,7 +348,7 @@ test('criterio de cierre: atomicidad en cierre de caja', function () {
         $this->company->id,
         $this->branch->id,
         $this->user->id,
-        50000.00
+        50000
     );
 
     $order = Order::create([
@@ -358,8 +358,8 @@ test('criterio de cierre: atomicidad en cierre de caja', function () {
         'type' => OrderType::DINE_IN,
         'status' => OrderStatus::SERVED,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -368,18 +368,18 @@ test('criterio de cierre: atomicidad en cierre de caja', function () {
     $this->paymentService->registerPayment(
         order: $order,
         paymentMethod: $this->cashMethod,
-        amount: 10000.00,
+        amount: 10000,
         idempotencyKey: Str::uuid()->toString(),
         bill: null,
         cashSession: $session,
         userId: $this->user->id,
-        tipAmount: 0.00
+        tipAmount: 0
     );
 
     // Cierre
     $closedSession = $this->cashSessionService->closeSession(
         $session,
-        60000.00
+        60000
     );
 
     // Validar que todos los campos se actualizaron atómicamente
@@ -390,6 +390,6 @@ test('criterio de cierre: atomicidad en cierre de caja', function () {
         ->and($closedSession->closed_at)->not->toBeNull();
 
     // Validar que no se puede cerrar dos veces
-    expect(fn() => $this->cashSessionService->closeSession($closedSession, 60000.00))
+    expect(fn() => $this->cashSessionService->closeSession($closedSession, 60000))
         ->toThrow(\Modules\Payments\Domain\Exceptions\PaymentException::class);
 });

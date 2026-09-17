@@ -93,7 +93,7 @@ test('split bill: dividir cuenta en 2 partes iguales', function () {
         'type' => OrderType::DINE_IN,
         'status' => OrderStatus::SERVED,
         'subtotal_gross' => 22000,
-        'net_amount' => 18487.40,
+        'net_amount' => 184870,
         'tax_amount' => 3512.60,
         'amount_due' => 22000,
         'subtotal' => 22000,
@@ -109,7 +109,7 @@ test('split bill: dividir cuenta en 2 partes iguales', function () {
         'quantity' => 1,
         'unit_price_snapshot' => 10000,
         'subtotal' => 10000,
-        'tax_amount' => 1596.64,
+        'tax_amount' => 1597,
     ]);
 
     OrderItem::create([
@@ -131,14 +131,14 @@ test('split bill: dividir cuenta en 2 partes iguales', function () {
 
     // Cada bill debe tener $11,000 (22000 / 2)
     foreach ($bills as $bill) {
-        expect((float) $bill->total)->toBe(11000.00)
+        expect($bill->total)->toBe(11000)
             ->and($bill->status)->toBe(BillStatus::OPEN)
             ->and($bill->type->value)->toBe('equal_split');
     }
 
     // Verificar que la suma de bills = total de orden
     $totalBills = array_sum(array_map(fn($b) => (float) $b->total, $bills));
-    expect((float) $totalBills)->toBe(22000.00);
+    expect((float) $totalBills)->toBe(22000);
 });
 
 test('split bill: pagar una de las dos bills parcialmente', function () {
@@ -150,8 +150,8 @@ test('split bill: pagar una de las dos bills parcialmente', function () {
         'type' => OrderType::DINE_IN,
         'status' => OrderStatus::SERVED,
         'subtotal_gross' => 20000,
-        'net_amount' => 16806.72,
-        'tax_amount' => 3193.28,
+        'net_amount' => 16807,
+        'tax_amount' => 3193,
         'amount_due' => 20000,
         'subtotal' => 20000,
         'total' => 20000,
@@ -166,14 +166,14 @@ test('split bill: pagar una de las dos bills parcialmente', function () {
         $this->company->id,
         $this->branch->id,
         $this->user->id,
-        50000.00
+        50000
     );
 
     // Pagar $5,000 de bill1 (pago parcial)
     $payment1 = $this->paymentService->registerPayment(
         order: $order,
         paymentMethod: $this->cashMethod,
-        amount: 5000.00,
+        amount: 5000,
         idempotencyKey: Str::uuid()->toString(),
         bill: $bill1,
         cashSession: $cashSession,
@@ -182,14 +182,14 @@ test('split bill: pagar una de las dos bills parcialmente', function () {
 
     $bill1->refresh();
     expect($bill1->status)->toBe(BillStatus::PARTIAL)
-        ->and((float) $bill1->paid_amount)->toBe(5000.00)
-        ->and((float) $bill1->remaining_amount)->toBe(5000.00);
+        ->and((float) $bill1->paid_amount)->toBe(5000)
+        ->and((float) $bill1->remaining_amount)->toBe(5000);
 
     // bill2 debe seguir OPEN
     $bill2->refresh();
     expect($bill2->status)->toBe(BillStatus::OPEN)
-        ->and((float) $bill2->paid_amount)->toBe(0.00)
-        ->and((float) $bill2->remaining_amount)->toBe(10000.00);
+        ->and((float) $bill2->paid_amount)->toBe(0)
+        ->and((float) $bill2->remaining_amount)->toBe(10000);
 });
 
 test('split bill: pagar ambas bills completamente', function () {
@@ -201,8 +201,8 @@ test('split bill: pagar ambas bills completamente', function () {
         'type' => OrderType::DINE_IN,
         'status' => OrderStatus::SERVED,
         'subtotal_gross' => 20000,
-        'net_amount' => 16806.72,
-        'tax_amount' => 3193.28,
+        'net_amount' => 16807,
+        'tax_amount' => 3193,
         'amount_due' => 20000,
         'subtotal' => 20000,
         'total' => 20000,
@@ -216,14 +216,14 @@ test('split bill: pagar ambas bills completamente', function () {
         $this->company->id,
         $this->branch->id,
         $this->user->id,
-        50000.00
+        50000
     );
 
     // Pagar bill1 completamente
     $this->paymentService->registerPayment(
         order: $order,
         paymentMethod: $this->cashMethod,
-        amount: 10000.00,
+        amount: 10000,
         idempotencyKey: Str::uuid()->toString(),
         bill: $bill1,
         cashSession: $cashSession,
@@ -234,7 +234,7 @@ test('split bill: pagar ambas bills completamente', function () {
     $this->paymentService->registerPayment(
         order: $order,
         paymentMethod: $this->cashMethod,
-        amount: 10000.00,
+        amount: 10000,
         idempotencyKey: Str::uuid()->toString(),
         bill: $bill2,
         cashSession: $cashSession,
@@ -277,7 +277,7 @@ test('split bill: criterio de cierre - múltiples bills por orden con pagos espe
         $this->company->id,
         $this->branch->id,
         $this->user->id,
-        50000.00
+        50000
     );
 
     // Pagar cada bill con diferentes montos
@@ -285,7 +285,7 @@ test('split bill: criterio de cierre - múltiples bills por orden con pagos espe
         $this->paymentService->registerPayment(
             order: $order,
             paymentMethod: $this->cashMethod,
-            amount: 10000.00,
+            amount: 10000,
             idempotencyKey: Str::uuid()->toString(),
             bill: $bill,
             cashSession: $cashSession,
@@ -306,7 +306,7 @@ test('split bill: criterio de cierre - múltiples bills por orden con pagos espe
         
         expect($paymentsForBill)->toHaveCount(1)
             ->and($bill->status)->toBe(BillStatus::PAID)
-            ->and((float) $bill->paid_amount)->toBe(10000.00);
+            ->and($bill->paid_amount)->toBe(10000);
     }
 
     // Verificar que cada payment tiene bill_id inequívoco

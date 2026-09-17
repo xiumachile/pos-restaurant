@@ -104,12 +104,12 @@ test('Bill refleja exactamente el estado financiero del Order', function () {
     $bill = $this->billingService->createSingleBill($order);
     
     // Punto 47: Bill.total == Order.total
-    expect((float) $bill->total)->toBe((float) $order->total);
-    expect((float) $bill->subtotal)->toBe((float) $order->subtotal);
-    expect((float) $bill->tax_amount)->toBe((float) $order->tax_amount);
+    expect($bill->total)->toBe($order->total);
+    expect($bill->subtotal)->toBe($order->subtotal);
+    expect($bill->tax_amount)->toBe($order->tax_amount);
     expect($bill->status)->toBe(BillStatus::OPEN);
-    expect((float) $bill->paid_amount)->toBe(0.00);
-    expect((float) $bill->remaining_amount)->toBe((float) $bill->total);
+    expect($bill->paid_amount)->toBe(0);
+    expect($bill->remaining_amount)->toBe($bill->total);
 });
 
 // ═══════════════════════════════════════════════════
@@ -124,8 +124,8 @@ test('Payment puede existir sin Bill (pago directo a Order)', function () {
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -154,8 +154,8 @@ test('Payment a través de Bill se asocia correctamente', function () {
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -176,7 +176,7 @@ test('Payment a través de Bill se asocia correctamente', function () {
 
     expect($payment->bill_id)->toBe($bill->id);
 
-    $bill->registerPaymentAmount((float) $payment->amount);
+    $bill->registerPaymentAmount($payment->amount);
     $bill->refresh();
     expect($bill->isFullyPaid())->toBeTrue()
         ->and($bill->status)->toBe(BillStatus::PAID);
@@ -194,8 +194,8 @@ test('registerPaymentAmount debe incluir tip_amount (BUG P0)', function () {
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'tip_amount' => 1000,
         'amount_due' => 11000,
         'subtotal' => 10000,
@@ -227,12 +227,12 @@ test('registerPaymentAmount debe incluir tip_amount (BUG P0)', function () {
 
     // BUG P0: registerPaymentAmount solo recibe amount, no incluye tip automáticamente
     // El frontend debe pasar (amount + tip) como parámetro
-    $bill->registerPaymentAmount((float) $payment->total_amount);
+    $bill->registerPaymentAmount($payment->total_amount);
 
     $bill->refresh();
     
-    expect((float) $bill->paid_amount)->toBe(11000.00)
-        ->and((float) $bill->remaining_amount)->toBe(0.00)
+    expect($bill->paid_amount)->toBe(11000)
+        ->and($bill->remaining_amount)->toBe(0)
         ->and($bill->isFullyPaid())->toBeTrue()
         ->and($bill->status)->toBe(BillStatus::PAID);
 });
@@ -249,8 +249,8 @@ test('Propina se cuenta UNA sola vez en reportes (Payment es la fuente de verdad
         'status' => OrderStatus::PAID,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'tip_amount' => 1000,
         'amount_due' => 11000,
         'subtotal' => 10000,
@@ -285,7 +285,7 @@ test('Propina se cuenta UNA sola vez en reportes (Payment es la fuente de verdad
         ->where('status', 'completed')
         ->sum('tip_amount');
 
-    expect((float) $totalTips)->toBe(1000.00);
+    expect((float) $totalTips)->toBe(1000);
 });
 
 // ═══════════════════════════════════════════════════
@@ -313,7 +313,7 @@ test('Bill NO se actualiza si Order cambia (limitación conocida)', function () 
     $order->save();
 
     $bill = $this->billingService->createSingleBill($order);
-    $initialTotal = (float) $bill->total;
+    $initialTotal = $bill->total;
 
     // Agregar otro item
     OrderItem::create([
@@ -330,7 +330,7 @@ test('Bill NO se actualiza si Order cambia (limitación conocida)', function () 
     $bill->refresh();
     
     // Documentar: Bill queda desactualizado
-    expect((float) $bill->total)->toBe($initialTotal, 
+    expect($bill->total)->toBe($initialTotal, 
         'Bill NO se sincroniza con cambios en Order (limitación conocida)');
 })->skip('Limitación conocida: Bill no se sincroniza con cambios en Order');
 
@@ -346,8 +346,8 @@ test('Pago parcial actualiza paid_amount y remaining_amount', function () {
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -358,15 +358,15 @@ test('Pago parcial actualiza paid_amount y remaining_amount', function () {
     // Primer pago: $5,000
     $bill->registerPaymentAmount(5000);
 
-    expect((float) $bill->paid_amount)->toBe(5000.00)
-        ->and((float) $bill->remaining_amount)->toBe(5000.00)
+    expect($bill->paid_amount)->toBe(5000)
+        ->and($bill->remaining_amount)->toBe(5000)
         ->and($bill->status)->toBe(BillStatus::PARTIAL);
 
     // Segundo pago: $5,000
     $bill->registerPaymentAmount(5000);
 
-    expect((float) $bill->paid_amount)->toBe(10000.00)
-        ->and((float) $bill->remaining_amount)->toBe(0.00)
+    expect($bill->paid_amount)->toBe(10000)
+        ->and($bill->remaining_amount)->toBe(0)
         ->and($bill->status)->toBe(BillStatus::PAID);
 });
 
@@ -400,11 +400,11 @@ test('Split en 2 partes iguales (API: splitEqual con parts=2)', function () {
     expect($bills)->toHaveCount(2);
 
     $totalBills = array_sum(array_map(fn($b) => (float) $b->total, $bills));
-    expect($totalBills)->toBe((float) $order->total);
+    expect($totalBills)->toBe($order->total);
 
     foreach ($bills as $bill) {
         expect($bill->status)->toBe(BillStatus::OPEN);
-        expect((float) $bill->paid_amount)->toBe(0.00);
+        expect($bill->paid_amount)->toBe(0);
     }
 });
 
@@ -444,7 +444,7 @@ test('Split por items consumidos (splitByItems)', function () {
     expect($bills)->toHaveCount(2);
 
     $totalBills = array_sum(array_map(fn($b) => (float) $b->total, $bills));
-    expect(round($totalBills, 2))->toBe((float) $order->total);
+    expect(round($totalBills, 2))->toBe($order->total);
 });
 
 test('Split por montos personalizados (splitByAmounts)', function () {
@@ -456,8 +456,8 @@ test('Split por montos personalizados (splitByAmounts)', function () {
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -466,8 +466,8 @@ test('Split por montos personalizados (splitByAmounts)', function () {
     $bills = $this->billingService->splitByAmounts($order, [6000, 4000]);
 
     expect($bills)->toHaveCount(2);
-    expect((float) $bills[0]->total)->toBe(6000.00);
-    expect((float) $bills[1]->total)->toBe(4000.00);
+    expect((float) $bills[0]->total)->toBe(6000);
+    expect((float) $bills[1]->total)->toBe(4000);
 });
 
 // ═══════════════════════════════════════════════════
@@ -489,8 +489,8 @@ test('Bill se puede reconstruir desde Order + Payments', function () {
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -553,8 +553,8 @@ test('Bill se puede reconstruir desde Order + Payments', function () {
 
     $reconstructed->registerPaymentAmount((float) $paidFromPayments + (float) $tipFromPayments);
 
-    expect((float) $reconstructed->paid_amount)->toBe(5000.00)
-        ->and((float) $reconstructed->remaining_amount)->toBe(5000.00)
+    expect((float) $reconstructed->paid_amount)->toBe(5000)
+        ->and((float) $reconstructed->remaining_amount)->toBe(5000)
         ->and($reconstructed->status)->toBe(BillStatus::PARTIAL);
 });
 
@@ -570,8 +570,8 @@ test('CRITERIO DE CIERRE: Bill reconstruido produce mismo resultado financiero',
         'status' => OrderStatus::PAID,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'tip_amount' => 1000,
         'amount_due' => 11000,
         'subtotal' => 10000,

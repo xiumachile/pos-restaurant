@@ -138,7 +138,7 @@ test('crea refund completo (100%)', function () {
 
     expect($refund)->toBeInstanceOf(Refund::class)
         ->and($refund->status)->toBe(RefundStatus::COMPLETED)
-        ->and((float) $refund->amount)->toBe(11900.0)
+        ->and($refund->amount)->toBe(11900.0)
         ->and($refund->journal_entry_id)->not->toBeNull()
         ->and($refund->processed_at)->not->toBeNull();
 
@@ -165,7 +165,7 @@ test('crea refund parcial (50%)', function () {
     );
 
     expect($refund->status)->toBe(RefundStatus::COMPLETED)
-        ->and((float) $refund->amount)->toBe(5000.0);
+        ->and($refund->amount)->toBe(5000.0);
 
     // Balance de efectivo: 11900 - 5000 = 6900
     $cashBalance = $this->ledgerService->getAccountBalance($this->cashAccount->id);

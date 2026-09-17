@@ -93,7 +93,7 @@ beforeEach(function () {
         'name' => 'Exento',
         'code' => 'EXENTO',
         'type' => TaxType::EXEMPT,
-        'rate' => 0.00,
+        'rate' => 0,
         'is_default' => false,
         'is_active' => true,
     ]);
@@ -127,16 +127,16 @@ test('CASO 1: Venta pública $10,000 → Neto $8,403 + IVA $1,597', function () 
     $order->refresh();
 
     // Punto 39: Venta pública $10,000
-    expect((float) $order->subtotal_gross)->toBe(10000.00);
+    expect($order->subtotal_gross)->toBe(10000);
     
     // Neto $8,403 (10000 / 1.19)
-    expect((float) $order->net_amount)->toBe(8403.36);
+    expect($order->net_amount)->toBe(8403);
     
-    // IVA $1,597 (10000 - 8403.36)
-    expect((float) $order->tax_amount)->toBe(1596.64);
+    // IVA $1,597 (10000 - 8403)
+    expect($order->tax_amount)->toBe(1597);
     
     // Total venta $10,000
-    expect((float) $order->amount_due)->toBe(10000.00);
+    expect($order->amount_due)->toBe(10000);
 });
 
 // ═══════════════════════════════════════════════════
@@ -151,8 +151,8 @@ test('CASO 2: Venta $10,000 + propina $1,000 = Total cobrado $11,000', function 
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'tip_amount' => 1000,
         'amount_due' => 11000,
         'subtotal' => 10000,
@@ -169,11 +169,11 @@ test('CASO 2: Venta $10,000 + propina $1,000 = Total cobrado $11,000', function 
     );
 
     // Punto 44: Propina NO forma parte del valor gravado
-    expect((float) $payment->amount)->toBe(10000.00);  // Solo venta
-    expect((float) $payment->tip_amount)->toBe(1000.00);  // Propina separada
+    expect($payment->amount)->toBe(10000);  // Solo venta
+    expect($payment->tip_amount)->toBe(1000);  // Propina separada
     
     // Punto 45: Propina incluida en monto efectivamente recibido
-    expect((float) $payment->total_amount)->toBe(11000.00);
+    expect($payment->total_amount)->toBe(11000);
 });
 
 // ═══════════════════════════════════════════════════
@@ -204,16 +204,16 @@ test('CASO 3: Venta $10,000 con descuento $2,000 = Total $8,000', function () {
 
     // Punto 41: Descuento afecta base imponible
     // Subtotal bruto: $10,000
-    expect((float) $order->subtotal_gross)->toBe(10000.00);
+    expect($order->subtotal_gross)->toBe(10000);
     
     // Descuento: $2,000
-    expect((float) $order->discount_amount)->toBe(2000.00);
+    expect($order->discount_amount)->toBe(2000);
     
     // Grand total: $8,000 (10000 - 2000)
-    expect((float) $order->total)->toBe(8000.00);
+    expect($order->total)->toBe(8000);
     
     // Amount due: $8,000 (sin propina)
-    expect((float) $order->amount_due)->toBe(8000.00);
+    expect($order->amount_due)->toBe(8000);
 });
 
 // ═══════════════════════════════════════════════════
@@ -228,8 +228,8 @@ test('CASO 4: Pago parcial de $5,000 sobre venta de $10,000', function () {
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -244,8 +244,8 @@ test('CASO 4: Pago parcial de $5,000 sobre venta de $10,000', function () {
         tipAmount: 0
     );
 
-    expect((float) $payment->amount)->toBe(5000.00);
-    expect((float) $payment->total_amount)->toBe(5000.00);
+    expect($payment->amount)->toBe(5000);
+    expect($payment->total_amount)->toBe(5000);
 });
 
 // ═══════════════════════════════════════════════════
@@ -260,8 +260,8 @@ test('CASO 5: Pago completo de $10,000', function () {
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -276,8 +276,8 @@ test('CASO 5: Pago completo de $10,000', function () {
         tipAmount: 0
     );
 
-    expect((float) $payment->amount)->toBe(10000.00);
-    expect((float) $payment->total_amount)->toBe(10000.00);
+    expect($payment->amount)->toBe(10000);
+    expect($payment->total_amount)->toBe(10000);
 });
 
 // ═══════════════════════════════════════════════════
@@ -292,8 +292,8 @@ test('CASO 6: Pago de $15,000 sobre venta de $10,000 (vuelto $5,000)', function 
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -324,8 +324,8 @@ test('CASO 7: Múltiples pagos ($5,000 + $3,000 + $2,000 = $10,000)', function (
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -364,7 +364,7 @@ test('CASO 7: Múltiples pagos ($5,000 + $3,000 + $2,000 = $10,000)', function (
 
     // Verificar suma
     $totalPaid = Payment::where('order_id', $order->id)->sum('amount');
-    expect((float) $totalPaid)->toBe(10000.00);
+    expect((float) $totalPaid)->toBe(10000);
 });
 
 // ═══════════════════════════════════════════════════
@@ -379,8 +379,8 @@ test('CASO 8: Split bill en 2 cuentas de $5,000 cada una', function () {
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -394,7 +394,7 @@ test('CASO 8: Split bill en 2 cuentas de $5,000 cada una', function () {
         'bill_number' => 'BILL-001',
         'type' => 'equal_split',
         'subtotal' => 5000,
-        'tax_amount' => 798.32,
+        'tax_amount' => 798,
         'total' => 5000,
         'paid_amount' => 0,
         'remaining_amount' => 5000,
@@ -408,7 +408,7 @@ test('CASO 8: Split bill en 2 cuentas de $5,000 cada una', function () {
         'bill_number' => 'BILL-002',
         'type' => 'equal_split',
         'subtotal' => 5000,
-        'tax_amount' => 798.32,
+        'tax_amount' => 798,
         'total' => 5000,
         'paid_amount' => 0,
         'remaining_amount' => 5000,
@@ -442,7 +442,7 @@ test('CASO 8: Split bill en 2 cuentas de $5,000 cada una', function () {
 // ═══════════════════════════════════════════════════
 // CASO 9: Redondeo (punto 40)
 // ═══════════════════════════════════════════════════
-test('CASO 9: Redondeo de IVA (10000 / 1.19 = 8403.36, redondeado a 2 decimales)', function () {
+test('CASO 9: Redondeo de IVA (10000 / 1.19 = 8403, redondeado a 2 decimales)', function () {
     $order = Order::create([
         'company_id' => $this->company->id,
         'branch_id' => $this->branch->id,
@@ -465,12 +465,12 @@ test('CASO 9: Redondeo de IVA (10000 / 1.19 = 8403.36, redondeado a 2 decimales)
     $order->refresh();
 
     // Punto 40: Redondeo a 2 decimales
-    expect((float) $order->net_amount)->toBe(8403.36);
-    expect((float) $order->tax_amount)->toBe(1596.64);
+    expect($order->net_amount)->toBe(8403);
+    expect($order->tax_amount)->toBe(1597);
     
     // Verificar que net + tax = gross
-    $sum = (float) $order->net_amount + (float) $order->tax_amount;
-    expect($sum)->toBe((float) $order->subtotal_gross);
+    $sum = $order->net_amount + $order->tax_amount;
+    expect($sum)->toBe($order->subtotal_gross);
 });
 
 // ═══════════════════════════════════════════════════
@@ -511,10 +511,10 @@ test('CASO 10: Producto exento de IVA (tax = 0)', function () {
     // Punto 42: Producto exento tiene tax = 0
     // Nota: La implementación actual calcula tax sobre el total bruto,
     // no discrimina por tipo de impuesto. Esto es una limitación conocida.
-    expect((float) $order->subtotal_gross)->toBe(1000.00);
+    expect($order->subtotal_gross)->toBe(1000);
     
     // Para productos 100% exentos, el tax debería ser 0
     // Pero la implementación actual calcula tax sobre el total
     // Esto es un TODO para mejorar en el futuro
-    expect((float) $order->tax_amount)->toBeGreaterThan(0);
+    expect($order->tax_amount)->toBeGreaterThan(0);
 })->skip('Limitación conocida: tax se calcula sobre total bruto, no discrimina por producto');

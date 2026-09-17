@@ -108,14 +108,14 @@ test('ADR-011: precios son BRUTOS, net = gross / 1.19, tax = gross - net', funct
     $order->refresh();
 
     // Validación ADR-011
-    expect((float) $order->subtotal_gross)->toBe(10000.00);  // Bruto (IVA incluido)
-    expect((float) $order->net_amount)->toBe(8403.36);        // 10000 / 1.19
-    expect((float) $order->tax_amount)->toBe(1596.64);        // 10000 - 8403.36
-    expect((float) $order->amount_due)->toBe(10000.00);       // Sin propina
+    expect($order->subtotal_gross)->toBe(10000);  // Bruto (IVA incluido)
+    expect($order->net_amount)->toBe(8403);        // 10000 / 1.19
+    expect($order->tax_amount)->toBe(1597);        // 10000 - 8403
+    expect($order->amount_due)->toBe(10000);       // Sin propina
 
     // Validación: net + tax = gross (integridad matemática)
-    $sum = (float) $order->net_amount + (float) $order->tax_amount;
-    expect($sum)->toBe((float) $order->subtotal_gross);
+    $sum = $order->net_amount + $order->tax_amount;
+    expect($sum)->toBe($order->subtotal_gross);
 });
 
 // ═══════════════════════════════════════════════════
@@ -130,8 +130,8 @@ test('propina NO afecta IVA y se contabiliza en cuenta separada (2200)', functio
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'tip_amount' => 1000,  // Propina de $1,000
         'amount_due' => 11000,
         'subtotal' => 10000,
@@ -147,8 +147,8 @@ test('propina NO afecta IVA y se contabiliza en cuenta separada (2200)', functio
         tipAmount: 1000
     );
 
-    expect((float) $payment->amount)->toBe(10000.00);     // Venta
-    expect((float) $payment->tip_amount)->toBe(1000.00);  // Propina
+    expect($payment->amount)->toBe(10000);     // Venta
+    expect($payment->tip_amount)->toBe(1000);  // Propina
 
     // Verificar asiento contable
     $entries = $this->ledgerService->getEntriesByReference(
@@ -162,7 +162,7 @@ test('propina NO afecta IVA y se contabiliza en cuenta separada (2200)', functio
         ->firstWhere('account.code', '2200');
 
     expect($tipsLine)->not->toBeNull()
-        ->and((float) $tipsLine['credit_amount'])->toBe(1000.00);
+        ->and($tipsLine['credit_amount'])->toBe(1000);
 
     // Asiento debe estar balanceado
     $debits = array_sum(array_column($entries[0]['ledger_entries'], 'debit_amount'));
@@ -182,8 +182,8 @@ test('JournalEntry siempre está balanceado (SUM debits == SUM credits)', functi
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 25000,
-        'net_amount' => 21008.40,
-        'tax_amount' => 3991.60,
+        'net_amount' => 21008,
+        'tax_amount' => 3992,
         'discount_amount' => 2000,
         'tip_amount' => 2500,
         'amount_due' => 25500,
@@ -244,7 +244,7 @@ test('pago parcial distribuye proporcionalmente IVA y propina', function () {
         tipAmount: 0
     );
 
-    expect((float) $payment1->amount)->toBe(5000.00);
+    expect((float) $payment1->amount)->toBe(5000);
 
     $entries = $this->ledgerService->getEntriesByReference(
         ReferenceType::PAYMENT,
@@ -295,7 +295,7 @@ test('reembolso parcial revierte líneas contables proporcionalmente', function 
     );
 
     expect($refund->status->value)->toBe('completed');
-    expect((float) $refund->amount)->toBe(5000.00);
+    expect($refund->amount)->toBe(5000);
 
     // Verificar asiento de reversa
     $entries = $this->ledgerService->getEntriesByReference(
@@ -321,8 +321,8 @@ test('reembolso rechaza amount mayor al reembolsable', function () {
         'status' => OrderStatus::SERVED,  // SERVED para permitir payment
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -361,8 +361,8 @@ test('múltiples reembolsos parciales suman sin exceder monto original', functio
         'status' => OrderStatus::SERVED,  // SERVED para permitir payment
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -397,7 +397,7 @@ test('múltiples reembolsos parciales suman sin exceder monto original', functio
 
     // Total reembolsado: $7,000 (menos que $10,000)
     $totalRefunded = Refund::totalRefundedFor($payment->id);
-    expect((float) $totalRefunded)->toBe(7000.00);
+    expect((float) $totalRefunded)->toBe(7000);
 
     // Tercer reembolso: $4,000 (excede el restante: $3,000)
     $this->expectException(\Modules\Payments\Domain\Exceptions\InvalidRefundException::class);
@@ -435,8 +435,8 @@ test('cash session expected = opening + payments cash - payouts', function () {
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -458,7 +458,7 @@ test('cash session expected = opening + payments cash - payouts', function () {
 
     // Expected: 50,000 (opening) + 10,000 (payment) = 60,000
     $expected = $session->calculateExpectedAmountForClose();
-    expect((float) $expected)->toBe(60000.00);
+    expect((float) $expected)->toBe(60000);
 });
 
 // ═══════════════════════════════════════════════════
@@ -473,8 +473,8 @@ test('Order.amount_due == suma de payments completados + tip', function () {
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'tip_amount' => 1000,
         'amount_due' => 11000,
         'subtotal' => 10000,
@@ -491,8 +491,8 @@ test('Order.amount_due == suma de payments completados + tip', function () {
         tipAmount: 1000
     );
 
-    $totalPaid = (float) $payment->amount + (float) $payment->tip_amount;
-    expect($totalPaid)->toBe((float) $order->amount_due);
+    $totalPaid = $payment->amount + $payment->tip_amount;
+    expect($totalPaid)->toBe($order->amount_due);
 });
 
 // ═══════════════════════════════════════════════════
@@ -507,8 +507,8 @@ test('idempotencia: misma key retorna misma respuesta sin duplicar', function ()
         'status' => OrderStatus::SERVED,
         'waiter_id' => $this->user->id,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,

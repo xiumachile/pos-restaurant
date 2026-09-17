@@ -78,8 +78,8 @@ test('crash durante creación de pago: transacción hace rollback', function () 
         'type' => OrderType::DINE_IN,
         'status' => OrderStatus::SERVED,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -91,7 +91,7 @@ test('crash durante creación de pago: transacción hace rollback', function () 
         $this->company->id,
         $this->branch->id,
         $this->user->id,
-        50000.00
+        50000
     );
 
     // Simular crash ANTES de commit: rollback manual
@@ -108,9 +108,9 @@ test('crash durante creación de pago: transacción hace rollback', function () 
             'user_id' => $this->user->id,
             'payment_number' => 'PAY-CRASH-001',
             'method_code' => 'cash',
-            'amount' => 10000.00,
+            'amount' => 10000,
             'tip_amount' => 0,
-            'total_amount' => 10000.00,
+            'total_amount' => 10000,
             'status' => 'completed',
             'idempotency_key' => Str::uuid()->toString(),
         ]);
@@ -128,7 +128,7 @@ test('crash durante creación de pago: transacción hace rollback', function () 
     // Bill sigue OPEN
     $bill->refresh();
     expect($bill->status)->toBe(BillStatus::OPEN)
-        ->and((float) $bill->paid_amount)->toBe(0.00);
+        ->and($bill->paid_amount)->toBe(0);
 });
 
 test('crash después de payment pero antes de bill update: bill recupera estado correcto', function () {
@@ -140,8 +140,8 @@ test('crash después de payment pero antes de bill update: bill recupera estado 
         'type' => OrderType::DINE_IN,
         'status' => OrderStatus::SERVED,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -153,14 +153,14 @@ test('crash después de payment pero antes de bill update: bill recupera estado 
         $this->company->id,
         $this->branch->id,
         $this->user->id,
-        50000.00
+        50000
     );
 
     // Pago exitoso (todo dentro de transacción)
     $payment = $this->paymentService->registerPayment(
         order: $order,
         paymentMethod: $this->cashMethod,
-        amount: 10000.00,
+        amount: 10000,
         idempotencyKey: Str::uuid()->toString(),
         bill: $bill,
         cashSession: $cashSession,
@@ -174,7 +174,7 @@ test('crash después de payment pero antes de bill update: bill recupera estado 
 
     // Verificar integridad completa
     expect($billReloaded->status)->toBe(BillStatus::PAID)
-        ->and((float) $billReloaded->paid_amount)->toBe(10000.00)
+        ->and((float) $billReloaded->paid_amount)->toBe(10000)
         ->and($paymentReloaded)->not->toBeNull()
         ->and($orderReloaded->status)->toBe(OrderStatus::PAID);
 });
@@ -184,7 +184,7 @@ test('crash durante cierre de caja: sesión queda abierta, se puede reintentar',
         $this->company->id,
         $this->branch->id,
         $this->user->id,
-        50000.00
+        50000
     );
 
     // Crear orden y pago
@@ -196,8 +196,8 @@ test('crash durante cierre de caja: sesión queda abierta, se puede reintentar',
         'type' => OrderType::DINE_IN,
         'status' => OrderStatus::SERVED,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -206,7 +206,7 @@ test('crash durante cierre de caja: sesión queda abierta, se puede reintentar',
     $this->paymentService->registerPayment(
         order: $order,
         paymentMethod: $this->cashMethod,
-        amount: 10000.00,
+        amount: 10000,
         idempotencyKey: Str::uuid()->toString(),
         cashSession: $cashSession,
         userId: $this->user->id
@@ -220,13 +220,13 @@ test('crash durante cierre de caja: sesión queda abierta, se puede reintentar',
     // Reintento: cerrar caja después del "crash"
     $closedSession = $this->cashSessionService->closeSession(
         $sessionReloaded,
-        60000.00, // 50000 + 10000
+        60000, // 50000 + 10000
         'Cierre después de crash'
     );
 
     expect($closedSession->status)->toBe(CashSessionStatus::CLOSED)
-        ->and((float) $closedSession->expected_amount)->toBe(60000.00)
-        ->and((float) $closedSession->difference)->toBe(0.00);
+        ->and((float) $closedSession->expected_amount)->toBe(60000)
+        ->and((float) $closedSession->difference)->toBe(0);
 });
 
 test('crash recovery: idempotencia previene doble pago después de retry', function () {
@@ -238,8 +238,8 @@ test('crash recovery: idempotencia previene doble pago después de retry', funct
         'type' => OrderType::DINE_IN,
         'status' => OrderStatus::SERVED,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -249,7 +249,7 @@ test('crash recovery: idempotencia previene doble pago después de retry', funct
         $this->company->id,
         $this->branch->id,
         $this->user->id,
-        50000.00
+        50000
     );
 
     $idempotencyKey = Str::uuid()->toString();
@@ -258,7 +258,7 @@ test('crash recovery: idempotencia previene doble pago después de retry', funct
     $payment1 = $this->paymentService->registerPayment(
         order: $order,
         paymentMethod: $this->cashMethod,
-        amount: 10000.00,
+        amount: 10000,
         idempotencyKey: $idempotencyKey,
         cashSession: $cashSession,
         userId: $this->user->id
@@ -269,7 +269,7 @@ test('crash recovery: idempotencia previene doble pago después de retry', funct
     $payment2 = $this->paymentService->registerPayment(
         order: $order,
         paymentMethod: $this->cashMethod,
-        amount: 10000.00,
+        amount: 10000,
         idempotencyKey: $idempotencyKey,
         cashSession: $cashSession,
         userId: $this->user->id
@@ -284,7 +284,7 @@ test('crash recovery: idempotencia previene doble pago después de retry', funct
 
     // Total pagado debe ser $10,000 (no $20,000)
     $totalPaid = Payment::where('order_id', $order->id)->sum('amount');
-    expect((float) $totalPaid)->toBe(10000.00);
+    expect((float) $totalPaid)->toBe(10000);
 });
 
 test('criterio de cierre: nunca queda estado financiero parcial después de crash', function () {
@@ -296,8 +296,8 @@ test('criterio de cierre: nunca queda estado financiero parcial después de cras
         'type' => OrderType::DINE_IN,
         'status' => OrderStatus::SERVED,
         'subtotal_gross' => 10000,
-        'net_amount' => 8403.36,
-        'tax_amount' => 1596.64,
+        'net_amount' => 8403,
+        'tax_amount' => 1597,
         'amount_due' => 10000,
         'subtotal' => 10000,
         'total' => 10000,
@@ -309,14 +309,14 @@ test('criterio de cierre: nunca queda estado financiero parcial después de cras
         $this->company->id,
         $this->branch->id,
         $this->user->id,
-        50000.00
+        50000
     );
 
     // Pago completo
     $payment = $this->paymentService->registerPayment(
         order: $order,
         paymentMethod: $this->cashMethod,
-        amount: 10000.00,
+        amount: 10000,
         idempotencyKey: Str::uuid()->toString(),
         bill: $bill,
         cashSession: $cashSession,
@@ -334,9 +334,9 @@ test('criterio de cierre: nunca queda estado financiero parcial después de cras
     // Verificar integridad completa (sin estado parcial)
     expect($orderReloaded->status)->toBe(OrderStatus::PAID)
         ->and($billReloaded->status)->toBe(BillStatus::PAID)
-        ->and((float) $billReloaded->paid_amount)->toBe(10000.00)
+        ->and((float) $billReloaded->paid_amount)->toBe(10000)
         ->and($paymentReloaded)->not->toBeNull()
-        ->and((float) $paymentReloaded->total_amount)->toBe(10000.00)
+        ->and((float) $paymentReloaded->total_amount)->toBe(10000)
         ->and($sessionReloaded->status)->toBe(CashSessionStatus::OPEN);
 
     // Verificar ledger (asientos contables)

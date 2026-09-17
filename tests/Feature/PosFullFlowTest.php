@@ -143,16 +143,16 @@ test('flujo POS completo: pos-session → login → orden → pago', function ()
     $order = \Modules\Orders\Domain\Entities\Order::where('uuid', $orderUuid)->firstOrFail();
     
     // subtotal_gross = 10000 (IVA incluido)
-    expect((float) $order->subtotal_gross)->toBe(10000.0);
+    expect($order->subtotal_gross)->toBe(10000.0);
     
-    // net_amount = 10000 / 1.19 = 8403.36
-    expect((float) $order->net_amount)->toBe(8403.36);
+    // net_amount = 10000 / 1.19 = 8403
+    expect($order->net_amount)->toBe(8403);
     
-    // tax_amount = 10000 - 8403.36 = 1596.64
-    expect((float) $order->tax_amount)->toBe(1596.64);
+    // tax_amount = 10000 - 8403 = 1597
+    expect($order->tax_amount)->toBe(1597);
     
     // amount_due = 10000 (sin propina)
-    expect((float) $order->amount_due)->toBe(10000.0);
+    expect($order->amount_due)->toBe(10000.0);
 
     // Actualizar estado directamente a 'served' para permitir pagos
     // (las transiciones de estado ya tienen sus propios tests)
