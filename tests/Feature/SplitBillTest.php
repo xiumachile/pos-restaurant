@@ -94,7 +94,7 @@ test('split bill: dividir cuenta en 2 partes iguales', function () {
         'status' => OrderStatus::SERVED,
         'subtotal_gross' => 22000,
         'net_amount' => 18487, // ADR-018: typo corregido
-        'tax_amount' => 3512.60,
+        'tax_amount' => 3513, // ADR-018: 22000 - 18487 = 3513 (invariant net+tax=gross)
         'amount_due' => 22000,
         'subtotal' => 22000,
         'total' => 22000,
@@ -121,7 +121,7 @@ test('split bill: dividir cuenta en 2 partes iguales', function () {
         'quantity' => 1,
         'unit_price_snapshot' => 12000,
         'subtotal' => 12000,
-        'tax_amount' => 1915.97,
+        'tax_amount' => 1916, // ADR-018: 12000 - 10084 = 1916 (invariant net+tax=gross)
     ]);
 
     // Dividir en 2 partes iguales
@@ -137,8 +137,9 @@ test('split bill: dividir cuenta en 2 partes iguales', function () {
     }
 
     // Verificar que la suma de bills = total de orden
-    $totalBills = array_sum(array_map(fn($b) => (float) $b->total, $bills));
-    expect((float) $totalBills)->toBe(22000);
+    // ADR-018: total es integer, suma exacta sin float
+    $totalBills = array_sum(array_map(fn($b) => (int) $b->total, $bills));
+    expect($totalBills)->toBe(22000);
 });
 
 test('split bill: pagar una de las dos bills parcialmente', function () {
@@ -183,13 +184,14 @@ test('split bill: pagar una de las dos bills parcialmente', function () {
     $bill1->refresh();
     expect($bill1->status)->toBe(BillStatus::PARTIAL)
         ->and((int) $bill1->paid_amount)->toBe(5000) // ADR-018: paid_amount es integer
-        ->and((float) $bill1->remaining_amount)->toBe(5000);
+        ->and((int) $bill1->remaining_amount)->toBe(5000); // ADR-018
 
     // bill2 debe seguir OPEN
     $bill2->refresh();
     expect($bill2->status)->toBe(BillStatus::OPEN)
-        ->and((float) $bill2->paid_amount)->toBe(0)
-        ->and((float) $bill2->remaining_amount)->toBe(10000);
+        // ADR-018: paid_amount y remaining_amount son integer
+        ->and((int) $bill2->paid_amount)->toBe(0)
+        ->and((int) $bill2->remaining_amount)->toBe(10000);
 });
 
 test('split bill: pagar ambas bills completamente', function () {
