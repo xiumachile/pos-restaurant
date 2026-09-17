@@ -174,7 +174,7 @@ test('crash después de payment pero antes de bill update: bill recupera estado 
 
     // Verificar integridad completa
     expect($billReloaded->status)->toBe(BillStatus::PAID)
-        ->and((float) $billReloaded->paid_amount)->toBe(10000)
+        ->and((int) $billReloaded->paid_amount)->toBe(10000)  // ADR-018
         ->and($paymentReloaded)->not->toBeNull()
         ->and($orderReloaded->status)->toBe(OrderStatus::PAID);
 });
@@ -225,8 +225,8 @@ test('crash durante cierre de caja: sesión queda abierta, se puede reintentar',
     );
 
     expect($closedSession->status)->toBe(CashSessionStatus::CLOSED)
-        ->and((float) $closedSession->expected_amount)->toBe(60000)
-        ->and((float) $closedSession->difference)->toBe(0);
+        ->and((int) $closedSession->expected_amount)->toBe(60000)  // ADR-018
+        ->and((int) $closedSession->difference)->toBe(0);  // ADR-018
 });
 
 test('crash recovery: idempotencia previene doble pago después de retry', function () {
@@ -284,7 +284,7 @@ test('crash recovery: idempotencia previene doble pago después de retry', funct
 
     // Total pagado debe ser $10,000 (no $20,000)
     $totalPaid = Payment::where('order_id', $order->id)->sum('amount');
-    expect((float) $totalPaid)->toBe(10000);
+    expect((int) $totalPaid)->toBe(10000);  // ADR-018
 });
 
 test('criterio de cierre: nunca queda estado financiero parcial después de crash', function () {
@@ -334,9 +334,9 @@ test('criterio de cierre: nunca queda estado financiero parcial después de cras
     // Verificar integridad completa (sin estado parcial)
     expect($orderReloaded->status)->toBe(OrderStatus::PAID)
         ->and($billReloaded->status)->toBe(BillStatus::PAID)
-        ->and((float) $billReloaded->paid_amount)->toBe(10000)
+        ->and((int) $billReloaded->paid_amount)->toBe(10000)  // ADR-018
         ->and($paymentReloaded)->not->toBeNull()
-        ->and((float) $paymentReloaded->total_amount)->toBe(10000)
+        ->and((int) $paymentReloaded->total_amount)->toBe(10000)  // ADR-018
         ->and($sessionReloaded->status)->toBe(CashSessionStatus::OPEN);
 
     // Verificar ledger (asientos contables)
