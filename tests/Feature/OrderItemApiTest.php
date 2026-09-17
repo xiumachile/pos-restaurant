@@ -98,9 +98,9 @@ test('POST /api/v1/orders/{uuid}/items agrega item al pedido', function () {
     $data = $response->json('data');
     expect($data['items'][0]['name'])->toBe('Hamburguesa Clásica');
     expect($data['items'][0]['quantity'])->toBe(2);
-    expect((float) $data['items'][0]['unit_price'])->toBe(5990.0);
-    expect((float) $data['items'][0]['subtotal'])->toBe(11980.0);
-    expect((float) $data['subtotal'])->toBe(11980.0);
+    expect((int) $data['items'][0]['unit_price'])->toBe(5990);  // ADR-018
+    expect((int) $data['items'][0]['subtotal'])->toBe(11980);  // ADR-018
+    expect((int) $data['subtotal'])->toBe(11980);  // ADR-018
 });
 
 test('agregar múltiples items recalcula totales correctamente', function () {
@@ -129,7 +129,7 @@ test('agregar múltiples items recalcula totales correctamente', function () {
     $response->assertOk()
         ->assertJsonCount(2, 'data.items');
 
-    expect((float) $response->json('data.subtotal'))->toBe(17970.0);
+    expect((int) $response->json('data.subtotal'))->toBe(17970);  // ADR-018
 });
 
 test('DELETE /api/v1/orders/{uuid}/items/{itemUuid} quita item', function () {
@@ -154,7 +154,7 @@ test('DELETE /api/v1/orders/{uuid}/items/{itemUuid} quita item', function () {
     $response->assertOk()
         ->assertJsonCount(0, 'data.items');
 
-    expect((float) $response->json('data.subtotal'))->toBe(0.0);
+    expect((int) $response->json('data.subtotal'))->toBe(0);  // ADR-018
 });
 
 test('deniega agregar items a pedido confirmado', function () {

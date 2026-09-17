@@ -67,17 +67,21 @@ class OrderItemController extends Controller
         }
         $productName = $translations['es'] ?? $translations['en'] ?? reset($translations) ?: 'Producto';
 
-        $unitPrice = (float) ($menuItem->base_price ?? $product->base_price);
+        // ADR-018 + ADR-011: unit_price es BRUTO (IVA incluido), todo entero
+        $unitPrice = (int) ($menuItem->base_price ?? $product->base_price);
         $subtotal = $unitPrice * $validated['quantity'];
 
+        // ADR-011: NO calcular tax_amount por item.
+        // El tax se calcula a nivel de Order usando modelo bruto:
+        // net_amount = round(gross / 1.19), tax_amount = gross - net_amount
+        // 
+        // Mantener solo snapshots de auditoría.
         if ($product->tax_rate !== null && $product->tax_rate > 0) {
             $taxRate = (float) $product->tax_rate;
-            $taxAmount = round($subtotal * ($taxRate / 100), 2);
             $taxName = null;
         } else {
             $effectiveTax = $product->getEffectiveTax();
             $taxRate = $effectiveTax ? (float) $effectiveTax->rate : 0.0;
-            $taxAmount = round($subtotal * ($taxRate / 100), 2);
             $taxName = $effectiveTax ? $effectiveTax->name : null;
         }
 
@@ -91,7 +95,7 @@ class OrderItemController extends Controller
             'quantity' => $validated['quantity'],
             'notes' => $validated['notes'] ?? null,
             'subtotal' => $subtotal,
-            'tax_amount' => $taxAmount,
+            // tax_amount se establece a 0 por OrderItem::booted() (ADR-011)
             'tax_rate_snapshot' => $taxRate,
             'tax_name_snapshot' => $taxName,
         ]);

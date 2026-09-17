@@ -157,7 +157,7 @@ test('calcula balance de cuenta correctamente', function () {
 
     // Balance de ingresos: 10000 - 3000 = 7000 (crédito neto)
     $revenueBalance = $this->ledgerService->getAccountBalance($this->revenueAccount->id);
-    expect($revenueBalance)->toBe(7000.0);
+    expect($revenueBalance)->toBe(7000);  // ADR-018: int
 });
 
 test('obtiene asientos por referencia', function () {
