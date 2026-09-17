@@ -229,11 +229,13 @@ export const offlinePaymentService = {
 
       // 6. Crear el LocalPayment (propaga company/branch desde el order)
       // 🔒 ADR-011: Usar order.tip_amount (no payload.tipAmount) para consistencia
+      // 🔗 ADR-019: Vincular payment a bill si existe (preserva estructura de split bill en sync)
       const payment = await PaymentRepository.create({
         company_id: order.company_id,
         branch_id: order.branch_id,
         order_local_uuid: order.local_uuid,
         order_cloud_id: order.cloud_id || undefined,
+        bill_local_uuid: bill?.local_uuid,  // null si pago directo a order (sin bill)
         payment_method: paymentMethod,
         amount,
         tip_amount: order.tip_amount,  // ✅ Usa order.tip_amount (consistente con Bill)
