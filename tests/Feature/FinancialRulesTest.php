@@ -364,7 +364,7 @@ test('CASO 7: Múltiples pagos ($5,000 + $3,000 + $2,000 = $10,000)', function (
 
     // Verificar suma
     $totalPaid = Payment::where('order_id', $order->id)->sum('amount');
-    expect((float) $totalPaid)->toBe(10000);
+    expect((int) $totalPaid)->toBe(10000);  // ADR-018: int
 });
 
 // ═══════════════════════════════════════════════════

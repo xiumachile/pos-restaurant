@@ -186,7 +186,7 @@ test('pago parcial genera asiento proporcional', function () {
     $cashAccount = Account::where('company_id', $this->company->id)
         ->where('code', '1100')->first();
     $cashBalance = $this->ledgerService->getAccountBalance($cashAccount->id);
-    expect($cashBalance)->toBe(5000.0);
+    expect($cashBalance)->toBe(5000);  // ADR-018: int
 });
 
 test('idempotencia no genera asiento duplicado', function () {
@@ -257,8 +257,8 @@ test('múltiples pagos parciales generan asientos independientes', function () {
     $cashBalance = $this->ledgerService->getAccountBalance($cashAccount->id);
     $cardBalance = $this->ledgerService->getAccountBalance($cardAccount->id);
 
-    expect($cashBalance)->toBe(7900.0) // 5000 + 2900
-        ->and($cardBalance)->toBe(4000.0);
+    expect($cashBalance)->toBe(7900) // 5000 + 2900  // ADR-018: int
+        ->and($cardBalance)->toBe(4000);  // ADR-018: int
 });
 
 test('cuentas contables se siembran automáticamente si faltan', function () {

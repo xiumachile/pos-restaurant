@@ -220,7 +220,7 @@ test('se puede crear un movimiento de retiro', function () {
 
     expect($movement->id)->not->toBeNull();
     expect($movement->type)->toBe(MovementType::WITHDRAWAL);
-    expect($movement->balanceImpact())->toBe(-30000.0);
+    expect($movement->balanceImpact())->toBe(-30000);  // ADR-018: int
 });
 
 test('CashMovement depósito tiene impacto positivo', function () {
@@ -253,7 +253,7 @@ test('CashMovement depósito tiene impacto positivo', function () {
         'balance_after' => 70000,
     ]);
 
-    expect($movement->balanceImpact())->toBe(20000.0);
+    expect($movement->balanceImpact())->toBe(20000);  // ADR-018: int
 });
 
 test('CashMovement authorize registra supervisor', function () {

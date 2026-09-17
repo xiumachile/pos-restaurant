@@ -106,7 +106,7 @@ test('calculateExpectedAmountForClose incluye movimientos de caja', function () 
     // Esperado: 100000 - 20000 + 5000 = 85000
     $expected = $session->calculateExpectedAmountForClose();
 
-    expect($expected)->toBe(85000.0);
+    expect($expected)->toBe(85000);  // ADR-018: int
 });
 
 // ============================================
@@ -153,7 +153,7 @@ test('calculateExpectedAmountForClose y calculateExpectedCashBalance coinciden s
 
     // Sin TipPayouts, ambos deben ser iguales
     expect($forClose)->toBe($cashBalance)
-        ->and($forClose)->toBe(43000.0); // 50000 - 10000 + 3000
+        ->and($forClose)->toBe(43000); // 50000 - 10000 + 3000  // ADR-018: int
 });
 
 // ============================================
