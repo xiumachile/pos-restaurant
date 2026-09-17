@@ -2,20 +2,14 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     /**
-     * Tablas y columnas a migrar de DECIMAL(14,2) a INTEGER
+     * Migración completa DECIMAL(14,2) → INTEGER
      * 
-     * IMPORTANTE: Los valores DECIMAL(14,2) ya están en formato "12345.67"
-     * que representa $12.345,67. Al convertir a INTEGER, debemos multiplicar
-     * por 100 para obtener centavos, O simplemente hacer CAST si ya son enteros.
-     * 
-     * En nuestro caso, como usamos CLP (sin centavos), los valores DECIMAL(14,2)
-     * son en realidad "12345.00" (sin parte decimal significativa).
-     * Por lo tanto, podemos hacer CAST directo a INTEGER.
+     * Versión robusta: procesa cada columna individualmente con try/catch
+     * para identificar exactamente qué columna falla.
      */
     
     protected array $tables = [
@@ -51,9 +45,29 @@ return new class extends Migration
         ],
         'cash_movements' => [
             'amount',
+            'balance_after',
+        ],
+        'cash_counts' => [
+            'card_amount',
+            'cash_amount',
+            'counted_amount',
+            'difference',
+            'expected_amount',
+            'other_amount',
+            'transfer_amount',
+        ],
+        'refunds' => [
+            'amount',
+        ],
+        'tip_payouts' => [
+            'amount',
         ],
         'journal_entries' => [
             'amount',
+        ],
+        'ledger_entries' => [
+            'debit_amount',
+            'credit_amount',
         ],
         'order_items' => [
             'unit_price_snapshot',
@@ -62,98 +76,106 @@ return new class extends Migration
         ],
     ];
 
-    /**
-     * Columnas que NO deben migrar (porcentajes, tasas)
-     */
-    protected array $exclude = [
-        'taxes.rate',  // DECIMAL(10,4) - tasa de impuesto
-    ];
-
     public function up(): void
     {
-        DB::transaction(function () {
-            foreach ($this->tables as $table => $columns) {
-                foreach ($columns as $column) {
-                    $this->convertColumnToInteger($table, $column);
-                }
+        foreach ($this->tables as $table => $columns) {
+            foreach ($columns as $column) {
+                $this->convertColumnToInteger($table, $column);
             }
-        });
+        }
     }
 
     public function down(): void
     {
-        DB::transaction(function () {
-            foreach ($this->tables as $table => $columns) {
-                foreach ($columns as $column) {
-                    $this->convertColumnToDecimal($table, $column);
-                }
+        foreach ($this->tables as $table => $columns) {
+            foreach ($columns as $column) {
+                $this->convertColumnToDecimal($table, $column);
             }
-        });
+        }
     }
 
     private function convertColumnToInteger(string $table, string $column): void
     {
-        // Paso 1: Eliminar DEFAULT si existe
-        DB::statement("
-            ALTER TABLE {$table} 
-            ALTER COLUMN {$column} DROP DEFAULT
-        ");
-
-        // Paso 2: Convertir tipo de DECIMAL a INTEGER
-        // USING clause convierte valores existentes
-        // Como son CLP (sin centavos), CAST directo es seguro
-        DB::statement("
-            ALTER TABLE {$table} 
-            ALTER COLUMN {$column} TYPE INTEGER 
-            USING {$column}::INTEGER
-        ");
-
-        // Paso 3: Agregar NOT NULL si la columna no es nullable
-        $isNullable = DB::selectOne("
-            SELECT is_nullable 
+        // Verificar si la columna ya es INTEGER
+        $currentType = DB::selectOne("
+            SELECT data_type 
             FROM information_schema.columns 
             WHERE table_name = ? AND column_name = ?
-        ", [$table, $column])->is_nullable;
+        ", [$table, $column]);
 
-        if ($isNullable === 'NO') {
-            DB::statement("
-                ALTER TABLE {$table} 
-                ALTER COLUMN {$column} SET NOT NULL
-            ");
+        if (!$currentType) {
+            echo "⚠️  Columna {$table}.{$column} no existe, saltando\n";
+            return;
         }
 
-        // Paso 4: Agregar DEFAULT 0 si aplica
-        if ($this->shouldHaveDefault($table, $column)) {
-            DB::statement("
-                ALTER TABLE {$table} 
-                ALTER COLUMN {$column} SET DEFAULT 0
-            ");
+        if ($currentType->data_type === 'integer' || $currentType->data_type === 'bigint') {
+            echo "✅ {$table}.{$column} ya es INTEGER, saltando\n";
+            return;
         }
 
-        echo "✅ {$table}.{$column} convertido a INTEGER\n";
+        try {
+            // Paso 1: Drop DEFAULT si existe
+            DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} DROP DEFAULT");
+
+            // Paso 2: Drop NOT NULL temporalmente (para permitir conversión)
+            DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} DROP NOT NULL");
+
+            // Paso 3: Convertir tipo
+            DB::statement("
+                ALTER TABLE {$table} 
+                ALTER COLUMN {$column} TYPE INTEGER 
+                USING (CASE WHEN {$column} IS NULL THEN 0 ELSE {$column}::INTEGER END)
+            ");
+
+            // Paso 4: Restaurar NOT NULL si era NOT NULL originalmente
+            $isNullable = DB::selectOne("
+                SELECT is_nullable 
+                FROM information_schema.columns 
+                WHERE table_name = ? AND column_name = ?
+            ", [$table, $column])->is_nullable;
+
+            if ($isNullable === 'NO') {
+                // Primero actualizar cualquier NULL a 0
+                DB::statement("UPDATE {$table} SET {$column} = 0 WHERE {$column} IS NULL");
+                DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} SET NOT NULL");
+            }
+
+            // Paso 5: Set DEFAULT 0 para columnas que lo necesitan
+            if ($this->shouldHaveDefault($column)) {
+                DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} SET DEFAULT 0");
+            }
+
+            echo "✅ {$table}.{$column} convertido a INTEGER\n";
+        } catch (\Exception $e) {
+            echo "❌ ERROR en {$table}.{$column}: " . $e->getMessage() . "\n";
+            throw $e;
+        }
     }
 
     private function convertColumnToDecimal(string $table, string $column): void
     {
-        // Revertir: INTEGER → DECIMAL(14,2)
-        DB::statement("
-            ALTER TABLE {$table} 
-            ALTER COLUMN {$column} TYPE DECIMAL(14,2) 
-            USING {$column}::DECIMAL(14,2)
-        ");
-
-        echo "⏪ {$table}.{$column} revertido a DECIMAL(14,2)\n";
+        try {
+            DB::statement("
+                ALTER TABLE {$table} 
+                ALTER COLUMN {$column} TYPE DECIMAL(14,2) 
+                USING {$column}::DECIMAL(14,2)
+            ");
+            echo "⏪ {$table}.{$column} revertido a DECIMAL(14,2)\n";
+        } catch (\Exception $e) {
+            echo "❌ ERROR revertiendo {$table}.{$column}: " . $e->getMessage() . "\n";
+            throw $e;
+        }
     }
 
-    private function shouldHaveDefault(string $table, string $column): bool
+    private function shouldHaveDefault(string $column): bool
     {
-        // Columnas que deben tener DEFAULT 0
-        $defaultColumns = [
+        return in_array($column, [
             'tip_amount',
             'discount_amount',
             'difference',
-        ];
-
-        return in_array($column, $defaultColumns);
+            'tax_amount',
+            'debit_amount',
+            'credit_amount',
+        ]);
     }
 };

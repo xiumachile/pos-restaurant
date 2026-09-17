@@ -1,14 +1,22 @@
 <?php
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Modules\Orders\Domain\Entities\Order;
 use Modules\Payments\Domain\Entities\Payment;
 use Modules\Payments\Domain\Entities\Bill;
 
 uses(RefreshDatabase::class);
 
+/**
+ * Tests de migración DECIMAL → INTEGER (ADR-018)
+ * 
+ * IMPORTANTE: Los valores deben ser ENTEROS (pesos CLP)
+ * Ejemplo: $12.990 CLP → 12990 (entero)
+ */
+
 test('migración convierte DECIMAL a INTEGER correctamente', function () {
-    // Crear datos de prueba con valores DECIMAL
+    // Valores ENTEROS (pesos CLP, sin decimales)
     $order = Order::create([
         'company_id' => 1,
         'branch_id' => 1,
@@ -16,22 +24,26 @@ test('migración convierte DECIMAL a INTEGER correctamente', function () {
         'order_number' => 'TEST-001',
         'type' => 'dine_in',
         'status' => 'served',
-        'subtotal_gross' => 12990.00,  // DECIMAL(14,2)
-        'net_amount' => 10915.97,
-        'tax_amount' => 2074.03,
-        'tip_amount' => 1000.00,
-        'amount_due' => 13990.00,
-        'subtotal' => 12990.00,
-        'total' => 13990.00,
+        'subtotal_gross' => 12990,  // $12.990 CLP
+        'net_amount' => 10916,      // round(12990/1.19) = 10916
+        'tax_amount' => 2074,       // 12990 - 10916 = 2074
+        'tip_amount' => 1000,       // $1.000 propina
+        'amount_due' => 13990,      // 12990 + 1000
+        'subtotal' => 12990,
+        'total' => 13990,
     ]);
 
-    // Verificar que los valores se guardaron correctamente
     $recovered = Order::find($order->id);
     
-    // Después de la migración, estos deben ser enteros
     expect($recovered->subtotal_gross)->toBe(12990)
+        ->and($recovered->net_amount)->toBe(10916)
+        ->and($recovered->tax_amount)->toBe(2074)
         ->and($recovered->tip_amount)->toBe(1000)
         ->and($recovered->amount_due)->toBe(13990);
+    
+    // Verificación: net + tax = gross
+    expect($recovered->net_amount + $recovered->tax_amount)
+        ->toBe($recovered->subtotal_gross);
 });
 
 test('operaciones aritméticas funcionan con enteros', function () {
@@ -43,15 +55,14 @@ test('operaciones aritméticas funcionan con enteros', function () {
         'type' => 'dine_in',
         'status' => 'served',
         'subtotal_gross' => 25000,
-        'net_amount' => 21008,
-        'tax_amount' => 3992,
+        'net_amount' => 21008,      // round(25000/1.19)
+        'tax_amount' => 3992,       // 25000 - 21008
         'tip_amount' => 0,
         'amount_due' => 25000,
         'subtotal' => 25000,
         'total' => 25000,
     ]);
 
-    // Crear payment
     $payment = Payment::create([
         'company_id' => 1,
         'branch_id' => 1,
@@ -65,9 +76,7 @@ test('operaciones aritméticas funcionan con enteros', function () {
         'idempotency_key' => 'test-key-001',
     ]);
 
-    // Verificar que la suma funciona correctamente
-    $totalPaid = Payment::where('order_id', $order->id)
-        ->sum('total_amount');
+    $totalPaid = Payment::where('order_id', $order->id)->sum('total_amount');
 
     expect($totalPaid)->toBe(25000)
         ->and($order->amount_due)->toBe(25000)
@@ -75,34 +84,18 @@ test('operaciones aritméticas funcionan con enteros', function () {
 });
 
 test('split bill con remanente funciona con enteros', function () {
-    $order = Order::create([
-        'company_id' => 1,
-        'branch_id' => 1,
-        'waiter_id' => 1,
-        'order_number' => 'TEST-003',
-        'type' => 'dine_in',
-        'status' => 'served',
-        'subtotal_gross' => 25000,
-        'net_amount' => 21008,
-        'tax_amount' => 3992,
-        'tip_amount' => 0,
-        'amount_due' => 25000,
-        'subtotal' => 25000,
-        'total' => 25000,
-    ]);
-
-    // Dividir en 3 partes
+    // $25.000 CLP / 3 partes
     $total = 25000;
     $parts = 3;
     $base = (int) floor($total / $parts);  // 8333
-    $remainder = $total % $parts;  // 1
+    $remainder = $total % $parts;          // 1
 
     $bills = [];
     for ($i = 0; $i < $parts; $i++) {
         $bills[] = $base + ($i < $remainder ? 1 : 0);
     }
 
-    // Verificar que la suma es exacta
+    // Resultado: [8334, 8333, 8333]
     $sum = array_sum($bills);
     expect($sum)->toBe(25000)
         ->and($bills[0])->toBe(8334)
@@ -111,9 +104,10 @@ test('split bill con remanente funciona con enteros', function () {
 });
 
 test('IVA se calcula correctamente con enteros', function () {
-    $gross = 999;  // $999 CLP
+    // $999 CLP → cálculo de IVA
+    $gross = 999;
     $net = (int) round($gross / 1.19);  // 839
-    $tax = $gross - $net;  // 160
+    $tax = $gross - $net;               // 160
 
     expect($net)->toBe(839)
         ->and($tax)->toBe(160)
@@ -131,14 +125,12 @@ test('comparaciones sin epsilon funcionan correctamente', function () {
     $amount = 10000;
     $available = 10000;
 
-    // Sin epsilon, comparación directa
     expect($amount === $available)->toBeTrue()
         ->and($amount > $available)->toBeFalse()
         ->and($amount < $available)->toBeFalse();
 });
 
 test('migración no afecta columnas de porcentaje', function () {
-    // Crear impuesto con tasa decimal
     DB::table('taxes')->insert([
         'company_id' => 1,
         'branch_id' => 1,
@@ -146,10 +138,35 @@ test('migración no afecta columnas de porcentaje', function () {
         'name' => 'IVA 19%',
         'rate' => 0.1900,  // DECIMAL(10,4) - NO debe migrar
         'is_active' => true,
+        'is_default' => true,
+        'created_at' => now(),
+        'updated_at' => now(),
     ]);
 
     $tax = DB::table('taxes')->where('code', 'IVA')->first();
 
-    // La tasa debe seguir siendo decimal
-    expect($tax->rate)->toBe(0.1900);
+    expect((float) $tax->rate)->toBe(0.1900);
+});
+
+test('acumulación de 100 veces 0.1 funciona con enteros', function () {
+    // En enteros: 100 veces 1 = 100 (sin error de punto flotante)
+    $sum = 0;
+    for ($i = 0; $i < 100; $i++) {
+        $sum += 1;  // 1 peso CLP
+    }
+    
+    expect($sum)->toBe(100);  // Exacto, sin errores
+});
+
+test('diferencia de caja se calcula correctamente con enteros', function () {
+    $opening = 50000;    // $50.000 apertura
+    $sales = 125000;     // $125.000 en ventas
+    $payouts = 15000;    // $15.000 en retiros
+    $closing = 160000;   // $160.000 contado
+    
+    $expected = $opening + $sales - $payouts;  // 160000
+    $difference = $closing - $expected;        // 0
+    
+    expect($expected)->toBe(160000)
+        ->and($difference)->toBe(0);
 });
