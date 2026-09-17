@@ -11,6 +11,7 @@ use Modules\Payments\Domain\Entities\Payment;
 use Modules\Payments\Domain\Entities\PaymentMethod;
 use Modules\Payments\Domain\Entities\Bill;
 use Modules\Payments\Domain\Entities\CashSession;
+use Modules\Payments\Domain\ValueObjects\PaymentMethodType;
 
 uses(RefreshDatabase::class);
 
@@ -44,13 +45,13 @@ beforeEach(function () {
         'password' => bcrypt('password'),
     ]);
     
-    // Crear payment method
+    // Crear payment method (patrón de FinancialIntegrityTest)
     $this->paymentMethod = PaymentMethod::create([
         'company_id' => $this->company->id,
         'branch_id' => $this->branch->id,
-        'name' => 'Efectivo',
         'code' => 'cash',
-        'type' => 'cash',
+        'name_translations' => ['es' => 'Efectivo'],
+        'type' => PaymentMethodType::CASH,
         'is_active' => true,
     ]);
 });
