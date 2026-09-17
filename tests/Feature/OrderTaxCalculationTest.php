@@ -131,7 +131,7 @@ test('OrderItem calcula tax_amount automáticamente al guardar', function () {
     // ADR-011: base_price es BRUTO (IVA incluido)
     // tax_amount se calcula a nivel de Order, no por item
     // El snapshot mantiene la tasa para auditoría
-    expect($item->tax_rate_snapshot)->toBe(19.00);
+    expect((float) $item->tax_rate_snapshot)->toBe(19.0);
     
     // tax_name_snapshot = 'IVA 19%'
     expect($item->tax_name_snapshot)->toBe('IVA 19%');
@@ -220,11 +220,14 @@ test('Order::recalculateTotals suma tax_amount de items', function () {
     // subtotal_gross = 24000 + 9000 = 33000 (IVA incluido)
     expect($order->subtotal_gross)->toBe(33000);
     
-    // net_amount = 33000 / 1.19 = 27731.09
-    expect($order->net_amount)->toBe(27731.09);
+    // net_amount = round(33000 / 1.19) = 27731
+    expect($order->net_amount)->toBe(27731);
     
-    // tax_amount = 33000 - 27731.09 = 5268.91
-    expect($order->tax_amount)->toBe(5268.91);
+    // tax_amount = 33000 - 27731 = 5269 (invariant: net + tax = gross)
+    expect($order->tax_amount)->toBe(5269);
+    
+    // INVARIANT CLP: net + tax = gross (sin pérdida de centavos)
+    expect($order->net_amount + $order->tax_amount)->toBe($order->subtotal_gross);
     
     // amount_due = 33000 (sin propina)
     expect($order->amount_due)->toBe(33000);
@@ -302,11 +305,14 @@ test('Order con descuento calcula total correctamente', function () {
     // subtotal_gross = 12000 (IVA incluido)
     expect($order->subtotal_gross)->toBe(12000);
     
-    // net_amount = 12000 / 1.19 = 10084.03
-    expect($order->net_amount)->toBe(10084.03);
+    // net_amount = round(12000 / 1.19) = 10084
+    expect($order->net_amount)->toBe(10084);
     
-    // tax_amount = 12000 - 10084.03 = 1915.97
-    expect($order->tax_amount)->toBe(1915.97);
+    // tax_amount = 12000 - 10084 = 1916 (invariant: net + tax = gross)
+    expect($order->tax_amount)->toBe(1916);
+    
+    // INVARIANT CLP: net + tax = gross (sin pérdida de centavos)
+    expect($order->net_amount + $order->tax_amount)->toBe($order->subtotal_gross);
     
     // amount_due = 12000 - 5000 (descuento) = 7000
     expect($order->amount_due)->toBe(7000);
