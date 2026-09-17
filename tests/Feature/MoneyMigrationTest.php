@@ -8,6 +8,7 @@ use Modules\Identity\Domain\Entities\User;
 use Modules\Orders\Domain\Entities\Order;
 use Modules\Orders\Domain\Entities\OrderItem;
 use Modules\Payments\Domain\Entities\Payment;
+use Modules\Payments\Domain\Entities\PaymentMethod;
 use Modules\Payments\Domain\Entities\Bill;
 use Modules\Payments\Domain\Entities\CashSession;
 
@@ -41,6 +42,16 @@ beforeEach(function () {
         'name' => 'Test User',
         'email' => 'test@example.com',
         'password' => bcrypt('password'),
+    ]);
+    
+    // Crear payment method
+    $this->paymentMethod = PaymentMethod::create([
+        'company_id' => $this->company->id,
+        'branch_id' => $this->branch->id,
+        'name' => 'Efectivo',
+        'code' => 'cash',
+        'type' => 'cash',
+        'is_active' => true,
     ]);
 });
 
@@ -91,7 +102,7 @@ test('operaciones aritméticas funcionan con enteros', function () {
         'company_id' => $this->company->id,
         'branch_id' => $this->branch->id,
         'order_id' => $order->id,
-        'payment_method_id' => 1,
+        'payment_method_id' => $this->paymentMethod->id,
         'user_id' => $this->user->id,
         'payment_number' => Payment::generatePaymentNumber($this->branch->code),
         'method_code' => 'cash',
