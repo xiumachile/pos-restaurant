@@ -242,7 +242,7 @@ test('IssueDteOnOrderPaid emite DTE automáticamente al pagar pedido', function 
     expect($dte->dte_type)->toBe(DteType::BOLETA_AFECTA);
     expect($dte->folio)->toBe(1001);
     expect($dte->order_id)->toBe($order->id);
-    expect($dte->total_amount)->toBe('28560');
+    expect($dte->total_amount)->toBe(28560);  // ADR-018: int
     expect($dte->sent_xml)->toContain('<DTE version="1.0"');
     expect($dte->sent_xml)->toContain('Carne Mongoliana');
     expect($dte->sii_status)->toBe(DteStatus::ACCEPTED);

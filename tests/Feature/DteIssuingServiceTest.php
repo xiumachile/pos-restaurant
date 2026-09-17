@@ -213,7 +213,7 @@ test('issueForOrder emite boleta para pedido sin RUT', function () {
     expect($dte->dte_type)->toBe(DteType::BOLETA_AFECTA);
     expect($dte->folio)->toBe(1001); // Primer folio consumido
     expect($dte->identifier())->toBe('T39F1001');
-    expect($dte->total_amount)->toBe('14280');
+    expect($dte->total_amount)->toBe(14280);  // ADR-018: int
     expect($dte->sent_xml)->toContain('<DTE version="1.0"');
     expect($dte->sent_xml)->toContain('Carne Mongoliana');
 });
