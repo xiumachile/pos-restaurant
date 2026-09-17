@@ -144,20 +144,21 @@ class RefundService
         }
 
         $originalEntry = $originalEntries[0];
-        $originalTotal = (float) $payment->total_amount;
-        $refundAmount = (float) $refund->amount;
-        $ratio = $refundAmount / $originalTotal;
+        // ADR-018: Aritmética entera para cálculos proporcionales
+        $originalTotal = (int) $payment->total_amount;
+        $refundAmount = (int) $refund->amount;
 
         // Construir líneas de reversa (invierte débito ↔ crédito)
         $lines = [];
 
         foreach ($originalEntry['ledger_entries'] as $entry) {
-            $originalDebit = (float) $entry['debit_amount'];
-            $originalCredit = (float) $entry['credit_amount'];
+            $originalDebit = (int) $entry['debit_amount'];
+            $originalCredit = (int) $entry['credit_amount'];
 
             // Invertir: si era débito, ahora es crédito; si era crédito, ahora es débito
-            $reversedDebit = round($originalCredit * $ratio, 2);
-            $reversedCredit = round($originalDebit * $ratio, 2);
+            // División entera con redondeo
+            $reversedDebit = (int) round($originalCredit * $refundAmount / $originalTotal);
+            $reversedCredit = (int) round($originalDebit * $refundAmount / $originalTotal);
 
             if ($reversedDebit > 0 || $reversedCredit > 0) {
                 $lines[] = [
@@ -169,15 +170,15 @@ class RefundService
             }
         }
 
-        // Ajustar redondeo: sumar débitos y créditos
+        // Ajustar redondeo: sumar débitos y créditos (enteros exactos)
         $totalDebits = array_sum(array_column($lines, 'debit'));
         $totalCredits = array_sum(array_column($lines, 'credit'));
-        $diff = round($totalDebits - $totalCredits, 2);
+        $diff = $totalDebits - $totalCredits;
 
         // Si hay diferencia por redondeo, ajustarla en la primera línea
-        if (abs($diff) > 0.001 && !empty($lines)) {
+        if ($diff !== 0 && !empty($lines)) {
             if ($diff > 0) {
-                $lines[0]['credit'] = round($lines[0]['credit'] + $diff, 2);
+                $lines[0]['credit'] = $lines[0]['credit'] + $diff;
             } else {
                 $lines[0]['debit'] = round($lines[0]['debit'] - $diff, 2);
             }
@@ -212,16 +213,17 @@ class RefundService
             throw InvalidRefundException::missingAccounts();
         }
 
+        // ADR-018: amount es integer, sin cast
         $lines = [
             [
                 'account_id' => $cashAccount->id,
                 'debit' => 0,
-                'credit' => (float) $refund->amount,
+                'credit' => (int) $refund->amount,
                 'description' => "Reversa refund #{$refund->refund_number}",
             ],
             [
                 'account_id' => $revenueAccount->id,
-                'debit' => (float) $refund->amount,
+                'debit' => (int) $refund->amount,
                 'credit' => 0,
                 'description' => "Reversa refund #{$refund->refund_number}",
             ],

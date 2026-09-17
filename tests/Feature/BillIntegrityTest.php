@@ -468,8 +468,9 @@ test('Split por montos personalizados (splitByAmounts)', function () {
     $bills = $this->billingService->splitByAmounts($order, [6000, 4000]);
 
     expect($bills)->toHaveCount(2);
-    expect((float) $bills[0]->total)->toBe(6000);
-    expect((float) $bills[1]->total)->toBe(4000);
+    // ADR-018: total es integer, comparación directa
+    expect((int) $bills[0]->total)->toBe(6000);
+    expect((int) $bills[1]->total)->toBe(4000);
 });
 
 // ═══════════════════════════════════════════════════
@@ -555,8 +556,9 @@ test('Bill se puede reconstruir desde Order + Payments', function () {
 
     $reconstructed->registerPaymentAmount((int) $paidFromPayments + (int) $tipFromPayments); // ADR-018
 
-    expect((float) $reconstructed->paid_amount)->toBe(5000)
-        ->and((float) $reconstructed->remaining_amount)->toBe(5000)
+    // ADR-018: paid_amount y remaining_amount son integer
+    expect((int) $reconstructed->paid_amount)->toBe(5000)
+        ->and((int) $reconstructed->remaining_amount)->toBe(5000)
         ->and($reconstructed->status)->toBe(BillStatus::PARTIAL);
 });
 

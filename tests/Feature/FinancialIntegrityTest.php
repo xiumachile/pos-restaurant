@@ -244,7 +244,7 @@ test('pago parcial distribuye proporcionalmente IVA y propina', function () {
         tipAmount: 0
     );
 
-    expect((float) $payment1->amount)->toBe(5000);
+    expect((int) $payment1->amount)->toBe(5000); // ADR-018
 
     $entries = $this->ledgerService->getEntriesByReference(
         ReferenceType::PAYMENT,
@@ -305,8 +305,8 @@ test('reembolso parcial revierte líneas contables proporcionalmente', function 
 
     $debits = array_sum(array_column($entries[0]['ledger_entries'], 'debit_amount'));
     $credits = array_sum(array_column($entries[0]['ledger_entries'], 'credit_amount'));
-    expect(abs($debits - $credits))->toBeLessThan(0.02, 
-        "Asiento de reversa desbalanceado");
+    expect($debits)->toBe($credits); // ADR-018: balance exacto con enteros 
+
 });
 
 // ═══════════════════════════════════════════════════
@@ -397,7 +397,7 @@ test('múltiples reembolsos parciales suman sin exceder monto original', functio
 
     // Total reembolsado: $7,000 (menos que $10,000)
     $totalRefunded = Refund::totalRefundedFor($payment->id);
-    expect((float) $totalRefunded)->toBe(7000);
+    expect((int) $totalRefunded)->toBe(7000); // ADR-018
 
     // Tercer reembolso: $4,000 (excede el restante: $3,000)
     $this->expectException(\Modules\Payments\Domain\Exceptions\InvalidRefundException::class);
@@ -458,7 +458,7 @@ test('cash session expected = opening + payments cash - payouts', function () {
 
     // Expected: 50,000 (opening) + 10,000 (payment) = 60,000
     $expected = $session->calculateExpectedAmountForClose();
-    expect((float) $expected)->toBe(60000);
+    expect((int) $expected)->toBe(60000); // ADR-018
 });
 
 // ═══════════════════════════════════════════════════
