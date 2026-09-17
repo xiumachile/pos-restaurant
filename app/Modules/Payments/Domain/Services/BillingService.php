@@ -24,10 +24,10 @@ class BillingService
         return DB::transaction(function () use ($order, $parts) {
             $this->cancelExistingBills($order);
 
-            $subtotal = (float) $order->subtotal;
-            $tax = (float) $order->tax_amount;
-            $discount = (float) $order->discount_amount;
-            $total = (int) $order->total;
+            $subtotal = (int) $order->subtotal;
+            $tax = (int) $order->tax_amount;
+            $discount = (int) $order->discount_amount;
+            $total = $order->total;
 
             $baseSubtotal = (int) floor($subtotal / $parts);
             $baseTax = (int) floor($tax / $parts);
@@ -82,19 +82,19 @@ class BillingService
             $this->cancelExistingBills($order);
 
             $items = $order->items()->get()->keyBy('id');
-            $orderSubtotal = (float) $order->subtotal;
-            $orderTax = (float) $order->tax_amount;
-            $orderDiscount = (float) $order->discount_amount;
-            $orderTotal = (int) $order->total;
+            $orderSubtotal = (int) $order->subtotal;
+            $orderTax = (int) $order->tax_amount;
+            $orderDiscount = (int) $order->discount_amount;
+            $orderTotal = $order->total;
 
 
 
             // Calcular el subtotal total de items agrupados
-            $totalGroupedSubtotal = 0;
+            $totalGroupedSubtotal = 0; // integer
             foreach ($groups as $group) {
                 foreach ($group['item_ids'] ?? [] as $itemId) {
                     if ($item = $items->get($itemId)) {
-                        $totalGroupedSubtotal += (float) $item->subtotal;
+                        $totalGroupedSubtotal += (int) $item->subtotal;
                     }
                 }
             }
@@ -112,7 +112,7 @@ class BillingService
                 $itemIds = [];
                 foreach ($group['item_ids'] ?? [] as $itemId) {
                     if ($item = $items->get($itemId)) {
-                        $groupSubtotal += (float) $item->subtotal;
+                        $groupSubtotal += (int) $item->subtotal;
                         $itemIds[] = $itemId;
                     }
                 }
@@ -185,7 +185,7 @@ class BillingService
         // Normalizar montos a float
         $amounts = array_map('floatval', $amounts);
         $sumAmounts = (int) round(array_sum($amounts));
-        $orderTotal = (int) round((int) $order->total);
+        $orderTotal = (int) round($order->total);
 
         // Tolerancia de $1 por redondeo
         $difference = (int) round($sumAmounts - $orderTotal);
@@ -254,7 +254,7 @@ class BillingService
             
             if ($existing) {
                 // Si la bill tiene total correcto, retornarla
-                if ((float) $existing->total > 0 && abs((float) $existing->total - (int) $order->total) < 0.01) {
+                if ((float) $existing->total > 0 && abs((float) $existing->total - $order->total) < 0.01) {
                     return $existing;
                 }
                 
@@ -268,10 +268,10 @@ class BillingService
             }
 
             // Crear nueva bill con los totales del order
-            $orderTotal = (int) $order->total;
-            $orderSubtotal = (float) $order->subtotal;
-            $orderTax = (float) $order->tax_amount;
-            $orderDiscount = (float) $order->discount_amount;
+            $orderTotal = $order->total;
+            $orderSubtotal = (int) $order->subtotal;
+            $orderTax = (int) $order->tax_amount;
+            $orderDiscount = (int) $order->discount_amount;
 
             return Bill::create([
                 'company_id' => $order->company_id,
