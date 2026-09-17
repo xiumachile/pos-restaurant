@@ -92,22 +92,34 @@ class Bill extends Model
     /**
      * Verifica si está completamente pagado.
      */
+    /**
+     * ADR-018: Comparación entera directa, sin epsilon.
+     */
     public function isFullyPaid(): bool
     {
-        return (float) $this->remaining_amount <= 0;
+        return (int) $this->remaining_amount <= 0;
     }
 
     /**
      * Registra un pago parcial y actualiza los montos.
      */
-    public function registerPaymentAmount(float $amount): void
+    /**
+     * Registra un pago parcial y actualiza los montos.
+     * ADR-018: Aritmética entera, sin floats, sin round().
+     * Invariant: paid_amount + remaining_amount = total (exacto).
+     */
+    public function registerPaymentAmount(int $amount): void
     {
-        $this->paid_amount = (float) $this->paid_amount + $amount;
-        $this->remaining_amount = max(0, (float) $this->total - (float) $this->paid_amount);
+        if ($amount < 0) {
+            throw new \InvalidArgumentException('Payment amount must be non-negative');
+        }
+
+        $this->paid_amount = (int) $this->paid_amount + $amount;
+        $this->remaining_amount = max(0, (int) $this->total - (int) $this->paid_amount);
 
         if ($this->isFullyPaid()) {
             $this->status = BillStatus::PAID;
-        } elseif ((float) $this->paid_amount > 0) {
+        } elseif ((int) $this->paid_amount > 0) {
             $this->status = BillStatus::PARTIAL;
         }
 

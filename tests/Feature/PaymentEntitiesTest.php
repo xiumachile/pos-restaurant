@@ -238,9 +238,11 @@ test('se puede crear un pago completo', function () {
 });
 
 test('calculateTotal suma amount y tip correctamente', function () {
-    expect(Payment::calculateTotal(10000, 1000))->toBe(11000.0);
-    expect(Payment::calculateTotal(10000))->toBe(10000.0);
-    expect(Payment::calculateTotal(99.99, 0.01))->toBe(100.0);
+    // ADR-018: calculateTotal ahora retorna int (sin aritmética flotante)
+    expect(Payment::calculateTotal(10000, 1000))->toBe(11000);
+    expect(Payment::calculateTotal(10000))->toBe(10000);
+    // Nota: (99.99, 0.01) ya no es válido, ambos deben ser enteros
+    expect(Payment::calculateTotal(99, 1))->toBe(100);
 });
 
 test('generatePaymentNumber genera formato correcto', function () {

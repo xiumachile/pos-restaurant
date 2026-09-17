@@ -93,7 +93,7 @@ test('split bill: dividir cuenta en 2 partes iguales', function () {
         'type' => OrderType::DINE_IN,
         'status' => OrderStatus::SERVED,
         'subtotal_gross' => 22000,
-        'net_amount' => 184870,
+        'net_amount' => 18487, // ADR-018: typo corregido
         'tax_amount' => 3512.60,
         'amount_due' => 22000,
         'subtotal' => 22000,
@@ -182,7 +182,7 @@ test('split bill: pagar una de las dos bills parcialmente', function () {
 
     $bill1->refresh();
     expect($bill1->status)->toBe(BillStatus::PARTIAL)
-        ->and((float) $bill1->paid_amount)->toBe(5000)
+        ->and((int) $bill1->paid_amount)->toBe(5000) // ADR-018: paid_amount es integer
         ->and((float) $bill1->remaining_amount)->toBe(5000);
 
     // bill2 debe seguir OPEN

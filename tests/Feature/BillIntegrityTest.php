@@ -285,7 +285,7 @@ test('Propina se cuenta UNA sola vez en reportes (Payment es la fuente de verdad
         ->where('status', 'completed')
         ->sum('tip_amount');
 
-    expect((float) $totalTips)->toBe(1000);
+    expect((int) $totalTips)->toBe(1000); // ADR-018: tip_amount es integer
 });
 
 // ═══════════════════════════════════════════════════
@@ -399,7 +399,8 @@ test('Split en 2 partes iguales (API: splitEqual con parts=2)', function () {
 
     expect($bills)->toHaveCount(2);
 
-    $totalBills = array_sum(array_map(fn($b) => (float) $b->total, $bills));
+    // ADR-018: total es integer, no requiere cast
+    $totalBills = array_sum(array_map(fn($b) => (int) $b->total, $bills));
     expect($totalBills)->toBe($order->total);
 
     foreach ($bills as $bill) {
@@ -443,8 +444,9 @@ test('Split por items consumidos (splitByItems)', function () {
 
     expect($bills)->toHaveCount(2);
 
-    $totalBills = array_sum(array_map(fn($b) => (float) $b->total, $bills));
-    expect(round($totalBills, 2))->toBe($order->total);
+    // ADR-018: total es integer, suma exacta sin round
+    $totalBills = array_sum(array_map(fn($b) => (int) $b->total, $bills));
+    expect($totalBills)->toBe($order->total);
 });
 
 test('Split por montos personalizados (splitByAmounts)', function () {
@@ -551,7 +553,7 @@ test('Bill se puede reconstruir desde Order + Payments', function () {
         'guest_count' => 1,
     ]);
 
-    $reconstructed->registerPaymentAmount((float) $paidFromPayments + (float) $tipFromPayments);
+    $reconstructed->registerPaymentAmount((int) $paidFromPayments + (int) $tipFromPayments); // ADR-018
 
     expect((float) $reconstructed->paid_amount)->toBe(5000)
         ->and((float) $reconstructed->remaining_amount)->toBe(5000)
@@ -643,7 +645,7 @@ test('CRITERIO DE CIERRE: Bill reconstruido produce mismo resultado financiero',
         'status' => BillStatus::OPEN,
         'guest_count' => 1,
     ]);
-    $rebuilt->registerPaymentAmount((float) $paid + (float) $tip);
+    $rebuilt->registerPaymentAmount((int) $paid + (int) $tip); // ADR-018
 
     // CRITERIO DE CIERRE: mismo resultado financiero exacto
     expect((float) $rebuilt->total)->toBe($snapshot['total'])

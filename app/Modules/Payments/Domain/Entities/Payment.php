@@ -103,9 +103,13 @@ class Payment extends Model
     /**
      * Calcula el total (amount + tip).
      */
-    public static function calculateTotal(float $amount, float $tipAmount = 0): float
+    /**
+     * Calcula el total (amount + tip) en pesos enteros CLP.
+     * ADR-018: Sin aritmética flotante, sin round().
+     */
+    public static function calculateTotal(int $amount, int $tipAmount = 0): int
     {
-        return round($amount + $tipAmount, 2);
+        return $amount + $tipAmount;
     }
 
     /**
