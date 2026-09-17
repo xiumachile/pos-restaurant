@@ -11,6 +11,7 @@ use Modules\Payments\Domain\Exceptions\PaymentException;
 use Modules\Payments\Domain\Services\BillingService;
 use Modules\Payments\Interfaces\Requests\SplitBillRequest;
 use Modules\Payments\Interfaces\Resources\BillResource;
+use Modules\Payments\Interfaces\Requests\StoreBillRequest;
 
 class BillController extends Controller
 {
@@ -89,5 +90,89 @@ class BillController extends Controller
             ->get();
 
         return BillResource::collection($bills)->response();
+    }
+
+    /**
+     * POST /api/v1/bills
+     * 
+     * ADR-020: Sincroniza una bill desde frontend offline.
+     * 
+     * Este endpoint permite al frontend offline sincronizar bills creadas localmente
+     * (incluyendo split bills) al backend. El endpoint es idempotente vía idempotency_key.
+     * 
+     * Si la bill ya existe (por idempotency_key), retorna la bill existente sin crear duplicado.
+     */
+    public function store(StoreBillRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+        $user = $request->user();
+
+        // Verificar idempotencia: si bill ya existe por idempotency_key, retornarla
+        $existingBill = Bill::where('company_id', $user->company_id)
+            ->where('idempotency_key', $validated['idempotency_key'])
+            ->first();
+
+        if ($existingBill) {
+            return response()->json([
+                'uuid' => $existingBill->uuid,
+                'id' => $existingBill->id,
+                'bill_number' => $existingBill->bill_number,
+                'status' => $existingBill->status,
+                'idempotent' => true,
+            ], 200);
+        }
+
+        // Buscar order por UUID
+        $order = Order::where('uuid', $validated['order_uuid'])
+            ->where('company_id', $user->company_id)
+            ->firstOrFail();
+
+        try {
+            $bill = Bill::create([
+                'company_id' => $user->company_id,
+                'branch_id' => $user->branch_id,
+                'order_id' => $order->id,
+                'bill_number' => $validated['bill_number'],
+                'type' => $validated['type'],
+                'subtotal' => $validated['subtotal'],
+                'tax_amount' => $validated['tax_amount'],
+                'discount_amount' => $validated['discount_amount'],
+                'tip_amount' => $validated['tip_amount'],
+                'total' => $validated['total'],
+                'paid_amount' => $validated['paid_amount'],
+                'remaining_amount' => $validated['remaining_amount'],
+                'status' => $validated['status'],
+                'idempotency_key' => $validated['idempotency_key'],
+            ]);
+
+            return response()->json([
+                'uuid' => $bill->uuid,
+                'id' => $bill->id,
+                'bill_number' => $bill->bill_number,
+                'status' => $bill->status,
+                'idempotent' => false,
+            ], 201);
+
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Manejar violación de unique constraint (idempotency_key duplicado)
+            if (str_contains($e->getMessage(), 'Duplicate entry') || 
+                str_contains($e->getMessage(), 'UNIQUE constraint failed')) {
+                $existingBill = Bill::where('company_id', $user->company_id)
+                    ->where('idempotency_key', $validated['idempotency_key'])
+                    ->first();
+                
+                if ($existingBill) {
+                    return response()->json([
+                        'uuid' => $existingBill->uuid,
+                        'id' => $existingBill->id,
+                        'bill_number' => $existingBill->bill_number,
+                        'status' => $existingBill->status,
+                        'idempotent' => true,
+                    ], 200);
+                }
+            }
+            
+            throw $e;
+        }
     }
 }

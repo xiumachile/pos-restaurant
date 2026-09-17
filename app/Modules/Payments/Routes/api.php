@@ -35,6 +35,10 @@ Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class, 'id
         ->middleware('capability:can_split_bills')
         ->name('orders.split');
 
+    // ADR-020: Sincronización de bills desde frontend offline
+    Route::post('/bills', [BillController::class, 'store'])
+        ->name('bills.store');
+
     Route::post('/cash-sessions/open', [CashSessionController::class, 'open'])
         ->name('cash-sessions.open');
     

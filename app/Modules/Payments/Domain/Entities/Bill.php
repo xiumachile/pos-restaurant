@@ -38,6 +38,7 @@ class Bill extends Model
         'status',
         'guest_count',
         'item_ids',
+        'idempotency_key',
     ];
 
     protected $casts = [
