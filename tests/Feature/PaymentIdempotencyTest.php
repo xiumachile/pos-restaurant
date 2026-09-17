@@ -203,7 +203,7 @@ test('Mismo key + diferente payload retorna payment existente (sin validar paylo
 
     // Actualmente retorna el primer payment (no valida payload)
     expect($payment1->id)->toBe($payment2->id)
-        ->and((float) $payment2->amount)->toBe(5000, 'Retorna primer pago, no valida payload');
+        ->and((int) $payment2->amount)->toBe(5000, 'Retorna primer pago, no valida payload');  // ADR-018
 
     // Solo existe 1 payment
     $count = \Modules\Payments\Domain\Entities\Payment::where('order_id', $order->id)->count();
@@ -354,7 +354,7 @@ test('Dos terminales con diferente key pueden pagar el mismo order (pagos parcia
 
     // Total pagado debe ser $10,000
     $totalPaid = \Modules\Payments\Domain\Entities\Payment::where('order_id', $order->id)->sum('amount');
-    expect((float) $totalPaid)->toBe(10000);
+    expect((int) $totalPaid)->toBe(10000);  // ADR-018
 });
 
 // ═══════════════════════════════════════════════════
@@ -403,5 +403,5 @@ test('CRITERIO DE CIERRE: Nunca aparece doble pago por retry o concurrencia', fu
 
     // Total pagado debe ser exactamente $10,000 (no $50,000)
     $totalPaid = \Modules\Payments\Domain\Entities\Payment::where('order_id', $order->id)->sum('amount');
-    expect((float) $totalPaid)->toBe(10000, 'No hay doble cobro');
+    expect((int) $totalPaid)->toBe(10000, 'No hay doble cobro');  // ADR-018
 });

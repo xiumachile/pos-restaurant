@@ -153,13 +153,13 @@ class CashSession extends Model
         return round($brutExpected - $tipsPaidOut + $movementsImpact, 2);
     }
 
-    public function calculateExpectedAmount(): float
+    public function calculateExpectedAmount(): int  // ADR-018: CLP entero
     {
-        $totalPayments = (float) $this->payments()
+        $totalPayments = (int) $this->payments()
             ->where('status', 'completed')
             ->sum('total_amount');  // amount + tip_amount
 
-        return (float) $this->opening_amount + $totalPayments;
+        return (int) $this->opening_amount + $totalPayments;
     }
 
     /**
@@ -187,7 +187,7 @@ class CashSession extends Model
      * - mixed: efectivo sale físicamente, tarjeta/transfer va a nómina
      * - payroll: todo va a nómina (nada sale físicamente)
      */
-    public function calculateExpectedAmountForClose(): float
+    public function calculateExpectedAmountForClose(): int  // ADR-018: CLP entero
     {
         // Cierre de caja: balance neto con movimientos, solo propinas en efectivo
         return $this->calculateExpectedBalanceInternal(
@@ -199,9 +199,9 @@ class CashSession extends Model
     /**
      * Calcula el total de propinas pendientes de entregar en esta sesión.
      */
-    public function calculatePendingTips(): float
+    public function calculatePendingTips(): int  // ADR-018: CLP entero
     {
-        $totalTips = (float) $this->payments()
+        $totalTips = (int) $this->payments()  // ADR-018
             ->where('status', 'completed')
             ->where('tip_amount', '>', 0)
             ->sum('tip_amount');
@@ -216,13 +216,13 @@ class CashSession extends Model
     /**
      * Calcula el balance actual de la sesión considerando movimientos.
      */
-    public function calculateCurrentBalance(): float
+    public function calculateCurrentBalance(): int  // ADR-018: CLP entero
     {
-        $opening = (float) $this->opening_amount;
+        $opening = (int) $this->opening_amount;
         
         // Sumar todos los pagos completados de esta sesión
         // (en el futuro podríamos filtrar por método de pago si es necesario)
-        $paymentsTotal = (float) $this->payments()
+        $paymentsTotal = (int) $this->payments()
             ->where('status', 'completed')
             ->sum('total_amount');
         
@@ -230,7 +230,7 @@ class CashSession extends Model
             ->get()
             ->sum(fn($m) => $m->balanceImpact());
         
-        return round($opening + $paymentsTotal + $movementsImpact, 2);
+        return $opening + $paymentsTotal + $movementsImpact;  // Sin round() con enteros
     }
 
     /**
@@ -249,7 +249,7 @@ class CashSession extends Model
      * - Resta propinas entregadas físicamente
      * - Incluye impacto de movimientos de caja (retiros/depósitos)
      */
-    public function calculateExpectedCashBalance(): float
+    public function calculateExpectedCashBalance(): int  // ADR-018: CLP entero
     {
         // Balance completo: con movimientos y todas las propinas
         return $this->calculateExpectedBalanceInternal(

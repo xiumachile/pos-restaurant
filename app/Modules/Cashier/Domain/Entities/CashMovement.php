@@ -41,8 +41,8 @@ class CashMovement extends Model
 
     protected $casts = [
         'type' => MovementType::class,
-        'amount' => 'decimal:2',
-        'balance_after' => 'decimal:2',
+        'amount' => 'integer',  // ADR-018: CLP entero
+        'balance_after' => 'integer',  // ADR-018: CLP entero
         'authorized_at' => 'datetime',
     ];
 
@@ -92,7 +92,7 @@ class CashMovement extends Model
     /**
      * Impacto en el balance (positivo o negativo según tipo).
      */
-    public function balanceImpact(): float
+    public function balanceImpact(): int  // ADR-018: CLP entero
     {
         return (float) $this->amount * $this->type->balanceSign();
     }

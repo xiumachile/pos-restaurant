@@ -72,7 +72,7 @@ test('flujo completo: abrir → vender → cobrar → retirar → cerrar', funct
         'Apertura inicial'
     );
 
-    expect($session->opening_amount)->toBe('50000')
+    expect((int) $session->opening_amount)->toBe(50000)  // ADR-018: int, no string
         ->and($session->status->value)->toBe('open');
 
     // 2. VENTA: Crear orden de $10,000
@@ -103,7 +103,7 @@ test('flujo completo: abrir → vender → cobrar → retirar → cerrar', funct
         tipAmount: 0
     );
 
-    expect($payment->amount)->toBe('10000')
+    expect((int) $payment->amount)->toBe(10000)  // ADR-018: int, no string
         ->and($payment->cash_session_id)->toBe($session->id);
 
     // 4. RETIRO: Retirar $5,000 de caja
@@ -119,7 +119,7 @@ test('flujo completo: abrir → vender → cobrar → retirar → cerrar', funct
         'balance_after' => 55000, // 50000 + 10000 - 5000
     ]);
 
-    expect($movement->amount)->toBe('5000')
+    expect((int) $movement->amount)->toBe(5000)  // ADR-018: int
         ->and($movement->type->value)->toBe('withdrawal');
 
     // 5. CIERRE: Cerrar caja con conteo de $55,000
@@ -138,9 +138,9 @@ test('flujo completo: abrir → vender → cobrar → retirar → cerrar', funct
     // - Diferencia: $0
 
     expect($closedSession->status->value)->toBe('closed')
-        ->and((float) $closedSession->expected_amount)->toBe(55000)
-        ->and((float) $closedSession->closing_amount)->toBe(55000)
-        ->and((float) $closedSession->difference)->toBe(0);
+        ->and((int) $closedSession->expected_amount)->toBe(55000)
+        ->and((int) $closedSession->closing_amount)->toBe(55000)
+        ->and((int) $closedSession->difference)->toBe(0);  // ADR-018
 });
 
 test('cierre con diferencia positiva (sobrante)', function () {
@@ -185,9 +185,9 @@ test('cierre con diferencia positiva (sobrante)', function () {
     // Esperado: 50000 + 10000 = 60000
     // Contado: 62000
     // Diferencia: +2000 (sobrante)
-    expect((float) $closedSession->expected_amount)->toBe(60000)
-        ->and((float) $closedSession->closing_amount)->toBe(62000)
-        ->and((float) $closedSession->difference)->toBe(2000);
+    expect((int) $closedSession->expected_amount)->toBe(60000)
+        ->and((int) $closedSession->closing_amount)->toBe(62000)
+        ->and((int) $closedSession->difference)->toBe(2000);  // ADR-018
 });
 
 test('cierre con diferencia negativa (faltante)', function () {
@@ -232,9 +232,9 @@ test('cierre con diferencia negativa (faltante)', function () {
     // Esperado: 50000 + 10000 = 60000
     // Contado: 58000
     // Diferencia: -2000 (faltante)
-    expect((float) $closedSession->expected_amount)->toBe(60000)
-        ->and((float) $closedSession->closing_amount)->toBe(58000)
-        ->and((float) $closedSession->difference)->toBe(-2000);
+    expect((int) $closedSession->expected_amount)->toBe(60000)
+        ->and((int) $closedSession->closing_amount)->toBe(58000)
+        ->and((int) $closedSession->difference)->toBe(-2000);  // ADR-018
 });
 
 test('ventas con tarjeta NO afectan balance de efectivo', function () {
@@ -306,9 +306,9 @@ test('ventas con tarjeta NO afectan balance de efectivo', function () {
 
     // Esperado: 50000 + 10000 (solo efectivo) = 60000
     // La venta con tarjeta NO afecta el balance de efectivo
-    expect((float) $closedSession->expected_amount)->toBe(60000)
-        ->and((float) $closedSession->closing_amount)->toBe(60000)
-        ->and((float) $closedSession->difference)->toBe(0);
+    expect((int) $closedSession->expected_amount)->toBe(60000)  // ADR-018
+        ->and((int) $closedSession->closing_amount)->toBe(60000)
+        ->and((int) $closedSession->difference)->toBe(0);  // ADR-018
 });
 
 test('depósito aumenta balance esperado', function () {
@@ -338,9 +338,9 @@ test('depósito aumenta balance esperado', function () {
     );
 
     // Esperado: 50000 + 10000 (depósito) = 60000
-    expect((float) $closedSession->expected_amount)->toBe(60000)
-        ->and((float) $closedSession->closing_amount)->toBe(60000)
-        ->and((float) $closedSession->difference)->toBe(0);
+    expect((int) $closedSession->expected_amount)->toBe(60000)  // ADR-018
+        ->and((int) $closedSession->closing_amount)->toBe(60000)
+        ->and((int) $closedSession->difference)->toBe(0);  // ADR-018
 });
 
 test('criterio de cierre: atomicidad en cierre de caja', function () {
