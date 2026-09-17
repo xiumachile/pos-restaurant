@@ -134,7 +134,7 @@ test('MASTER E2E: flujo completo de restaurante (16 pasos)', function () {
     );
 
     expect($cashSession->status)->toBe(CashSessionStatus::OPEN)
-        ->and((float) $cashSession->opening_amount)->toBe(50000);
+        ->and((int) $cashSession->opening_amount)->toBe(50000);  // ADR-018
 
     // ═══════════════════════════════════════════════════
     // PASO 3: CREAR MESA
@@ -307,7 +307,7 @@ test('MASTER E2E: flujo completo de restaurante (16 pasos)', function () {
     // 16.1 Verificar Order
     $finalOrder = Order::where('order_number', 'ORD-MASTER-001')->first();
     expect($finalOrder)->not->toBeNull()
-        ->and((float) $finalOrder->total)->toBe(10000);
+        ->and((int) $finalOrder->total)->toBe(10000);  // ADR-018
 
     // 16.2 Verificar OrderItems
     $finalItems = OrderItem::where('order_id', $finalOrder->id)->get();
@@ -322,7 +322,7 @@ test('MASTER E2E: flujo completo de restaurante (16 pasos)', function () {
     // 16.4 Verificar Payment
     $finalPayment = Payment::where('order_id', $finalOrder->id)->first();
     expect($finalPayment)->not->toBeNull()
-        ->and((float) $finalPayment->total_amount)->toBe(10500)
+        ->and((int) $finalPayment->total_amount)->toBe(10500)  // ADR-018
         ->and($finalPayment->idempotency_key)->toBe($idempotencyKey);
 
 
@@ -350,15 +350,15 @@ test('MASTER E2E: flujo completo de restaurante (16 pasos)', function () {
     // VERIFICACIÓN FINAL: Integridad financiera
     // ═══════════════════════════════════════════════════
     $totalPaid = Payment::where('order_id', $finalOrder->id)->sum('total_amount');
-    expect((float) $totalPaid)->toBe(10500, 'Total pagado = venta + propina');
+    expect((int) $totalPaid)->toBe(10500, 'Total pagado = venta + propina');  // ADR-018
 
     // Cerrar sesión de caja
     $closedSession = $this->cashSessionService->closeSession(
         $finalSession,
-        (float) $finalSession->opening_amount + 10500,
+        (int) $finalSession->opening_amount + 10500,  // ADR-018
         'Cierre Master E2E'
     );
 
     expect($closedSession->status)->toBe(CashSessionStatus::CLOSED)
-        ->and((float) $closedSession->difference)->toBe(0);
+        ->and((int) $closedSession->difference)->toBe(0);  // ADR-018
 });
