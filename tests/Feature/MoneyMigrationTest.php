@@ -93,6 +93,8 @@ test('operaciones aritméticas funcionan con enteros', function () {
         'order_id' => $order->id,
         'payment_method_id' => 1,
         'user_id' => $this->user->id,
+        'payment_number' => Payment::generatePaymentNumber($this->branch->code),
+        'method_code' => 'cash',
         'amount' => 25000,
         'tip_amount' => 0,
         'total_amount' => 25000,
