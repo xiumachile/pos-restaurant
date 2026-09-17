@@ -12,6 +12,9 @@ export interface LocalPayment {
   branch_id: string;
   order_local_uuid: string | null;
   order_cloud_id: string | null;
+  // ADR-019: Link a bill específica (para split bill offline)
+  // NULL para payments directos a order (sin bill/sin split)
+  bill_local_uuid: string | null;
   payment_method: "cash" | "card" | "transfer" | "gift_card";
   payment_method_uuid: string | null;
   // ADR-011: Montos del pago
@@ -30,6 +33,8 @@ export interface CreatePaymentPayload {
   branch_id: string;
   order_local_uuid?: string;
   order_cloud_id?: string;
+  // ADR-019: UUID de bill específica (para split bill offline)
+  bill_local_uuid?: string;
   payment_method: "cash" | "card" | "transfer" | "gift_card";
   payment_method_uuid?: string;
   amount: number;
@@ -74,18 +79,22 @@ export class PaymentRepository {
     const tipAmount = payload.tip_amount || 0;
     const saleAmount = payload.amount - tipAmount;
 
+    // ADR-019: Persistir bill_local_uuid si se especificó
+    const billLocalUuid = payload.bill_local_uuid || null;
+
     await localDb.execute(
       `INSERT INTO local_payments (
         local_uuid, company_id, branch_id, order_local_uuid, order_cloud_id,
-        payment_method, amount, sale_amount, tip_amount, reference_code, status,
-        idempotency_key, sync_status, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 'pending', CURRENT_TIMESTAMP)`,
+        bill_local_uuid, payment_method, amount, sale_amount, tip_amount,
+        reference_code, status, idempotency_key, sync_status, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 'pending', CURRENT_TIMESTAMP)`,
       [
         local_uuid,
         payload.company_id,
         payload.branch_id,
         payload.order_local_uuid || null,
         payload.order_cloud_id || null,
+        billLocalUuid,
         payload.payment_method,
         payload.amount,
         saleAmount,
