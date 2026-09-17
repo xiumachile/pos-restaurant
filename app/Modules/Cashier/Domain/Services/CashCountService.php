@@ -134,7 +134,7 @@ class CashCountService
             $countedAmount = $billsTotal + $coinsTotal;
 
             // Calcular diferencia
-            $difference = round($countedAmount - $expectedAmount, 2);
+            $difference = (int) round($countedAmount - $expectedAmount);
             $hasDiscrepancy = abs($difference) > self::DISCREPANCY_THRESHOLD;
 
             // Crear arqueo

@@ -41,10 +41,10 @@ class CashSession extends Model
 
     protected $casts = [
         'status' => CashSessionStatus::class,
-        'opening_amount' => 'decimal:2',
-        'closing_amount' => 'decimal:2',
-        'expected_amount' => 'decimal:2',
-        'difference' => 'decimal:2',
+        'opening_amount' => 'integer',
+        'closing_amount' => 'integer',
+        'expected_amount' => 'integer',
+        'difference' => 'integer',
         'opened_at' => 'datetime',
         'closed_at' => 'datetime',
     ];

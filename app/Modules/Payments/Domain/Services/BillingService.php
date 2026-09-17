@@ -27,17 +27,17 @@ class BillingService
             $subtotal = (float) $order->subtotal;
             $tax = (float) $order->tax_amount;
             $discount = (float) $order->discount_amount;
-            $total = (float) $order->total;
+            $total = (int) $order->total;
 
-            $baseSubtotal = floor(($subtotal / $parts) * 100) / 100;
-            $baseTax = floor(($tax / $parts) * 100) / 100;
-            $baseDiscount = floor(($discount / $parts) * 100) / 100;
-            $baseTotal = floor(($total / $parts) * 100) / 100;
+            $baseSubtotal = (int) floor($subtotal / $parts);
+            $baseTax = (int) floor($tax / $parts);
+            $baseDiscount = (int) floor($discount / $parts);
+            $baseTotal = (int) floor($total / $parts);
 
-            $residualSubtotal = round($subtotal - ($baseSubtotal * $parts), 2);
-            $residualTax = round($tax - ($baseTax * $parts), 2);
-            $residualDiscount = round($discount - ($baseDiscount * $parts), 2);
-            $residualTotal = round($total - ($baseTotal * $parts), 2);
+            $residualSubtotal = (int) ($subtotal - ($baseSubtotal * $parts));
+            $residualTax = (int) ($tax - ($baseTax * $parts));
+            $residualDiscount = (int) ($discount - ($baseDiscount * $parts));
+            $residualTotal = (int) ($total - ($baseTotal * $parts));
 
             $bills = [];
             for ($i = 1; $i <= $parts; $i++) {
@@ -85,7 +85,7 @@ class BillingService
             $orderSubtotal = (float) $order->subtotal;
             $orderTax = (float) $order->tax_amount;
             $orderDiscount = (float) $order->discount_amount;
-            $orderTotal = (float) $order->total;
+            $orderTotal = (int) $order->total;
 
 
 
@@ -122,9 +122,9 @@ class BillingService
                     ? $groupSubtotal / $totalGroupedSubtotal 
                     : (count($groups) > 0 ? 1 / count($groups) : 0);
                 
-                $groupTax = round($orderTax * $ratio, 2);
-                $groupDiscount = round($orderDiscount * $ratio, 2);
-                $groupTotal = round($groupSubtotal + $groupTax - $groupDiscount, 2);
+                $groupTax = (int) round($orderTax * $ratio);
+                $groupDiscount = (int) round($orderDiscount * $ratio);
+                $groupTotal = (int) round($groupSubtotal + $groupTax - $groupDiscount);
 
                 Log::debug('splitByItems grupo', [
                     'group_index' => $index,
@@ -158,11 +158,11 @@ class BillingService
 
             // Ajuste de redondeo: la última bill absorbe diferencia de centavos
             if (count($bills) > 0) {
-                $difference = round($orderTotal - $calculatedTotal, 2);
+                $difference = (int) round($orderTotal - $calculatedTotal);
                 
                 if (abs($difference) > 0.001) {
                     $lastBill = $bills[count($bills) - 1];
-                    $lastBill->total = round((float) $lastBill->total + $difference, 2);
+                    $lastBill->total = (int) round((int) $lastBill->total + $difference);
                     $lastBill->remaining_amount = $lastBill->total;
                     $lastBill->save();
                 }
@@ -184,11 +184,11 @@ class BillingService
 
         // Normalizar montos a float
         $amounts = array_map('floatval', $amounts);
-        $sumAmounts = round(array_sum($amounts), 2);
-        $orderTotal = round((float) $order->total, 2);
+        $sumAmounts = (int) round(array_sum($amounts));
+        $orderTotal = (int) round((int) $order->total);
 
         // Tolerancia de $1 por redondeo
-        $difference = round($sumAmounts - $orderTotal, 2);
+        $difference = (int) round($sumAmounts - $orderTotal);
         if (abs($difference) > 1) {
             throw PaymentException::invalidSplitAmount();
         }
@@ -200,12 +200,12 @@ class BillingService
             $assignedTotal = 0;
 
             foreach ($amounts as $index => $amount) {
-                $amount = round((float) $amount, 2);
+                $amount = (int) round((float) $amount);
                 
                 // La última bill absorbe cualquier diferencia por redondeo
                 $isLast = ($index === count($amounts) - 1);
                 if ($isLast && count($amounts) > 1) {
-                    $amount = round($orderTotal - $assignedTotal, 2);
+                    $amount = (int) round($orderTotal - $assignedTotal);
                 }
                 
                 $assignedTotal += $amount;
@@ -254,7 +254,7 @@ class BillingService
             
             if ($existing) {
                 // Si la bill tiene total correcto, retornarla
-                if ((float) $existing->total > 0 && abs((float) $existing->total - (float) $order->total) < 0.01) {
+                if ((float) $existing->total > 0 && abs((float) $existing->total - (int) $order->total) < 0.01) {
                     return $existing;
                 }
                 
@@ -268,7 +268,7 @@ class BillingService
             }
 
             // Crear nueva bill con los totales del order
-            $orderTotal = (float) $order->total;
+            $orderTotal = (int) $order->total;
             $orderSubtotal = (float) $order->subtotal;
             $orderTax = (float) $order->tax_amount;
             $orderDiscount = (float) $order->discount_amount;

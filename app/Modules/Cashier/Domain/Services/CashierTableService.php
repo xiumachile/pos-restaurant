@@ -193,7 +193,7 @@ class CashierTableService
 
         foreach ($chargeableOrders as $index => $order) {
             $orderTip = $totalAmount > 0
-                ? round($totalTip * ($order->total / $totalAmount), 2)
+                ? (int) round($totalTip * ($order->total / $totalAmount))
                 : 0;
 
             $orderIdempotencyKey = $index === 0

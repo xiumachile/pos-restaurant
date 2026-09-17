@@ -42,7 +42,7 @@ class Refund extends Model
     ];
 
     protected $casts = [
-        'amount' => 'decimal:2',
+        'amount' => 'integer',
         'status' => RefundStatus::class,
         'processed_at' => 'datetime',
     ];

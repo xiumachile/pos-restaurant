@@ -147,7 +147,7 @@ class CashMovementService
             
             // Calcular balance después del movimiento
             $impact = $amount * $type->balanceSign();
-            $balanceAfter = round($currentBalance + $impact, 2);
+            $balanceAfter = (int) round($currentBalance + $impact);
 
             // Validar que no haya balance negativo para retiros
             if ($type === MovementType::WITHDRAWAL && $balanceAfter < 0) {

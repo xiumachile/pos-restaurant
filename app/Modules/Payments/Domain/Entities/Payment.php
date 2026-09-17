@@ -43,9 +43,9 @@ class Payment extends Model
 
     protected $casts = [
         'status' => PaymentStatus::class,
-        'amount' => 'decimal:2',
-        'tip_amount' => 'decimal:2',
-        'total_amount' => 'decimal:2',
+        'amount' => 'integer',
+        'tip_amount' => 'integer',
+        'total_amount' => 'integer',
         'paid_at' => 'datetime',
     ];
 

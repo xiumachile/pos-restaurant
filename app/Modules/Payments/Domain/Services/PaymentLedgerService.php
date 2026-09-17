@@ -150,7 +150,7 @@ class PaymentLedgerService
         ];
 
         // LÍNEA 2: Crédito a Revenue (proporcional al subtotal)
-        $revenueCredit = round($orderSubtotal * $ratio, 2);
+        $revenueCredit = (int) round($orderSubtotal * $ratio);
         if ($revenueCredit > 0) {
             $lines[] = [
                 'account_id' => $accounts['revenue']->id,
@@ -161,7 +161,7 @@ class PaymentLedgerService
         }
 
         // LÍNEA 3: Crédito a TaxPayable (proporcional al IVA)
-        $taxCredit = round($orderTax * $ratio, 2);
+        $taxCredit = (int) round($orderTax * $ratio);
         if ($taxCredit > 0) {
             $lines[] = [
                 'account_id' => $accounts['tax']->id,
@@ -173,7 +173,7 @@ class PaymentLedgerService
 
         // LÍNEA 4: Débito a Discount (si hay descuentos, reducir ingreso)
         // Los descuentos se manejan como reducción del revenue
-        $discountDebit = round($orderDiscount * $ratio, 2);
+        $discountDebit = (int) round($orderDiscount * $ratio);
         if ($discountDebit > 0) {
             $lines[] = [
                 'account_id' => $accounts['discount']->id,
@@ -196,14 +196,14 @@ class PaymentLedgerService
         // Ajuste por redondeo en la primera línea (destination)
         $totalDebits = array_sum(array_column($lines, 'debit'));
         $totalCredits = array_sum(array_column($lines, 'credit'));
-        $diff = round($totalDebits - $totalCredits, 2);
+        $diff = (int) round($totalDebits - $totalCredits);
 
         if (abs($diff) > 0.001 && !empty($lines)) {
             // Ajustar la primera línea (destination)
             if ($diff > 0) {
-                $lines[0]['credit'] = round($lines[0]['credit'] + $diff, 2);
+                $lines[0]['credit'] = (int) round($lines[0]['credit'] + $diff);
             } else {
-                $lines[0]['debit'] = round($lines[0]['debit'] - $diff, 2);
+                $lines[0]['debit'] = (int) round($lines[0]['debit'] - $diff);
             }
         }
 

@@ -30,8 +30,8 @@ class LedgerEntry extends Model
     ];
 
     protected $casts = [
-        'debit_amount' => 'decimal:2',
-        'credit_amount' => 'decimal:2',
+        'debit_amount' => 'integer',
+        'credit_amount' => 'integer',
     ];
 
     public function company(): BelongsTo

@@ -25,8 +25,8 @@ class MenuItem extends Model
     ];
 
     protected $casts = [
-        'base_price' => 'decimal:2',
-        'discount_amount' => 'decimal:2',
+        'base_price' => 'integer',
+        'discount_amount' => 'integer',
         'is_active' => 'boolean',
     ];
 

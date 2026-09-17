@@ -37,7 +37,7 @@ class Product extends Model
     protected $casts = [
         'name_translations' => 'array',
         'description_translations' => 'array',
-        'base_price' => 'decimal:2',
+        'base_price' => 'integer',
         'tax_rate' => 'decimal:2',
         'is_combo' => 'boolean',
         'is_active' => 'boolean',

@@ -76,14 +76,14 @@ class Order extends Model
             'last_synced_at' => 'datetime',
             'pickup_at' => 'datetime',
         'priority' => \Modules\Orders\Domain\ValueObjects\OrderPriority::class,
-            'subtotal' => 'decimal:2',
-            'subtotal_gross' => 'decimal:2',
-            'net_amount' => 'decimal:2',
-            'tax_amount' => 'decimal:2',
-            'discount_amount' => 'decimal:2',
-            'tip_amount' => 'decimal:2',
-            'total' => 'decimal:2',
-            'amount_due' => 'decimal:2',
+            'subtotal' => 'integer',
+            'subtotal_gross' => 'integer',
+            'net_amount' => 'integer',
+            'tax_amount' => 'integer',
+            'discount_amount' => 'integer',
+            'tip_amount' => 'integer',
+            'total' => 'integer',
+            'amount_due' => 'integer',
             'confirmed_at' => 'datetime',
             'served_at' => 'datetime',
             'picked_up_at' => 'datetime',
@@ -199,10 +199,10 @@ class Order extends Model
         $this->subtotal_gross = $this->items()->sum('subtotal');
         
         // Calcular net_amount (bruto / 1.19)
-        $this->net_amount = round($this->subtotal_gross / 1.19, 2);
+        $this->net_amount = (int) round($this->subtotal_gross / 1.19);
         
         // Calcular tax_amount (bruto - neto)
-        $this->tax_amount = round($this->subtotal_gross - $this->net_amount, 2);
+        $this->tax_amount = (int) ($this->subtotal_gross - $this->net_amount);
         
         // Calcular grand_total (bruto - descuento)
         $grandTotal = $this->subtotal_gross - ($this->discount_amount ?? 0);

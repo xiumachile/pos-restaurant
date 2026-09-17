@@ -43,13 +43,13 @@ class Bill extends Model
     protected $casts = [
         'type' => BillType::class,
         'status' => BillStatus::class,
-        'subtotal' => 'decimal:2',
-        'tax_amount' => 'decimal:2',
-        'discount_amount' => 'decimal:2',
-        'tip_amount' => 'decimal:2',
-        'total' => 'decimal:2',
-        'paid_amount' => 'decimal:2',
-        'remaining_amount' => 'decimal:2',
+        'subtotal' => 'integer',
+        'tax_amount' => 'integer',
+        'discount_amount' => 'integer',
+        'tip_amount' => 'integer',
+        'total' => 'integer',
+        'paid_amount' => 'integer',
+        'remaining_amount' => 'integer',
         'item_ids' => 'array',
     ];
 

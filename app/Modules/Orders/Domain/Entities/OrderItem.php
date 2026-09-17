@@ -38,11 +38,11 @@ class OrderItem extends Model
     protected function casts(): array
     {
         return [
-            'unit_price_snapshot' => 'decimal:2',
+            'unit_price_snapshot' => 'integer',
             'product_id' => 'integer',
             'quantity' => 'integer',
-            'subtotal' => 'decimal:2',
-            'tax_amount' => 'decimal:2',
+            'subtotal' => 'integer',
+            'tax_amount' => 'integer',
             'tax_rate_snapshot' => 'decimal:4',
         ];
     }
