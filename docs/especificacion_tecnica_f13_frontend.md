@@ -435,3 +435,85 @@ La app debe soportar el flujo completo de un restaurante:
 **Autor:** AI Assistant
 **Versión:** 1.0
 **Estado:** Pendiente de aprobación
+
+---
+
+## 14. Split Bill Offline (ADR-020, Septiembre 2026)
+
+### 14.1 Contexto
+
+El sistema soporta dividir una cuenta (split bill) en múltiples sub-cuentas para que diferentes comensales paguen por separado. Originalmente, el flujo de split bill solo funcionaba online. ADR-009 establecía que las bills no eran sincronizables porque el backend podía reconstruirlas desde `order + payments`.
+
+**Problema detectado**: En flujo offline, si el usuario divide una cuenta en 2 bills y paga cada una, al sincronizar:
+- Los payments llegaban al backend con `bill_uuid` referenciando bills que **no existían**
+- Backend rechazaba los payments porque `StorePaymentRequest.bill_uuid` exige `exists:bills,uuid`
+- La estructura del split se perdía
+
+**Solución (ADR-020)**: Hacer que las bills sean sincronizables en flujo offline→backend.
+
+### 14.2 Flujo completo Split Bill Offline
+OFFLINE (frontend):
+1. Usuario divide order de $20,000 en 2 bills de $10,000
+2. BillRepository.create() × 2
+	Encola cada bill en sync_queue (entity_type='bill')
+3. Usuario paga cada bill por separado
+4. PaymentRepository.create() × 2
+	Cada payment tiene bill_local_uuid referenciando su bill
+	Encola cada payment en sync_queue (entity_type='payment')
+SYNC (SyncEngine, orden created_at ASC):
+1. processOrder() → POST /orders → cloud_order_uuid
+2.processBill() × 2
+	Resuelve order_uuid desde order.cloud_id
+	POST /bills → cloud_bill_A, cloud_bill_B
+	Guarda cloud_id en local_bills
+3. processPayment() × 2
+	Resuelve order_uuid desde order.cloud_id
+	Resuelve bill_uuid desde bill.cloud_id (vía bill_local_uuid)
+	POST /billing/payments con { bill_uuid: cloud_bill_X }
+	
+BACKEND:
+	POST /bills crea las bills (endpoint idempotente por idempotency_key)
+	POST /billing/payments vincula cada payment a su bill
+	Estructura del split preservada completamente
+
+
+### 14.3 Invariantes del sistema
+
+| Invariante | Verificación |
+|------------|--------------|
+| Orden de sincronización | `created_at ASC` garantiza order → bill → payment |
+| Bill requiere order sincronizado | `processBill` falla si `order.cloud_id` es null |
+| Payment requiere bill sincronizada | `processPayment` falla si `bill.cloud_id` es null |
+| Idempotencia de bills | Backend rechaza duplicados por `idempotency_key` |
+| Consistencia monetaria | `paid_amount + remaining_amount = total` (sin epsilon, ADR-018) |
+
+### 14.4 Archivos clave
+
+| Archivo | Rol |
+|---------|-----|
+| `frontend/src/db/repositories/BillRepository.ts` | Crea bill + encola a sync_queue |
+| `frontend/src/db/repositories/PaymentRepository.ts` | Crea payment con `bill_local_uuid` + encola |
+| `frontend/src/services/sync/SyncEngine.ts` | `processBill()` y `processPayment()` resuelven UUIDs |
+| `frontend/src/services/syncApi.ts` | `createBill()` y `createPayment()` |
+| `app/Modules/Payments/Interfaces/Controllers/BillController.php` | `store()` recibe bills desde sync |
+| `app/Modules/Payments/Interfaces/Requests/StoreBillRequest.php` | Valida payload de bill sync |
+
+### 14.5 Tests
+
+- **Frontend**:
+  - `syncEngine.splitBillE2E.test.ts`: Flujo E2E completo (3 tests)
+  - `syncEngine.bill.test.ts`: Unit tests de processBill (5 tests)
+  - `offlinePaymentService.splitBill.test.ts`: Protección de ambigüedad (6 tests)
+
+- **Backend**:
+  - `BillSyncTest.php`: Tests del endpoint POST /bills (7 tests)
+  - `SplitBillTest.php`: Split online + integridad (4 tests)
+
+### 14.6 Decisiones relacionadas
+
+- **ADR-020**: Contrato de sincronización de bills
+- **ADR-009** (parcialmente reemplazado): Bills no sincronizables (modelo conceptual aún válido)
+- **ADR-018**: Monetary values as INTEGER (usado en campos de bill)
+- **ADR-019**: `bill_local_uuid` en `local_payments` (link payment→bill)
+- **ADR-011**: Modelo chileno de montos (bruto/neto/IVA)
+
