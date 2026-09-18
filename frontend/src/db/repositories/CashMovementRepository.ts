@@ -165,7 +165,7 @@ export class CashMovementRepository {
         },
       });
     } catch (eventErr: any) {
-      // No crítico: si falla registrar evento, el movimiento sigue siendo válido
+      // ADR-021: No crítico - EventStore es best-effort, movimiento ya persistió
       console.warn("[CashMovementRepository] ⚠️ No se pudo registrar evento CREATE_MOVEMENT:", eventErr?.message);
     }
 

@@ -144,7 +144,7 @@ export class PaymentRepository {
         },
       });
     } catch (eventErr: any) {
-      // No crítico: si falla registrar evento, el pago sigue siendo válido
+      // ADR-021: No crítico - EventStore es best-effort, payment ya persistió
       console.warn("[PaymentRepository] ⚠️ No se pudo registrar evento CREATE_PAYMENT:", eventErr?.message);
     }
 

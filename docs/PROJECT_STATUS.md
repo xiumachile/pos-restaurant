@@ -64,7 +64,7 @@ Principios de Diseño
 Offline-First: Funciona sin conexión, sincroniza después
 Multi-tenant: Aislamiento completo por empresa/sucursal
 Idempotencia: Operaciones seguras ante reintentos
-Event Sourcing Híbrido: Auditoría completa de cambios
+Event Sourcing Híbrido: Auditoría best-effort (ADR-021)
 Thin Client: Lógica de negocio en backend
 📚 ADRs Implementados
 
