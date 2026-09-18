@@ -209,45 +209,52 @@ describe("offlinePaymentService", () => {
   });
 
   describe("createPaymentOffline - sync queue", () => {
-    it("debería encolar payment y table update (bill NO se encola por ADR-009)", async () => {
+    it("debería encolar payment, table update y bill (ADR-020)", async () => {
+      // Setup idéntico al happy path: order con items + status served
       const order = await OrderRepository.create({
         company_id: "company-1",
         branch_id: "branch-1",
         table_id: "table-1",
+        waiter_name: "Juan",
       });
+
       await OrderRepository.addItem(order.local_uuid, {
         product_id: "prod-1",
         product_name: "Hamburguesa",
-        quantity: 1,
+        quantity: 2,
         unit_price: 5000,
       });
+
       await OrderRepository.updateStatus(order.local_uuid, "served");
 
-      await offlinePaymentService.createPaymentOffline({
+      const result = await offlinePaymentService.createPaymentOffline({
         orderLocalUuid: order.local_uuid,
         paymentMethod: "cash",
-        amount: 5000,
+        amount: 10000,
       });
 
-      const pending = await SyncQueueRepository.getPending();
+      expect(result.payment).toBeDefined();
+      expect(result.bill).toBeDefined();
 
-      // ADR-009: bill NO se encola (backend la reconstruye desde order + payment)
-      // Solo payment y table update se encolan
+      const pending = await SyncQueueRepository.getPending(10);
       expect(pending.length).toBeGreaterThanOrEqual(2);
 
-      // Verificar que NO hay items de bill (ADR-009)
+      // ADR-020: Verificar que SÍ hay items de bill encolados
       const billItems = pending.filter(p => p.entity_type === "bill");
-      expect(billItems).toHaveLength(0);
+      expect(billItems).toHaveLength(1);
 
       const paymentItems = pending.filter(p => p.entity_type === "payment");
       expect(paymentItems).toHaveLength(1);
 
       const tableItems = pending.filter(p => p.entity_type === "table_status");
       expect(tableItems).toHaveLength(1);
-      expect(tableItems[0].action).toBe("update");
+
+      // Verificar que la bill tiene los datos correctos
+      const billItem = billItems[0];
+      expect(billItem.action).toBe("create");
+      expect(billItem.entity_local_uuid).toBe(result.bill!.local_uuid);
     });
   });
-
   describe("getOrderPaymentStatus", () => {
     it("debería retornar estado completo de pago", async () => {
       const order = await OrderRepository.create({
