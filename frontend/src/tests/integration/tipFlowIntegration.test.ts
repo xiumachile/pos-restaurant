@@ -120,6 +120,7 @@ describe("Tip Flow Integration (ADR-011, ADR-019)", () => {
       order_local_uuid: order.local_uuid,
       bill_number: "BILL-001",
       subtotal: 10000,
+      grand_total: 10000,
     });
     await BillRepository.markAsSynced(bill.local_uuid, "cloud-bill-123");
 
@@ -196,6 +197,7 @@ describe("Tip Flow Integration (ADR-011, ADR-019)", () => {
       order_local_uuid: order.local_uuid,
       bill_number: "BILL-E2E",
       subtotal: 10000,
+      grand_total: 10000,
     });
     await BillRepository.markAsSynced(bill.local_uuid, "cloud-bill-e2e");
 
