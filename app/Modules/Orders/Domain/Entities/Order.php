@@ -188,7 +188,7 @@ class Order extends Model
      * 
      * Fórmula:
      * - subtotal_gross = SUM(items.subtotal)  [IVA incluido]
-     * - net_amount = ROUND(subtotal_gross / 1.19, 2)
+     * - net_amount = (int) round(subtotal_gross / 1.19)
      * - tax_amount = subtotal_gross - net_amount
      * - grand_total = subtotal_gross - discount_amount
      * - amount_due = grand_total + tip_amount
