@@ -159,7 +159,8 @@ export class SyncEngine {
         cloudId = await this.processCashMovement(item, payload);
         break;
       case "bill":
-        throw new Error("bill sync not implemented (requiere implementación)");
+        cloudId = await this.processBill(item, payload);
+        break;
       default:
         throw new Error(`Entity type no soportado: ${item.entity_type}`);
     }
@@ -384,6 +385,72 @@ export class SyncEngine {
       const { PaymentRepository } = await import("../../db/repositories/PaymentRepository");
       await PaymentRepository.markAsSynced(item.entity_local_uuid, String(cloudId));
     }
+    return cloudId ? String(cloudId) : null;
+  }
+
+  /**
+   * Procesa sincronización de bill offline → backend (ADR-020).
+   *
+   * Flujo:
+   * 1. Resolver order_uuid desde order_local_uuid (order debe estar ya sincronizado)
+   * 2. Construir payload con mapeo de campos frontend→backend:
+   *    - frontend: tax_total, discount_total, grand_total, amount_due
+   *    - backend:  tax_amount, discount_amount, total (≈ amount_due)
+   * 3. POST /api/v1/bills con Idempotency-Key
+   * 4. Guardar cloud_id (uuid backend) en local_bills
+   */
+  private async processBill(item: SyncQueueItem, payload: any): Promise<string | null> {
+    if (item.action !== "create") {
+      throw new Error(`Acción no soportada para bill: ${item.action}`);
+    }
+
+    // 1. Resolver order_uuid desde order_local_uuid
+    let orderUuid = payload.order_uuid || payload.order_cloud_id;
+    if (!orderUuid && payload.order_local_uuid) {
+      const { OrderRepository } = await import("../../db/repositories/OrderRepository");
+      const order = await OrderRepository.findByLocalUuid(payload.order_local_uuid);
+      if (!order?.cloud_id) {
+        throw new Error(`Order padre sin cloud_id, no se puede crear bill: ${payload.order_local_uuid}`);
+      }
+      orderUuid = order.cloud_id;
+    }
+
+    if (!orderUuid) {
+      throw new Error("No se pudo resolver order_uuid para la bill");
+    }
+
+    // 2. Mapear campos frontend→backend
+    // Frontend (LocalBill): tax_total, discount_total, grand_total, amount_due
+    // Backend (Bill):       tax_amount, discount_amount, total
+    //
+    // Semántica backend total = grand_total + tip_amount = amount_due (ADR-011)
+    const billPayload = {
+      order_uuid: orderUuid,
+      bill_number: payload.bill_number,
+      type: payload.type || "single",
+      subtotal: payload.subtotal,
+      tax_amount: payload.tax_total ?? 0,
+      discount_amount: payload.discount_total ?? 0,
+      tip_amount: payload.tip_amount ?? 0,
+      total: payload.amount_due ?? payload.grand_total ?? 0,
+      paid_amount: payload.paid_amount ?? 0,
+      remaining_amount: payload.remaining_amount ?? 0,
+      status: payload.status || "open",
+      idempotency_key: payload.idempotency_key,
+    };
+
+    console.log("[SyncEngine] 📤 Creando bill:", JSON.stringify(billPayload, null, 2));
+
+    // 3. Llamar al backend
+    const response = await syncApi.createBill(billPayload);
+    const cloudId = response.uuid || response.id;
+
+    // 4. Actualizar local_bills con cloud_id
+    if (cloudId) {
+      const { BillRepository } = await import("../../db/repositories/BillRepository");
+      await BillRepository.markAsSynced(item.entity_local_uuid, String(cloudId));
+    }
+
     return cloudId ? String(cloudId) : null;
   }
 

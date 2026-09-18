@@ -98,10 +98,23 @@ export class BillRepository {
 
     const bill = (await this.findByLocalUuid(local_uuid)) as LocalBill;
 
-    // NOTA (ADR-009): Las bills NO se sincronizan como entidades independientes.
-    // El backend las reconstruye automáticamente desde order + payments sincronizados.
-    // El endpoint POST /bills no existe en el backend.
-    console.log(`[BillRepository] 📝 Bill creada localmente (no sincronizable): ${local_uuid}`);
+    // ADR-020: Las bills AHORA son entidades sincronizables.
+    // Encolar para sincronización con el backend (endpoint POST /api/v1/bills).
+    await SyncQueueRepository.enqueue({
+      company_id: payload.company_id,
+      branch_id: payload.branch_id,
+      entity_type: "bill",
+      entity_local_uuid: local_uuid,
+      action: "create",
+      payload: {
+        ...bill,
+        order_local_uuid: payload.order_local_uuid || null,
+        order_cloud_id: payload.order_cloud_id || null,
+        idempotency_key,
+      },
+    });
+
+    console.log(`[BillRepository] 📤 Bill encolada para sync: ${local_uuid}`);
     return bill;
   }
 

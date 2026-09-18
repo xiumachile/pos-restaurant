@@ -30,6 +30,22 @@ export interface PaymentPayload {
   idempotency_key: string;
 }
 
+
+export interface BillPayload {
+  order_uuid: string;
+  bill_number: string;
+  type: "single" | "equal_split" | "by_items" | "custom_amount";
+  subtotal: number;
+  tax_amount: number;
+  discount_amount: number;
+  tip_amount: number;
+  total: number;
+  paid_amount: number;
+  remaining_amount: number;
+  status: "open" | "partial" | "paid" | "cancelled";
+  idempotency_key: string;
+}
+
 export interface MovementPayload {
   session_uuid: string;
   type: "withdrawal" | "deposit" | "adjustment";
@@ -99,6 +115,21 @@ export class SyncApiClient {
     });
     return response.data.data;
   }
+
+  /**
+   * Crea una bill en el backend (ADR-020: bills sincronizables).
+   * POST /api/v1/bills
+   *
+   * Usado para sincronizar bills creadas offline, incluyendo split bills.
+   * Idempotente vía Idempotency-Key.
+   */
+  async createBill(payload: BillPayload): Promise<any> {
+    const response = await apiClient.post("/bills", payload, {
+      headers: { "Idempotency-Key": payload.idempotency_key },
+    });
+    return response.data;
+  }
+
 
   /**
    * Crea un movimiento de caja (withdrawal/deposit/adjustment).
