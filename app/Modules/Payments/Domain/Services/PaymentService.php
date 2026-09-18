@@ -85,7 +85,7 @@ class PaymentService
                 'cash_session_id' => $cashSession?->id,
                 'payment_method_id' => $paymentMethod->id,
                 'user_id' => $userId,
-                'payment_number' => Payment::generatePaymentNumber($order->order_number),
+                'payment_number' => Payment::generatePaymentNumber($order->branch->code),
                 'method_code' => $paymentMethod->code,
                 'amount' => $amount,
                 'tip_amount' => $tipAmount,
