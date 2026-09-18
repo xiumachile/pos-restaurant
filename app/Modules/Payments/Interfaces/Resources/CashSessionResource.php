@@ -13,9 +13,9 @@ class CashSessionResource extends JsonResource
             'uuid' => $this->uuid,
             'session_number' => $this->session_number,
             'status' => $this->status->value,
-            'opening_amount' => (float) $this->opening_amount,
-            'closing_amount' => $this->closing_amount ? (float) $this->closing_amount : null,
-            'expected_amount' => $this->expected_amount ? (float) $this->expected_amount : null,
+            'opening_amount' => (int) $this->opening_amount,  // ADR-011: integer CLP
+            'closing_amount' => $this->closing_amount ? (int) $this->closing_amount : null,  // ADR-011: integer CLP
+            'expected_amount' => $this->expected_amount ? (int) $this->expected_amount : null,  // ADR-011: integer CLP
             'difference' => $this->difference ? (float) $this->difference : null,
             'opening_notes' => $this->opening_notes,
             'closing_notes' => $this->closing_notes,

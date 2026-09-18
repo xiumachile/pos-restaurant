@@ -65,12 +65,12 @@ class PaymentMethod extends Model
 /**
      * Verifica si un monto es válido para este método.
      */
-    public function acceptsAmount(float $amount): bool
+    public function acceptsAmount(int $amount): bool  // ADR-011: integer CLP
     {
         if ($this->max_amount === null) {
             return true;
         }
-        return $amount <= (float) $this->max_amount;
+        return $amount <= (int) $this->max_amount;  // ADR-011: integer comparison
     }
 
     /**

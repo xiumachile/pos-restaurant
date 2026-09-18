@@ -23,12 +23,12 @@ class PaymentService
     public function registerPayment(
         Order $order,
         PaymentMethod $paymentMethod,
-        float $amount,
+        int $amount,  // ADR-011: integer CLP
         string $idempotencyKey,
         ?Bill $bill = null,
         ?CashSession $cashSession = null,
         int $userId = 0,
-        float $tipAmount = 0,
+        int $tipAmount = 0,  // ADR-011: integer CLP
         ?string $referenceCode = null,
         ?string $notes = null
     ): Payment {
@@ -71,7 +71,7 @@ class PaymentService
             }
 
             $available = $this->getAvailableAmount($order, $bill);
-            if ($amount > $available + 0.01) {
+            if ($amount > $available) {  // ADR-011: integer comparison
                 throw PaymentException::insufficientAmount($amount, $available);
             }
 
@@ -127,27 +127,27 @@ class PaymentService
      * 
      * Disponible = total_a_pagar - (pagos_venta + pagos_propina)
      */
-    private function getAvailableAmount(Order $order, ?Bill $bill): float
+    private function getAvailableAmount(Order $order, ?Bill $bill): int  // ADR-011: integer CLP
     {
         if ($bill) {
-            return (float) $bill->remaining_amount;
+            return (int) $bill->remaining_amount;
         }
 
         // Calcular el total a pagar (venta + propina)
-        $amountDue = (float) $order->amount_due;
+        $amountDue = (int) $order->amount_due;
         
         // Si amount_due no está calculado (0), usar modelo legacy
         // Fallback: total (legacy grand_total) + tip_amount
-        if ($amountDue < 0.01) {
-            $amountDue = (float) $order->total + (float) ($order->tip_amount ?? 0);
+        if ($amountDue < 1) {  // ADR-011: integer comparison
+            $amountDue = (int) $order->total + (int) ($order->tip_amount ?? 0);
         }
 
         // Sumar pagos completados (venta + propina por separado)
-        $paidAmount = (float) Payment::where('order_id', $order->id)
+        $paidAmount = (int) Payment::where('order_id', $order->id)
             ->completed()
             ->sum('amount');
 
-        $paidTips = (float) Payment::where('order_id', $order->id)
+        $paidTips = (int) Payment::where('order_id', $order->id)
             ->completed()
             ->sum('tip_amount');
 
@@ -156,11 +156,11 @@ class PaymentService
 
     private function updateOrderPaymentStatus(Order $order): void
     {
-        $paidAmount = (float) Payment::where('order_id', $order->id)
+        $paidAmount = (int) Payment::where('order_id', $order->id)
             ->completed()
             ->sum('amount');
 
-        if ($paidAmount >= (float) $order->total && $order->status->isChargeable()) {
+        if ($paidAmount >= (int) $order->total && $order->status->isChargeable()) {  // ADR-011: integer comparison
             $order->paid_at = now();
             $order->status = \Modules\Orders\Domain\ValueObjects\OrderStatus::PAID;
             $order->cashier_id = $order->cashier_id ?: auth()->id();

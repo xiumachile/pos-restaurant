@@ -27,8 +27,8 @@ class StorePaymentRequest extends FormRequest
             'order_uuid' => ['required', 'uuid', 'exists:orders,uuid'],
             'payment_method_uuid' => ['required', 'uuid', 'exists:payment_methods,uuid'],
             'bill_uuid' => ['nullable', 'uuid', 'exists:bills,uuid'],
-            'amount' => ['required', 'numeric', 'min:0.01'],
-            'tip_amount' => ['nullable', 'numeric', 'min:0'],
+            'amount' => ['required', 'integer', 'min:1'],
+            'tip_amount' => ['nullable', 'integer', 'min:0'],
             'reference_code' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:500'],
             'idempotency_key' => ['required', 'uuid'],
@@ -44,7 +44,7 @@ class StorePaymentRequest extends FormRequest
             'payment_method_uuid.exists' => 'El método de pago no existe.',
             'bill_uuid.exists' => 'El bill especificado no existe.',
             'amount.required' => 'El monto es requerido.',
-            'amount.min' => 'El monto debe ser mayor a 0.',
+            'amount.min' => 'El monto debe ser al menos 1 CLP.',
             'tip_amount.min' => 'La propina no puede ser negativa.',
             'idempotency_key.required' => 'El Idempotency-Key es requerido.',
             'idempotency_key.uuid' => 'El Idempotency-Key debe ser un UUID válido.',
@@ -66,7 +66,7 @@ class StorePaymentRequest extends FormRequest
                 }
             }
 
-            $tipAmount = (float) ($this->input('tip_amount') ?? 0);
+            $tipAmount = (int) ($this->input('tip_amount') ?? 0);
             if ($tipAmount > 0) {
                 $user = $this->user();
                 if (!$user->company->hasCapability('can_accept_tips')) {

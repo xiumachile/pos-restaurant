@@ -13,9 +13,9 @@ class PaymentResource extends JsonResource
             'uuid' => $this->uuid,
             'payment_number' => $this->payment_number,
             'method_code' => $this->method_code,
-            'amount' => (float) $this->amount,
-            'tip_amount' => (float) $this->tip_amount,
-            'total_amount' => (float) $this->total_amount,
+            'amount' => (int) $this->amount,  // ADR-011: integer CLP
+            'tip_amount' => (int) $this->tip_amount,  // ADR-011: integer CLP
+            'total_amount' => (int) $this->total_amount,  // ADR-011: integer CLP
             'reference_code' => $this->reference_code,
             'status' => $this->status->value,
             'idempotency_key' => $this->idempotency_key,

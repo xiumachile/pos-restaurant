@@ -62,12 +62,12 @@ class PaymentController extends Controller
             $payment = $this->paymentService->registerPayment(
                 order: $order,
                 paymentMethod: $paymentMethod,
-                amount: (float) $validated['amount'],
+                amount: (int) $validated['amount'],
                 idempotencyKey: $validated['idempotency_key'],
                 bill: $bill,
                 cashSession: $openSession,
                 userId: $user->id,
-                tipAmount: (float) ($validated['tip_amount'] ?? 0),
+                tipAmount: (int) ($validated['tip_amount'] ?? 0),
                 referenceCode: $validated['reference_code'] ?? null,
                 notes: $validated['notes'] ?? null
             );
