@@ -382,7 +382,7 @@ export class SyncEngine {
       order_uuid: orderUuid,
       payment_method_uuid: payload.payment_method_uuid,
       bill_uuid: billUuid,  // ADR-020: puede ser null si payment directo a order
-      amount: payload.amount,
+      amount: payload.sale_amount || (payload.amount - (payload.tip_amount || 0)),  // ADR-011: enviar sale_amount (venta sin propina)
       tip_amount: payload.tip_amount || 0,
       reference_code: payload.reference_code || null,
       notes: payload.notes || null,
