@@ -366,10 +366,22 @@ export class SyncEngine {
       throw new Error("payment_method_uuid es requerido pero no está en el payload");
     }
 
+    // ADR-020: Resolver bill_uuid desde bill_local_uuid (si existe)
+    let billUuid: string | null = null;
+    if (payload.bill_local_uuid) {
+      const { BillRepository } = await import("../../db/repositories/BillRepository");
+      const bill = await BillRepository.findByLocalUuid(payload.bill_local_uuid);
+      if (!bill?.cloud_id) {
+        throw new Error(`Bill sin cloud_id, no se puede crear payment: ${payload.bill_local_uuid}`);
+      }
+      billUuid = bill.cloud_id;
+    }
+
     // Construir payload con el formato que espera el backend (StorePaymentRequest)
     const paymentPayload = {
       order_uuid: orderUuid,
       payment_method_uuid: payload.payment_method_uuid,
+      bill_uuid: billUuid,  // ADR-020: puede ser null si payment directo a order
       amount: payload.amount,
       tip_amount: payload.tip_amount || 0,
       reference_code: payload.reference_code || null,
