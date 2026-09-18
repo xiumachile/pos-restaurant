@@ -1,5 +1,24 @@
 # ADR-009: Bills no son entidades sincronizables independientes
 
+
+> ⚠️ **ESTADO ACTUALIZADO (Septiembre 2026)**: Este ADR fue **parcialmente reemplazado por [ADR-020](./020-bills-are-syncable.md)**.
+>
+> **Cambio**: Las bills AHORA son entidades sincronizables en el flujo offline→backend para soportar split bill offline.
+> El backend recibe bills vía `POST /api/v1/bills` y los payments se vinculan con `bill_uuid`.
+>
+> **Lo que sigue vigente de este ADR**:
+> - El modelo conceptual (bills online = sub-cuentas de split, bills offline = cuenta completa del order)
+> - La justificación de por qué el flujo online no requiere sincronización directa de bills
+> - El principio DRY para orders normales (sin split)
+>
+> **Lo que cambió**:
+> - Bills offline ahora se sincronizan al backend (antes eran solo locales)
+> - Endpoint `POST /api/v1/bills` agregado en backend
+> - SyncEngine procesa bills (entity_type='bill')
+
+---
+
+
 **Fecha**: Septiembre 2026  
 **Estado**: Aceptado  
 **Contexto**: Arquitectura offline-first con sync queue
