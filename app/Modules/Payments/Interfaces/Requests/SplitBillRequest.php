@@ -96,6 +96,36 @@ class SplitBillRequest extends FormRequest
             'parts.min' => 'Se requieren al menos 2 partes.',
             'groups.required' => 'Los grupos son requeridos para by_items.',
             'amounts.required' => 'Los montos son requeridos para custom_amount.',
+            'amounts.*.integer' => 'Cada monto debe ser un número entero (CLP sin decimales).',
+            'amounts.*.min' => 'Cada monto debe ser al menos 1 CLP.',
         ];
+    }
+
+    /**
+     * Validación adicional: asegurar que no hay decimales.
+     * Laravel acepta 10000.0 como integer, pero rechazamos explícitamente.
+     * 
+     * ADR-018: CLP entero, sin decimales.
+     */
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            $type = $this->input('type');
+            
+            // Solo validar amounts si es custom_amount
+            if ($type === 'custom_amount') {
+                $amounts = $this->input('amounts', []);
+                
+                foreach ($amounts as $index => $amount) {
+                    // Verificar que sea número entero (no float con decimales)
+                    if (is_numeric($amount) && floor($amount) != $amount) {
+                        $validator->errors()->add(
+                            "amounts.{$index}",
+                            "El monto debe ser un número entero (CLP sin decimales). Recibido: {$amount}"
+                        );
+                    }
+                }
+            }
+        });
     }
 }
