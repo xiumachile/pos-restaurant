@@ -160,7 +160,7 @@ class BillingService
             if (count($bills) > 0) {
                 $difference = (int) round($orderTotal - $calculatedTotal);
                 
-                if (abs($difference) > 0.001) {
+                if ($difference !== 0  // ADR-018: comparación exacta) {
                     $lastBill = $bills[count($bills) - 1];
                     $lastBill->total = (int) round((int) $lastBill->total + $difference);
                     $lastBill->remaining_amount = $lastBill->total;
@@ -174,7 +174,7 @@ class BillingService
 
     /**
      * Modalidad 3: Montos personalizados por persona.
-     * TOLERANTE: Ajusta la última bill si la suma difiere en centavos.
+     * TOLERANTE: Ajusta la última bill si la suma difiere en ±1 CLP (redondeo entero).
      */
     public function splitByAmounts(Order $order, array $amounts): array
     {
@@ -182,7 +182,7 @@ class BillingService
             throw PaymentException::invalidSplitAmount();
         }
 
-        // Normalizar montos a float
+        // ADR-018: Normalizar montos a entero
         $amounts = array_map(static fn ($amount): int => (int) $amount, $amounts);  // ADR-018: entero end-to-end
         $sumAmounts = (int) round(array_sum($amounts));
         $orderTotal = (int) round($order->total);
@@ -254,12 +254,12 @@ class BillingService
             
             if ($existing) {
                 // Si la bill tiene total correcto, retornarla
-                if ((int) $existing->total > 0 && (int) $existing->total === (int) $order->total  // ADR-018: comparación exacta, sin epsilon) {
+                if ((int) $existing->total > 0 && (int) $existing->total === (int) $order->total) {  // ADR-018: comparación exacta, sin epsilon
                     return $existing;
                 }
                 
                 // Si la bill está corrupta (total=0), eliminarla para recrearla
-                if ((int) $existing->total == 0 && (float) $existing->paid_amount == 0) {
+                if ((int) $existing->total == 0 && (int) $existing->paid_amount == 0) {
                     $existing->delete();
                 } else {
                     // Bill tiene datos pero diferente total - retornar como está
