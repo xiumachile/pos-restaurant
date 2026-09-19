@@ -156,11 +156,28 @@ class PaymentService
 
     private function updateOrderPaymentStatus(Order $order): void
     {
+        // ADR-018: Comparar contra amount_due (venta + propina)
+        // amount_due = grand_total + tip_amount
+        $amountDue = (int) $order->amount_due;
+        
+        // Si amount_due no está calculado, usar fallback
+        if ($amountDue < 1) {
+            $amountDue = (int) $order->total + (int) ($order->tip_amount ?? 0);
+        }
+
+        // Sumar pagos completados (venta + propina)
         $paidAmount = (int) Payment::where('order_id', $order->id)
             ->completed()
             ->sum('amount');
 
-        if ($paidAmount >= (int) $order->total && $order->status->isChargeable()) {  // ADR-011: integer comparison
+        $paidTips = (int) Payment::where('order_id', $order->id)
+            ->completed()
+            ->sum('tip_amount');
+
+        $totalPaid = $paidAmount + $paidTips;
+
+        // Marcar como PAID solo cuando se pagó venta + propina completa
+        if ($totalPaid >= $amountDue && $order->status->isChargeable()) {
             $order->paid_at = now();
             $order->status = \Modules\Orders\Domain\ValueObjects\OrderStatus::PAID;
             $order->cashier_id = $order->cashier_id ?: auth()->id();
