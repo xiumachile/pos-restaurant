@@ -89,9 +89,9 @@ class Denomination
      * Calcula el monto total a partir de un array de conteos.
      * Formato esperado: ['20000' => 5, '10000' => 3, ...]
      */
-    public static function calculateTotal(array $counts): float
+    public static function calculateTotal(array $counts): int
     {
-        $total = 0.0;
+        $total = 0;
         foreach ($counts as $denomination => $quantity) {
             if (self::isValid((int) $denomination) && is_numeric($quantity)) {
                 $total += ((int) $denomination) * ((int) $quantity);

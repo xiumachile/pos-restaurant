@@ -144,16 +144,16 @@ test('payBill NO genera doble cobro — paid_amount debe ser igual al monto paga
 
     // Comparación numérica (int vs float no debe importar)
     $responseData = $response->json('data');
-    expect((float) $responseData['paid_amount'])->toBe((float) $amountToPay,
+    expect($responseData['paid_amount'])->toBe($amountToPay,
         "CRÍTICO: paid_amount debe ser EXACTAMENTE el monto pagado, no el doble");
-    expect((float) $responseData['remaining_amount'])->toBe(0);
+    expect($responseData['remaining_amount'])->toBe(0);
 
     // ⚠️ ASSERTION CRÍTICA: verificar que NO hubo doble cobro
     $bill->refresh();
     $order->refresh();
     $this->table->refresh();
 
-    expect($bill->paid_amount)->toBe((float) $amountToPay,
+    expect($bill->paid_amount)->toBe($amountToPay,
         "CRÍTICO: paid_amount debe ser EXACTAMENTE el monto pagado, no el doble");
     expect($bill->remaining_amount)->toBe(0);
     expect($bill->status)->toBe(BillStatus::PAID);
@@ -165,7 +165,7 @@ test('payBill NO genera doble cobro — paid_amount debe ser igual al monto paga
 
     // El payment debe tener el monto correcto (no 2x)
     $payment = Payment::where('bill_id', $bill->id)->latest('id')->first();
-    expect($payment->amount)->toBe((float) $amountToPay);
+    expect($payment->amount)->toBe($amountToPay);
 
     // Order debe estar PAID (vía PaymentService.updateOrderPaymentStatus)
     expect($order->status)->toBe(OrderStatus::PAID);
@@ -212,14 +212,14 @@ test('payBill es idempotente con misma idempotency_key', function () {
     $response1->assertStatus(200);
 
     $bill->refresh();
-    $paidAmountAfterFirst = (float) $bill->paid_amount;
+    $paidAmountAfterFirst = $bill->paid_amount;
 
     // Segundo intento con MISMA key (simulando retry)
     $response2 = $this->withHeaders($headers)->postJson("/api/v1/cashier/bills/{$bill->uuid}/pay", $payload);
     $response2->assertStatus(200);
 
     $bill->refresh();
-    $paidAmountAfterSecond = (float) $bill->paid_amount;
+    $paidAmountAfterSecond = $bill->paid_amount;
 
     // ⚠️ CRÍTICO: paid_amount NO debe cambiar en el retry
     expect($paidAmountAfterSecond)->toBe($paidAmountAfterFirst,

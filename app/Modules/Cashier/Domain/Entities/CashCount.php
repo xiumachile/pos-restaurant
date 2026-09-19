@@ -52,10 +52,10 @@ class CashCount extends Model
         'counted_amount' => 'integer',
         'difference' => 'integer',
         'denominations' => 'array',
-        'cash_amount' => 'decimal:2',
-        'card_amount' => 'decimal:2',
-        'transfer_amount' => 'decimal:2',
-        'other_amount' => 'decimal:2',
+        'cash_amount' => 'integer',
+        'card_amount' => 'integer',
+        'transfer_amount' => 'integer',
+        'other_amount' => 'integer',
         'has_discrepancy' => 'boolean',
         'supervised_at' => 'datetime',
     ];
@@ -99,7 +99,7 @@ class CashCount extends Model
     /**
      * Calcula el monto contado a partir del desglose de denominaciones.
      */
-    public function recalculateFromDenominations(): float
+    public function recalculateFromDenominations(): int
     {
         $denominations = $this->denominations ?? [];
         
@@ -109,7 +109,7 @@ class CashCount extends Model
         $total = $billsTotal + $coinsTotal;
         
         $this->counted_amount = $total;
-        $this->difference = (int) round($total - $this->expected_amount);
+        $this->difference = $total - (int) $this->expected_amount;
         $this->has_discrepancy = abs($this->difference) > self::DISCREPANCY_THRESHOLD;
         
         return $total;
@@ -148,7 +148,7 @@ class CashCount extends Model
         if ($expected === 0.0) {
             return 0.0;
         }
-        return (int) round((abs($this->difference) / $expected) * 100);
+        return round((abs($this->difference) / $expected) * 100, 2);
     }
 
     /**
