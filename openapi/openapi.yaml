@@ -9,6 +9,7 @@ info:
     - Toda entidad operativa incluye `company_id` y `branch_id`.
     - Mutaciones críticas requieren `Idempotency-Key`.
     - El idioma se resuelve vía `Accept-Language` o `X-Terminal-ID`.
+    - Modelo monetario: CLP entero (sin decimales) - ADR-011, ADR-018
   version: 1.0.0
   contact:
     name: Equipo de Desarrollo
@@ -22,28 +23,874 @@ servers:
 tags:
   - name: Auth
     description: Autenticación (JWT + PIN POS)
-  - name: Companies
-    description: Empresas (tenant raíz)
-  - name: Branches
-    description: Sucursales
-  - name: Catalog
-    description: Productos, categorías y modificadores
-  - name: Tables
-    description: Mesas y áreas
   - name: Orders
-    description: Pedidos
-  - name: Kitchen
-    description: Cocina / KDS
+    description: Pedidos y transiciones de estado
   - name: Billing
-    description: Facturación y cuentas
-  - name: Payments
-    description: Pagos, split bill y propinas
+    description: Facturación, bills y pagos
   - name: Cashier
-    description: Sesiones de caja
+    description: Sesiones de caja, movimientos y reportes
   - name: Sync
     description: Sincronización offline-first
+  - name: Catalog
+    description: Productos, categorías, menús y precios
+  - name: Tables
+    description: Mesas y áreas
 
-paths: {}
+paths:
+  # ============================================
+  # ORDERS
+  # ============================================
+  /v1/orders:
+    get:
+      tags: [Orders]
+      summary: Listar pedidos
+      operationId: listOrders
+      parameters:
+        - $ref: '#/components/parameters/TerminalId'
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, confirmed, preparing, ready, served, paid, closed, cancelled]
+        - name: table_uuid
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lista de pedidos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+    post:
+      tags: [Orders]
+      summary: Crear pedido
+      operationId: createOrder
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/TerminalId'
+        - $ref: '#/components/parameters/AcceptLanguage'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: Pedido creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /v1/orders/{uuid}:
+    get:
+      tags: [Orders]
+      summary: Obtener pedido
+      operationId: getOrder
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+        - $ref: '#/components/parameters/TerminalId'
+      responses:
+        '200':
+          description: Pedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Orders]
+      summary: Actualizar pedido
+      operationId: updateOrder
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrderRequest'
+      responses:
+        '200':
+          description: Pedido actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+    delete:
+      tags: [Orders]
+      summary: Eliminar pedido
+      operationId: deleteOrder
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Pedido eliminado
+
+  /v1/orders/{orderUuid}/items:
+    post:
+      tags: [Orders]
+      summary: Agregar item al pedido
+      operationId: addItemToOrder
+      parameters:
+        - name: orderUuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddItemRequest'
+      responses:
+        '201':
+          description: Item agregado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderItem'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /v1/orders/{orderUuid}/items/{itemUuid}:
+    delete:
+      tags: [Orders]
+      summary: Eliminar item del pedido
+      operationId: removeItemFromOrder
+      parameters:
+        - name: orderUuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemUuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Item eliminado
+
+  /v1/orders/{uuid}/confirm:
+    post:
+      tags: [Orders]
+      summary: Confirmar pedido (envía a cocina)
+      operationId: confirmOrder
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Pedido confirmado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+
+  /v1/orders/{uuid}/prepare:
+    post:
+      tags: [Orders]
+      summary: Marcar pedido en preparación
+      operationId: prepareOrder
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Pedido en preparación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+
+  /v1/orders/{uuid}/ready:
+    post:
+      tags: [Orders]
+      summary: Marcar pedido listo
+      operationId: readyOrder
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Pedido listo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+
+  /v1/orders/{uuid}/serve:
+    post:
+      tags: [Orders]
+      summary: Marcar pedido servido
+      operationId: serveOrder
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Pedido servido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+
+  /v1/orders/{uuid}/pay:
+    post:
+      tags: [Orders]
+      summary: Marcar pedido como pagado
+      operationId: payOrder
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Pedido pagado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+
+  /v1/orders/{uuid}/close:
+    post:
+      tags: [Orders]
+      summary: Cerrar pedido
+      operationId: closeOrder
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Pedido cerrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+
+  /v1/orders/{uuid}/cancel:
+    post:
+      tags: [Orders]
+      summary: Cancelar pedido
+      operationId: cancelOrder
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Pedido cancelado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+
+  # ============================================
+  # BILLING & PAYMENTS
+  # ============================================
+  /v1/billing/payments:
+    post:
+      tags: [Billing]
+      summary: Registrar pago
+      operationId: registerPayment
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/TerminalId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePaymentRequest'
+      responses:
+        '201':
+          description: Pago registrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /v1/orders/{uuid}/bills:
+    get:
+      tags: [Billing]
+      summary: Listar bills de un pedido
+      operationId: listOrderBills
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+      responses:
+        '200':
+          description: Lista de bills
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Bill'
+
+  /v1/orders/{uuid}/split:
+    post:
+      tags: [Billing]
+      summary: Dividir pedido en múltiples bills
+      operationId: splitOrder
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SplitBillRequest'
+      responses:
+        '201':
+          description: Bills creadas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Bill'
+
+  /v1/bills:
+    post:
+      tags: [Billing]
+      summary: Crear bill (ADR-020: sincronización desde frontend offline)
+      operationId: createBill
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreBillRequest'
+      responses:
+        '201':
+          description: Bill creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bill'
+
+  /v1/payment-methods:
+    get:
+      tags: [Billing]
+      summary: Listar métodos de pago
+      operationId: listPaymentMethods
+      parameters:
+        - $ref: '#/components/parameters/TerminalId'
+      responses:
+        '200':
+          description: Métodos de pago
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PaymentMethod'
+
+  # ============================================
+  # CASH SESSIONS
+  # ============================================
+  /v1/cash-sessions/current:
+    get:
+      tags: [Cashier]
+      summary: Obtener sesión de caja actual
+      operationId: getCurrentCashSession
+      parameters:
+        - $ref: '#/components/parameters/TerminalId'
+      responses:
+        '200':
+          description: Sesión de caja actual
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashSession'
+        '404':
+          description: No hay sesión abierta
+
+  /v1/cash-sessions/open:
+    post:
+      tags: [Cashier]
+      summary: Abrir sesión de caja
+      operationId: openCashSession
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenCashSessionRequest'
+      responses:
+        '201':
+          description: Sesión abierta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashSession'
+
+  /v1/cash-sessions/{uuid}/close:
+    post:
+      tags: [Cashier]
+      summary: Cerrar sesión de caja
+      operationId: closeCashSession
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloseCashSessionRequest'
+      responses:
+        '200':
+          description: Sesión cerrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashSession'
+
+  # ============================================
+  # CASHIER DASHBOARD & MOVEMENTS
+  # ============================================
+  /v1/cashier/dashboard:
+    get:
+      tags: [Cashier]
+      summary: Dashboard de caja
+      operationId: getCashierDashboard
+      parameters:
+        - $ref: '#/components/parameters/TerminalId'
+      responses:
+        '200':
+          description: Datos del dashboard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashierDashboard'
+
+  /v1/cashier/session-payments:
+    get:
+      tags: [Cashier]
+      summary: Pagos de la sesión actual
+      operationId: getSessionPayments
+      responses:
+        '200':
+          description: Lista de pagos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Payment'
+
+  /v1/cashier/movements:
+    get:
+      tags: [Cashier]
+      summary: Listar movimientos de caja
+      operationId: listCashMovements
+      responses:
+        '200':
+          description: Lista de movimientos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CashMovement'
+    post:
+      tags: [Cashier]
+      summary: Crear movimiento de caja
+      operationId: createCashMovement
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMovementRequest'
+      responses:
+        '201':
+          description: Movimiento creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashMovement'
+
+  /v1/cashier/tables-with-bills:
+    get:
+      tags: [Cashier]
+      summary: Mesas con bills abiertas
+      operationId: getTablesWithBills
+      responses:
+        '200':
+          description: Lista de mesas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TableWithBill'
+
+  /v1/cashier/tables/{tableUuid}/prepare-bills:
+    post:
+      tags: [Cashier]
+      summary: Preparar bills para mesa
+      operationId: prepareBillsForTable
+      parameters:
+        - name: tableUuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: Bills preparadas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Bill'
+
+  /v1/cashier/tables/{tableUuid}/charge:
+    post:
+      tags: [Cashier]
+      summary: Cobrar mesa
+      operationId: chargeTable
+      parameters:
+        - name: tableUuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bill_uuids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        '200':
+          description: Mesa cobrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChargeTableResponse'
+
+  /v1/cashier/bills/{billUuid}/pay:
+    post:
+      tags: [Cashier]
+      summary: Pagar bill específica
+      operationId: payBill
+      parameters:
+        - name: billUuid
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                payment_method_uuid:
+                  type: string
+                  format: uuid
+                amount:
+                  type: integer
+                  description: Monto en CLP (entero)
+                tip_amount:
+                  type: integer
+                  description: Propina en CLP (entero)
+      responses:
+        '200':
+          description: Bill pagada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bill'
+
+  # ============================================
+  # SYNC
+  # ============================================
+  /v1/sync/health:
+    get:
+      tags: [Sync]
+      summary: Health check de sincronización
+      operationId: syncHealth
+      responses:
+        '200':
+          description: Status de sync
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok, degraded, down]
+                  last_sync:
+                    type: string
+                    format: date-time
+
+  /v1/sync/status:
+    get:
+      tags: [Sync]
+      summary: Estado de sincronización
+      operationId: syncStatus
+      responses:
+        '200':
+          description: Estado detallado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncStatus'
+
+  /v1/sync/changes:
+    get:
+      tags: [Sync]
+      summary: Obtener cambios incrementales
+      operationId: getSyncChanges
+      parameters:
+        - name: last_pull_at
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: entity_type
+          in: query
+          schema:
+            type: string
+            enum: [order, payment, bill, cash_session, cash_movement, table]
+      responses:
+        '200':
+          description: Cambios desde last_pull_at
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncChanges'
+
+  /v1/sync/push:
+    post:
+      tags: [Sync]
+      summary: Push de cambios locales al servidor
+      operationId: syncPush
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncPushRequest'
+      responses:
+        '200':
+          description: Push procesado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncPushResponse'
+
+  /v1/sync/pull:
+    post:
+      tags: [Sync]
+      summary: Pull de cambios del servidor
+      operationId: syncPull
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                last_pull_at:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Datos del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncPullResponse'
+
+  # ============================================
+  # CATALOG
+  # ============================================
+  /v1/catalog/categories:
+    get:
+      tags: [Catalog]
+      summary: Listar categorías
+      operationId: listCategories
+      parameters:
+        - $ref: '#/components/parameters/TerminalId'
+      responses:
+        '200':
+          description: Lista de categorías
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Category'
+
+  /v1/catalog/products:
+    get:
+      tags: [Catalog]
+      summary: Listar productos
+      operationId: listProducts
+      parameters:
+        - $ref: '#/components/parameters/TerminalId'
+        - name: category_uuid
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lista de productos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+
+  /v1/catalog/menus/active:
+    get:
+      tags: [Catalog]
+      summary: Obtener menú activo
+      operationId: getActiveMenu
+      parameters:
+        - $ref: '#/components/parameters/TerminalId'
+      responses:
+        '200':
+          description: Menú activo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Menu'
+
+  # ============================================
+  # TABLES
+  # ============================================
+  /v1/tables:
+    get:
+      tags: [Tables]
+      summary: Listar mesas
+      operationId: listTables
+      parameters:
+        - $ref: '#/components/parameters/TerminalId'
+      responses:
+        '200':
+          description: Lista de mesas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Table'
+
+  /v1/tables/{uuid}/status:
+    put:
+      tags: [Tables]
+      summary: Actualizar estado de mesa
+      operationId: updateTableStatus
+      parameters:
+        - $ref: '#/components/parameters/UuidPath'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [available, occupied, reserved, cleaning]
+      responses:
+        '200':
+          description: Mesa actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Table'
 
 components:
   securitySchemes:
@@ -57,6 +904,13 @@ components:
       name: X-POS-PIN
 
   parameters:
+    UuidPath:
+      name: uuid
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     TerminalId:
       name: X-Terminal-ID
       in: header
@@ -83,6 +937,687 @@ components:
         format: uuid
 
   schemas:
+    # ============================================
+    # ORDER SCHEMAS
+    # ============================================
+    Order:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        order_number:
+          type: string
+        type:
+          type: string
+          enum: [dine_in, takeout, delivery]
+        status:
+          type: string
+          enum: [draft, confirmed, preparing, ready, served, paid, closed, cancelled]
+        table_uuid:
+          type: string
+          format: uuid
+          nullable: true
+        guest_count:
+          type: integer
+        subtotal_gross:
+          type: integer
+          description: Subtotal bruto en CLP (IVA incluido)
+        net_amount:
+          type: integer
+          description: Monto neto en CLP
+        tax_amount:
+          type: integer
+          description: IVA en CLP
+        discount_amount:
+          type: integer
+        tip_amount:
+          type: integer
+          description: Propina en CLP
+        grand_total:
+          type: integer
+          description: Total bruto en CLP
+        amount_due:
+          type: integer
+          description: Total a cobrar en CLP (grand_total + tip_amount)
+        paid_amount:
+          type: integer
+        remaining_amount:
+          type: integer
+        notes:
+          type: string
+          nullable: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    OrderItem:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        product_uuid:
+          type: string
+          format: uuid
+        product_name:
+          type: string
+        quantity:
+          type: integer
+        unit_price:
+          type: integer
+          description: Precio unitario en CLP (IVA incluido)
+        subtotal:
+          type: integer
+          description: Subtotal en CLP (IVA incluido)
+        notes:
+          type: string
+          nullable: true
+        modifiers:
+          type: array
+          items:
+            type: object
+
+    CreateOrderRequest:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [dine_in, takeout, delivery]
+        table_uuid:
+          type: string
+          format: uuid
+        guest_count:
+          type: integer
+          minimum: 1
+        notes:
+          type: string
+
+    UpdateOrderRequest:
+      type: object
+      properties:
+        guest_count:
+          type: integer
+          minimum: 1
+        notes:
+          type: string
+        discount_amount:
+          type: integer
+          minimum: 0
+        tip_amount:
+          type: integer
+          minimum: 0
+
+    AddItemRequest:
+      type: object
+      required: [product_uuid, quantity]
+      properties:
+        product_uuid:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+        notes:
+          type: string
+        modifiers:
+          type: array
+          items:
+            type: object
+
+    # ============================================
+    # PAYMENT SCHEMAS
+    # ============================================
+    Payment:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        payment_number:
+          type: string
+          description: 'Formato: PAY-{BRANCH}-{DATE}-{RANDOM}'
+        order_uuid:
+          type: string
+          format: uuid
+        bill_uuid:
+          type: string
+          format: uuid
+          nullable: true
+        payment_method_uuid:
+          type: string
+          format: uuid
+        amount:
+          type: integer
+          description: Monto de venta en CLP (sin propina)
+        tip_amount:
+          type: integer
+          description: Propina en CLP
+        total_amount:
+          type: integer
+          description: Total en CLP (amount + tip_amount)
+        reference_code:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, completed, failed, refunded]
+        paid_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    StorePaymentRequest:
+      type: object
+      required: [order_uuid, payment_method_uuid, amount, idempotency_key]
+      properties:
+        order_uuid:
+          type: string
+          format: uuid
+        payment_method_uuid:
+          type: string
+          format: uuid
+        bill_uuid:
+          type: string
+          format: uuid
+          nullable: true
+        amount:
+          type: integer
+          minimum: 1
+          description: Monto de venta en CLP (entero, sin decimales)
+        tip_amount:
+          type: integer
+          minimum: 0
+          default: 0
+          description: Propina en CLP (entero)
+        reference_code:
+          type: string
+          description: Código de referencia (requerido para tarjetas)
+        notes:
+          type: string
+        idempotency_key:
+          type: string
+          format: uuid
+
+    PaymentMethod:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        name:
+          type: string
+        code:
+          type: string
+        type:
+          type: string
+          enum: [cash, card, transfer, other]
+        requires_reference:
+          type: boolean
+        is_active:
+          type: boolean
+        max_amount:
+          type: integer
+          nullable: true
+
+    # ============================================
+    # BILL SCHEMAS
+    # ============================================
+    Bill:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        bill_number:
+          type: string
+        order_uuid:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [single, split]
+        subtotal:
+          type: integer
+          description: Subtotal en CLP
+        tax_amount:
+          type: integer
+          description: IVA en CLP
+        discount_amount:
+          type: integer
+        tip_amount:
+          type: integer
+          description: Propina en CLP
+        total:
+          type: integer
+          description: Total en CLP
+        paid_amount:
+          type: integer
+        remaining_amount:
+          type: integer
+        status:
+          type: string
+          enum: [open, partial, paid, cancelled]
+        item_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    StoreBillRequest:
+      type: object
+      required: [order_uuid, bill_number, subtotal, tax_amount, total]
+      properties:
+        order_uuid:
+          type: string
+          format: uuid
+        bill_number:
+          type: string
+        type:
+          type: string
+          enum: [single, split]
+        subtotal:
+          type: integer
+        tax_amount:
+          type: integer
+        discount_amount:
+          type: integer
+          default: 0
+        tip_amount:
+          type: integer
+          default: 0
+        total:
+          type: integer
+        item_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    SplitBillRequest:
+      type: object
+      required: [splits]
+      properties:
+        splits:
+          type: array
+          items:
+            type: object
+            required: [item_ids]
+            properties:
+              item_ids:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+
+    # ============================================
+    # CASH SESSION SCHEMAS
+    # ============================================
+    CashSession:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        user_id:
+          type: integer
+        branch_id:
+          type: integer
+        status:
+          type: string
+          enum: [open, closed]
+        opening_amount:
+          type: integer
+          description: Monto de apertura en CLP
+        closing_amount:
+          type: integer
+          nullable: true
+          description: Monto de cierre en CLP
+        expected_amount:
+          type: integer
+          nullable: true
+        difference:
+          type: integer
+          nullable: true
+        opened_at:
+          type: string
+          format: date-time
+        closed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    OpenCashSessionRequest:
+      type: object
+      required: [opening_amount]
+      properties:
+        opening_amount:
+          type: integer
+          minimum: 0
+          description: Monto de apertura en CLP
+
+    CloseCashSessionRequest:
+      type: object
+      required: [closing_amount]
+      properties:
+        closing_amount:
+          type: integer
+          minimum: 0
+          description: Monto contado en CLP
+        notes:
+          type: string
+
+    # ============================================
+    # CASHIER SCHEMAS
+    # ============================================
+    CashierDashboard:
+      type: object
+      properties:
+        current_session:
+          $ref: '#/components/schemas/CashSession'
+        today_sales:
+          type: integer
+          description: Ventas del día en CLP
+        today_transactions:
+          type: integer
+        payment_breakdown:
+          type: object
+          properties:
+            cash:
+              type: integer
+            card:
+              type: integer
+            transfer:
+              type: integer
+
+    CashMovement:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        session_uuid:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [opening, payment, deposit, withdrawal, adjustment, closing]
+        amount:
+          type: integer
+          description: Monto en CLP (positivo o negativo)
+        reason:
+          type: string
+          nullable: true
+        reference_type:
+          type: string
+          nullable: true
+        reference_id:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    CreateMovementRequest:
+      type: object
+      required: [session_uuid, type, amount]
+      properties:
+        session_uuid:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [deposit, withdrawal, adjustment]
+        amount:
+          type: integer
+          description: Monto en CLP
+        reason:
+          type: string
+        reference_type:
+          type: string
+        reference_id:
+          type: string
+
+    TableWithBill:
+      type: object
+      properties:
+        table:
+          $ref: '#/components/schemas/Table'
+        bills:
+          type: array
+          items:
+            $ref: '#/components/schemas/Bill'
+        total_amount:
+          type: integer
+          description: Total de todas las bills en CLP
+
+    ChargeTableResponse:
+      type: object
+      properties:
+        table:
+          $ref: '#/components/schemas/Table'
+        payments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Payment'
+        total_charged:
+          type: integer
+
+    # ============================================
+    # SYNC SCHEMAS
+    # ============================================
+    SyncStatus:
+      type: object
+      properties:
+        last_push_at:
+          type: string
+          format: date-time
+        last_pull_at:
+          type: string
+          format: date-time
+        pending_items:
+          type: integer
+        status:
+          type: string
+          enum: [synced, syncing, error]
+
+    SyncChanges:
+      type: object
+      properties:
+        changes:
+          type: array
+          items:
+            type: object
+            properties:
+              entity_type:
+                type: string
+              entity_uuid:
+                type: string
+                format: uuid
+              action:
+                type: string
+                enum: [create, update, delete]
+              data:
+                type: object
+              updated_at:
+                type: string
+                format: date-time
+        has_more:
+          type: boolean
+
+    SyncPushRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              entity_type:
+                type: string
+              entity_uuid:
+                type: string
+                format: uuid
+              action:
+                type: string
+                enum: [create, update, delete]
+              data:
+                type: object
+              idempotency_key:
+                type: string
+                format: uuid
+
+    SyncPushResponse:
+      type: object
+      properties:
+        processed:
+          type: integer
+        failed:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: object
+
+    SyncPullResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            orders:
+              type: array
+              items:
+                $ref: '#/components/schemas/Order'
+            payments:
+              type: array
+              items:
+                $ref: '#/components/schemas/Payment'
+            bills:
+              type: array
+              items:
+                $ref: '#/components/schemas/Bill'
+        last_pull_at:
+          type: string
+          format: date-time
+
+    # ============================================
+    # CATALOG SCHEMAS
+    # ============================================
+    Category:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        sort_order:
+          type: integer
+        is_active:
+          type: boolean
+
+    Product:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        base_price:
+          type: integer
+          description: Precio base en CLP (IVA incluido)
+        category_uuid:
+          type: string
+          format: uuid
+        is_active:
+          type: boolean
+        has_recipe:
+          type: boolean
+
+    Menu:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        name:
+          type: string
+        is_active:
+          type: boolean
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+
+    # ============================================
+    # TABLE SCHEMAS
+    # ============================================
+    Table:
+      type: object
+      properties:
+        uuid:
+          type: string
+          format: uuid
+        number:
+          type: string
+        name:
+          type: string
+        capacity:
+          type: integer
+        status:
+          type: string
+          enum: [available, occupied, reserved, cleaning]
+        area:
+          type: string
+          nullable: true
+        current_order_uuid:
+          type: string
+          format: uuid
+          nullable: true
+
+  responses:
+    ValidationError:
+      description: Error de validación
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: No autenticado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
     Error:
       type: object
       properties:
