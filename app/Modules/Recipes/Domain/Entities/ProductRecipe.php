@@ -74,6 +74,9 @@ class ProductRecipe extends Model
         if ($productPrice <= 0) {
             return 0.0;
         }
+        if ($productPrice === 0) {
+            return 0.0;  // Producto sin precio, food cost indefinido
+        }
         return round(((float) $this->total_recipe_cost / $productPrice) * 100, 2);
     }
 

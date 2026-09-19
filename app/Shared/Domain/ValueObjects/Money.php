@@ -89,7 +89,7 @@ final class Money
      */
     public function divide(float $divisor): self
     {
-        if ($divisor == 0) {
+        if ($divisor === 0) {
             throw new InvalidArgumentException('Division by zero');
         }
         return new self((int) round($this->cents / $divisor), $this->currency);

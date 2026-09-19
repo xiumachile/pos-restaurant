@@ -157,6 +157,9 @@ class RefundService
 
             // Invertir: si era débito, ahora es crédito; si era crédito, ahora es débito
             // División entera con redondeo
+            if ($originalTotal === 0) {
+                throw new \DomainException("Cannot reverse ledger: original payment total is zero");
+            }
             $reversedDebit = (int) round($originalCredit * $refundAmount / $originalTotal);
             $reversedCredit = (int) round($originalDebit * $refundAmount / $originalTotal);
 
@@ -180,7 +183,7 @@ class RefundService
             if ($diff > 0) {
                 $lines[0]['credit'] = $lines[0]['credit'] + $diff;
             } else {
-                $lines[0]['debit'] = round($lines[0]['debit'] - $diff, 2);
+                $lines[0]['debit'] = (int) round($lines[0]['debit'] - $diff);  // ADR-018: CLP entero
             }
         }
 

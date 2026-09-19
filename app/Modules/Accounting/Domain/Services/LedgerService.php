@@ -70,7 +70,7 @@ class LedgerService
                 throw UnbalancedJournalEntryException::invalidLine();
             }
 
-            if ($debit == 0 && $credit == 0) {
+            if ($debit === 0 && $credit === 0) {
                 throw UnbalancedJournalEntryException::invalidLine();
             }
 

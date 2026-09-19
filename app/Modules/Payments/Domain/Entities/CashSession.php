@@ -150,7 +150,7 @@ class CashSession extends Model
                 ->sum(fn($m) => $m->balanceImpact());
         }
         
-        return round($brutExpected - $tipsPaidOut + $movementsImpact, 2);
+        return (int) round($brutExpected - $tipsPaidOut + $movementsImpact);  // ADR-018: CLP entero
     }
 
     public function calculateExpectedAmount(): int  // ADR-018: CLP entero
@@ -210,7 +210,7 @@ class CashSession extends Model
             ->valid()
             ->sum('amount');
 
-        return round($totalTips - $paidOut, 2);
+        return (int) round($totalTips - $paidOut);  // ADR-018: CLP entero
     }
 
     /**

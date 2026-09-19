@@ -300,7 +300,7 @@ class BillingService
                 }
                 
                 // Si la bill está corrupta (total=0), eliminarla para recrearla
-                if ((int) $existing->total == 0 && (int) $existing->paid_amount == 0) {
+                if ((int) $existing->total === 0 && (int) $existing->paid_amount === 0) {
                     $existing->delete();
                 } else {
                     // Bill tiene datos pero diferente total - retornar como está

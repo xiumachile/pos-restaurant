@@ -59,7 +59,7 @@ class LedgerEntry extends Model
      */
     public function isDebit(): bool
     {
-        return $this->debit_amount > 0 && $this->credit_amount == 0;
+        return $this->debit_amount > 0 && $this->credit_amount === 0;
     }
 
     /**
@@ -67,7 +67,7 @@ class LedgerEntry extends Model
      */
     public function isCredit(): bool
     {
-        return $this->credit_amount > 0 && $this->debit_amount == 0;
+        return $this->credit_amount > 0 && $this->debit_amount === 0;
     }
 
     public function scopeDebits($query)
