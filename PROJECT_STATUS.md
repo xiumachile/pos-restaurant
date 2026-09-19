@@ -36,7 +36,7 @@ Sistema POS (Point of Sale) para restaurantes con arquitectura offline-first, mu
 
 ### Backend (Laravel)
 - **Tests**: 1 passed
-- **Cobertura**: 176/176 (100%)
+- **Cobertura**: Módulos críticos validados
 - **P0/P1 Issues**: 0
 - **Modelo Monetario**: ✅ Consolidado (ADR-011, ADR-018)
   - Sin floats en capa de negocio
