@@ -1,7 +1,7 @@
 # Especificación Técnica — F13 FRONTD (App Desktop Tauri + React)
 
 **Módulo:** Aplicación de escritorio POS
-**Stack:** Tauri v2 (Rust + WebView) + React 18 + TypeScript
+**Stack:** Tauri v2 (Rust + WebView) + React 19 + TypeScript
 **Integración:** Backend Laravel ya completo (F9 OFFLNE disponible)
 **Estado:** 0% iniciado (nuevo proyecto)
 **Duración estimada:** 18 días (19 Ago - 11 Sep 2026)
@@ -47,7 +47,7 @@ La app debe soportar el flujo completo de un restaurante:
   - Lógica de negocio
   - Estado global (Zustand/Redux)
 
-### 2.2 Frontend: React 18 + TypeScript
+### 2.2 Frontend: React 19 + TypeScript
 
 **Librerías principales:**
 - `react` + `react-dom` — UI framework
@@ -424,7 +424,7 @@ La app debe soportar el flujo completo de un restaurante:
 ## 13. Referencias
 
 - [Tauri v2 Documentation](https://v2.tauri.app/)
-- [React 18 Documentation](https://react.dev/)
+- [React 19 Documentation](https://react.dev/)
 - [Tailwind CSS](https://tailwindcss.com/)
 - [Zustand](https://github.com/pmndrs/zustand)
 - [shadcn/ui](https://ui.shadcn.com/)

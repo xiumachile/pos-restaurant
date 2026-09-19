@@ -1,6 +1,6 @@
 🍽️ POS Restaurant — Sistema de Punto de Venta Offline-First
 Sistema de punto de venta multi-tenant para restaurantes, diseñado para funcionar offline-first con sincronización automática al recuperar conexión.
-Stack: Laravel 11 · React 18 · Tauri 2 · SQLite local · PostgreSQL cloud
+Stack: Laravel 12 · React 19 · Tauri 2 · SQLite local · PostgreSQL cloud
 📊 Estado del Proyecto
 Fuente de verdad: Ver docs/PROJECT_STATUS.md para información detallada y actualizada.
 
@@ -62,7 +62,7 @@ Principios de Diseño
 
 🚀 Quick Start
 Prerrequisitos
-PHP 8.3+
+PHP 8.4+
 Node.js 20+
 PostgreSQL 16+
 Redis 7+

@@ -2,6 +2,23 @@
 
 ## Última Actualización: 2026-09-19
 
+## Stack Tecnológico
+
+| Capa | Tecnología | Versión | Fuente |
+|------|------------|---------|--------|
+| **Backend Runtime** | PHP | ^8.4 | composer.json |
+| **Backend Framework** | Laravel | ^12.0 | composer.json |
+| **Backend Queue** | Horizon | ^5.48 | composer.json |
+| **Backend WebSocket** | Reverb | ^1.0 | composer.json |
+| **Backend Auth** | Sanctum | ^4.0 | composer.json |
+| **Frontend UI** | React | ^19.1.0 | frontend/package.json |
+| **Frontend DOM** | React DOM | ^19.1.0 | frontend/package.json |
+| **Frontend Language** | TypeScript | ^5.7.2 | frontend/package.json |
+| **Build Tool** | Vite | ^7.0.4 | frontend/package.json |
+| **Desktop Shell** | Tauri | 2.x | frontend/src-tauri |
+| **Local DB** | SQLite | — | Tauri plugin |
+| **Cloud DB** | PostgreSQL | — | Backend |
+
 ## Resumen Ejecutivo
 
 Sistema POS (Point of Sale) para restaurantes con arquitectura offline-first, multi-tenant y modelo monetario chileno (CLP entero).
