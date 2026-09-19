@@ -211,7 +211,7 @@ describe("Repositorios locales", () => {
         order_local_uuid: order.local_uuid,
         bill_number: "BILL-001",
         subtotal: 11900,
-        grand_total: 10000,  // IVA incluido (modelo chileno ADR-011)
+        grand_total: 11900,  // bruto total (IVA incluido, modelo chileno ADR-011)
       });
 
       expect(bill).toBeDefined();
