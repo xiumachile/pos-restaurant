@@ -94,7 +94,7 @@ class CashMovement extends Model
      */
     public function balanceImpact(): int  // ADR-018: CLP entero
     {
-        return (float) $this->amount * $this->type->balanceSign();
+        return (int) $this->amount * $this->type->balanceSign();
     }
 
     public function scopeOfType($query, MovementType $type)

@@ -19,8 +19,8 @@ class CashRegisterService
         Branch $branch,
         string $name,
         string $code,
-        float $openingAmountDefault = 50000.0,
-        float $maxAmount = 500000.0,
+        int $openingAmountDefault = 50000,
+        int $maxAmount = 500000,
         bool $requiresDualControl = false,
         ?string $description = null
     ): CashRegister {
