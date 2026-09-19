@@ -160,7 +160,7 @@ class BillingService
             if (count($bills) > 0) {
                 $difference = (int) round($orderTotal - $calculatedTotal);
                 
-                if ($difference !== 0  // ADR-018: comparación exacta) {
+                if ($difference !== 0) {  // ADR-018: comparación exacta
                     $lastBill = $bills[count($bills) - 1];
                     $lastBill->total = (int) round((int) $lastBill->total + $difference);
                     $lastBill->remaining_amount = $lastBill->total;
