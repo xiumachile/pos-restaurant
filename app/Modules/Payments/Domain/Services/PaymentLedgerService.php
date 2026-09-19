@@ -57,9 +57,9 @@ class PaymentLedgerService
         }
 
         // Calcular proporción del pago respecto al total del pedido
-        $orderTotal = (int) $order->total;
-        $paymentAmount = (int) $payment->amount;
-        $tipAmount = (int) $payment->tip_amount;
+        $orderTotal = (float) $order->total;
+        $paymentAmount = (float) $payment->amount;
+        $tipAmount = (float) $payment->tip_amount;
         
         if ($orderTotal <= 0) {
             throw PaymentException::invalidOrderTotal($orderTotal);
@@ -130,9 +130,9 @@ class PaymentLedgerService
         Payment $payment,
         array $accounts,
         $order,
-        int $paymentAmount,
-        int $paymentAmount,
-        int $tipAmount
+        float $ratio,
+        float $paymentAmount,
+        float $tipAmount
     ): array {
         $orderSubtotal = (float) $order->subtotal;
         $orderTax = (float) $order->tax_amount;
