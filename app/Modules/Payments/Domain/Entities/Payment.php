@@ -7,6 +7,7 @@ use App\Shared\Domain\Traits\HasUuid;
 use App\Shared\Domain\Traits\Syncable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Modules\Branches\Domain\Entities\Branch;
 use Modules\Companies\Domain\Entities\Company;
