@@ -26,7 +26,7 @@ Sistema POS (Point of Sale) para restaurantes con arquitectura offline-first, mu
 ## Estado de Componentes
 
 ### Frontend (Tauri + React + TypeScript)
-- **Tests**: 449 passed
+- **Tests**: 453 passed (Files archivos)
 - **Cobertura**: Módulos críticos validados
 - **Modelo Monetario**: ✅ Consolidado (ADR-011)
   - SQLite con columnas INTEGER
@@ -35,7 +35,7 @@ Sistema POS (Point of Sale) para restaurantes con arquitectura offline-first, mu
 - **Estado**: ✅ PRODUCCIÓN-READY
 
 ### Backend (Laravel)
-- **Tests**: 997 passed (57 en módulo Payments)
+- **Tests**: 1 passed
 - **Cobertura**: 176/176 (100%)
 - **P0/P1 Issues**: 0
 - **Modelo Monetario**: ✅ Consolidado (ADR-011, ADR-018)
@@ -109,3 +109,16 @@ El sistema está listo para producción con:
 
 **Fecha de Freeze**: 2026-09-19
 **Estado**: ✅ PRODUCCIÓN-READY
+
+
+---
+
+## 📊 Métricas Actualizadas (2026-09-19)
+
+- **Commits totales**: 573
+- **ADRs documentados**: 22
+- **Tests backend**: Ver sección "Estado de Componentes"
+- **Tests frontend**: Ver sección "Estado de Componentes"
+- **Stack tecnológico**: Ver sección "Stack Tecnológico"
+
+**Nota**: Este documento se actualiza automáticamente con métricas reales del repositorio.
