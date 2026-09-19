@@ -35,7 +35,7 @@ Sistema POS (Point of Sale) para restaurantes con arquitectura offline-first, mu
 - **Estado**: ✅ PRODUCCIÓN-READY
 
 ### Backend (Laravel)
-- **Tests**: 1 passed
+- **Tests**: 1016 passed
 - **Cobertura**: Módulos críticos validados
 - **P0/P1 Issues**: 0
 - **Modelo Monetario**: ✅ Consolidado (ADR-011, ADR-018)
@@ -118,7 +118,7 @@ El sistema está listo para producción con:
 |---------|-------|
 | **Commits totales** | 576 |
 | **ADRs documentados** | 21 |
-| **Tests backend** | 1 passed |
+| **Tests backend** | 1016 passed |
 | **Tests frontend** | 453 passed |
 | **Stack tecnológico** | Ver tabla anterior |
 
