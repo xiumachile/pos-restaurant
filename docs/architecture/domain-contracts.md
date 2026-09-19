@@ -166,7 +166,7 @@ $remaining_amount = $total - $paid_amount;
 Scope: Bills Pagables
 Bill::payable()->get();  // status IN ('open', 'partial')
 
-Referencia: ADR-009 (Bills no sincronizables), BillStatus
+Referencia: ADR-020 (Bills sincronizables), BillStatus
 
 2.3 Payment (Pago)
 Estados Posibles
@@ -441,10 +441,10 @@ Tracking de pagos parciales
 Cálculo de remaining_amount
 Estado de pago (OPEN/PARTIAL/PAID)
 NO hace:
-Sincronizarse (ADR-009: Bills son artefacto local)
+Sincronizarse (ADR-020: Bills son entidades sincronizables)
 Calcular impuestos (delegado a Order)
 Procesar pagos (delegado a Payment)
-Referencia: ADR-009 (Bills no sincronizables)
+Referencia: ADR-020 (Bills sincronizables)
 
 4.5 Payment (Pago)
 Responsabilidades:
@@ -506,13 +506,13 @@ IVA recaudado: sum(order.tax_amount) de ventas
 5.2 ¿Qué es una Bill?
 Definición: Una Bill es un artefacto de tracking de pagos parciales asociado a un Order.
 Características:
-NO se sincroniza (ADR-009): Existe solo en SQLite (frontend)
+Se sincroniza (ADR-020): Existe en SQLite y backend
 Derivada: Se reconstruye desde Order + Payments en backend
 Estados: OPEN → PARTIAL → PAID
 Uso:
 Frontend: Tracking de pagos parciales
 Backend: Reconstrucción desde Order/Payments
-Referencia: ADR-009 (Bills no sincronizables)
+Referencia: ADR-020 (Bills sincronizables)
 
 5.3 ¿Qué es un Payment?
 Definición: Un Payment es un registro de dinero recibido por un método específico.

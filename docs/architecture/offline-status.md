@@ -67,7 +67,7 @@ Emitir DTEs (facturación electrónica)
 ⚠️ Limitaciones Conocidas
 1. No hay cola offline para payments: Si el usuario intenta pagar sin conexión, la operación falla inmediatamente.
 2. No hay resolución de conflictos para payments: Si dos terminales procesan pagos para la misma orden simultáneamente (uno online, uno offline), puede haber inconsistencia.
-3. Bills dependen de conexión: No se pueden crear bills offline, lo que impide split bill en modo offline.
+3. Bills funcionan offline: Se pueden crear bills offline y se sincronizan al backend (ADR-020).
 
 Checklist Original vs Implementación Real
 Puntos 68-76 del Checklist

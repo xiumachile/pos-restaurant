@@ -76,7 +76,7 @@ ADR-004	Defensa en Profundidad	✅ Implementado
 ADR-005	Sistema de Capabilities	✅ Implementado
 ADR-006	Event Sourcing Híbrido	✅ Implementado
 ADR-007	Flujo de Impresión Híbrido	✅ Implementado
-ADR-009	Bills No Sincronizables	✅ Implementado
+ADR-020	Bills Sincronizables	✅ Implementado (superseded ADR-009)
 ADR-010	Money Value Object	✅ Implementado
 ADR-011	Modelo de Montos Chile	✅ Implementado
 ADR-012	Local Multi-tenancy	✅ Implementado

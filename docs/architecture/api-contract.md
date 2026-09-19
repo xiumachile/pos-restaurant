@@ -388,3 +388,52 @@ Garantías:
 ✅ Documentación automática (Scramble)
 Criterio de cierre: ✅ CUMPLIDO
 Próximo paso: Frontend puede desarrollarse contra contratos estables.
+
+## POST /api/v1/bills (ADR-020)
+
+Crea una bill en el backend. Usado para sincronizar bills creadas offline, incluyendo split bills.
+
+**Autenticación**: Requerida (Bearer token)  
+**Idempotencia**: Requerida (header `Idempotency-Key`)
+
+### Request Body
+```json
+{
+  "order_id": "uuid",
+  "subtotal": 10000,
+  "tax_amount": 1900,
+  "tip_amount": 500,
+  "total": 12400,
+  "items": ["item_uuid_1", "item_uuid_2"],
+  "type": "split" | "single",
+  "status": "open" | "paid" | "cancelled"
+}
+
+Response (201 Created)
+
+{
+  "id": "uuid",
+  "order_id": "uuid",
+  "subtotal": 10000,
+  "tax_amount": 1900,
+  "tip_amount": 500,
+  "total": 12400,
+  "items": ["item_uuid_1", "item_uuid_2"],
+  "type": "split",
+  "status": "open",
+  "created_at": "2026-01-21T12:00:00Z"
+}
+
+Casos de Uso
+	Split bill offline: Frontend crea múltiples bills offline, sincroniza al backend vía SyncEngine
+	Bill única: Frontend crea bill offline, sincroniza al backend
+Validaciones
+	order_id debe existir
+	subtotal + tax_amount + tip_amount debe igualar total
+	items deben pertenecer al order
+Errores
+	400 Bad Request: Validaciones fallidas
+	401 Unauthorized: Sin autenticación
+	409 Conflict: Idempotency-Key duplicado (retorna bill existente)
+Referencia: ADR-020 (Bills sincronizables)
+

@@ -512,7 +512,7 @@ BACKEND:
 ### 14.6 Decisiones relacionadas
 
 - **ADR-020**: Contrato de sincronización de bills
-- **ADR-009** (parcialmente reemplazado): Bills no sincronizables (modelo conceptual aún válido)
+- **ADR-020**: Bills sincronizables (split bill offline funciona completamente)
 - **ADR-018**: Monetary values as INTEGER (usado en campos de bill)
 - **ADR-019**: `bill_local_uuid` en `local_payments` (link payment→bill)
 - **ADR-011**: Modelo chileno de montos (bruto/neto/IVA)
