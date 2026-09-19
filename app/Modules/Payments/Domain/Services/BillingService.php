@@ -183,7 +183,7 @@ class BillingService
         }
 
         // Normalizar montos a float
-        $amounts = array_map('floatval', $amounts);
+        $amounts = array_map(static fn ($amount): int => (int) $amount, $amounts);  // ADR-018: entero end-to-end
         $sumAmounts = (int) round(array_sum($amounts));
         $orderTotal = (int) round($order->total);
 
@@ -200,7 +200,7 @@ class BillingService
             $assignedTotal = 0;
 
             foreach ($amounts as $index => $amount) {
-                $amount = (int) round((float) $amount);
+                $amount = (int) $amount;  // ADR-018: sin aritmética flotante
                 
                 // La última bill absorbe cualquier diferencia por redondeo
                 $isLast = ($index === count($amounts) - 1);
@@ -254,12 +254,12 @@ class BillingService
             
             if ($existing) {
                 // Si la bill tiene total correcto, retornarla
-                if ((float) $existing->total > 0 && abs((float) $existing->total - $order->total) < 0.01) {
+                if ((int) $existing->total > 0 && (int) $existing->total === (int) $order->total  // ADR-018: comparación exacta, sin epsilon) {
                     return $existing;
                 }
                 
                 // Si la bill está corrupta (total=0), eliminarla para recrearla
-                if ((float) $existing->total == 0 && (float) $existing->paid_amount == 0) {
+                if ((int) $existing->total == 0 && (float) $existing->paid_amount == 0) {
                     $existing->delete();
                 } else {
                     // Bill tiene datos pero diferente total - retornar como está
