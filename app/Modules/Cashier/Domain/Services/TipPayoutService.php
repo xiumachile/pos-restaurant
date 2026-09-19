@@ -33,9 +33,9 @@ class TipPayoutService
         $paid = $this->getWaiterPaid($sessionId, $waiterId);
 
         return [
-            'received' => (float) $received,  // Float justificado: no es monto monetario
-            'paid' => (float) $paid,  // Float justificado: no es monto monetario
-            'pending' => max(0, (float) $received - (float) $paid),  // Float justificado: no es monto monetario
+            'received' => (int) $received,
+            'paid' => (int) $paid,
+            'pending' => max(0, (int) $received - (int) $paid),
         ];
     }
 

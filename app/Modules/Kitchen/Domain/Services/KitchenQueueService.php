@@ -137,7 +137,7 @@ class KitchenQueueService
             'summary' => [
                 'total_orders' => $orders->count(),
                 'total_items' => $orders->sum(fn($o) => $o->items->sum('quantity')),
-                'total_amount' => (float) $orders->sum('total'),
+                'total_amount' => (int) $orders->sum('total'),
                 'first_order_at' => $orders->first()?->created_at?->toIso8601String(),
                 'last_order_at' => $orders->last()?->created_at?->toIso8601String(),
             ],
@@ -178,7 +178,7 @@ class KitchenQueueService
                 'capacity' => $table->capacity,
                 'orders_count' => $orders->count(),
                 'total_items' => $totalItems,
-                'total_amount' => (float) $totalAmount,
+                'total_amount' => (int) $totalAmount,
                 'last_order_status' => $lastOrderStatus,
                 'first_order_at' => $orders->first()?->created_at?->toIso8601String(),
                 'last_order_at' => $orders->last()?->created_at?->toIso8601String(),

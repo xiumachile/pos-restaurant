@@ -73,7 +73,7 @@ test('EntityMapper convierte Order a formato local correctamente', function () {
         ->and($localData['order_number'])->toBe('ORD-MAP-001')
         ->and($localData['type'])->toBe('dine_in')
         ->and($localData['status'])->toBe('draft')
-        ->and($localData['subtotal'])->toBe(1000.0)
+        ->and($localData['subtotal'])->toBe(1000)
         ->and($localData['notes'])->toBe('Nota de prueba');
 });
 
@@ -200,7 +200,7 @@ test('SyncAdapter importa órdenes locales al servidor', function () {
         ->first();
 
     expect($serverOrder)->not->toBeNull()
-        ->and((float) $serverOrder->subtotal)->toBe(3000.0);
+        ->and((float) $serverOrder->subtotal)->toBe(3000);
 });
 
 test('SyncAdapter actualiza metadata de exportación', function () {
