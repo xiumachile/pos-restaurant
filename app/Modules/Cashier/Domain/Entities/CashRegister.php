@@ -38,8 +38,8 @@ class CashRegister extends Model
     ];
 
     protected $casts = [
-        'opening_amount_default' => 'decimal:2',
-        'max_amount' => 'decimal:2',
+        'opening_amount_default' => 'integer',
+        'max_amount' => 'integer',
         'requires_dual_control' => 'boolean',
         'is_active' => 'boolean',
         'last_used_at' => 'datetime',
@@ -47,8 +47,8 @@ class CashRegister extends Model
 
     protected $attributes = [
         'is_active' => true,
-        'opening_amount_default' => 50000.00,
-        'max_amount' => 500000.00,
+        'opening_amount_default' => 50000,
+        'max_amount' => 500000,
         'requires_dual_control' => false,
     ];
 
