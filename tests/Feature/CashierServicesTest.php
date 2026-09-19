@@ -308,7 +308,7 @@ test('CashCountService detecta discrepancia en arqueo', function () {
 
     expect($count->expected_amount)->toBe(100000); // 50k + 50k
     expect($count->counted_amount)->toBe(98000);
-    expect($count->difference)->toBe(-2000.0);
+    expect($count->difference)->toBe(-2000);
     expect($count->has_discrepancy)->toBeTrue();
     expect($count->hasShortage())->toBeTrue();
 });

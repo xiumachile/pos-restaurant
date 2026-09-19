@@ -74,12 +74,12 @@ class CashierDashboardController extends Controller
         if ($currentSession) {
             $paymentsByMethod = $this->paymentQueryService->getPaymentsByMethodInSession($currentSession->id);
             $totalPayments = $paymentsByMethod->sum('total_amount');
-            $currentBalance = (float) $currentSession->opening_amount + (float) $totalPayments;
+            $currentBalance = (int) $currentSession->opening_amount + (int) $totalPayments;
 
             $sessionData = [
                 'uuid' => $currentSession->uuid,
                 'session_number' => $currentSession->session_number,
-                'opening_amount' => (float) $currentSession->opening_amount,
+                'opening_amount' => (int) $currentSession->opening_amount,
                 'current_balance' => $currentBalance,
             ];
         }

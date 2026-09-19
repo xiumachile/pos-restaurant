@@ -75,7 +75,7 @@ test('Denomination calcula total correctamente desde conteos', function () {
     ];
 
     $total = Denomination::calculateTotal($counts);
-    expect($total)->toBe(95000.0);
+    expect($total)->toBe(95000);
 });
 
 test('Denomination emptyStructure retorna estructura inicializada', function () {
@@ -124,7 +124,7 @@ test('se puede crear una caja registradora', function () {
 
     expect($register->id)->not->toBeNull();
     expect($register->is_active)->toBeTrue();
-    expect($register->opening_amount_default)->toBe('50000.00');
+    expect($register->opening_amount_default)->toBe(50000);
 });
 
 test('CashRegister isAvailable verifica sin sesión abierta', function () {
@@ -404,9 +404,9 @@ test('CashCount recalcula desde denominaciones', function () {
 
     $total = $count->recalculateFromDenominations();
     
-    expect($total)->toBe(101000.0);
-    expect((float) $count->counted_amount)->toBe(101000.0);
-    expect((float) $count->difference)->toBe(1000.0);
+    expect($total)->toBe(101000);
+    expect($count->counted_amount)->toBe(101000);
+    expect($count->difference)->toBe(1000);
     expect($count->hasSurplus())->toBeTrue();
     expect($count->isBalanced())->toBeFalse();
 });

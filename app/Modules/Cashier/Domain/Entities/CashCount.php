@@ -48,9 +48,9 @@ class CashCount extends Model
 
     protected $casts = [
         'type' => CashCountType::class,
-        'expected_amount' => 'decimal:2',
-        'counted_amount' => 'decimal:2',
-        'difference' => 'decimal:2',
+        'expected_amount' => 'integer',
+        'counted_amount' => 'integer',
+        'difference' => 'integer',
         'denominations' => 'array',
         'cash_amount' => 'decimal:2',
         'card_amount' => 'decimal:2',
@@ -109,7 +109,7 @@ class CashCount extends Model
         $total = $billsTotal + $coinsTotal;
         
         $this->counted_amount = $total;
-        $this->difference = round($total - (float) $this->expected_amount, 2);
+        $this->difference = (int) round($total - $this->expected_amount);
         $this->has_discrepancy = abs($this->difference) > self::DISCREPANCY_THRESHOLD;
         
         return $total;
@@ -120,7 +120,7 @@ class CashCount extends Model
      */
     public function hasSurplus(): bool
     {
-        return (float) $this->difference > self::DISCREPANCY_THRESHOLD;
+        return $this->difference > self::DISCREPANCY_THRESHOLD;
     }
 
     /**
@@ -128,7 +128,7 @@ class CashCount extends Model
      */
     public function hasShortage(): bool
     {
-        return (float) $this->difference < -self::DISCREPANCY_THRESHOLD;
+        return $this->difference < -self::DISCREPANCY_THRESHOLD;
     }
 
     /**
@@ -144,11 +144,11 @@ class CashCount extends Model
      */
     public function discrepancyPercentage(): float
     {
-        $expected = (float) $this->expected_amount;
+        $expected = $this->expected_amount;
         if ($expected === 0.0) {
             return 0.0;
         }
-        return round((abs((float) $this->difference) / $expected) * 100, 2);
+        return (int) round((abs($this->difference) / $expected) * 100);
     }
 
     /**

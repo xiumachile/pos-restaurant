@@ -146,16 +146,16 @@ test('payBill NO genera doble cobro — paid_amount debe ser igual al monto paga
     $responseData = $response->json('data');
     expect((float) $responseData['paid_amount'])->toBe((float) $amountToPay,
         "CRÍTICO: paid_amount debe ser EXACTAMENTE el monto pagado, no el doble");
-    expect((float) $responseData['remaining_amount'])->toBe(0.0);
+    expect((float) $responseData['remaining_amount'])->toBe(0);
 
     // ⚠️ ASSERTION CRÍTICA: verificar que NO hubo doble cobro
     $bill->refresh();
     $order->refresh();
     $this->table->refresh();
 
-    expect((float) $bill->paid_amount)->toBe((float) $amountToPay,
+    expect($bill->paid_amount)->toBe((float) $amountToPay,
         "CRÍTICO: paid_amount debe ser EXACTAMENTE el monto pagado, no el doble");
-    expect((float) $bill->remaining_amount)->toBe(0.0);
+    expect($bill->remaining_amount)->toBe(0);
     expect($bill->status)->toBe(BillStatus::PAID);
 
     // Solo debe haber UN Payment creado
@@ -165,7 +165,7 @@ test('payBill NO genera doble cobro — paid_amount debe ser igual al monto paga
 
     // El payment debe tener el monto correcto (no 2x)
     $payment = Payment::where('bill_id', $bill->id)->latest('id')->first();
-    expect((float) $payment->amount)->toBe((float) $amountToPay);
+    expect($payment->amount)->toBe((float) $amountToPay);
 
     // Order debe estar PAID (vía PaymentService.updateOrderPaymentStatus)
     expect($order->status)->toBe(OrderStatus::PAID);
@@ -287,7 +287,7 @@ test('payBill maneja 10 requests concurrentes con misma idempotency_key', functi
     $bill->refresh();
     $paymentsCount = Payment::where('bill_id', $bill->id)->count();
 
-    expect((float) $bill->paid_amount)->toBe(11900.0,
+    expect($bill->paid_amount)->toBe(11900.0,
         "paid_amount debe ser exactamente el monto del pago único");
     expect($paymentsCount)->toBe(1,
         "Solo debe existir UN Payment después de 10 requests concurrentes con misma key");
@@ -419,7 +419,7 @@ test('payBill hace rollback completo si falla alguna etapa', function () {
     // Bill debe permanecer OPEN
     $bill->refresh();
     expect($bill->status)->toBe(BillStatus::OPEN);
-    expect((float) $bill->paid_amount)->toBe(0.0);
+    expect($bill->paid_amount)->toBe(0);
 
     // Order debe permanecer SERVED
     $order->refresh();

@@ -141,7 +141,7 @@ class CashierReportController extends Controller
             ->orderBy('created_at', 'asc')
             ->get();
 
-        $expectedCash = (float) $session->opening_amount
+        $expectedCash = (int) $session->opening_amount
             + $breakdown['cash']['amount']
             + $breakdown['cash']['tips']
             - $movementSummary['withdrawals']
@@ -159,7 +159,7 @@ class CashierReportController extends Controller
                 'status' => $session->status,
                 'opened_at' => $session->opened_at,
                 'closed_at' => $session->closed_at,
-                'opening_amount' => (float) $session->opening_amount,
+                'opening_amount' => (int) $session->opening_amount,
             ],
             'payments' => $breakdown,
             'total_payments' => array_sum(array_column($breakdown, 'amount')),
