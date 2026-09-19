@@ -33,9 +33,9 @@ class TipPayoutService
         $paid = $this->getWaiterPaid($sessionId, $waiterId);
 
         return [
-            'received' => (float) $received,
-            'paid' => (float) $paid,
-            'pending' => max(0, (float) $received - (float) $paid),
+            'received' => (float) $received,  // Float justificado: no es monto monetario
+            'paid' => (float) $paid,  // Float justificado: no es monto monetario
+            'pending' => max(0, (float) $received - (float) $paid),  // Float justificado: no es monto monetario
         ];
     }
 
@@ -44,7 +44,7 @@ class TipPayoutService
      */
     public function getWaiterPaid(int $sessionId, int $waiterId): float
     {
-        return (float) TipPayout::where('cash_session_id', $sessionId)
+        return (int) TipPayout::where('cash_session_id', $sessionId)
             ->where('waiter_id', $waiterId)
             ->valid()
             ->sum('amount');
@@ -67,12 +67,12 @@ class TipPayoutService
         foreach ($tipsByMethod as $method => $data) {
             $key = strtolower($method);
             if (isset($byMethod[$key])) {
-                $byMethod[$key] = (float) ($data->total_tips ?? 0);
+                $byMethod[$key] = (int) ($data->total_tips ?? 0);
             }
         }
 
         $total = array_sum($byMethod);
-        $paid = (float) TipPayout::where('cash_session_id', $sessionId)
+        $paid = (int) TipPayout::where('cash_session_id', $sessionId)
             ->valid()
             ->sum('amount');
 
@@ -95,11 +95,11 @@ class TipPayoutService
             ->valid()
             ->get()
             ->groupBy('waiter_id')
-            ->map(fn($group) => (float) $group->sum('amount'));
+            ->map(fn($group) => (int) $group->sum('amount'));
 
         $result = [];
         foreach ($tipsByWaiter as $waiterId => $methods) {
-            $total = (float) $methods->sum();
+            $total = (int) $methods->sum();
             $paid = $payouts[$waiterId] ?? 0;
 
             $result[] = [
@@ -133,7 +133,7 @@ class TipPayoutService
     public function createPayout(
         CashSession $session,
         int $waiterId,
-        float $amount,
+        int $amount,
         int $processedBy,
         ?string $paymentMethod = 'cash',
         ?string $notes = null

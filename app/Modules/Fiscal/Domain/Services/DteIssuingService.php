@@ -70,9 +70,9 @@ class DteIssuingService
             $folio = $folioRange->consumeFolio();
             
             // Calcular montos
-            $netAmount = (float) $order->subtotal;
-            $taxAmount = (float) $order->tax_amount;
-            $totalAmount = (float) $order->total;
+            $netAmount = (int) $order->subtotal;
+            $taxAmount = (int) $order->tax_amount;
+            $totalAmount = (int) $order->total;
             
             // Crear documento en estado pendiente
             $dte = DteDocument::create([
@@ -172,8 +172,8 @@ class DteIssuingService
             $detailItems = [[
                 'name' => 'Anulación: ' . $reason,
                 'qty' => 1,
-                'unit_price' => (float) $originalDte->total_amount,
-                'amount' => (float) $originalDte->total_amount,
+                'unit_price' => (int) $originalDte->total_amount,
+                'amount' => (int) $originalDte->total_amount,
             ]];
             
             $signedXml = $this->xmlGenerator->generateSignedXml(
@@ -248,8 +248,8 @@ class DteIssuingService
             return [
                 'name' => $item->name_snapshot ?? 'Producto',
                 'qty' => (int) $item->quantity,
-                'unit_price' => (float) $item->unit_price_snapshot,
-                'amount' => (float) $item->subtotal,
+                'unit_price' => (int) $item->unit_price_snapshot,
+                'amount' => (int) $item->subtotal,
             ];
         })->toArray();
     }

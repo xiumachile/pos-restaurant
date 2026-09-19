@@ -29,7 +29,7 @@ class CashMovementService
      * 
      * @param CashSession $session Sesión abierta
      * @param User $user Cajero que realiza el retiro
-     * @param float $amount Monto a retirar (siempre positivo)
+     * @param int $amount Monto a retirar (siempre positivo)
      * @param string $reason Razón del retiro
      * @param string|null $notes Notas adicionales
      * @param User|null $authorizer Supervisor que autoriza (si aplica)
@@ -38,7 +38,7 @@ class CashMovementService
     public function withdrawal(
         CashSession $session,
         User $user,
-        float $amount,
+        int $amount,
         string $reason,
         ?string $notes = null,
         ?User $authorizer = null
@@ -60,7 +60,7 @@ class CashMovementService
     public function deposit(
         CashSession $session,
         User $user,
-        float $amount,
+        int $amount,
         string $reason,
         ?string $notes = null
     ): CashMovement {
@@ -81,7 +81,7 @@ class CashMovementService
     public function adjustment(
         CashSession $session,
         User $user,
-        float $amount,
+        int $amount,
         string $reason,
         ?User $authorizer = null,
         ?string $notes = null
@@ -108,7 +108,7 @@ class CashMovementService
         CashSession $session,
         User $user,
         MovementType $type,
-        float $amount,
+        int $amount,
         string $reason,
         ?string $notes,
         ?User $authorizer = null
@@ -196,12 +196,12 @@ class CashMovementService
 
         return [
             'withdrawals_count' => $movements->where('type', MovementType::WITHDRAWAL)->count(),
-            'withdrawals_total' => (float) $movements->where('type', MovementType::WITHDRAWAL)->sum('amount'),
+            'withdrawals_total' => (int) $movements->where('type', MovementType::WITHDRAWAL)->sum('amount'),
             'deposits_count' => $movements->where('type', MovementType::DEPOSIT)->count(),
-            'deposits_total' => (float) $movements->where('type', MovementType::DEPOSIT)->sum('amount'),
+            'deposits_total' => (int) $movements->where('type', MovementType::DEPOSIT)->sum('amount'),
             'adjustments_count' => $movements->where('type', MovementType::ADJUSTMENT)->count(),
-            'adjustments_total' => (float) $movements->where('type', MovementType::ADJUSTMENT)->sum('amount'),
-            'net_impact' => (float) $movements->sum(fn($m) => $m->balanceImpact()),
+            'adjustments_total' => (int) $movements->where('type', MovementType::ADJUSTMENT)->sum('amount'),
+            'net_impact' => (int) $movements->sum(fn($m) => $m->balanceImpact()),
             'movements' => $movements,
         ];
     }

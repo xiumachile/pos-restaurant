@@ -93,9 +93,9 @@ class CashierTableService
             'capacity' => $table->capacity,
             'orders_count' => $chargeableOrders->count(),
             'total_items' => $totalItems,
-            'subtotal' => (float) $totalSubtotal,
-            'tax_amount' => (float) $totalTax,
-            'total_amount' => (float) $totalAmount,
+            'subtotal' => (int) $totalSubtotal,
+            'tax_amount' => (int) $totalTax,
+            'total_amount' => (int) $totalAmount,
             'first_order_at' => $chargeableOrders->first()?->created_at?->toIso8601String(),
             'last_order_at' => $chargeableOrders->last()?->created_at?->toIso8601String(),
             'has_unserved_orders' => $unservedOrders->isNotEmpty(),
@@ -111,9 +111,9 @@ class CashierTableService
             'uuid' => $order->uuid,
             'order_number' => $order->order_number,
             'status' => $order->status->value,
-            'subtotal' => (float) $order->subtotal,
-            'tax_amount' => (float) $order->tax_amount,
-            'total' => (float) $order->total,
+            'subtotal' => (int) $order->subtotal,
+            'tax_amount' => (int) $order->tax_amount,
+            'total' => (int) $order->total,
             'waiter_name' => $order->waiter?->name,
             'served_at' => $order->served_at?->toIso8601String(),
             'items' => $order->items->map(fn($item) => [
@@ -121,19 +121,19 @@ class CashierTableService
                 'uuid' => $item->uuid,
                 'name' => $item->name_snapshot,
                 'quantity' => $item->quantity,
-                'unit_price' => (float) $item->unit_price_snapshot,
-                'subtotal' => (float) $item->subtotal,
+                'unit_price' => (int) $item->unit_price_snapshot,
+                'subtotal' => (int) $item->subtotal,
                 'notes' => $item->notes,
             ])->values(),
             'bills' => $order->bills->map(fn($bill) => [
                 'uuid' => $bill->uuid,
                 'bill_number' => $bill->bill_number,
                 'type' => $bill->type->value,
-                'subtotal' => (float) $bill->subtotal,
-                'tax_amount' => (float) $bill->tax_amount,
-                'total' => (float) $bill->total,
-                'paid_amount' => (float) $bill->paid_amount,
-                'remaining_amount' => (float) $bill->remaining_amount,
+                'subtotal' => (int) $bill->subtotal,
+                'tax_amount' => (int) $bill->tax_amount,
+                'total' => (int) $bill->total,
+                'paid_amount' => (int) $bill->paid_amount,
+                'remaining_amount' => (int) $bill->remaining_amount,
                 'status' => $bill->status->value,
                 'guest_count' => $bill->guest_count,
             ])->values(),
@@ -160,7 +160,7 @@ class CashierTableService
 
         return [
             'bills' => $bills,
-            'total_amount' => (float) $chargeableOrders->sum('total'),
+            'total_amount' => (int) $chargeableOrders->sum('total'),
             'orders_count' => $chargeableOrders->count(),
         ];
     }
@@ -186,7 +186,7 @@ class CashierTableService
 
         $cashSession = $this->getOpenCashSession($branchId);
         $totalAmount = $chargeableOrders->sum('total');
-        $totalTip = (float) ($data['tip_amount'] ?? 0);
+        $totalTip = (int) ($data['tip_amount'] ?? 0);
         $baseIdempotencyKey = $data['idempotency_key'];
 
         $payments = [];
@@ -203,7 +203,7 @@ class CashierTableService
             $payment = $this->paymentService->registerPayment(
                 order: $order,
                 paymentMethod: $paymentMethod,
-                amount: (float) $order->total,
+                amount: (int) $order->total,
                 idempotencyKey: $orderIdempotencyKey,
                 bill: null,
                 cashSession: $cashSession,
@@ -228,9 +228,9 @@ class CashierTableService
         return [
             'success' => true,
             'orders_charged' => count($payments),
-            'total_charged' => (float) $totalAmount,
+            'total_charged' => (int) $totalAmount,
             'total_tip' => $totalTip,
-            'grand_total' => (float) ($totalAmount + $totalTip),
+            'grand_total' => (int) ($totalAmount + $totalTip),
             'table_freed' => true,
             'table_number' => $table->table_number,
         ];
@@ -258,21 +258,21 @@ class CashierTableService
         }
 
         // Determinar monto a pagar
-        $requestedAmount = isset($data['amount']) ? (float) $data['amount'] : null;
+        $requestedAmount = isset($data['amount']) ? (int) $data['amount'] : null;
 
         if ($requestedAmount !== null) {
-            if ($requestedAmount > (float) $bill->remaining_amount + 0.01) {
+            if ($requestedAmount > (int) $bill->remaining_amount + 0.01) {
                 throw new \DomainException(
                     "El monto solicitado (\${$requestedAmount}) excede el pendiente (\${$bill->remaining_amount})."
                 );
             }
             $amountToPay = $requestedAmount;
         } else {
-            $amountToPay = (float) $bill->remaining_amount;
+            $amountToPay = (int) $bill->remaining_amount;
         }
 
         $cashSession = $this->getOpenCashSession($branchId);
-        $tipAmount = (float) ($data['tip_amount'] ?? 0);
+        $tipAmount = (int) ($data['tip_amount'] ?? 0);
 
         // ⚠️ FIX P0-01: DELEGAR completamente a PaymentService
         // PaymentService YA hace TODO dentro de una DB::transaction:
@@ -308,8 +308,8 @@ class CashierTableService
             'success' => true,
             'bill_uuid' => $bill->uuid,
             'bill_paid' => $bill->status === BillStatus::PAID,
-            'paid_amount' => (float) $bill->paid_amount,
-            'remaining_amount' => (float) $bill->remaining_amount,
+            'paid_amount' => (int) $bill->paid_amount,
+            'remaining_amount' => (int) $bill->remaining_amount,
             'order_transitioned_to_paid' => $orderTransitionedToPaid,
             'amount_paid' => $amountToPay,
             'tip_amount' => $tipAmount,

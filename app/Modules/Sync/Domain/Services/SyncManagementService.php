@@ -190,8 +190,8 @@ class SyncManagementService
                     'name_translations' => $prod->name_translations,
                     'description_translations' =>
                         $prod->description_translations ?? (object) [],
-                    'base_price' => (float) $prod->base_price,
-                    'tax_rate' => (float) $prod->tax_rate,
+                    'base_price' => (int) $prod->base_price,
+                    'tax_rate' => (int) $prod->tax_rate,
                     'is_combo' => (bool) $prod->is_combo,
                     'kitchen_zone_id' => $prod->kitchen_zone_id,
                     'is_active' => (bool) $prod->is_active,
@@ -269,7 +269,7 @@ class SyncManagementService
                     'type' => $method->type,
                     'icon' => $method->icon,
                     'max_amount' => $method->max_amount
-                        ? (float) $method->max_amount
+                        ? (int) $method->max_amount
                         : null,
                     'requires_reference' => (bool) $method->requires_reference,
                     'is_active' => (bool) $method->is_active,

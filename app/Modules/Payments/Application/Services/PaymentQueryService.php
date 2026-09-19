@@ -47,7 +47,7 @@ class PaymentQueryService implements PaymentQueryServiceInterface
     {
         $this->validateSessionOwnership($cashSessionId);
 
-        return (float) DB::table('payments')
+        return (int) DB::table('payments')
             ->where('payments.cash_session_id', $cashSessionId)
             ->where('payments.status', 'completed')
             ->where('payments.tip_amount', '>', 0)
@@ -90,7 +90,7 @@ class PaymentQueryService implements PaymentQueryServiceInterface
         return $payments->groupBy('waiter_id')
             ->map(function ($group) {
                 return $group->groupBy('method_code')
-                    ->map(fn($items) => (float) $items->sum('tip_amount'));
+                    ->map(fn($items) => (int) $items->sum('tip_amount'));
             });
     }
 
