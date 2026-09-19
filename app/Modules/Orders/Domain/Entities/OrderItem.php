@@ -15,6 +15,13 @@ use Modules\Companies\Domain\Entities\Company;
 
 class OrderItem extends Model
 {
+
+    protected $casts = [
+        'unit_price' => 'integer',
+        'quantity' => 'integer',
+        'subtotal' => 'integer',
+    ];
+
     use HasFactory;
     use HasUuid;
     use Syncable;

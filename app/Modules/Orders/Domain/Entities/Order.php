@@ -19,6 +19,18 @@ use Modules\Tables\Domain\Entities\RestaurantTable;
 
 class Order extends Model
 {
+
+    protected $casts = [
+        'subtotal' => 'integer',
+        'tax_amount' => 'integer',
+        'discount_amount' => 'integer',
+        'tip_amount' => 'integer',
+        'grand_total' => 'integer',
+        'amount_due' => 'integer',
+        'paid_amount' => 'integer',
+        'remaining_amount' => 'integer',
+    ];
+
     use HasFactory;
     use HasUuid;
     use Syncable;
