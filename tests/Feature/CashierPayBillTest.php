@@ -287,7 +287,7 @@ test('payBill maneja 10 requests concurrentes con misma idempotency_key', functi
     $bill->refresh();
     $paymentsCount = Payment::where('bill_id', $bill->id)->count();
 
-    expect($bill->paid_amount)->toBe(11900.0,
+    expect($bill->paid_amount)->toBe(11900,
         "paid_amount debe ser exactamente el monto del pago único");
     expect($paymentsCount)->toBe(1,
         "Solo debe existir UN Payment después de 10 requests concurrentes con misma key");
