@@ -97,7 +97,7 @@ npm install
 npm run tauri dev
 
 Tests
-# Suite completa (997 tests)
+# Suite completa (1016 tests)
 php artisan test
 
 # Módulo específico
@@ -124,10 +124,10 @@ Dinero e IVA	Modelo financiero chileno
 Seguridad	Auditoría de seguridad
 
 Decisiones de Arquitectura
-Ver docs/adr/ para las 16 ADRs documentadas:
+Ver docs/adr/ para las 21 ADRs documentadas:
 ADR-001 a ADR-016: Autenticación, multi-tenancy, idempotencia, etc.
 🧪 Testing
-Backend (997 tests)
+Backend (1016 tests)
 
 # Todos los tests
 php artisan test
