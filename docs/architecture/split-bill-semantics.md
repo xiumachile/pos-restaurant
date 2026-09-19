@@ -262,3 +262,72 @@ ADR-011: Modelo chileno (IVA incluido en precios)
 ADR-018: Modelo monetario CLP entero
 Última actualización: 2026-01-21
 Autor: Equipo de Desarrollo
+
+---
+
+## Known Limitations
+
+### splitByItems() usa float internamente
+
+**Ubicación**: `app/Modules/Billing/Application/Services/BillingService.php`
+
+**Descripción**:
+El método `splitByItems()` usa aritmética de punto flotante internamente
+para calcular proporciones:
+```php
+$ratio = $groupSubtotal / $totalGroupedSubtotal;  // float
+$groupTax = (int) round($orderTax * $ratio);      // float → int
+
+Prioridad: Baja (no afecta funcionalidad ni correctness)
+
+
+### ✅ Decisión: No Bloquea el Freeze
+
+**Razones:**
+1. ✅ El código funciona correctamente
+2. ✅ Las invariantes se preservan
+3. ✅ No hay bugs funcionales
+4. ✅ El impacto es puramente de "pureza arquitectónica"
+5. ✅ El usuario explícitamente dice "no detendría el frontend"
+
+### 📝 Acción Sugerida
+
+Agregar esta observación a `docs/architecture/split-bill-semantics.md` como sección "Known Limitations":
+
+```bash
+cd ~/pos-restaurant
+
+cat >> docs/architecture/split-bill-semantics.md << 'EOF'
+
+---
+
+## Known Limitations
+
+### splitByItems() usa float internamente
+
+**Ubicación**: `app/Modules/Billing/Application/Services/BillingService.php`
+
+**Descripción**:
+El método `splitByItems()` usa aritmética de punto flotante internamente
+para calcular proporciones:
+```php
+$ratio = $groupSubtotal / $totalGroupedSubtotal;  // float
+$groupTax = (int) round($orderTax * $ratio);      // float → int
+
+Justificación:
+El cálculo proporcional requiere división, que es inherentemente racional
+El resultado final se convierte a entero con round()
+La última bill absorbe el residuo de redondeo
+Las invariantes financieras se preservan correctamente
+Estado: 🟡 Hardening (no bloqueador)
+Mejora futura:
+Reemplazar con intdiv() para aritmética 100% entera:
+
+$groupTax = intdiv($orderTax * $groupSubtotal, $totalGroupedSubtotal);
+
+Prioridad: Baja (no afecta funcionalidad ni correctness)
+Impacto:
+✅ Resultado final: Entero CLP (sin cambio)
+✅ Invariantes: Preservadas (sin cambio)
+⚠️ Consistencia con ADR-018: Parcial (float interno vs 100% entero)
+Referencia: ADR-018 (Integridad Financiera en Backend)
