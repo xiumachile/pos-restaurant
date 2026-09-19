@@ -84,8 +84,8 @@ test('CashMovementService withdrawal crea retiro válido', function () {
 
     expect($movement->id)->not->toBeNull();
     expect($movement->type)->toBe(MovementType::WITHDRAWAL);
-    expect((float) $movement->amount)->toBe(20000);
-    expect((float) $movement->balance_after)->toBe(30000); // 50k - 20k
+    expect($movement->amount)->toBe(20000);
+    expect($movement->balance_after)->toBe(30000); // 50k - 20k
 });
 
 test('CashMovementService withdrawal grande requiere autorización', function () {
@@ -118,7 +118,7 @@ test('CashMovementService withdrawal grande con autorización funciona', functio
 
     expect($movement->isAuthorized())->toBeTrue();
     expect($movement->authorized_by)->toBe($this->manager->id);
-    expect((float) $movement->balance_after)->toBe(50000); // 150k - 100k
+    expect($movement->balance_after)->toBe(50000); // 150k - 100k
 });
 
 test('CashMovementService withdrawal no permite balance negativo', function () {
@@ -147,7 +147,7 @@ test('CashMovementService deposit crea depósito válido', function () {
     );
 
     expect($movement->type)->toBe(MovementType::DEPOSIT);
-    expect((float) $movement->balance_after)->toBe(80000); // 50k + 30k
+    expect($movement->balance_after)->toBe(80000); // 50k + 30k
 });
 
 // ============================================
@@ -272,9 +272,9 @@ test('CashCountService openingCount crea arqueo de apertura', function () {
 
     expect($count->id)->not->toBeNull();
     expect($count->type)->toBe(CashCountType::OPENING);
-    expect((float) $count->expected_amount)->toBe(50000); // Apertura
-    expect((float) $count->counted_amount)->toBe(50000);
-    expect((float) $count->difference)->toBe(0);
+    expect($count->expected_amount)->toBe(50000); // Apertura
+    expect($count->counted_amount)->toBe(50000);
+    expect($count->difference)->toBe(0);
     expect($count->isBalanced())->toBeTrue();
 });
 
@@ -306,9 +306,9 @@ test('CashCountService detecta discrepancia en arqueo', function () {
 
     $count = $service->closingCount($this->session, $this->cashier, $denominations);
 
-    expect((float) $count->expected_amount)->toBe(100000); // 50k + 50k
-    expect((float) $count->counted_amount)->toBe(98000);
-    expect((float) $count->difference)->toBe(-2000.0);
+    expect($count->expected_amount)->toBe(100000); // 50k + 50k
+    expect($count->counted_amount)->toBe(98000);
+    expect($count->difference)->toBe(-2000.0);
     expect($count->has_discrepancy)->toBeTrue();
     expect($count->hasShortage())->toBeTrue();
 });
@@ -403,7 +403,7 @@ test('CashRegisterService create funciona con código único', function () {
 
     expect($register->id)->not->toBeNull();
     expect($register->code)->toBe('CAJA-02');
-    expect((float) $register->opening_amount_default)->toBe(30000);
+    expect($register->opening_amount_default)->toBe(30000);
 });
 
 test('CashRegisterService getAvailableRegisters retorna solo cajas sin sesión', function () {

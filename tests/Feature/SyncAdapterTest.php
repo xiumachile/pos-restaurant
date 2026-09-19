@@ -200,7 +200,7 @@ test('SyncAdapter importa órdenes locales al servidor', function () {
         ->first();
 
     expect($serverOrder)->not->toBeNull()
-        ->and((float) $serverOrder->subtotal)->toBe(3000);
+        ->and($serverOrder->subtotal)->toBe(3000);
 });
 
 test('SyncAdapter actualiza metadata de exportación', function () {
