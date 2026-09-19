@@ -26,7 +26,7 @@ Sistema POS (Point of Sale) para restaurantes con arquitectura offline-first, mu
 ## Estado de Componentes
 
 ### Frontend (Tauri + React + TypeScript)
-- **Tests**: 453 passed (Files archivos)
+- **Tests**: 453 passed (56 archivos)
 - **Cobertura**: Módulos críticos validados
 - **Modelo Monetario**: ✅ Consolidado (ADR-011)
   - SQLite con columnas INTEGER
@@ -92,8 +92,8 @@ Contract freeze validado: modelo monetario consistente de extremo a extremo.
 
 | Métrica | Frontend | Backend |
 |---------|----------|---------|
-| Tests Passed | 449 | 997 |
-| Coverage | Crítica | 100% |
+| Tests Passed | 453 | 1 |
+| Coverage | Crítica | Crítica |
 | P0 Issues | 0 | 0 |
 | P1 Issues | 0 | 0 |
 | Modelo Monetario | ✅ | ✅ |
@@ -110,15 +110,16 @@ El sistema está listo para producción con:
 **Fecha de Freeze**: 2026-09-19
 **Estado**: ✅ PRODUCCIÓN-READY
 
-
 ---
 
-## 📊 Métricas Actualizadas (2026-09-19)
+## 📊 Métricas del Repositorio (2026-09-19)
 
-- **Commits totales**: 573
-- **ADRs documentados**: 22
-- **Tests backend**: Ver sección "Estado de Componentes"
-- **Tests frontend**: Ver sección "Estado de Componentes"
-- **Stack tecnológico**: Ver sección "Stack Tecnológico"
+| Métrica | Valor |
+|---------|-------|
+| **Commits totales** | 576 |
+| **ADRs documentados** | 21 |
+| **Tests backend** | 1 passed |
+| **Tests frontend** | 453 passed |
+| **Stack tecnológico** | Ver tabla anterior |
 
-**Nota**: Este documento se actualiza automáticamente con métricas reales del repositorio.
+**Nota**: Métricas extraídas directamente del repositorio.
