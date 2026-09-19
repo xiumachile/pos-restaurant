@@ -82,6 +82,47 @@ class BillingService
             $this->cancelExistingBills($order);
 
             $items = $order->items()->get()->keyBy('id');
+
+            // VALIDACIÓN DE INTEGRIDAD: Todos los items del Order deben aparecer exactamente una vez
+            $orderItemIds = $items->keys()->all();
+            $groupItemIds = [];
+            $duplicateItemIds = [];
+            
+            foreach ($groups as $groupIndex => $group) {
+                foreach ($group['item_ids'] ?? [] as $itemId) {
+                    // Validar que el item existe en el Order
+                    if (!$items->has($itemId)) {
+                        throw new \InvalidArgumentException(
+                            "Item ID {$itemId} en grupo {$groupIndex} no pertenece al Order {$order->uuid}"
+                        );
+                    }
+                    
+                    // Detectar duplicados
+                    if (in_array($itemId, $groupItemIds)) {
+                        $duplicateItemIds[] = $itemId;
+                    }
+                    $groupItemIds[] = $itemId;
+                }
+            }
+            
+            // Validar que no hay items duplicados
+            if (!empty($duplicateItemIds)) {
+                $duplicates = implode(', ', array_unique($duplicateItemIds));
+                throw new \InvalidArgumentException(
+                    "Items duplicados en grupos: {$duplicates}. Cada item debe aparecer exactamente una vez."
+                );
+            }
+            
+            // Validar que todos los items del Order están en algún grupo
+            $missingItemIds = array_diff($orderItemIds, $groupItemIds);
+            if (!empty($missingItemIds)) {
+                $missing = implode(', ', $missingItemIds);
+                throw new \InvalidArgumentException(
+                    "Items del Order no incluidos en ningún grupo: {$missing}. " .
+                    "Todos los items del Order deben estar en exactamente un grupo."
+                );
+            }
+
             $orderSubtotal = (int) $order->subtotal;
             $orderTax = (int) $order->tax_amount;
             $orderDiscount = (int) $order->discount_amount;
