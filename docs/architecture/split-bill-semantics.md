@@ -331,3 +331,56 @@ Impacto:
 ✅ Invariantes: Preservadas (sin cambio)
 ⚠️ Consistencia con ADR-018: Parcial (float interno vs 100% entero)
 Referencia: ADR-018 (Integridad Financiera en Backend)
+
+---
+
+## Validación de Entrada (Implementado 2026-01-21)
+
+### splitByAmounts() valida explícitamente enteros
+
+**Problema resuelto**:
+El frontend podía enviar decimales como `[10000.50, 9999.50]` y el
+backend los truncaba silenciosamente a `[10000, 9999]`.
+
+**Solución implementada**:
+```php
+// SplitBillRequest.php
+public function rules(): array
+{
+    return [
+        'amounts' => ['required', 'array', 'min:2'],
+        'amounts.*' => ['required', 'integer', 'min:1'],  // Rechaza decimales
+    ];
+}
+
+public function withValidator($validator): void
+{
+    $validator->after(function ($validator) {
+        $amounts = $this->input('amounts', []);
+        
+        foreach ($amounts as $index => $amount) {
+            if (is_numeric($amount) && floor($amount) != $amount) {
+                $validator->errors()->add(
+                    "amounts.{$index}",
+                    "El monto debe ser un número entero (CLP sin decimales)"
+                );
+            }
+        }
+    });
+}
+
+Comportamiento:
+Request: {"amounts": [10000.50, 9999.50]}
+Response: 422 Unprocessable Entity
+{
+  "message": "The amounts.0 must be an integer.",
+  "errors": {
+    "amounts.0": ["El monto debe ser un número entero (CLP sin decimales)"]
+  }
+}
+
+Defensa en profundidad:
+El servicio BillingService::splitByAmounts() mantiene el cast a int
+como fallback defensivo, pero la validación ahora ocurre antes en la
+capa de request.
+Referencia: ADR-018 (Integridad Financiera en Backend)
