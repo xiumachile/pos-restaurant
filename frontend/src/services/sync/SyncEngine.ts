@@ -435,7 +435,7 @@ export class SyncEngine {
     // Frontend (LocalBill): tax_total, discount_total, grand_total, amount_due
     // Backend (Bill):       tax_amount, discount_amount, total
     //
-    // Semántica backend total = grand_total + tip_amount = amount_due (ADR-011)
+    // Semántica backend: total = grand_total (solo venta, sin propina) (ADR-011 + ADR-018)
     const billPayload = {
       order_uuid: orderUuid,
       bill_number: payload.bill_number,
@@ -444,9 +444,9 @@ export class SyncEngine {
       tax_amount: payload.tax_total ?? 0,
       discount_amount: payload.discount_total ?? 0,
       tip_amount: payload.tip_amount ?? 0,
-      total: payload.amount_due ?? payload.grand_total ?? 0,
+      total: payload.grand_total ?? 0,  // Backend espera solo venta (sin propina)
       paid_amount: payload.paid_amount ?? 0,
-      remaining_amount: payload.remaining_amount ?? 0,
+      remaining_amount: payload.remaining_amount ?? payload.grand_total ?? 0,  // remaining = grand_total cuando no hay pagos
       status: payload.status || "open",
       idempotency_key: payload.idempotency_key,
     };
