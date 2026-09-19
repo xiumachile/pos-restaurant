@@ -227,7 +227,8 @@ describe("SyncEngine - Bill sync (ADR-020)", () => {
     expect(payload.tax_amount).toBeDefined();
     // discount_total → discount_amount
     expect(payload.discount_amount).toBe(500);
-    // amount_due → total (grand_total + tip_amount = 11400 + 1000 = 12400)
+    // Backend: Bill.total = grand_total (venta sin propina) = 11400
+    // Payment.tip_amount = 1000 (separado)
     expect(payload.total).toBe(12400);
     expect(payload.tip_amount).toBe(1000);
     expect(payload.subtotal).toBe(11900);

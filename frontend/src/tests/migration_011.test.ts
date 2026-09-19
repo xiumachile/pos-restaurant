@@ -88,7 +88,7 @@ describe('Migration 011: Chilean POS model (ADR-011)', () => {
     expect(payment.tip_amount).toBe(1000);
   });
 
-  it('Bill calcula amount_due correctamente', async () => {
+  it('Bill: amount_due incluye propina, pero remaining_amount es solo venta', async () => {
     const order = await OrderRepository.create({
       company_id: 'test',
       branch_id: 'test',
@@ -116,7 +116,7 @@ describe('Migration 011: Chilean POS model (ADR-011)', () => {
     expect(bill.grand_total).toBe(10000);
     expect(bill.tip_amount).toBe(1000);
     expect(bill.amount_due).toBe(11000);
-    expect(bill.remaining_amount).toBe(11000); // Sin pagos aún
+    expect(bill.remaining_amount).toBe(10000); // Sin pagos aún (solo venta, sin propina)
   });
 
   it('Validación: net_amount + tax_amount = grand_total', async () => {

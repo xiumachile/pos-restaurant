@@ -217,7 +217,7 @@ describe("Repositorios locales", () => {
       expect(bill).toBeDefined();
       expect(bill.local_uuid).toBeDefined();
       expect(bill.paid_amount).toBe(0);
-      expect(bill.remaining_amount).toBe(11900);  // = amount_due = grand_total + tip
+      expect(bill.remaining_amount).toBe(10900); // = grand_total (venta sin propina)
       expect(bill.grand_total).toBe(11900);
       expect(bill.status).toBe("open");
 
