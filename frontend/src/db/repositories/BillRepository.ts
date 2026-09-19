@@ -50,7 +50,8 @@ export interface CreateBillPayload {
 export class BillRepository {
   /**
    * Crea una bill local y la encola automáticamente para sincronización.
-   * El paid_amount inicia en 0, remaining_amount = grand_total.
+   * El paid_amount inicia en 0, remaining_amount = grand_total (venta sin propina).
+   * La propina se maneja a nivel de Payment, no de Bill.
    */
   static async create(payload: CreateBillPayload): Promise<LocalBill> {
     const local_uuid = uuidv4();
@@ -89,7 +90,7 @@ export class BillRepository {
         tip_amount,
         grand_total,
         amount_due,
-        amount_due, // remaining_amount = amount_due
+        grand_total, // remaining_amount = grand_total (venta sin propina)
         idempotency_key,
         payload.notes || null,
         now,
@@ -188,7 +189,7 @@ export class BillRepository {
     const newPaidAmount = bill.paid_amount + amount;
     const newRemainingAmount = Math.max(0, bill.amount_due - newPaidAmount);
     const newStatus: BillStatus =
-      newRemainingAmount <= 0.01 ? "paid" : newPaidAmount > 0 ? "partial" : "open";
+      newRemainingAmount === 0  // ADR-018: comparación exacta, sin epsilon ? "paid" : newPaidAmount > 0 ? "partial" : "open";
 
     await localDb.execute(
       `UPDATE local_bills
