@@ -112,13 +112,13 @@ class RefundService
         }
 
         // Amount no puede exceder el total del payment
-        if ($amount > (float) $payment->total_amount) {
-            throw InvalidRefundException::exceedsPaymentAmount($amount, (float) $payment->total_amount);
+        if ($amount > (int) $payment->total_amount) {
+            throw InvalidRefundException::exceedsPaymentAmount($amount, (int) $payment->total_amount);
         }
 
         // Suma de refunds previos + este amount no puede exceder el total
         $alreadyRefunded = Refund::totalRefundedFor($payment->id);
-        $maxRefundable = (float) $payment->total_amount - $alreadyRefunded;
+        $maxRefundable = (int) $payment->total_amount - $alreadyRefunded;
 
         if ($amount > $maxRefundable) {
             throw InvalidRefundException::exceedsRefundableAmount($amount, $maxRefundable, $alreadyRefunded);

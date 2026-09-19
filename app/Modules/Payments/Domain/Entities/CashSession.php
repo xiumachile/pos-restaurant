@@ -140,7 +140,7 @@ class CashSession extends Model
             $tipPayoutQuery->where('payment_method', 'cash');
         }
         
-        $tipsPaidOut = (float) $tipPayoutQuery->sum('amount');
+        $tipsPaidOut = (int) $tipPayoutQuery->sum('amount');
         
         // Calcular impacto de movimientos (si se solicita)
         $movementsImpact = 0;

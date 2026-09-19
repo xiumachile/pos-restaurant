@@ -34,7 +34,7 @@ class TipPayout extends Model
     ];
 
     protected $casts = [
-        'amount' => 'decimal:2',
+        'amount' => 'integer',
         'is_voided' => 'boolean',
         'voided_at' => 'datetime',
     ];
