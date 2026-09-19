@@ -51,7 +51,6 @@ export class BillRepository {
   /**
    * Crea una bill local y la encola automáticamente para sincronización.
    * El paid_amount inicia en 0, remaining_amount = grand_total (venta sin propina).
-   * La propina se maneja a nivel de Payment, no de Bill.
    */
   static async create(payload: CreateBillPayload): Promise<LocalBill> {
     const local_uuid = uuidv4();
@@ -185,11 +184,13 @@ export class BillRepository {
       throw new Error(`Bill ${localUuid} is ${bill.status}, cannot receive payment`);
     }
 
-    // ADR-011: Usar amount_due (incluye propina) en lugar de grand_total
+    // ADR-011 + ADR-018: Bill representa solo la VENTA (sin propina)
+    // La propina se maneja a nivel de Payment (Payment.tip_amount)
+    // Backend: Bill.total = grand_total (venta sin propina)
     const newPaidAmount = bill.paid_amount + amount;
-    const newRemainingAmount = Math.max(0, bill.amount_due - newPaidAmount);
+    const newRemainingAmount = Math.max(0, bill.grand_total - newPaidAmount);
     const newStatus: BillStatus =
-      newRemainingAmount === 0  // ADR-018: comparación exacta, sin epsilon ? "paid" : newPaidAmount > 0 ? "partial" : "open";
+      newRemainingAmount === 0 ? "paid" : newPaidAmount > 0 ? "partial" : "open";
 
     await localDb.execute(
       `UPDATE local_bills
