@@ -81,7 +81,7 @@ class SplitBillRequest extends FormRequest
             $rules['groups.*.guest_count'] = ['nullable', 'integer', 'min:1'];
         } elseif ($type === 'custom_amount') {
             $rules['amounts'] = ['required', 'array', 'min:1'];
-            $rules['amounts.*'] = ['numeric', 'min:0.01'];
+            $rules['amounts.*'] = ['integer', 'min:1'];  // ADR-018: CLP entero, sin decimales
         }
 
         return $rules;
