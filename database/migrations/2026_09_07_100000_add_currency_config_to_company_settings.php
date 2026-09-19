@@ -6,10 +6,10 @@ use Illuminate\Support\Facades\DB;
 return new class extends Migration
 {
     /**
-     * Agrega configuración de moneda por defecto al campo settings de todas
+     * Normaliza la configuración de moneda en el campo settings de todas
      * las companies existentes.
      *
-     * Estructura agregada:
+     * Estructura final:
      * {
      *   "currency": {
      *     "code": "CLP",
@@ -20,55 +20,69 @@ return new class extends Migration
      *   }
      * }
      *
+     * Maneja tres casos:
+     *  - settings NULL o vacío       → crea el bloque completo con defaults
+     *  - currency es string ("CLP")  → lo convierte a objeto preservando el code
+     *  - currency ya es objeto       → no toca nada (idempotente)
+     *
      * Principio: Money and Tax Architecture (docs/architecture/money-and-tax.md)
      */
     public function up(): void
     {
-        $companies = DB::table('companies')->get();
+        $default = [
+            'code' => 'CLP',
+            'symbol' => '$',
+            'decimals' => 0,
+            'thousands_separator' => '.',
+            'decimal_separator' => ',',
+        ];
 
-        foreach ($companies as $company) {
-            $settings = $company->settings ?? [];
-            
-            // Solo agregar si no existe el bloque currency
-            if (!isset($settings['currency'])) {
-                $settings['currency'] = [
-                    'code' => 'CLP',
-                    'symbol' => '$',
-                    'decimals' => 0,
-                    'thousands_separator' => '.',
-                    'decimal_separator' => ',',
-                ];
+        DB::table('companies')->orderBy('id')->chunk(100, function ($companies) use ($default) {
+            foreach ($companies as $company) {
+                $settings = is_string($company->settings)
+                    ? json_decode($company->settings, true)
+                    : ($company->settings ?? []);
 
-                DB::table('companies')
-                    ->where('id', $company->id)
-                    ->update([
-                        'settings' => json_encode($settings),
-                        'updated_at' => now(),
+                if (!is_array($settings['currency'] ?? null)) {
+                    $settings['currency'] = array_merge($default, [
+                        'code' => is_string($settings['currency'] ?? null)
+                            ? $settings['currency']
+                            : 'CLP',
                     ]);
+
+                    DB::table('companies')
+                        ->where('id', $company->id)
+                        ->update([
+                            'settings' => json_encode($settings),
+                            'updated_at' => now(),
+                        ]);
+                }
             }
-        }
+        });
     }
 
     /**
-     * Remove currency block from all companies.
+     * Elimina el bloque currency de todas las companies.
      */
     public function down(): void
     {
-        $companies = DB::table('companies')->get();
+        DB::table('companies')->orderBy('id')->chunk(100, function ($companies) {
+            foreach ($companies as $company) {
+                $settings = is_string($company->settings)
+                    ? json_decode($company->settings, true)
+                    : ($company->settings ?? []);
 
-        foreach ($companies as $company) {
-            $settings = $company->settings ?? [];
-            
-            if (isset($settings['currency'])) {
-                unset($settings['currency']);
+                if (isset($settings['currency'])) {
+                    unset($settings['currency']);
 
-                DB::table('companies')
-                    ->where('id', $company->id)
-                    ->update([
-                        'settings' => json_encode($settings),
-                        'updated_at' => now(),
-                    ]);
+                    DB::table('companies')
+                        ->where('id', $company->id)
+                        ->update([
+                            'settings' => json_encode($settings),
+                            'updated_at' => now(),
+                        ]);
+                }
             }
-        }
+        });
     }
 };
