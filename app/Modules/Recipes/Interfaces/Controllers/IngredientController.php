@@ -98,7 +98,7 @@ class IngredientController extends Controller
             ingredient: $ingredient,
             purchaseUnitName: $validated['purchase_unit_name'],
             purchaseQuantity: (float) $validated['purchase_quantity'],
-            totalPurchaseCost: (float) $validated['total_purchase_cost'],
+            totalPurchaseCost: (int) $validated['total_purchase_cost'],  // ADR-018: CLP entero
             userId: $user->id,
             conversionFactor: isset($validated['conversion_factor_to_base'])
                 ? (float) $validated['conversion_factor_to_base']

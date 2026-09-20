@@ -125,7 +125,7 @@ class RecipeService
             return [
                 'product_id' => $recipe->product_id,
                 'product_name' => $product?->name_translations['es'] ?? 'N/A',
-                'product_base_price' => (float) ($product?->base_price ?? 0),
+                'product_base_price' => (int) ($product?->base_price ?? 0),  // ADR-018
                 'recipe_cost' => (float) $recipe->total_recipe_cost,
                 'food_cost_percentage' => $product ? round(((float) $recipe->total_recipe_cost / (float) $product->base_price) * 100, 2) : 0,
                 'gross_margin' => $product ? max(0, (float) $product->base_price - (float) $recipe->total_recipe_cost) : 0,

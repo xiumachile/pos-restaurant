@@ -70,7 +70,7 @@ class ProductRecipe extends Model
      */
     public function calculateFoodCostPercentage(): float
     {
-        $productPrice = (float) ($this->product?->base_price ?? 0);
+        $productPrice = (int) ($this->product?->base_price ?? 0);  // ADR-018
         if ($productPrice <= 0) {
             return 0.0;
         }
@@ -85,7 +85,7 @@ class ProductRecipe extends Model
      */
     public function calculateGrossMargin(): float
     {
-        $productPrice = (float) ($this->product?->base_price ?? 0);
+        $productPrice = (int) ($this->product?->base_price ?? 0);  // ADR-018
         return max(0, $productPrice - (float) $this->total_recipe_cost);
     }
 }

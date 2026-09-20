@@ -18,7 +18,7 @@ class ProductRecipeResource extends JsonResource
             'uuid' => $this->uuid,
             'product_uuid' => $product?->uuid,
             'product_name' => $product?->name_translations['es'] ?? 'N/A',
-            'product_base_price' => (float) ($product?->base_price ?? 0),
+            'product_base_price' => (int) ($product?->base_price ?? 0),  // ADR-018: Product.base_price es int
             'description' => $this->description,
             'yield_servings' => $this->yield_servings,
             'total_recipe_cost' => (float) $this->total_recipe_cost,
