@@ -43,10 +43,10 @@ class OrderResource extends JsonResource
             'items_count' => $this->when($this->items_count !== null, fn() => $this->items_count),
             
             // Totales
-            'subtotal' => (float) $this->subtotal,
-            'tax_amount' => (float) $this->tax_amount,
-            'discount_amount' => (float) $this->discount_amount,
-            'total' => (float) $this->total,
+            'subtotal' => (int) $this->subtotal,  // ADR-018
+            'tax_amount' => (int) $this->tax_amount,  // ADR-018
+            'discount_amount' => (int) $this->discount_amount,  // ADR-018
+            'total' => (int) $this->total,  // ADR-018
             
             // Notas
             'notes' => $this->notes,

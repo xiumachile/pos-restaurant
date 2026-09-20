@@ -68,16 +68,16 @@ class MenuItem extends Model
     public function productsSum(): float
     {
         return $this->components->sum(function ($component) {
-            return (float) $component->product->base_price * $component->quantity;
+            return (int) round($component->product->base_price * $component->quantity);  // ADR-018
         });
     }
 
     /**
      * Calcula el precio final del combo.
      */
-    public function finalPrice(): float
+    public function finalPrice(): int  // ADR-018: CLP entero
     {
-        return (float) $this->base_price;
+        return (int) $this->base_price;  // ADR-018
     }
 
     /**

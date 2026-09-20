@@ -13,16 +13,16 @@ class OrderItemResource extends JsonResource
             'uuid' => $this->uuid,
             'menu_item_uuid' => $this->menuItem?->uuid,
             'name' => (string) $this->name_snapshot,
-            'unit_price' => (float) $this->unit_price_snapshot,
+            'unit_price' => (int) $this->unit_price_snapshot,  // ADR-018
             'quantity' => (int) $this->quantity,
-            'subtotal' => (float) $this->subtotal,
+            'subtotal' => (int) $this->subtotal,  // ADR-018
             'notes' => $this->notes,
             'modifiers' => $this->whenLoaded('modifiers', fn() => 
                 $this->modifiers->map(fn($modifier) => [
                     'original_product_uuid' => $modifier->originalProduct?->uuid,
                     'substitute_product_uuid' => $modifier->substituteProduct?->uuid,
                     'added_product_uuid' => $modifier->addedProduct?->uuid,
-                    'price_adjustment' => (float) $modifier->price_adjustment,
+                    'price_adjustment' => (int) $modifier->price_adjustment,  // ADR-018
                     'reason' => $modifier->reason,
                     'requires_authorization' => $modifier->requires_authorization,
                 ])

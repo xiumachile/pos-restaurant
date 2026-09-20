@@ -41,8 +41,8 @@ class MenuItemProduct extends Model
     /**
      * Calcula el subtotal de este componente.
      */
-    public function subtotal(): float
+    public function subtotal(): int  // ADR-018: CLP entero
     {
-        return (float) $this->product->base_price * $this->quantity;
+        return (int) round($this->product->base_price * $this->quantity);  // ADR-018
     }
 }

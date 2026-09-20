@@ -100,7 +100,7 @@ class Product extends Model
             return 0.0;
         }
 
-        $baseAmount = (float) $this->base_price * $quantity;
+        $baseAmount = (int) $this->base_price * $quantity;  // ADR-018
         return $tax->calculate($baseAmount, $quantity);
     }
 
@@ -138,7 +138,7 @@ class Product extends Model
         if ($priceList) {
             $price = $this->prices()->where('price_list_id', $priceList->id)->first();
             if ($price) {
-                return (float) $price->price;
+                return (int) $price->price;  // ADR-018
             }
         }
 
@@ -149,11 +149,11 @@ class Product extends Model
         if ($defaultList) {
             $price = $this->prices()->where('price_list_id', $defaultList->id)->first();
             if ($price) {
-                return (float) $price->price;
+                return (int) $price->price;  // ADR-018
             }
         }
 
-        return (float) $this->base_price;
+        return (int) $this->base_price;  // ADR-018
     }
 
     /**
@@ -214,6 +214,6 @@ class Product extends Model
     {
         $effectiveTax = $this->getEffectiveTax();
         $rate = $effectiveTax ? (float) $effectiveTax->rate : (float) ($this->tax_rate ?? 0);
-        return (float) $this->base_price * (1 + $rate / 100);
+        return (int) round($this->base_price * (1 + $rate / 100));  // ADR-018: precio con IVA
     }
 }

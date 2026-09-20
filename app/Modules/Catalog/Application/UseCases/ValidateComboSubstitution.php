@@ -104,10 +104,10 @@ class ValidateComboSubstitution
         }
 
         // 9. Calcular delta de precio
-        $unitPriceDelta = max(0, (float) $replacementProduct->base_price - (float) $originalProduct->base_price);
+        $unitPriceDelta = max(0, (int) $replacementProduct->base_price - (int) $originalProduct->base_price);  // ADR-018
 
         // 10. Validar max_price_delta si está definido
-        if ($matchedRule->max_price_delta !== null && $unitPriceDelta > (float) $matchedRule->max_price_delta) {
+        if ($matchedRule->max_price_delta !== null && $unitPriceDelta > (int) $matchedRule->max_price_delta) {  // ADR-018
             return SubstitutionValidationResult::denied(
                 'exceeds_max_price_delta',
                 "El recargo unitario ({$unitPriceDelta}) excede el máximo permitido ({$matchedRule->max_price_delta})."
