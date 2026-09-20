@@ -106,23 +106,23 @@ class CashierReportController extends Controller
 
         $breakdown = [
             'cash' => [
-                'amount' => (float) ($paymentsByMethod['CASH']->total_amount ?? 0),
-                'tips' => (float) ($paymentsByMethod['CASH']->total_tips ?? 0),
+                'amount' => (int) ($paymentsByMethod['CASH']->total_amount ?? 0),  // ADR-018
+                'tips' => (int) ($paymentsByMethod['CASH']->total_tips ?? 0),  // ADR-018
                 'count' => (int) ($paymentsByMethod['CASH']->count ?? 0),
             ],
             'card' => [
-                'amount' => (float) ($paymentsByMethod['CARD']->total_amount ?? 0),
-                'tips' => (float) ($paymentsByMethod['CARD']->total_tips ?? 0),
+                'amount' => (int) ($paymentsByMethod['CARD']->total_amount ?? 0),  // ADR-018
+                'tips' => (int) ($paymentsByMethod['CARD']->total_tips ?? 0),  // ADR-018
                 'count' => (int) ($paymentsByMethod['CARD']->count ?? 0),
             ],
             'transfer' => [
-                'amount' => (float) ($paymentsByMethod['TRANSFER']->total_amount ?? 0),
-                'tips' => (float) ($paymentsByMethod['TRANSFER']->total_tips ?? 0),
+                'amount' => (int) ($paymentsByMethod['TRANSFER']->total_amount ?? 0),  // ADR-018
+                'tips' => (int) ($paymentsByMethod['TRANSFER']->total_tips ?? 0),  // ADR-018
                 'count' => (int) ($paymentsByMethod['TRANSFER']->count ?? 0),
             ],
             'gift_card' => [
-                'amount' => (float) ($paymentsByMethod['GIFT_CARD']->total_amount ?? 0),
-                'tips' => (float) ($paymentsByMethod['GIFT_CARD']->total_tips ?? 0),
+                'amount' => (int) ($paymentsByMethod['GIFT_CARD']->total_amount ?? 0),  // ADR-018
+                'tips' => (int) ($paymentsByMethod['GIFT_CARD']->total_tips ?? 0),  // ADR-018
                 'count' => (int) ($paymentsByMethod['GIFT_CARD']->count ?? 0),
             ],
         ];
@@ -132,9 +132,9 @@ class CashierReportController extends Controller
             ->get();
 
         $movementSummary = [
-            'withdrawals' => (float) $movements->where('type', 'withdrawal')->sum('amount'),
-            'deposits' => (float) $movements->where('type', 'deposit')->sum('amount'),
-            'adjustments' => (float) $movements->where('type', 'adjustment')->sum('amount'),
+            'withdrawals' => (int) $movements->where('type', 'withdrawal')->sum('amount'),  // ADR-018
+            'deposits' => (int) $movements->where('type', 'deposit')->sum('amount'),  // ADR-018
+            'adjustments' => (int) $movements->where('type', 'adjustment')->sum('amount'),  // ADR-018
         ];
 
         $counts = CashCount::where('cash_session_id', $session->id)
@@ -149,7 +149,7 @@ class CashierReportController extends Controller
             + $movementSummary['adjustments'];
 
         $lastCount = $counts->last();
-        $actualCash = $lastCount ? (float) $lastCount->total_counted : null;
+        $actualCash = $lastCount ? (int) $lastCount->total_counted : null;  // ADR-018
         $discrepancy = $actualCash !== null ? $actualCash - $expectedCash : null;
 
         return [

@@ -21,7 +21,7 @@ class TipPayoutResource extends JsonResource
                 'id' => $this->processor->id,
                 'name' => $this->processor->name,
             ],
-            'amount' => (float) $this->amount,
+            'amount' => (int) $this->amount,  // ADR-018
             'payment_method' => $this->payment_method,
             'policy_type' => $this->policy_type,
             'notes' => $this->notes,

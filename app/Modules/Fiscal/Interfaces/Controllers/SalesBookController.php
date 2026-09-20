@@ -48,10 +48,10 @@ class SalesBookController extends Controller
                 'end_date' => $endDate,
             ],
             'total_documents' => $dtes->count(),
-            'total_net' => (float) $dtes->sum('net_amount'),
-            'total_tax' => (float) $dtes->sum('tax_amount'),
-            'total_exempt' => (float) $dtes->sum('exempt_amount'),
-            'total_amount' => (float) $dtes->sum('total_amount'),
+            'total_net' => (int) $dtes->sum('net_amount'),  // ADR-018
+            'total_tax' => (int) $dtes->sum('tax_amount'),  // ADR-018
+            'total_exempt' => (int) $dtes->sum('exempt_amount'),  // ADR-018
+            'total_amount' => (int) $dtes->sum('total_amount'),  // ADR-018
             'by_type' => [],
         ];
 
@@ -62,10 +62,10 @@ class SalesBookController extends Controller
                     'dte_type' => $type->value,
                     'dte_type_label' => $type->label(),
                     'documents_count' => $typeDtes->count(),
-                    'total_net' => (float) $typeDtes->sum('net_amount'),
-                    'total_tax' => (float) $typeDtes->sum('tax_amount'),
-                    'total_exempt' => (float) $typeDtes->sum('exempt_amount'),
-                    'total_amount' => (float) $typeDtes->sum('total_amount'),
+                    'total_net' => (int) $typeDtes->sum('net_amount'),  // ADR-018
+                    'total_tax' => (int) $typeDtes->sum('tax_amount'),  // ADR-018
+                    'total_exempt' => (int) $typeDtes->sum('exempt_amount'),  // ADR-018
+                    'total_amount' => (int) $typeDtes->sum('total_amount'),  // ADR-018
                 ];
             }
         }

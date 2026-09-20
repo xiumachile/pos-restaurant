@@ -195,7 +195,7 @@ class DteXmlGenerator
         $xml = '    <Totales>' . "\n";
         $xml .= '      <MntNeto>' . (int) $dte->net_amount . '</MntNeto>' . "\n";
         
-        if ((float) $dte->exempt_amount > 0) {
+        if ($dte->exempt_amount > 0) {  // ADR-018: entidad ya cast a int
             $xml .= '      <MntExento>' . (int) $dte->exempt_amount . '</MntExento>' . "\n";
         }
         

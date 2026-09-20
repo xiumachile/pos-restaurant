@@ -20,10 +20,10 @@ class DteDocumentResource extends JsonResource
             'order_number' => $this->order?->order_number,
             'receiver_rut' => $this->receiver_rut,
             'receiver_business_name' => $this->receiver_business_name,
-            'net_amount' => (float) $this->net_amount,
-            'tax_amount' => (float) $this->tax_amount,
-            'exempt_amount' => (float) $this->exempt_amount,
-            'total_amount' => (float) $this->total_amount,
+            'net_amount' => (int) $this->net_amount,  // ADR-018
+            'tax_amount' => (int) $this->tax_amount,  // ADR-018
+            'exempt_amount' => (int) $this->exempt_amount,  // ADR-018
+            'total_amount' => (int) $this->total_amount,  // ADR-018
             'sii_status' => $this->sii_status?->value,
             'sii_status_label' => $this->sii_status?->label(),
             'sii_status_description' => $this->sii_status_description,

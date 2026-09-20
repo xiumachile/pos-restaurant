@@ -89,18 +89,18 @@ class ReceiptFormatter
             $output .= $this->escPos->alignLeft("{$qty}x {$name}");
 
             // Precio unitario y subtotal (alineados)
-            $priceFormatted = $formatAmount((float) $price);
-            $subtotalFormatted = $formatAmount((float) $subtotal);
+            $priceFormatted = $formatAmount((int) $price);  // ADR-018
+            $subtotalFormatted = $formatAmount((int) $subtotal);  // ADR-018
             $output .= $this->escPos->alignRight("   {$priceFormatted}    {$subtotalFormatted}");
         }
 
         $output .= $this->escPos->separator();
 
         // Totales
-        $subtotal = (float) ($data['subtotal'] ?? 0);
-        $tax = (float) ($data['tax'] ?? 0);
-        $discount = (float) ($data['discount'] ?? 0);
-        $total = (float) ($data['total'] ?? 0);
+        $subtotal = (int) ($data['subtotal'] ?? 0);  // ADR-018
+        $tax = (int) ($data['tax'] ?? 0);  // ADR-018
+        $discount = (int) ($data['discount'] ?? 0);  // ADR-018
+        $total = (int) ($data['total'] ?? 0);  // ADR-018
 
         $output .= $this->escPos->alignRight("Subtotal: " . $formatAmount($subtotal));
 

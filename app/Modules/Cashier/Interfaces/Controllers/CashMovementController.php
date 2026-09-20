@@ -72,7 +72,7 @@ class CashMovementController extends Controller
                 MovementType::WITHDRAWAL => $this->movementService->withdrawal(
                     $session,
                     $user,
-                    (float) $validated['amount'],
+                    (int) $validated['amount'],  // ADR-018
                     $validated['reason'],
                     $validated['notes'] ?? null,
                     $authorizer
@@ -80,14 +80,14 @@ class CashMovementController extends Controller
                 MovementType::DEPOSIT => $this->movementService->deposit(
                     $session,
                     $user,
-                    (float) $validated['amount'],
+                    (int) $validated['amount'],  // ADR-018
                     $validated['reason'],
                     $validated['notes'] ?? null
                 ),
                 MovementType::ADJUSTMENT => $this->movementService->adjustment(
                     $session,
                     $user,
-                    (float) $validated['amount'],
+                    (int) $validated['amount'],  // ADR-018
                     $validated['reason'],
                     $authorizer,
                     $validated['notes'] ?? null

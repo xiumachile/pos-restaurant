@@ -67,15 +67,15 @@ class PrintReceiptOnOrderPaid
                 return [
                     'name' => $item->name_snapshot,
                     'qty' => $item->quantity,
-                    'price' => (float) $item->unit_price_snapshot,
-                    'subtotal' => (float) $item->subtotal,
+                    'price' => (int) $item->unit_price_snapshot,  // ADR-018
+                    'subtotal' => (int) $item->subtotal,  // ADR-018
                 ];
             })->toArray(),
-            'subtotal' => (float) $order->subtotal,
+            'subtotal' => (int) $order->subtotal,  // ADR-018
             'tax_label' => $taxLabel,
-            'tax' => (float) $order->tax_amount,
-            'discount' => (float) $order->discount_amount,
-            'total' => (float) $order->total,
+            'tax' => (int) $order->tax_amount,  // ADR-018
+            'discount' => (int) $order->discount_amount,  // ADR-018
+            'total' => (int) $order->total,  // ADR-018
             'payment_method' => 'Efectivo', // TODO: obtener del payment real
             'barcode' => $order->order_number,
         ];
