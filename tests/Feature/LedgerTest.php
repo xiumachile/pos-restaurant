@@ -82,8 +82,8 @@ test('crea asiento contable balanceado', function () {
 
     expect($entry)->toBeInstanceOf(JournalEntry::class)
         ->and($entry->isBalanced())->toBeTrue()
-        ->and($entry->totalDebits())->toBe(11900.0)
-        ->and($entry->totalCredits())->toBe(11900.0)
+        ->and($entry->totalDebits())->toBe(11900)  // ADR-018: integer
+        ->and($entry->totalCredits())->toBe(11900)  // ADR-018: integer
         ->and($entry->ledgerEntries)->toHaveCount(3);
 });
 

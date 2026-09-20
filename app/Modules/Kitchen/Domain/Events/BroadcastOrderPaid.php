@@ -40,7 +40,7 @@ class BroadcastOrderPaid implements ShouldBroadcast
             'event' => 'order.paid',
             'order_uuid' => $this->order->uuid,
             'order_number' => $this->order->order_number,
-            'total' => (float) $this->order->total,
+            'total' => (int) $this->order->total,  // ADR-018: CLP entero
             'table' => $this->order->table ? [
                 'uuid' => $this->order->table->uuid,
                 'table_number' => $this->order->table->table_number,

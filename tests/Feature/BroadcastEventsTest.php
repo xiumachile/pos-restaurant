@@ -168,7 +168,7 @@ describe('BroadcastOrderPaid', function () {
         ->and($data['event'])->toBe('order.paid')
         ->and($data['order_uuid'])->toBe($this->order->uuid)
         ->and($data['order_number'])->toBe($this->order->order_number)
-        ->and($data['total'])->toBe(11900.0)
+        ->and($data['total'])->toBe(11900)  // ADR-018: integer
         ->and($data['table'])->toBe([
             'uuid' => $this->table->uuid,
             'table_number' => $this->table->table_number,

@@ -41,7 +41,7 @@ class CashSessionController extends Controller
                 companyId: $user->company_id,
                 branchId: $user->branch_id,
                 userId: $user->id,
-                openingAmount: (float) $validated['opening_amount'],
+                openingAmount: (int) $validated['opening_amount'],  // ADR-018
                 notes: $validated['notes'] ?? null
             );
 
@@ -80,7 +80,7 @@ class CashSessionController extends Controller
         try {
             $session = $this->cashSessionService->closeSession(
                 session: $session,
-                closingAmount: (float) $validated['closing_amount'],
+                closingAmount: (int) $validated['closing_amount'],  // ADR-018
                 notes: $validated['notes'] ?? null
             );
 

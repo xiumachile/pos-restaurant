@@ -62,7 +62,7 @@ class MoneyFormatter
      * @param Company $company Empresa con configuración de moneda
      * @return float Monto numérico
      */
-    public function parse(string $formatted, Company $company): float
+    public function parse(string $formatted, Company $company): int|float
     {
         $config = $company->getCurrencyConfig();
 
@@ -82,7 +82,9 @@ class MoneyFormatter
             $cleaned = str_replace($config['decimal_separator'], '.', $cleaned);
         }
 
-        return (float) $cleaned;
+        // ADR-018: retornar int para monedas sin decimales (CLP), float para las demás
+        $decimals = $config['decimals'] ?? 0;
+        return $decimals === 0 ? (int) $cleaned : (float) $cleaned;
     }
 
     /**

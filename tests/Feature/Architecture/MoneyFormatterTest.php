@@ -137,10 +137,19 @@ test('parse convierte string formateado a número', function () {
         'tax_id' => 'PARSE-' . uniqid(),
         'legal_name' => 'Parse Test',
         'trade_name' => 'Parse Test',
+        'settings' => [
+            'currency' => [
+                'code' => 'CLP',
+                'symbol' => '$',
+                'decimals' => 0,
+                'thousands_separator' => '.',
+                'decimal_separator' => ',',
+            ],
+        ],
     ]);
 
-    expect($this->formatter->parse('12.990', $company))->toBe(12990.0);
-    expect($this->formatter->parse('1.234.567', $company))->toBe(1234567.0);
+    expect($this->formatter->parse('12.990', $company))->toBe(12990);  // ADR-018: integer
+    expect($this->formatter->parse('1.234.567', $company))->toBe(1234567);  // ADR-018: integer
 });
 
 test('parse maneja string con símbolo', function () {
@@ -148,10 +157,19 @@ test('parse maneja string con símbolo', function () {
         'tax_id' => 'PARSE-' . uniqid(),
         'legal_name' => 'Parse Symbol',
         'trade_name' => 'Parse Symbol',
+        'settings' => [
+            'currency' => [
+                'code' => 'CLP',
+                'symbol' => '$',
+                'decimals' => 0,
+                'thousands_separator' => '.',
+                'decimal_separator' => ',',
+            ],
+        ],
     ]);
 
-    expect($this->formatter->parse('$ 12.990', $company))->toBe(12990.0);
-    expect($this->formatter->parse('$12.990', $company))->toBe(12990.0);
+    expect($this->formatter->parse('$ 12.990', $company))->toBe(12990);  // ADR-018: CLP integer
+    expect($this->formatter->parse('$12.990', $company))->toBe(12990);  // ADR-018: CLP integer
 });
 
 test('parse maneja diferentes configuraciones', function () {

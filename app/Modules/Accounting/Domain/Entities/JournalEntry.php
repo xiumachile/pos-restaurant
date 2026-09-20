@@ -73,17 +73,17 @@ class JournalEntry extends Model
     /**
      * Calcula el total de débitos del asiento.
      */
-    public function totalDebits(): float
+    public function totalDebits(): int  // ADR-018: CLP entero
     {
-        return (float) $this->ledgerEntries()->sum('debit_amount');
+        return (int) $this->ledgerEntries()->sum('debit_amount');  // ADR-018
     }
 
     /**
      * Calcula el total de créditos del asiento.
      */
-    public function totalCredits(): float
+    public function totalCredits(): int  // ADR-018: CLP entero
     {
-        return (float) $this->ledgerEntries()->sum('credit_amount');
+        return (int) $this->ledgerEntries()->sum('credit_amount');  // ADR-018
     }
 
     public function scopeByReference($query, ReferenceType $type, int $referenceId)

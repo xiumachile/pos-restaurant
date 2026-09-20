@@ -120,17 +120,17 @@ class CashSession extends Model
     ): float {
         // ADR-011 FIX: Filtrar por method_code case-insensitive
         // Los payments se guardan con method_code = PaymentMethod.code (minúsculas)
-        $cashSales = (float) $this->payments()
+        $cashSales = (int) $this->payments()  // ADR-018
             ->where('status', 'completed')
             ->whereRaw('LOWER(method_code) = ?', ['cash'])
             ->sum('amount');
         
-        $cashTips = (float) $this->payments()
+        $cashTips = (int) $this->payments()  // ADR-018
             ->where('status', 'completed')
             ->whereRaw('LOWER(method_code) = ?', ['cash'])
             ->sum('tip_amount');
         
-        $brutExpected = (float) $this->opening_amount + $cashSales + $cashTips;
+        $brutExpected = (int) $this->opening_amount + $cashSales + $cashTips;  // ADR-018: todos int
         
         // Calcular propinas pagadas
         $tipPayoutQuery = \Modules\Cashier\Domain\Entities\TipPayout::where('cash_session_id', $this->id)
@@ -206,7 +206,7 @@ class CashSession extends Model
             ->where('tip_amount', '>', 0)
             ->sum('tip_amount');
 
-        $paidOut = (float) \Modules\Cashier\Domain\Entities\TipPayout::where('cash_session_id', $this->id)
+        $paidOut = (int) \Modules\Cashier\Domain\Entities\TipPayout::where  // ADR-018('cash_session_id', $this->id)
             ->valid()
             ->sum('amount');
 
