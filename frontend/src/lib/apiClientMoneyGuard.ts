@@ -1,4 +1,4 @@
-import type { AxiosRequestConfig, AxiosResponse } from 'axios';
+import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { validateMoneyFields, detectEntityType, type EntityValidationResult } from '@/schemas/entities';
 
 /**
@@ -71,7 +71,7 @@ const violationHistory: ViolationReport[] = [];
  * Valida el payload del request antes de enviar.
  * Si hay violación, lanza error ANTES de que el request salga.
  */
-export function validateRequestMoney(config: AxiosRequestConfig): AxiosRequestConfig {
+export function validateRequestMoney<T extends InternalAxiosRequestConfig>(config: T): T {
   const url = config.url || '';
   const method = (config.method || 'GET').toUpperCase();
   

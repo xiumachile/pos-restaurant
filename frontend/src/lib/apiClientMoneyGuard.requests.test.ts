@@ -21,7 +21,7 @@ describe('apiClientMoneyGuard - Request Validation', () => {
         url: '/api/orders',
       };
 
-      const result = validateRequestMoney(config);
+      const result = validateRequestMoney(config as any);
       expect(result).toBe(config);
     });
 
@@ -31,7 +31,7 @@ describe('apiClientMoneyGuard - Request Validation', () => {
         url: '/api/orders',
       };
 
-      const result = validateRequestMoney(config);
+      const result = validateRequestMoney(config as any);
       expect(result).toBe(config);
     });
 
@@ -46,7 +46,7 @@ describe('apiClientMoneyGuard - Request Validation', () => {
         },
       };
 
-      const result = validateRequestMoney(config);
+      const result = validateRequestMoney(config as any);
       expect(result).toBe(config);
     });
 
@@ -61,7 +61,7 @@ describe('apiClientMoneyGuard - Request Validation', () => {
         },
       };
 
-      expect(() => validateRequestMoney(config)).toThrow(MoneyContractViolation);
+      expect(() => validateRequestMoney(config as any)).toThrow(MoneyContractViolation);
     });
 
     it('rechaza POST con dinero negativo', () => {
@@ -74,7 +74,7 @@ describe('apiClientMoneyGuard - Request Validation', () => {
         },
       };
 
-      expect(() => validateRequestMoney(config)).toThrow(MoneyContractViolation);
+      expect(() => validateRequestMoney(config as any)).toThrow(MoneyContractViolation);
     });
 
     it('valida PUT requests', () => {
@@ -86,7 +86,7 @@ describe('apiClientMoneyGuard - Request Validation', () => {
         },
       };
 
-      expect(() => validateRequestMoney(config)).toThrow(MoneyContractViolation);
+      expect(() => validateRequestMoney(config as any)).toThrow(MoneyContractViolation);
     });
 
     it('valida PATCH requests', () => {
@@ -98,7 +98,7 @@ describe('apiClientMoneyGuard - Request Validation', () => {
         },
       };
 
-      expect(() => validateRequestMoney(config)).toThrow(MoneyContractViolation);
+      expect(() => validateRequestMoney(config as any)).toThrow(MoneyContractViolation);
     });
 
     it('permite null/undefined en campos opcionales', () => {
@@ -113,7 +113,7 @@ describe('apiClientMoneyGuard - Request Validation', () => {
         },
       };
 
-      const result = validateRequestMoney(config);
+      const result = validateRequestMoney(config as any);
       expect(result).toBe(config);
     });
 
@@ -127,7 +127,7 @@ describe('apiClientMoneyGuard - Request Validation', () => {
         ],
       };
 
-      expect(() => validateRequestMoney(config)).toThrow(MoneyContractViolation);
+      expect(() => validateRequestMoney(config as any)).toThrow(MoneyContractViolation);
     });
 
     it('incluye dirección "request" en el error', () => {
@@ -140,7 +140,7 @@ describe('apiClientMoneyGuard - Request Validation', () => {
       };
 
       try {
-        validateRequestMoney(config);
+        validateRequestMoney(config as any);
         expect.fail('Debería lanzar MoneyContractViolation');
       } catch (error) {
         expect(error).toBeInstanceOf(MoneyContractViolation);

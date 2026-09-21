@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '@/store/useAuthStore';
 import { validateRequestMoney, validateResponseMoney } from '@/lib/apiClientMoneyGuard';
 
@@ -57,10 +57,11 @@ apiClient.interceptors.response.use(
   (error) => {
     // Manejar errores de autenticación
     if (error.response?.status === 401) {
-      useAuthStore.getState().logout();
+      useAuthStore.getState().clearAuth();
     }
     return Promise.reject(error);
   }
 );
 
+export { apiClient };
 export default apiClient;
