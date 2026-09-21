@@ -1,85 +1,66 @@
-import { v4 as uuidv4 } from "uuid";
-import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
-import { useSyncStore } from "@/store/useSyncStore";
-import { getItemSync } from "@/services/secureStorage";
-import { useAuthStore } from "@/store/useAuthStore";
+import axios from 'axios';
+import { useAuthStore } from '@/store/useAuthStore';
+import { validateRequestMoney, validateResponseMoney } from '@/lib/apiClientMoneyGuard';
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1";
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
-export const apiClient = axios.create({
+const apiClient = axios.create({
   baseURL: API_URL,
+  timeout: 30000,
   headers: {
-    "Content-Type": "application/json",
-    Accept: "application/json",
+    'Content-Type': 'application/json',
   },
-  timeout: 15000,
 });
 
-// SIMULATED OFFLINE: Rechazar requests cuando el usuario activa modo offline simulado
-// Esto permite probar flujos offline incluso cuando el backend local está activo.
-// Activar con Ctrl+Shift+O (atajo global en App.tsx)
-apiClient.interceptors.request.use((config) => {
-  const simulatedOffline = useSyncStore.getState().simulatedOffline;
-  if (simulatedOffline) {
-    console.warn(`[apiClient] 🧪 SIMULATED OFFLINE: Rechazando ${config.method?.toUpperCase()} ${config.url}`);
-    return Promise.reject({
-      message: "Network Error (simulated offline)",
-      code: "ERR_NETWORK",
-      isSimulatedOffline: true,
-    });
-  }
-  return config;
-});
+// ═══════════════════════════════════════════════════════════════
+// REQUEST INTERCEPTOR
+// ═══════════════════════════════════════════════════════════════
 
-// Idempotencia por defecto (Principio #7): toda mutación lleva Idempotency-Key
-// Si el caller ya envía su propia clave estable (createOrder/createPayment), se respeta.
-apiClient.interceptors.request.use((config) => {
-  const method = (config.method || "").toUpperCase();
-  if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
-    const headers: any = config.headers || {};
-    if (!headers["Idempotency-Key"]) {
-      headers["Idempotency-Key"] = uuidv4();
-    }
-  }
-  return config;
-});
-
-// Interceptor request: inyectar JWT desde secureStorage (con cache síncrona)
 apiClient.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    // Usar versión síncrona (desde cache o localStorage como fallback)
-    const token = getItemSync("access_token");
-    if (token && config.headers) {
+  (config) => {
+    // Agregar Authorization header si hay token
+    const token = useAuthStore.getState().token;
+    if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    return config;
+
+    // Agregar headers de tenant context
+    const { user } = useAuthStore.getState();
+    if (user?.company_id) {
+      config.headers['X-Company-Id'] = user.company_id.toString();
+    }
+    if (user?.branch_id) {
+      config.headers['X-Branch-Id'] = user.branch_id.toString();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // MONEY CONTRACT: Validar request ANTES de enviar (ADR-018)
+    // ═══════════════════════════════════════════════════════════
+    return validateRequestMoney(config);
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    return Promise.reject(error);
+  }
 );
 
-// Interceptor response: manejar 401
+// ═══════════════════════════════════════════════════════════════
+// RESPONSE INTERCEPTOR
+// ═══════════════════════════════════════════════════════════════
+
 apiClient.interceptors.response.use(
-  (response) => response,
-  async (error: AxiosError) => {
+  (response) => {
+    // ═══════════════════════════════════════════════════════════
+    // MONEY CONTRACT: Validar response ANTES de usar (ADR-018)
+    // ═══════════════════════════════════════════════════════════
+    return validateResponseMoney(response);
+  },
+  (error) => {
+    // Manejar errores de autenticación
     if (error.response?.status === 401) {
-      // Limpiar auth vía store (que limpia secureStorage también)
-      useAuthStore.getState().clearAuth();
-      
-      if (!window.location.pathname.includes("/login")) {
-        window.location.href = "/login";
-      }
+      useAuthStore.getState().logout();
     }
     return Promise.reject(error);
   }
 );
 
 export default apiClient;
-
-// ═══════════════════════════════════════════════════════════════
-// MONEY CONTRACT GUARD (ADR-018)
-// ═══════════════════════════════════════════════════════════════
-import { validateMoneyContract } from '@/lib/apiClientMoneyGuard';
-
-apiClient.interceptors.response.use((response) => {
-  return validateMoneyContract(response);
-});
