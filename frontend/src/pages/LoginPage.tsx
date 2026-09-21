@@ -34,8 +34,13 @@ export function LoginPage() {
     if (pin.length < 4 || !selectedBranchId) return;
     try {
       await loginWithPin({ branch_id: selectedBranchId, pin });
-    } catch {
-      setPin(""); // Limpiar PIN en caso de error
+    } catch (err: any) {
+      // Solo limpiar PIN en error de credenciales (401)
+      // En errores de servidor/red, mantener PIN para reintento fácil
+      const status = err.response?.status;
+      if (status === 401) {
+        setPin("");
+      }
     }
   };
 
