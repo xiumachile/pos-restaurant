@@ -18,12 +18,12 @@ export const catalogService = {
     const syncStatus = useSyncStore.getState().status;
     const isOffline = syncStatus === "offline";
 
-    console.log(`[catalogService] 📋 listCategories() - syncStatus: ${syncStatus}, isOffline: ${isOffline}`);
+    console.debug(`[catalogService] 📋 listCategories() - syncStatus: ${syncStatus}, isOffline: ${isOffline}`);
 
     if (isOffline) {
       try {
         const result = await localCatalogService.listCategories();
-        console.log(`[catalogService] ✅ Offline: ${result.length} categorías desde SQLite`);
+        console.debug(`[catalogService] ✅ Offline: ${result.length} categorías desde SQLite`);
         return result;
       } catch (error: any) {
         console.error("[catalogService] ❌ Error leyendo categorías desde SQLite:", error?.message || error);
@@ -38,7 +38,7 @@ export const catalogService = {
       );
       const data = response.data as any;
       const result = Array.isArray(data?.data) ? data.data : [];
-      console.log(`[catalogService] ✅ Online: ${result.length} categorías desde backend`);
+      console.debug(`[catalogService] ✅ Online: ${result.length} categorías desde backend`);
       return result;
     } catch (error: any) {
       console.warn("[catalogService] ⚠️ Backend inaccesible, usando SQLite:", error?.message);
@@ -64,12 +64,12 @@ export const catalogService = {
     const syncStatus = useSyncStore.getState().status;
     const isOffline = syncStatus === "offline";
 
-    console.log(`[catalogService] 📋 listProducts(filters: ${JSON.stringify(filters)}) - isOffline: ${isOffline}`);
+    console.debug(`[catalogService] 📋 listProducts(filters: ${JSON.stringify(filters)}) - isOffline: ${isOffline}`);
 
     if (isOffline) {
       try {
         const result = await localCatalogService.listProducts(filters);
-        console.log(`[catalogService] ✅ Offline: ${result.length} productos desde SQLite`);
+        console.debug(`[catalogService] ✅ Offline: ${result.length} productos desde SQLite`);
         return result;
       } catch (error: any) {
         console.error("[catalogService] ❌ Error leyendo productos desde SQLite:", error?.message || error);
@@ -88,7 +88,7 @@ export const catalogService = {
       );
       const data = response.data as any;
       const result = Array.isArray(data?.data) ? data.data : [];
-      console.log(`[catalogService] ✅ Online: ${result.length} productos desde backend`);
+      console.debug(`[catalogService] ✅ Online: ${result.length} productos desde backend`);
       return result;
     } catch (error: any) {
       console.warn("[catalogService] ⚠️ Backend inaccesible, usando SQLite:", error?.message);

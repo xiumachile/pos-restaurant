@@ -20,7 +20,7 @@ export function useCatalogSyncInvalidation() {
   const syncStatus = useSyncStore((s) => s.status);
 
   useEffect(() => {
-    console.log(`[useCatalog] 🔄 syncStatus cambió a "${syncStatus}", invalidando queries de catálogo`);
+    console.debug(`[useCatalog] 🔄 syncStatus cambió a "${syncStatus}", invalidando queries de catálogo`);
     queryClient.invalidateQueries({ queryKey: CATEGORIES_KEY });
     queryClient.invalidateQueries({ queryKey: [PRODUCTS_KEY] });
   }, [syncStatus, queryClient]);

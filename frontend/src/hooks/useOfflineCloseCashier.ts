@@ -34,7 +34,7 @@ export function useOfflineCloseCashier() {
       notes?: string;
     }) => offlineCashCloseService.closeSession(params),
     onSuccess: (result) => {
-      console.log("[useOfflineCloseCashier] ✅ Sesión cerrada:", result);
+      console.debug("[useOfflineCloseCashier] ✅ Sesión cerrada:", result);
       console.log(`   Diferencia: $${result.difference}`);
       
       // Invalidar queries de caja

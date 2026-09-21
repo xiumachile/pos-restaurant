@@ -31,12 +31,12 @@ export function useAuthRefresh() {
         const now = Date.now();
         const timeUntilExpiry = expTimestamp - now;
 
-        console.log(`[AuthRefresh] Token expira en ${Math.round(timeUntilExpiry / 1000)}s`);
+        console.debug(`[AuthRefresh] Token expira en ${Math.round(timeUntilExpiry / 1000)}s`);
 
         // Si quedan menos de 2 minutos, refrescar
         if (timeUntilExpiry > 0 && timeUntilExpiry < 120000) {
           isRefreshing.current = true;
-          console.log("[AuthRefresh] Refrescando token...");
+          console.debug("[AuthRefresh] Refrescando token...");
           
           try {
             const response = await apiClient.post("/auth/refresh");
@@ -45,7 +45,7 @@ export function useAuthRefresh() {
             // Actualizar token manteniendo el mismo usuario
             setAuth(user, newToken);
             
-            console.log("[AuthRefresh] Token refrescado exitosamente");
+            console.debug("[AuthRefresh] Token refrescado exitosamente");
           } catch (refreshError) {
             console.error("[AuthRefresh] Error refrescando token:", refreshError);
             // Si el refresh falla por 401, limpiar sesión

@@ -22,7 +22,7 @@ export function useSendToKitchen() {
     mutationFn: (orderLocalUuid: string) =>
       kitchenPrintService.sendOrderToKitchen(orderLocalUuid),
     onSuccess: (result) => {
-      console.log("[useSendToKitchen] ✅ Ticket enviado a cocina:", result);
+      console.debug("[useSendToKitchen] ✅ Ticket enviado a cocina:", result);
       
       // Invalidar queries de cocina (para que el panel KDS se actualice)
       queryClient.invalidateQueries({ queryKey: ["kitchen", "queue"] });
@@ -37,7 +37,7 @@ export function useSendToKitchen() {
     mutationFn: (orderLocalUuid: string) =>
       kitchenPrintService.reprintKitchenTicket(orderLocalUuid),
     onSuccess: (result) => {
-      console.log("[useSendToKitchen] 🔁 Ticket reimpreso:", result);
+      console.debug("[useSendToKitchen] 🔁 Ticket reimpreso:", result);
     },
   });
 

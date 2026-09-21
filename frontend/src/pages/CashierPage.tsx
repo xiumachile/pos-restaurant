@@ -35,7 +35,7 @@ export function CashierPage() {
   // Sin esto, el cache puede estar vacío y la página aparece sin mesas
   // hasta que otro evento (como crear un pedido) fuerce el refetch.
   useEffect(() => {
-    console.log("[CashierPage] 🔍 Montando, forzando invalidateCashier");
+    console.debug("[CashierPage] 🔍 Montando, forzando invalidateCashier");
     invalidateCashier();
   }, []);
 

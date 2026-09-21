@@ -109,19 +109,19 @@ async function resolveOfflineAreas(): Promise<TablesArea[]> {
   const cached = readFromCache();
   const overrides = await localTablesService.getStatusOverrides();
 
-  console.log("[tablesService] Caché:", cached ? `disponible (${cached.length} áreas)` : "NO disponible");
-  console.log("[tablesService] Overrides:", overrides.size, "mesas");
+  console.debug("[tablesService] Caché:", cached ? `disponible (${cached.length} áreas)` : "NO disponible");
+  console.debug("[tablesService] Overrides:", overrides.size, "mesas");
 
   if (cached) {
-    console.log("[tablesService] Aplicando overlay sobre caché");
+    console.debug("[tablesService] Aplicando overlay sobre caché");
     const result = applyOfflineOverlay(cached, overrides);
-    console.log("[tablesService] Retornando", result.length, "áreas con overlay");
+    console.debug("[tablesService] Retornando", result.length, "áreas con overlay");
     return result;
   }
 
   console.warn("[tablesService] Sin caché, reconstruyendo desde SQLite");
   const result = await rebuildFromSQLite();
-  console.log("[tablesService] Reconstruido desde SQLite:", result.length, "áreas");
+  console.debug("[tablesService] Reconstruido desde SQLite:", result.length, "áreas");
   return result;
 }
 
@@ -141,22 +141,22 @@ export const tablesService = {
     const syncStatus = useSyncStore.getState().status;
     const isOffline = syncStatus === "offline";
 
-    console.log("[tablesService] 📋 list() llamado, syncStatus:", syncStatus);
+    console.debug("[tablesService] 📋 list() llamado, syncStatus:", syncStatus);
 
     // 🔑 CLAVE: En modo offline, NO intentar fetch al backend (evita timeout)
     if (isOffline) {
-      console.log("[tablesService] ✈️ Modo offline: usando caché + SQLite directamente");
+      console.debug("[tablesService] ✈️ Modo offline: usando caché + SQLite directamente");
       return resolveOfflineAreas();
     }
 
     try {
       // 1. Intentar fetch del backend (solo online)
-      console.log("[tablesService] Intentando fetch del backend...");
+      console.debug("[tablesService] Intentando fetch del backend...");
       const response = await apiClient.get<ListTablesResponse>("/tables");
       const data = response.data as any;
       const areas: TablesArea[] = Array.isArray(data?.data) ? data.data : [];
 
-      console.log("[tablesService] ✅ Backend respondió:", areas.length, "áreas");
+      console.debug("[tablesService] ✅ Backend respondió:", areas.length, "áreas");
 
       // Guardar en caché para uso offline futuro
       saveToCache(areas);
@@ -183,13 +183,13 @@ export const tablesService = {
         }
 
         if (realOverrides.size > 0) {
-          console.log(`[tablesService] 🔒 Aplicando overlay de ${realOverrides.size} mutaciones pendientes sobre cloud`);
+          console.debug(`[tablesService] 🔒 Aplicando overlay de ${realOverrides.size} mutaciones pendientes sobre cloud`);
           const result = applyOfflineOverlay(areas, realOverrides);
           return result;
         }
       }
 
-      console.log("[tablesService] Modo online, sin mutaciones, retornando cloud puro");
+      console.debug("[tablesService] Modo online, sin mutaciones, retornando cloud puro");
       return areas;
 
     } catch (error: any) {

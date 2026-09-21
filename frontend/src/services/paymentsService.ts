@@ -40,7 +40,7 @@ export const paymentsService = {
     const isOffline = syncStatus === "offline";
 
     if (isOffline) {
-      console.log("[paymentsService] ✈️ getDashboard en modo offline: leyendo sesión local de SQLite");
+      console.debug("[paymentsService] ✈️ getDashboard en modo offline: leyendo sesión local de SQLite");
 
       // FIX OFFLINE: Leer la sesión activa de local_cash_sessions
       // para que CashierPage reconozca que la caja está abierta
@@ -55,9 +55,9 @@ export const paymentsService = {
           );
           if (localSession) {
             currentSession = CashSessionRepository.toCashSession(localSession);
-            console.log(`[paymentsService] ✅ Sesión activa encontrada offline: ${localSession.local_uuid} (cloud: ${localSession.cloud_id || 'N/A'})`);
+            console.debug(`[paymentsService] ✅ Sesión activa encontrada offline: ${localSession.local_uuid} (cloud: ${localSession.cloud_id || 'N/A'})`);
           } else {
-            console.log("[paymentsService] ⚠️ No hay sesión activa en SQLite (caja cerrada)");
+            console.debug("[paymentsService] ⚠️ No hay sesión activa en SQLite (caja cerrada)");
           }
         }
       } catch (sessionErr) {
@@ -105,7 +105,7 @@ export const paymentsService = {
               // Si hay una sesión local activa pero diferente, cerrarla (fue cerrada en otro terminal)
               if (existing && existing.cloud_id !== backendSession.uuid) {
                 await CashSessionRepository.close(existing.local_uuid, existing.opening_amount);
-                console.log(`[paymentsService] 🔒 Sesión local anterior cerrada (reemplazada por backend)`);
+                console.debug(`[paymentsService] 🔒 Sesión local anterior cerrada (reemplazada por backend)`);
               }
 
               await CashSessionRepository.create({
@@ -119,7 +119,7 @@ export const paymentsService = {
                 cloud_id: backendSession.uuid,
                 sync_status: "synced",
               });
-              console.log(`[paymentsService] ✅ Sesión del backend sincronizada a SQLite: ${backendSession.uuid}`);
+              console.debug(`[paymentsService] ✅ Sesión del backend sincronizada a SQLite: ${backendSession.uuid}`);
             }
           }
         } catch (syncErr) {
@@ -165,7 +165,7 @@ export const paymentsService = {
   },
 
   async openSession(openingAmount: number, notes?: string): Promise<CashSession> {
-    console.log(`[paymentsService] 📤 Abriendo sesión de caja con monto: ${openingAmount}`);
+    console.debug(`[paymentsService] 📤 Abriendo sesión de caja con monto: ${openingAmount}`);
 
     const response = await apiClient.post<SingleResponse<CashSession>>(
       "/cash-sessions/open",
@@ -192,7 +192,7 @@ export const paymentsService = {
           cloud_id: session.uuid,
           sync_status: "synced",
         });
-        console.log(`[paymentsService] ✅ Sesión guardada localmente: ${session.uuid}`);
+        console.debug(`[paymentsService] ✅ Sesión guardada localmente: ${session.uuid}`);
       }
     } catch (localErr) {
       console.error("[paymentsService] ❌ Error crítico: sesión abierta en backend pero no guardada en SQLite");
@@ -213,7 +213,7 @@ export const paymentsService = {
               user_name: ctx.user_name,
             },
           });
-          console.log("[paymentsService] ✅ Retry encolado en sync_queue");
+          console.debug("[paymentsService] ✅ Retry encolado en sync_queue");
         }
       } catch (enqueueErr) {
         console.error("[paymentsService] ❌ FALLA CRÍTICA: No se pudo encolar retry:", enqueueErr);
@@ -229,7 +229,7 @@ export const paymentsService = {
     closingAmount: number,
     notes?: string
   ): Promise<CashSession> {
-    console.log(`[paymentsService] 🔒 Cerrando sesión: ${sessionUuid}`);
+    console.debug(`[paymentsService] 🔒 Cerrando sesión: ${sessionUuid}`);
 
     const response = await apiClient.post<SingleResponse<CashSession>>(
       `/cash-sessions/${sessionUuid}/close`,
@@ -248,7 +248,7 @@ export const paymentsService = {
       );
       if (rows.length > 0) {
         await CashSessionRepository.close(rows[0].local_uuid, closingAmount);
-        console.log(`[paymentsService] ✅ Sesión cerrada localmente: ${rows[0].local_uuid}`);
+        console.debug(`[paymentsService] ✅ Sesión cerrada localmente: ${rows[0].local_uuid}`);
       }
     } catch (localErr) {
       console.error("[paymentsService] ❌ Error crítico: sesión cerrada en backend pero no en SQLite");
@@ -270,7 +270,7 @@ export const paymentsService = {
               closed_at: new Date().toISOString(),
             },
           });
-          console.log("[paymentsService] ✅ Retry encolado en sync_queue");
+          console.debug("[paymentsService] ✅ Retry encolado en sync_queue");
         } else {
           console.error("[paymentsService] ❌ FALLA CRÍTICA: Sin contexto, no se puede encolar retry");
         }
@@ -287,13 +287,13 @@ export const paymentsService = {
     const syncStatus = useSyncStore.getState().status;
     const isOffline = syncStatus === "offline";
 
-    console.log(`[paymentsService] 📋 listTablesWithBills() - syncStatus: ${syncStatus}, isOffline: ${isOffline}`);
+    console.debug(`[paymentsService] 📋 listTablesWithBills() - syncStatus: ${syncStatus}, isOffline: ${isOffline}`);
 
     // En offline: reconstruir desde SQLite directamente (sin fetch al backend)
     if (isOffline) {
       try {
         const result = await localPaymentsService.listTablesWithBillsOffline();
-        console.log(`[paymentsService] ✅ Offline: ${result.length} mesas con cuenta`);
+        console.debug(`[paymentsService] ✅ Offline: ${result.length} mesas con cuenta`);
         return result;
       } catch (error: any) {
         console.error("[paymentsService] ❌ Error leyendo cuentas desde SQLite:", error?.message || error);
@@ -308,13 +308,13 @@ export const paymentsService = {
       );
       const data = response.data as any;
       const result = Array.isArray(data?.data) ? data.data : [];
-      console.log(`[paymentsService] ✅ Online: ${result.length} mesas con cuenta desde backend`);
+      console.debug(`[paymentsService] ✅ Online: ${result.length} mesas con cuenta desde backend`);
       return result;
     } catch (error: any) {
       console.warn("[paymentsService] ⚠️ Backend inaccesible, usando SQLite:", error?.message);
       try {
         const result = await localPaymentsService.listTablesWithBillsOffline();
-        console.log(`[paymentsService] ✅ Fallback SQLite: ${result.length} mesas con cuenta`);
+        console.debug(`[paymentsService] ✅ Fallback SQLite: ${result.length} mesas con cuenta`);
         return result;
       } catch (fallbackError: any) {
         console.error("[paymentsService] ❌ Error en fallback SQLite:", fallbackError?.message || fallbackError);

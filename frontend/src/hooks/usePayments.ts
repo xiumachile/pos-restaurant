@@ -50,7 +50,7 @@ export function useInvalidateCashier() {
   const queryClient = useQueryClient();
 
   return async () => {
-    console.log("[useInvalidateCashier] 🔄 Invalidando queries de Caja (dashboard + tables-with-bills + tables)");
+    console.debug("[useInvalidateCashier] 🔄 Invalidando queries de Caja (dashboard + tables-with-bills + tables)");
 
     // FIX OFFLINE: invalidateQueries puede no forzar refetch de queries inactivas.
     // Usamos el mismo patrón de bypass que useInvalidateTables:
@@ -59,11 +59,11 @@ export function useInvalidateCashier() {
     const isOffline = syncStatus === "offline";
 
     if (isOffline) {
-      console.log("[useInvalidateCashier] ✈️ Modo offline: bypass de React Query para tables-with-bills");
+      console.debug("[useInvalidateCashier] ✈️ Modo offline: bypass de React Query para tables-with-bills");
       try {
         const data = await paymentsService.listTablesWithBills();
         queryClient.setQueryData(TABLES_WITH_BILLS_KEY, data);
-        console.log(`[useInvalidateCashier] ✅ Cache de Caja actualizado manualmente: ${data.length} mesas`);
+        console.debug(`[useInvalidateCashier] ✅ Cache de Caja actualizado manualmente: ${data.length} mesas`);
       } catch (error) {
         console.error("[useInvalidateCashier] ❌ Error actualizando cache:", error);
       }
@@ -180,8 +180,8 @@ export function usePayBill() {
     mutationFn: ({ billUuid, payload }: { billUuid: string; payload: PayBillPayload }) =>
       billsService.payBill(billUuid, payload),
     onSuccess: (response) => {
-      console.log('[usePayBill] Pago exitoso:', response);
-      console.log('[usePayBill] Order transitioned to paid:', response.order_transitioned_to_paid);
+      console.debug('[usePayBill] Pago exitoso:', response);
+      console.debug('[usePayBill] Order transitioned to paid:', response.order_transitioned_to_paid);
       
       // Invalidar queries para refrescar datos del backend
       queryClient.invalidateQueries({ queryKey: ["bills"] });

@@ -21,7 +21,7 @@ export function useSyncBeforeNavigation() {
 
       // Solo sincronizar si hay eventos pendientes o se fuerza
       if ((pendingCount > 0 || forceSync) && status === "online") {
-        console.log("[Navigation] Sincronizando antes de navegar...");
+        console.debug("[Navigation] Sincronizando antes de navegar...");
         await triggerSync();
       }
 
