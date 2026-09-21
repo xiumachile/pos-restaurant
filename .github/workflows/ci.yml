@@ -101,7 +101,7 @@ jobs:
         run: php artisan migrate --force --no-interaction
 
       - name: Run backend tests
-        run: php artisan test --no-interaction
+        run: php artisan test
         env:
           DB_CONNECTION: pgsql
           DB_HOST: 127.0.0.1
