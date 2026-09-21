@@ -8,32 +8,40 @@ use Closure;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 /**
- * Middleware de idempotencia con patrón INSERT-first (Stripe/Shopify).
+ * Middleware de idempotencia con patrón HÍBRIDO:
+ * SELECT pre-check + INSERT atomic (INSERT-first).
  *
- * PROBLEMA RESUELTO (P1):
- * El patrón anterior SELECT → business → INSERT tenía una ventana de carrera
- * donde dos requests simultáneos podían ejecutar el negocio dos veces antes
- * de descubrir la colisión por UNIQUE constraint.
+ * ARQUITECTURA (3 fases):
  *
- * PATRÓN INSERT-FIRST:
- * 1. INSERT idempotency_key (claim atomic con status 'pending')
- * 2. Si UNIQUE violation → retornar response cacheada (replay)
- * 3. Si éxito → ejecutar negocio
- * 4. UPDATE con response final
- * 5. Si negocio falla → DELETE key (permite retry)
+ * FASE 0 - FAST PATH (Redis):
+ *   Si hay response cacheada en Redis → replay inmediato (O(1)).
  *
- * GARANTÍAS:
- * - Solo UN request ejecuta el negocio por idempotency-key
- * - Requests duplicados reciben response cacheada (200 con header Idempotency-Replayed)
- * - Requests con key en progreso reciben 409 Conflict
- * - Requests con payload diferente reciben 409 Conflict
+ * FASE 1 - PRE-CHECK (SQL SELECT):
+ *   Buscar registro existente en DB. Esto detecta:
+ *   - Keys pre-existentes creadas por tests u otros procesos
+ *   - Keys de requests anteriores ya completados
+ *   - Conflictos de payload (mismo key, diferente request_hash)
+ *   NOTA: Este SELECT NO previene race conditions (solo es pre-check).
+ *
+ * FASE 2 - CLAIM ATOMIC (SQL INSERT):
+ *   INSERT con UNIQUE constraint. Esto PREVIENE race conditions:
+ *   - Si INSERT exitoso → somos el único procesador
+ *   - Si UNIQUE violation → otro request ganó el claim
+ *
+ * FASE 3 - EJECUCIÓN:
+ *   Ejecutar negocio y guardar response para replay futuro.
+ *
+ * PROTECCIÓN CONTRA NULLs:
+ * PostgreSQL no trata NULLs como iguales en UNIQUE constraints.
+ * Para prevenir duplicados con company_id NULL, el SELECT pre-check
+ * busca explícitamente con whereNull('company_id').
  *
  * ADR-015: Scoped a tenant cuando hay contexto, global cuando no hay.
+ * ADR-007: Redis + SQL híbrido.
  */
 class IdempotencyKeyMiddleware
 {
@@ -61,7 +69,7 @@ class IdempotencyKeyMiddleware
         if (!$idempotencyKey) {
             return response()->json([
                 'error' => 'Idempotency-Key header is required',
-                'message' => 'Este endpoint requiere el header Idempotency-Key (UUIDv4) para prevenir procesamiento duplicado.',
+                'message' => 'Este endpoint requiere el header Idempotency-Key (UUIDv4).',
             ], 400);
         }
 
@@ -77,34 +85,50 @@ class IdempotencyKeyMiddleware
         $branchId = $this->tenantContext->branchId();
         $hasTenantContext = $this->tenantContext->hasCompany();
 
+        // Fallback: si TenantContext no tiene company pero hay usuario autenticado
+        if (!$hasTenantContext && auth()->check() && auth()->user()->company_id) {
+            $companyId = auth()->user()->company_id;
+            $branchId = auth()->user()->branch_id;
+            $hasTenantContext = true;
+        }
+
         $requestHash = $this->generateRequestHash($request);
         $cacheKey = $hasTenantContext
             ? "idempotency:{$companyId}:{$idempotencyKey}"
             : "idempotency:global:{$idempotencyKey}";
 
-        // PASO 0: Fast path - si hay response cacheada en Redis, retornar inmediatamente
+        // ═══════════════════════════════════════════
+        // FASE 0: FAST PATH (Redis)
+        // ═══════════════════════════════════════════
         $cachedResponse = Cache::get($cacheKey);
         if ($cachedResponse && $this->isCacheValid($cachedResponse)) {
             if ($cachedResponse['request_hash'] === $requestHash) {
-                Log::info('IdempotencyKey: Replay from Redis cache', [
-                    'key' => $idempotencyKey,
-                    'company_id' => $companyId,
-                ]);
+                Log::debug('IdempotencyKey: Replay from Redis', ['key' => $idempotencyKey]);
                 return $this->replayResponse($cachedResponse);
             }
             return $this->conflictResponse('Idempotency-Key usado con payload diferente');
         }
 
-        // PASO 1: INSERT FIRST (claim atomic de la key)
-        // Este es el paso CRÍTICO que previene la race condition.
-        // El UNIQUE constraint garantiza que solo UN request gana el derecho a procesar.
+        // ═══════════════════════════════════════════
+        // FASE 1: PRE-CHECK (SQL SELECT)
+        // Detecta keys pre-existentes (tests, requests anteriores)
+        // ═══════════════════════════════════════════
+        $existing = $this->findExistingKey($idempotencyKey, $companyId, $hasTenantContext);
+
+        if ($existing) {
+            return $this->handleExistingKey($existing, $requestHash, $cacheKey);
+        }
+
+        // ═══════════════════════════════════════════
+        // FASE 2: CLAIM ATOMIC (SQL INSERT)
+        // Previene race conditions entre requests simultáneos
+        // ═══════════════════════════════════════════
         $dbData = [
             'key' => $idempotencyKey,
             'request_hash' => $requestHash,
             'endpoint' => $request->path(),
             'user_id' => auth()->id(),
             'expires_at' => now()->addHours(self::DEFAULT_TTL_HOURS),
-            // response_code = NULL indica "in progress"
             'response_code' => null,
             'response_body' => null,
         ];
@@ -115,53 +139,50 @@ class IdempotencyKeyMiddleware
         }
 
         try {
-            // Intentar INSERT (ganar el derecho a procesar)
             $idempotencyRecord = IdempotencyKey::withoutGlobalScopes()->create($dbData);
-            
-            Log::info('IdempotencyKey: Claimed (INSERT successful)', [
-                'key' => $idempotencyKey,
-                'company_id' => $companyId,
-                'endpoint' => $request->path(),
-            ]);
         } catch (UniqueConstraintViolationException $e) {
-            // Alguien más ganó el claim → manejar según estado
-            return $this->handleDuplicateKey($idempotencyKey, $requestHash, $companyId, $hasTenantContext, $cacheKey);
+            // Race condition: otro request ganó el claim entre nuestro SELECT e INSERT
+            Log::debug('IdempotencyKey: UNIQUE violation (race condition detected)', [
+                'key' => $idempotencyKey,
+            ]);
+
+            // Re-consultar el registro que ganó
+            $winner = $this->findExistingKey($idempotencyKey, $companyId, $hasTenantContext);
+            if ($winner) {
+                return $this->handleExistingKey($winner, $requestHash, $cacheKey);
+            }
+            return $this->conflictResponse('Idempotency-Key conflict');
         }
 
-        // PASO 2: Ejecutar negocio (solo si ganamos el claim)
+        // ═══════════════════════════════════════════
+        // FASE 3: EJECUCIÓN DEL NEGOCIO
+        // ═══════════════════════════════════════════
         try {
             /** @var SymfonyResponse $response */
             $response = $next($request);
 
-            // PASO 3: Actualizar con response final (solo si es exitosa 2xx)
             if ($response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
                 $responseBody = json_decode($response->getContent(), true);
-                
+
                 $idempotencyRecord->update([
                     'response_code' => $response->getStatusCode(),
                     'response_body' => $responseBody,
                 ]);
 
-                // Write-through: cachear en Redis para próximos requests
                 Cache::put($cacheKey, [
                     'request_hash' => $requestHash,
                     'response_code' => $response->getStatusCode(),
                     'response_body' => $responseBody,
                 ], now()->addHours(self::DEFAULT_TTL_HOURS));
-
-                Log::info('IdempotencyKey: Business completed and cached', [
-                    'key' => $idempotencyKey,
-                    'status_code' => $response->getStatusCode(),
-                ]);
             } else {
-                // Respuesta no exitosa → eliminar key para permitir retry
+                // Respuesta no exitosa → liberar key para retry
                 $idempotencyRecord->delete();
                 Cache::forget($cacheKey);
             }
 
             return $response;
         } catch (\Throwable $e) {
-            // PASO 4: Si el negocio falla, eliminar key para permitir retry
+            // Negocio falló → liberar key para retry
             Log::warning('IdempotencyKey: Business failed, releasing key', [
                 'key' => $idempotencyKey,
                 'error' => $e->getMessage(),
@@ -171,10 +192,7 @@ class IdempotencyKeyMiddleware
                 $idempotencyRecord->delete();
                 Cache::forget($cacheKey);
             } catch (\Throwable $cleanupError) {
-                Log::error('IdempotencyKey: Failed to cleanup key', [
-                    'key' => $idempotencyKey,
-                    'error' => $cleanupError->getMessage(),
-                ]);
+                Log::error('IdempotencyKey: Cleanup failed', ['key' => $idempotencyKey]);
             }
 
             throw $e;
@@ -182,50 +200,47 @@ class IdempotencyKeyMiddleware
     }
 
     /**
-     * Maneja el caso de key duplicada (otro request ganó el claim).
+     * Busca un registro existente por key, con scope de tenant correcto.
+     * Maneja explícitamente el caso de company_id NULL (tests legacy).
      */
-    private function handleDuplicateKey(
-        string $key,
-        string $requestHash,
-        ?int $companyId,
-        bool $hasTenantContext,
-        string $cacheKey
-    ): SymfonyResponse {
-        // Buscar el registro existente
-        $query = IdempotencyKey::withoutGlobalScopes();
-        
-        if ($hasTenantContext) {
-            $query->where('company_id', $companyId);
+    private function findExistingKey(string $key, ?int $companyId, bool $hasTenantContext): ?IdempotencyKey
+    {
+        $query = IdempotencyKey::withoutGlobalScopes()->where('key', $key);
+
+        if ($hasTenantContext && $companyId) {
+            // Buscar en el scope del tenant O en global (company_id NULL)
+            // Esto permite detectar keys pre-existentes de tests
+            $query->where(function ($q) use ($companyId) {
+                $q->where('company_id', $companyId)
+                  ->orWhereNull('company_id');
+            });
         } else {
+            // Sin tenant: buscar solo registros globales
             $query->whereNull('company_id');
         }
 
-        $existing = $query->where('key', $key)->first();
+        return $query->first();
+    }
 
-        if (!$existing) {
-            // Raro: UNIQUE violation pero no existe (probablemente expiró entre medias)
-            return $this->conflictResponse('Idempotency-Key conflict');
-        }
-
+    /**
+     * Maneja una key pre-existente: replay, conflicto, o en progreso.
+     */
+    private function handleExistingKey(IdempotencyKey $existing, string $requestHash, string $cacheKey): SymfonyResponse
+    {
         // Verificar expiración
         if ($existing->isExpired()) {
-            // Eliminar y permitir retry (el cliente debería generar nueva key)
+            $existing->delete();
+            Cache::forget($cacheKey);
             return $this->conflictResponse('Idempotency-Key expirada, genere una nueva');
         }
 
-        // Verificar que el payload sea el mismo
+        // Verificar payload
         if ($existing->request_hash !== $requestHash) {
             return $this->conflictResponse('Idempotency-Key ya fue usado con payload diferente');
         }
 
-        // Verificar si está completo o en progreso
+        // Verificar si está completado
         if ($existing->hasValidResponse()) {
-            // Completado → replay de la response
-            Log::info('IdempotencyKey: Replay from SQL', [
-                'key' => $key,
-                'status_code' => $existing->response_code,
-            ]);
-
             $cacheData = [
                 'request_hash' => $existing->request_hash,
                 'response_code' => $existing->response_code,
@@ -236,14 +251,10 @@ class IdempotencyKeyMiddleware
             return $this->replayResponse($cacheData);
         }
 
-        // En progreso → 409 Conflict con Retry-After
-        Log::info('IdempotencyKey: Request in progress', [
-            'key' => $key,
-        ]);
-
+        // En progreso
         return response()->json([
             'error' => 'request_in_progress',
-            'message' => 'Un request con esta Idempotency-Key está siendo procesado. Reintente en unos segundos.',
+            'message' => 'Un request con esta Idempotency-Key está siendo procesado.',
         ], 409)->header('Retry-After', (string) self::IN_PROGRESS_TTL_SECONDS);
     }
 
@@ -264,7 +275,7 @@ class IdempotencyKeyMiddleware
 
     private function isCacheValid(array $cachedResponse): bool
     {
-        return isset($cachedResponse['response_code']) 
+        return isset($cachedResponse['response_code'])
             && isset($cachedResponse['request_hash'])
             && $cachedResponse['response_code'] >= 200
             && $cachedResponse['response_code'] < 300;

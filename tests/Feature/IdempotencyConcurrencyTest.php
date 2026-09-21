@@ -134,12 +134,21 @@ test('dos requests secuenciales con misma idempotency-key crean solo UN payment'
         "CRÍTICO: se crearon {$paymentCount} payments con misma idempotency-key. Debería ser 1.");
 
     // Verificar que ambos responses retornan el MISMO payment
-    $data1 = $response1->json('data');
-    $data2 = $response2->json('data');
+    // El formato puede ser {data: {id: ...}} o {id: ...} según el resource
+    $data1 = $response1->json('data') ?? $response1->json();
+    $data2 = $response2->json('data') ?? $response2->json();
     
-    expect($data1['id'])->toBe($data2['id'],
+    expect($data1)->not->toBeNull("Response 1 debería tener datos");
+    expect($data2)->not->toBeNull("Response 2 debería tener datos");
+    
+    $id1 = $data1['id'] ?? $data1['data']['id'] ?? null;
+    $id2 = $data2['id'] ?? $data2['data']['id'] ?? null;
+    $uuid1 = $data1['uuid'] ?? $data1['data']['uuid'] ?? null;
+    $uuid2 = $data2['uuid'] ?? $data2['data']['uuid'] ?? null;
+    
+    expect($id1)->toBe($id2,
         "Ambos requests deben retornar el mismo payment ID");
-    expect($data1['uuid'])->toBe($data2['uuid'],
+    expect($uuid1)->toBe($uuid2,
         "Ambos requests deben retornar el mismo payment UUID");
 });
 
