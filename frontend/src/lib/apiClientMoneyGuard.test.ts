@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { validateMoneyContract, MoneyContractViolation, getMoneyContractMode } from './apiClientMoneyGuard';
+import { validateResponseMoney, MoneyContractViolation, getMoneyContractMode } from './apiClientMoneyGuard';
 import type { AxiosResponse } from 'axios';
 
 describe('apiClientMoneyGuard', () => {
@@ -14,14 +14,14 @@ describe('apiClientMoneyGuard', () => {
     });
   });
 
-  describe('validateMoneyContract', () => {
+  describe('validateResponseMoney', () => {
     it('permite response válida sin campos monetarios', () => {
       const response = {
         data: { id: 1, name: 'Test' },
         config: { url: '/api/users' },
       } as AxiosResponse;
 
-      const result = validateMoneyContract(response);
+      const result = validateResponseMoney(response);
       expect(result).toBe(response);
     });
 
@@ -38,7 +38,7 @@ describe('apiClientMoneyGuard', () => {
         config: { url: '/api/orders' },
       } as AxiosResponse;
 
-      const result = validateMoneyContract(response);
+      const result = validateResponseMoney(response);
       expect(result).toBe(response);
     });
 
@@ -55,7 +55,7 @@ describe('apiClientMoneyGuard', () => {
         config: { url: '/api/orders' },
       } as AxiosResponse;
 
-      expect(() => validateMoneyContract(response)).toThrow(MoneyContractViolation);
+      expect(() => validateResponseMoney(response)).toThrow(MoneyContractViolation);
     });
 
     it('rechaza response con dinero negativo', () => {
@@ -71,7 +71,7 @@ describe('apiClientMoneyGuard', () => {
         config: { url: '/api/orders' },
       } as AxiosResponse;
 
-      expect(() => validateMoneyContract(response)).toThrow(MoneyContractViolation);
+      expect(() => validateResponseMoney(response)).toThrow(MoneyContractViolation);
     });
 
     it('rechaza array con items inválidos', () => {
@@ -85,7 +85,7 @@ describe('apiClientMoneyGuard', () => {
         config: { url: '/api/payments' },
       } as AxiosResponse;
 
-      expect(() => validateMoneyContract(response)).toThrow(MoneyContractViolation);
+      expect(() => validateResponseMoney(response)).toThrow(MoneyContractViolation);
     });
 
     it('valida múltiples campos monetarios', () => {
@@ -102,7 +102,7 @@ describe('apiClientMoneyGuard', () => {
       } as AxiosResponse;
 
       try {
-        validateMoneyContract(response);
+        validateResponseMoney(response);
         expect.fail('Debería lanzar MoneyContractViolation');
       } catch (error) {
         expect(error).toBeInstanceOf(MoneyContractViolation);
@@ -126,7 +126,7 @@ describe('apiClientMoneyGuard', () => {
         config: { url: '/api/orders' },
       } as AxiosResponse;
 
-      const result = validateMoneyContract(response);
+      const result = validateResponseMoney(response);
       expect(result).toBe(response);
     });
 
@@ -146,13 +146,14 @@ describe('apiClientMoneyGuard', () => {
         config: { url: '/api/orders' },
       } as AxiosResponse;
 
-      expect(() => validateMoneyContract(response)).toThrow(MoneyContractViolation);
+      expect(() => validateResponseMoney(response)).toThrow(MoneyContractViolation);
     });
   });
 
   describe('MoneyContractViolation', () => {
     it('incluye información completa del error', () => {
       const violation = new MoneyContractViolation(
+        'response',
         'orders',
         '/api/orders',
         ['subtotal: expected integer, got 10000.50']
