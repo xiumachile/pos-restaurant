@@ -43,12 +43,13 @@
     "@types/react-dom": "^19.1.6",
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^4.6.0",
+    "@vitest/coverage-v8": "^2.1.9",
+    "better-sqlite3": "^11.8.1",
     "jsdom": "^25.0.1",
     "msw": "^2.7.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.7.2",
     "vite": "^7.0.4",
-    "better-sqlite3": "^11.8.1",
     "vitest": "^2.1.8"
   }
 }

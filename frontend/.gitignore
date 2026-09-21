@@ -26,3 +26,5 @@ dist-ssr
 # Archivos de backup temporales
 *.backup
 src-tauri/*.bak
+
+# Reportes temporales de auditoría (no commitear)
