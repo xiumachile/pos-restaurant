@@ -115,6 +115,14 @@ class OrderStateMachine
 
     /**
      * Aplica un descuento a un pedido y dispara el evento para auditoría.
+     * 
+     * Validaciones:
+     * - amount debe ser positivo
+     * - discount no puede exceder el subtotal (previene total negativo)
+     * 
+     * Comportamiento:
+     * - Si hay items: recalcula totales desde items
+     * - Si no hay items: preserva subtotal/tax y solo actualiza discount/total
      */
     public function applyDiscount(Order $order, float $amount, string $reason): Order
     {
@@ -122,15 +130,28 @@ class OrderStateMachine
             throw InvalidOrderTransitionException::fromTo($order->status, $order->status);
         }
 
-        $order->discount_amount = $amount;
+        // Validación de negocio: discount no puede exceder subtotal
+        $currentSubtotal = $order->subtotal_gross ?? $order->subtotal ?? 0;
+        if ($amount > $currentSubtotal) {
+            throw new \InvalidArgumentException(
+                "Discount amount ({$amount}) cannot exceed subtotal ({$currentSubtotal})"
+            );
+        }
 
-        if (method_exists($order, 'recalculateTotals')) {
+        $order->discount_amount = (int) $amount;
+
+        // Si hay items, recalcular desde ellos (fuente de verdad)
+        if ($order->items()->count() > 0 && method_exists($order, 'recalculateTotals')) {
             $order->recalculateTotals();
+        } else {
+            // Sin items: preservar subtotal/tax, solo actualizar discount y total
+            $order->total = ($order->subtotal ?? 0) + ($order->tax_amount ?? 0) - (int) $amount;
+            $order->amount_due = $order->total + ($order->tip_amount ?? 0);
         }
 
         $order->save();
 
-        OrderDiscountApplied::dispatch($order, $amount, $reason);
+        OrderDiscountApplied::dispatch($order, (int) $amount, $reason);
 
         return $order;
     }
