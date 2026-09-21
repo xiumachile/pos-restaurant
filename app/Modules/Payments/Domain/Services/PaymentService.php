@@ -49,15 +49,10 @@ class PaymentService
                 'idempotency_key' => $idempotencyKey,
             ]);
 
-            // ADR-002: Scope por tenant para prevenir cross-tenant leakage
-            $existing = Payment::where('company_id', $order->company_id)
-                ->where('branch_id', $order->branch_id)
-                ->where('idempotency_key', $idempotencyKey)
-                ->first();
-            if ($existing) {
-                return $existing;
-            }
-
+            // NOTA: La idempotencia ya está manejada por IdempotencyKeyMiddleware
+            // (patrón INSERT-first). Si llegamos aquí, somos el único request
+            // autorizado para procesar este idempotency_key.
+            
             if (!$this->isOrderPayable($order)) {
                 throw PaymentException::orderNotPayable();
             }
