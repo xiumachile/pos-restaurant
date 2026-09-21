@@ -39,7 +39,7 @@ services:
   # PostgreSQL 15 (base de datos principal)
   # ---------------------------------------------------------
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     container_name: pos_postgres
     restart: unless-stopped
     environment:
