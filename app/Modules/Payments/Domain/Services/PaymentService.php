@@ -49,10 +49,33 @@ class PaymentService
                 'idempotency_key' => $idempotencyKey,
             ]);
 
-            // NOTA: La idempotencia ya está manejada por IdempotencyKeyMiddleware
-            // (patrón INSERT-first). Si llegamos aquí, somos el único request
-            // autorizado para procesar este idempotency_key.
-            
+            // DEFENSE-IN-DEPTH: Fast-path de idempotencia a nivel de dominio.
+            // 
+            // CAPA 1 (Middleware HTTP): Patrón INSERT-first previene race conditions
+            // entre requests concurrentes. Si un request llega aquí, normalmente
+            // ya tiene el "claim" de la idempotency_key.
+            //
+            // CAPA 2 (Service/Domain): Este fast-path protege contra:
+            // - Llamadas directas al service (tests, jobs, commands)
+            // - Retries legítimos cuando la respuesta se perdió en red
+            // - Casos donde el middleware no se aplica (ej: workers internos)
+            //
+            // Principio: El service es idempotente por sí mismo, independiente
+            // de la capa HTTP. El middleware es una optimización, no un requisito.
+            $existing = Payment::where('company_id', $order->company_id)
+                ->where('branch_id', $order->branch_id)
+                ->where('idempotency_key', $idempotencyKey)
+                ->first();
+
+            if ($existing) {
+                Log::info('PaymentService: Idempotency fast-path (defense-in-depth)', [
+                    'payment_id' => $existing->id,
+                    'idempotency_key' => $idempotencyKey,
+                    'order_id' => $order->id,
+                ]);
+                return $existing;
+            }
+
             if (!$this->isOrderPayable($order)) {
                 throw PaymentException::orderNotPayable();
             }
