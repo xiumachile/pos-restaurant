@@ -250,11 +250,13 @@ export class PullEngine {
             "DELETE FROM table_local_mutations WHERE table_uuid = ?",
             [table.uuid]
           );
+          // ADR-012: Obtener tenant context
+          const { companyId, branchId } = this.getCurrentTenantContext();
           await localDb.execute(
             `INSERT OR REPLACE INTO local_tables 
-             (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated) 
+             (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated, company_id, branch_id) 
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [table.uuid, table.table_number, table.area_name, table.capacity, table.status, table.current_order_uuid, table.updated_at]
+            [table.uuid, table.table_number, table.area_name, table.capacity, table.status, table.current_order_uuid, table.updated_at, companyId, branchId]
           );
           reconciled++;
           console.log(`[PullEngine] ✅ Mesa ${table.table_number} (${table.uuid}): mutación reconciliada y eliminada (cloud=${table.status})`);
@@ -262,9 +264,11 @@ export class PullEngine {
           // 🔒 Mutación aún pendiente: preservar estado local
           // El cloud tiene un estado diferente (ej: cobrado en otro terminal)
           // pero el cambio local todavía no se ha sincronizado
+          // ADR-012: Obtener tenant context
+          const { companyId, branchId } = this.getCurrentTenantContext();
           await localDb.execute(
             `INSERT OR REPLACE INTO local_tables 
-             (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated) 
+             (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated, company_id, branch_id) 
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [
               table.uuid,
@@ -387,19 +391,23 @@ export class PullEngine {
               "DELETE FROM table_local_mutations WHERE table_uuid = ?",
               [table.uuid]
             );
+            // ADR-012: Obtener tenant context
+            const { companyId, branchId } = this.getCurrentTenantContext();
             await localDb.execute(
               `INSERT OR REPLACE INTO local_tables 
-               (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated) 
+               (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated, company_id, branch_id) 
                VALUES (?, ?, ?, ?, ?, ?, ?)`,
-              [table.uuid, table.table_number, table.area_name, table.capacity, table.status, table.current_order_uuid, table.updated_at]
+              [table.uuid, table.table_number, table.area_name, table.capacity, table.status, table.current_order_uuid, table.updated_at, companyId, branchId]
             );
             incrementalStats.reconciled++;
             console.log(`[PullEngine] ✅ Mesa ${table.table_number} (${table.uuid}): mutación reconciliada y eliminada (cloud=${table.status})`);
           } else {
             // 🔒 Mutación pendiente: preservar
+            // ADR-012: Obtener tenant context
+            const { companyId, branchId } = this.getCurrentTenantContext();
             await localDb.execute(
               `INSERT OR REPLACE INTO local_tables 
-               (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated) 
+               (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated, company_id, branch_id) 
                VALUES (?, ?, ?, ?, ?, ?, ?)`,
               [
                 table.uuid,
@@ -416,11 +424,13 @@ export class PullEngine {
           }
         } else {
           // ✅ Aplicar estado del cloud
+          // ADR-012: Obtener tenant context
+          const { companyId, branchId } = this.getCurrentTenantContext();
           await localDb.execute(
             `INSERT OR REPLACE INTO local_tables 
-             (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated) 
+             (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated, company_id, branch_id) 
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [table.uuid, table.table_number, table.area_name, table.capacity, table.status, table.current_order_uuid, table.updated_at]
+            [table.uuid, table.table_number, table.area_name, table.capacity, table.status, table.current_order_uuid, table.updated_at, companyId, branchId]
           );
           incrementalStats.cloud++;
         }
