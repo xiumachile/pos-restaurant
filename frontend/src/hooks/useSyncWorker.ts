@@ -50,7 +50,7 @@ export function useSyncWorker() {
       const token = state.token || getItemSync("access_token");
       const userId = state.user?.id;
 
-      console.log("[SyncWorker] 🔎 Checking auth:", {
+      console.debug("[SyncWorker] 🔎 Checking auth:", {
         isAuthenticated,
         hasToken: !!token,
         userId: userId || "(none)",
