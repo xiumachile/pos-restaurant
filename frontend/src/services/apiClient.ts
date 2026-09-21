@@ -74,3 +74,12 @@ apiClient.interceptors.response.use(
 );
 
 export default apiClient;
+
+// ═══════════════════════════════════════════════════════════════
+// MONEY CONTRACT GUARD (ADR-018)
+// ═══════════════════════════════════════════════════════════════
+import { validateMoneyContract } from '@/lib/apiClientMoneyGuard';
+
+apiClient.interceptors.response.use((response) => {
+  return validateMoneyContract(response);
+});
