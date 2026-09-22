@@ -326,6 +326,30 @@ export class SyncEngine {
         if (!order?.cloud_id) {
           throw new Error("Orden sin cloud_id, no se puede actualizar");
         }
+
+        // ═══════════════════════════════════════════════════════════
+        // FIX CRÍTICO: add_item debe ir a POST /orders/{uuid}/items
+        // UpdateOrderRequest solo acepta status/table_uuid/notes/guest_count
+        // ═══════════════════════════════════════════════════════════
+        if (payload.action === "add_item" && payload.item) {
+          console.log(`[SyncEngine] 📦 Agregando item a orden ${order.cloud_id}`);
+          await syncApi.addOrderItem(order.cloud_id, {
+            product_uuid: payload.item.product_id || payload.item.product_uuid,
+            quantity: payload.item.quantity,
+            unit_price: payload.item.unit_price ?? payload.item.price,
+            notes: payload.item.notes ?? null,
+            idempotency_key: payload.item.local_uuid || item.idempotency_key,
+          });
+          return order.cloud_id;
+        }
+
+        if (payload.action === "remove_item" && payload.item_uuid) {
+          console.log(`[SyncEngine] 🗑️ Removiendo item ${payload.item_uuid} de orden ${order.cloud_id}`);
+          await syncApi.removeOrderItem(order.cloud_id, payload.item_uuid);
+          return order.cloud_id;
+        }
+
+        // Update normal de metadata (status, notes, guest_count)
         await syncApi.updateOrder(order.cloud_id, payload);
         return order.cloud_id;
       }
