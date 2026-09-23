@@ -167,6 +167,32 @@ export class SyncQueueRepository {
    * Actualiza el estado a 'syncing' y devuelve los registros reclamados en una sola operación,
    * garantizando que ningún otro proceso pueda reclamar los mismos items simultáneamente.
    */
+
+  /**
+   * Obtiene items pendientes sin modificar su estado.
+   * Útil para inspección, tests o UI. 
+   * NOTA: Para procesar, usar claimPending() para garantizar atomicidad.
+   */
+  static async getPending(limit: number = 50): Promise<SyncQueueItem[]> {
+    // Paso 1: Recuperar cualquier syncing abandonado
+    await this.recoverAbandonedSyncing();
+
+    // Paso 2: Consultar pendientes (solo lectura)
+    const allPending = await localDb.select<SyncQueueItem>(
+      "SELECT * FROM sync_queue WHERE sync_status = 'pending' ORDER BY created_at ASC"
+    );
+
+    const now = new Date();
+
+    // Paso 3: Filtrar en JS: solo incluir items sin next_retry_at o con next_retry_at <= now
+    const eligible = allPending.filter((item) => {
+      if (!item.next_retry_at) return true;
+      return new Date(item.next_retry_at) <= now;
+    });
+
+    return eligible.slice(0, limit);
+  }
+
   static async claimPending(limit: number = 10): Promise<SyncQueueItem[]> {
     // Paso 1: Recuperar cualquier syncing abandonado (timeout)
     await this.recoverAbandonedSyncing();
