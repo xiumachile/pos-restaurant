@@ -168,7 +168,8 @@ describe("SyncEngine - order/add_item fix (P0-001)", () => {
 
     expect(syncApi.removeOrderItem).toHaveBeenCalledWith(
       "cloud-order-123",
-      "cloud-item-to-remove"
+      "cloud-item-to-remove",
+      expect.any(String) // P1-010: item.id como idempotency key
     );
     expect(syncApi.updateOrder).not.toHaveBeenCalled();
     expect(syncApi.addOrderItem).not.toHaveBeenCalled();

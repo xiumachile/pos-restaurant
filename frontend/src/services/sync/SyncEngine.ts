@@ -346,12 +346,13 @@ export class SyncEngine {
 
         if (payload.action === "remove_item" && payload.item_uuid) {
           console.log(`[SyncEngine] 🗑️ Removiendo item ${payload.item_uuid} de orden ${order.cloud_id}`);
-          await syncApi.removeOrderItem(order.cloud_id, payload.item_uuid);
+          await syncApi.removeOrderItem(order.cloud_id, payload.item_uuid, item.id);
           return order.cloud_id;
         }
 
         // Update normal de metadata (status, notes, guest_count)
-        await syncApi.updateOrder(order.cloud_id, payload);
+        // P1-010: Usar item.id como Idempotency-Key estable para reintentos
+        await syncApi.updateOrder(order.cloud_id, payload, item.id);
         return order.cloud_id;
       }
       case "delete": {
@@ -359,7 +360,8 @@ export class SyncEngine {
         if (!cloudId) {
           throw new Error("No se puede eliminar sin cloud_id");
         }
-        await syncApi.deleteOrder(cloudId);
+        // P1-010: Usar item.id como Idempotency-Key estable para reintentos
+        await syncApi.deleteOrder(cloudId, item.id);
         return cloudId;
       }
       default:

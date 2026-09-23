@@ -98,9 +98,9 @@ export class SyncApiClient {
   }
   
 
-  async updateOrder(uuid: string, payload: Partial<OrderPayload>): Promise<any> {
+  async updateOrder(uuid: string, payload: Partial<OrderPayload>, idempotencyKey?: string): Promise<any> {
     const response = await apiClient.put(`/orders/${uuid}`, payload, {
-      headers: { "Idempotency-Key": uuidv4() },
+      headers: { "Idempotency-Key": idempotencyKey || uuidv4() },
     });
     return response.data.data;
   }
@@ -108,15 +108,17 @@ export class SyncApiClient {
   /**
    * Elimina un item de una orden existente en el backend.
    */
-  async removeOrderItem(orderUuid: string, itemUuid: string): Promise<any> {
+  async removeOrderItem(orderUuid: string, itemUuid: string, idempotencyKey?: string): Promise<any> {
     const response = await apiClient.delete(`/orders/${orderUuid}/items/${itemUuid}`, {
-      headers: { "Idempotency-Key": uuidv4() },
+      headers: { "Idempotency-Key": idempotencyKey || uuidv4() },
     });
     return response.data.data;
   }
 
-  async deleteOrder(uuid: string): Promise<void> {
-    await apiClient.delete(`/orders/${uuid}`);
+  async deleteOrder(uuid: string, idempotencyKey?: string): Promise<void> {
+    await apiClient.delete(`/orders/${uuid}`, {
+      headers: { "Idempotency-Key": idempotencyKey || uuidv4() },
+    });
   }
 
   async createPayment(payload: PaymentPayload): Promise<any> {
