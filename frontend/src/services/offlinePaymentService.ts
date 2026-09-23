@@ -92,14 +92,14 @@ export const offlinePaymentService = {
     // VALIDACIONES PRE-TRANSACCIÓN
     // ═══════════════════════════════════════════════════════
 
-    if (amount <= 0) {
+    if (!Number.isSafeInteger(amount) || amount <= 0) {
       throw new OfflinePaymentError(
         "INVALID_AMOUNT",
         `amount must be positive, got ${amount}`
       );
     }
 
-    if (tipAmount < 0) {
+    if (!Number.isSafeInteger(tipAmount) || tipAmount < 0) {
       throw new OfflinePaymentError(
         "INVALID_TIP",
         `tipAmount must be non-negative, got ${tipAmount}`
