@@ -22,7 +22,7 @@ class CashSessionService
         int $companyId,
         int $branchId,
         int $userId,
-        float $openingAmount,
+        int $openingAmount,
         ?string $notes = null
     ): CashSession {
         return DB::transaction(function () use ($companyId, $branchId, $userId, $openingAmount, $notes) {
@@ -61,7 +61,7 @@ class CashSessionService
      */
     public function closeSession(
         CashSession $session,
-        float $closingAmount,
+        int $closingAmount,
         ?string $notes = null
     ): CashSession {
         return DB::transaction(function () use ($session, $closingAmount, $notes) {
@@ -85,7 +85,7 @@ class CashSessionService
             ]);
 
             // Calcular diferencia
-            $difference = round($closingAmount - $expected, 2);
+            $difference = $closingAmount - $expected;
 
             $session->status = CashSessionStatus::CLOSED;
             $session->closing_amount = $closingAmount;
