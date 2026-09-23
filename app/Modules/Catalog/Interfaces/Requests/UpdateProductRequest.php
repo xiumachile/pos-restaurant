@@ -41,7 +41,7 @@ class UpdateProductRequest extends FormRequest
                           ->whereNull('deleted_at');
                 }),
             ],
-            'base_price' => 'sometimes|numeric|min:0',
+            'base_price' => ['sometimes', 'integer', 'min:0'],
             'tax_rate' => 'nullable|numeric|min:0|max:100',
             'is_combo' => 'boolean',
             'kitchen_zone_id' => [
