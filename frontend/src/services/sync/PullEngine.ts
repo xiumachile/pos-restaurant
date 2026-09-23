@@ -255,7 +255,7 @@ export class PullEngine {
           await localDb.execute(
             `INSERT OR REPLACE INTO local_tables 
              (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated, company_id, branch_id) 
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [table.uuid, table.table_number, table.area_name, table.capacity, table.status, table.current_order_uuid, table.updated_at, companyId, branchId]
           );
           reconciled++;
@@ -269,7 +269,7 @@ export class PullEngine {
           await localDb.execute(
             `INSERT OR REPLACE INTO local_tables 
              (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated, company_id, branch_id) 
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               table.uuid,
               table.table_number,
@@ -396,7 +396,7 @@ export class PullEngine {
             await localDb.execute(
               `INSERT OR REPLACE INTO local_tables 
                (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated, company_id, branch_id) 
-               VALUES (?, ?, ?, ?, ?, ?, ?)`,
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [table.uuid, table.table_number, table.area_name, table.capacity, table.status, table.current_order_uuid, table.updated_at, companyId, branchId]
             );
             incrementalStats.reconciled++;
@@ -408,7 +408,7 @@ export class PullEngine {
             await localDb.execute(
               `INSERT OR REPLACE INTO local_tables 
                (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated, company_id, branch_id) 
-               VALUES (?, ?, ?, ?, ?, ?, ?)`,
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
                 table.uuid,
                 table.table_number,
@@ -429,7 +429,7 @@ export class PullEngine {
           await localDb.execute(
             `INSERT OR REPLACE INTO local_tables 
              (uuid, table_number, area_name, capacity, status, current_order_uuid, last_updated, company_id, branch_id) 
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [table.uuid, table.table_number, table.area_name, table.capacity, table.status, table.current_order_uuid, table.updated_at, companyId, branchId]
           );
           incrementalStats.cloud++;
