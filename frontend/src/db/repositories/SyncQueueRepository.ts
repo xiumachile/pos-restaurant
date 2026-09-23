@@ -162,30 +162,42 @@ export class SyncQueueRepository {
    * 
    * Nota: El filtrado por next_retry_at se hace en JS para compatibilidad con tests.
    */
-  static async getPending(limit: number = 50): Promise<SyncQueueItem[]> {
-    // Paso 1: Recuperar cualquier syncing abandonado
+  /**
+   * P1-009: Claim atómico de items pendientes.
+   * Actualiza el estado a 'syncing' y devuelve los registros reclamados en una sola operación,
+   * garantizando que ningún otro proceso pueda reclamar los mismos items simultáneamente.
+   */
+  static async claimPending(limit: number = 10): Promise<SyncQueueItem[]> {
+    // Paso 1: Recuperar cualquier syncing abandonado (timeout)
     await this.recoverAbandonedSyncing();
 
-    // Paso 2: Consultar pendientes
-    const allPending = await localDb.select<SyncQueueItem>(
-      "SELECT * FROM sync_queue WHERE sync_status = ? ORDER BY created_at ASC",
-      ["pending"]
-    );
-
-    const now = new Date();
-
-    // Paso 3: Filtrar en JS: solo incluir items sin next_retry_at o con next_retry_at <= now
-    const eligible = allPending.filter((item) => {
-      if (!item.next_retry_at) return true;
-      return new Date(item.next_retry_at) <= now;
-    });
-
-    return eligible.slice(0, limit);
+    // Paso 2: Claim atómico con UPDATE ... RETURNING
+    // La subconsulta limita el número de filas, y el UPDATE las marca como 'syncing'
+    // y las devuelve exclusivamente a este proceso.
+    const query = `
+      UPDATE sync_queue 
+      SET sync_status = 'syncing', updated_at = CURRENT_TIMESTAMP 
+      WHERE id IN (
+        SELECT id FROM sync_queue 
+        WHERE sync_status = 'pending' 
+          AND (next_retry_at IS NULL OR datetime(next_retry_at) <= datetime('now'))
+        ORDER BY created_at ASC 
+        LIMIT ?
+      )
+      RETURNING *
+    `;
+    
+    const claimed = await localDb.select<SyncQueueItem>(query, [limit]);
+    return claimed || [];
   }
 
+  /**
+   * @deprecated Usar claimPending() para garantizar atomicidad.
+   */
   static async markAsSyncing(id: string): Promise<void> {
+    console.warn("[SyncQueueRepository] markAsSyncing is deprecated. Use claimPending().");
     await localDb.execute(
-      `UPDATE sync_queue SET sync_status = 'syncing', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      `UPDATE sync_queue SET sync_status = 'syncing', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND sync_status = 'pending'`,
       [id]
     );
   }

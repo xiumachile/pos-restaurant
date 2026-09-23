@@ -35,7 +35,8 @@ export class SyncEngine {
     try {
       store.setStatus("syncing");
       
-      const pendingItems = await SyncQueueRepository.getPending(10);
+      // P1-009: Claim atómico para evitar colisiones entre múltiples procesos
+      const pendingItems = await SyncQueueRepository.claimPending(10);
 
       if (pendingItems.length === 0) {
         store.setStatus("online");
@@ -115,7 +116,7 @@ export class SyncEngine {
    * Procesa un item individual de la cola.
    */
   private async processItem(item: SyncQueueItem): Promise<void> {
-    await SyncQueueRepository.markAsSyncing(item.id);
+    // P1-009: El item ya está en estado 'syncing' gracias a claimPending()
 
     // 🔒 VALIDACIÓN MULTI-TENANT: rechazar items que no pertenecen al usuario actual
     // Esto previene que un terminal procese datos de otra company/branch
