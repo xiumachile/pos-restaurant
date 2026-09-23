@@ -53,3 +53,12 @@ frontend/src/db/*.db
 .audit/
 frontend/.audit/
 .audit/
+.env.testing
+fix_money_tests.sh
+
+# Artefactos de depuración (P1-003 a P1-006)
+jugo,
+requiere
+pos_restaurant
+*.backup.*
+backup_postgres_*.sql
