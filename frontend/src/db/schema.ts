@@ -15,6 +15,7 @@ import tableMutationsTenancyMigration from "./migrations/013_add_tenant_to_table
 import tenantBackfillMigration from "./migrations/014_backfill_and_validate_tenant.sql?raw";
 import billLinkMigration from "./migrations/015_add_bill_link_to_payments.sql?raw";
 import fixOrphanTablesMigration from "./migrations/016_fix_orphan_local_tables.sql?raw";
+import enforceIntegerMoneyMigration from "./migrations/017_enforce_integer_money.sql?raw";
 
 /**
  * Parser robusto para dividir SQL en statements individuales.
@@ -968,6 +969,52 @@ export async function runMigrations(): Promise<void> {
     console.log("[Migrations] 🎉 Migración 016 aplicada correctamente");
   } else {
     console.log("[Migrations] ✅ Migración 016 ya está aplicada");
+
+  // ═══════════════════════════════════════════════════════════════
+  // MIGRACIÓN 017: Enforce INTEGER money (P1-001 / ADR-010)
+  // ═══════════════════════════════════════════════════════════════
+  if (!applied.some(m => m.version === "017")) {
+    console.log("[Migrations] 🚀 Aplicando migración 017_enforce_integer_money...");
+    
+    const statements = parseSqlStatements(enforceIntegerMoneyMigration);
+    console.log(`[Migrations] 🔍 017: Parsed ${statements.length} statements SQL`);
+    
+    let executed = 0;
+    let skipped = 0;
+    
+    for (let i = 0; i < statements.length; i++) {
+      const stmt = statements[i];
+      const upper = stmt.toUpperCase().trim();
+      
+      if (upper.startsWith("--") || upper.startsWith("/*") || stmt.trim().length === 0) {
+        skipped++;
+        continue;
+      }
+      
+      try {
+        await db.execute(stmt);
+        executed++;
+      } catch (err: any) {
+        const errMsg = String(err?.message || err || "unknown");
+        if (errMsg.includes("already exists") || errMsg.includes("duplicate")) {
+          console.warn(`[Migrations] ⚠️  017: Statement ya aplicado, continuando: ${errMsg}`);
+          skipped++;
+        } else {
+          throw new Error(`Migración 017 falló en statement ${i + 1}: ${errMsg}`);
+        }
+      }
+    }
+    
+    await db.execute(
+      "INSERT INTO migrations (version, checksum) VALUES (?, ?)",
+      ["017", `enforce-integer-money-${executed}-statements-${Date.now()}`]
+    );
+    
+    console.log(`[Migrations] ✅ 017 Resumen: ${executed} ejecutados, ${skipped} saltados`);
+    console.log("[Migrations] 🎉 Migración 017 aplicada correctamente");
+  } else {
+    console.log("[Migrations] ✅ Migración 017 ya está aplicada");
+  }
   }
 
   // ═══════════════════════════════════════════════════════════════
