@@ -1,166 +1,176 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
 
-// Mock de syncApi
-const mockAddOrderItem = vi.fn().mockResolvedValue({ uuid: "cloud-item-1" });
-const mockUpdateOrder = vi.fn().mockResolvedValue({ uuid: "cloud-order-1" });
+// 1. Mocks de Tauri y API (deben ir antes de las importaciones)
+vi.mock("@tauri-apps/plugin-sql", async () => {
+  const mod = await import("../mocks/tauriSql");
+  return { default: mod.default };
+});
 
-vi.mock("../../services/api/syncApi", () => ({
+vi.mock("../../services/syncApi", () => ({
   syncApi: {
-    addOrderItem: (...args: any[]) => mockAddOrderItem(...args),
-    updateOrder: (...args: any[]) => mockUpdateOrder(...args),
+    addOrderItem: vi.fn().mockResolvedValue({ uuid: "cloud-item-1" }),
+    updateOrder: vi.fn().mockResolvedValue({ uuid: "cloud-order-1" }),
     removeOrderItem: vi.fn().mockResolvedValue({}),
-    createOrder: vi.fn().mockResolvedValue({ uuid: "cloud-order-1" }),
-    createPayment: vi.fn().mockResolvedValue({ uuid: "cloud-payment-1" }),
-    createBill: vi.fn().mockResolvedValue({ uuid: "cloud-bill-1" }),
+    createOrder: vi.fn().mockResolvedValue({ uuid: "cloud-order-123" }),
   },
 }));
 
-// Mock de LocalDB
-vi.mock("../../db/localDb", () => ({
-  LocalDB: {
-    getInstance: vi.fn().mockReturnValue({
-      execute: vi.fn().mockResolvedValue([]),
-      select: vi.fn().mockResolvedValue([]),
-    }),
-  },
-}));
+// 2. Importaciones reales
+import { localDb } from "../../db/localDb";
+import { runMigrations } from "../../db/schema";
+import { OrderRepository } from "../../db/repositories/OrderRepository";
+import { syncEngine } from "../../services/sync/SyncEngine";
+import { syncApi } from "../../services/syncApi";
+import { mockAuthContext } from "../testUtils";
 
-// Mock de repositories
-vi.mock("../../db/repositories/OrderRepository", () => ({
-  OrderRepository: {
-    findByLocalUuid: vi.fn().mockResolvedValue({
-      local_uuid: "order-local-1",
-      cloud_id: "cloud-order-uuid-123",
-      company_id: 1,
-      branch_id: 1,
-    }),
-  },
-}));
-
-vi.mock("../../db/repositories/SyncQueueRepository", () => ({
-  SyncQueueRepository: {
-    findPending: vi.fn().mockResolvedValue([]),
-    updateStatus: vi.fn().mockResolvedValue(undefined),
-    getRetryCount: vi.fn().mockReturnValue(0),
-  },
-}));
-
-vi.mock("../../store/useSyncStore", () => ({
-  useSyncStore: {
-    getState: vi.fn().mockReturnValue({
-      status: "idle",
-      isOnline: true,
-      setStatus: vi.fn(),
-      setLastError: vi.fn(),
-    }),
-  },
-}));
-
-vi.mock("../../store/useAuthStore", () => ({
-  useAuthStore: {
-    getState: vi.fn().mockReturnValue({
-      user: { company_id: 1, branch_id: 1, id: 1 },
-    }),
-  },
-}));
-
-describe("SyncEngine - add_item crítico", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+describe("SyncEngine - order/add_item fix (P0-001)", () => {
+  beforeAll(async () => {
+    await localDb.getConnection();
+    await runMigrations();
   });
 
-  it("add_item llama a POST /orders/{uuid}/items (NO a PUT /orders/{uuid})", async () => {
-    const { SyncEngine } = await import("../../services/sync/SyncEngine");
+  beforeEach(async () => {
+    vi.resetAllMocks();
+    mockAuthContext({ companyId: "c1", branchId: "b1" });
+    await localDb.execute("DELETE FROM sync_queue");
+    await localDb.execute("DELETE FROM local_order_items");
+    await localDb.execute("DELETE FROM local_orders");
+  });
 
-    const syncItem = {
-      id: "sync-1",
-      entity_type: "order",
-      entity_local_uuid: "order-local-1",
-      action: "update",
-      payload: JSON.stringify({
-        action: "add_item",
-        item: {
-          local_uuid: "item-local-1",
-          product_id: "product-uuid-1",
-          quantity: 2,
-          unit_price: 5000,
-          notes: "Sin cebolla",
-        },
-      }),
-      idempotency_key: "idem-key-1",
-      company_id: 1,
-      branch_id: 1,
-    };
+  it("debería rutear add_item a POST /orders/{uuid}/items (NO a PUT)", async () => {
+    // 1. Crear orden (esto encola automáticamente un evento 'create')
+    const order = await OrderRepository.create({
+      company_id: "c1",
+      branch_id: "b1",
+      order_type: "dine_in",
+    });
+    
+    // 2. Simular que la orden YA fue sincronizada previamente (tiene cloud_id)
+    await localDb.execute(
+      "UPDATE local_orders SET cloud_id = ?, sync_status = 'synced' WHERE local_uuid = ?",
+      ["cloud-order-123", order.local_uuid]
+    );
 
-    await SyncEngine.processItem(syncItem as any);
+    // 3. Transformar el evento encolado de 'create' a 'update' con el payload de add_item
+    //    NOTA: sync_queue NO tiene columna idempotency_key, solo payload JSON
+    await localDb.execute(
+      `UPDATE sync_queue 
+       SET action = 'update', 
+           payload = ?
+       WHERE entity_local_uuid = ? AND action = 'create'`,
+      [
+        JSON.stringify({
+          action: "add_item",
+          item: {
+            local_uuid: "item-local-1",
+            product_id: "product-uuid-1",
+            quantity: 2,
+            unit_price: 5000,
+            notes: "Sin cebolla",
+          },
+          idempotency_key: "idem-key-1",
+        }),
+        order.local_uuid,
+      ]
+    );
 
-    // VERIFICAR: se llamó addOrderItem, NO updateOrder
-    expect(mockAddOrderItem).toHaveBeenCalledTimes(1);
-    expect(mockUpdateOrder).not.toHaveBeenCalled();
+    // 4. Ejecutar el batch de sincronización
+    const stats = await syncEngine.processBatch();
 
-    // VERIFICAR: payload correcto enviado a addOrderItem
-    expect(mockAddOrderItem).toHaveBeenCalledWith(
-      "cloud-order-uuid-123",
+    // 5. Verificar que se procesó 1 evento exitosamente
+    expect(stats.processed).toBe(1);
+    expect(stats.success).toBe(1);
+
+    // 6. Verificar que se llamó a addOrderItem con los argumentos correctos
+    expect(syncApi.addOrderItem).toHaveBeenCalledTimes(1);
+    expect(syncApi.addOrderItem).toHaveBeenCalledWith(
+      "cloud-order-123",
       expect.objectContaining({
         product_uuid: "product-uuid-1",
         quantity: 2,
         unit_price: 5000,
         notes: "Sin cebolla",
+        idempotency_key: "item-local-1", // CRÍTICO: Validación de idempotencia
       })
     );
+
+    // 7. Verificar que NO se llamó a updateOrder (el bug original)
+    expect(syncApi.updateOrder).not.toHaveBeenCalled();
   });
 
-  it("update normal (status) llama a PUT /orders/{uuid}", async () => {
-    const { SyncEngine } = await import("../../services/sync/SyncEngine");
+  it("debería rutear update normal a PUT /orders/{uuid}", async () => {
+    const order = await OrderRepository.create({
+      company_id: "c1",
+      branch_id: "b1",
+      order_type: "dine_in",
+    });
+    
+    await localDb.execute(
+      "UPDATE local_orders SET cloud_id = ?, sync_status = 'synced' WHERE local_uuid = ?",
+      ["cloud-order-123", order.local_uuid]
+    );
 
-    const syncItem = {
-      id: "sync-2",
-      entity_type: "order",
-      entity_local_uuid: "order-local-1",
-      action: "update",
-      payload: JSON.stringify({
-        status: "confirmed",
-        notes: "Mesa 5",
-      }),
-      idempotency_key: "idem-key-2",
-      company_id: 1,
-      branch_id: 1,
-    };
+    await localDb.execute(
+      `UPDATE sync_queue 
+       SET action = 'update', 
+           payload = ?
+       WHERE entity_local_uuid = ? AND action = 'create'`,
+      [
+        JSON.stringify({
+          status: "confirmed",
+          notes: "Mesa 5",
+          idempotency_key: "idem-key-2",
+        }),
+        order.local_uuid,
+      ]
+    );
 
-    await SyncEngine.processItem(syncItem as any);
+    const stats = await syncEngine.processBatch();
 
-    expect(mockUpdateOrder).toHaveBeenCalledTimes(1);
-    expect(mockAddOrderItem).not.toHaveBeenCalled();
+    expect(stats.processed).toBe(1);
+    expect(stats.success).toBe(1);
+
+    expect(syncApi.updateOrder).toHaveBeenCalledTimes(1);
+    expect(syncApi.addOrderItem).not.toHaveBeenCalled();
   });
 
-  it("remove_item llama a DELETE /orders/{uuid}/items/{itemUuid}", async () => {
-    const { syncApi } = await import("../../services/api/syncApi");
-    const mockRemove = vi.fn().mockResolvedValue({});
-    (syncApi as any).removeOrderItem = mockRemove;
+  it("debería rutear remove_item a DELETE /orders/{uuid}/items/{itemUuid}", async () => {
+    const order = await OrderRepository.create({
+      company_id: "c1",
+      branch_id: "b1",
+      order_type: "dine_in",
+    });
+    
+    await localDb.execute(
+      "UPDATE local_orders SET cloud_id = ?, sync_status = 'synced' WHERE local_uuid = ?",
+      ["cloud-order-123", order.local_uuid]
+    );
 
-    const { SyncEngine } = await import("../../services/sync/SyncEngine");
+    await localDb.execute(
+      `UPDATE sync_queue 
+       SET action = 'update', 
+           payload = ?
+       WHERE entity_local_uuid = ? AND action = 'create'`,
+      [
+        JSON.stringify({
+          action: "remove_item",
+          item_uuid: "cloud-item-to-remove",
+          idempotency_key: "idem-key-3",
+        }),
+        order.local_uuid,
+      ]
+    );
 
-    const syncItem = {
-      id: "sync-3",
-      entity_type: "order",
-      entity_local_uuid: "order-local-1",
-      action: "update",
-      payload: JSON.stringify({
-        action: "remove_item",
-        item_uuid: "cloud-item-to-remove",
-      }),
-      idempotency_key: "idem-key-3",
-      company_id: 1,
-      branch_id: 1,
-    };
+    const stats = await syncEngine.processBatch();
 
-    await SyncEngine.processItem(syncItem as any);
+    expect(stats.processed).toBe(1);
+    expect(stats.success).toBe(1);
 
-    expect(mockRemove).toHaveBeenCalledWith(
-      "cloud-order-uuid-123",
+    expect(syncApi.removeOrderItem).toHaveBeenCalledWith(
+      "cloud-order-123",
       "cloud-item-to-remove"
     );
-    expect(mockUpdateOrder).not.toHaveBeenCalled();
-    expect(mockAddOrderItem).not.toHaveBeenCalled();
+    expect(syncApi.updateOrder).not.toHaveBeenCalled();
+    expect(syncApi.addOrderItem).not.toHaveBeenCalled();
   });
 });
