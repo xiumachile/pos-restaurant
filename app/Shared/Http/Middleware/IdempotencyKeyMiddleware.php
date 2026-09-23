@@ -116,7 +116,13 @@ class IdempotencyKeyMiddleware
         $existing = $this->findExistingKey($idempotencyKey, $companyId, $hasTenantContext);
 
         if ($existing) {
-            return $this->handleExistingKey($existing, $requestHash, $cacheKey);
+            $response = $this->handleExistingKey($existing, $requestHash, $cacheKey);
+            if ($response !== null) {
+                return $response; // Retorna 409 o replay
+            }
+            // Si es null, el middleware tomó ownership de un zombie lock.
+            // Continuamos a la FASE 3 usando el registro existente.
+            $idempotencyRecord = $existing;
         }
 
         // ═══════════════════════════════════════════
@@ -129,6 +135,7 @@ class IdempotencyKeyMiddleware
             'endpoint' => $request->path(),
             'user_id' => auth()->id(),
             'expires_at' => now()->addHours(self::DEFAULT_TTL_HOURS),
+            'processing_until' => now()->addSeconds(60), // P1-011: Lease de 60s
             'response_code' => null,
             'response_body' => null,
         ];
@@ -149,7 +156,11 @@ class IdempotencyKeyMiddleware
             // Re-consultar el registro que ganó
             $winner = $this->findExistingKey($idempotencyKey, $companyId, $hasTenantContext);
             if ($winner) {
-                return $this->handleExistingKey($winner, $requestHash, $cacheKey);
+                $response = $this->handleExistingKey($winner, $requestHash, $cacheKey);
+                if ($response !== null) {
+                    return $response;
+                }
+                $idempotencyRecord = $winner;
             }
             return $this->conflictResponse('Idempotency-Key conflict');
         }
@@ -225,7 +236,7 @@ class IdempotencyKeyMiddleware
     /**
      * Maneja una key pre-existente: replay, conflicto, o en progreso.
      */
-    private function handleExistingKey(IdempotencyKey $existing, string $requestHash, string $cacheKey): SymfonyResponse
+    private function handleExistingKey(IdempotencyKey $existing, string $requestHash, string $cacheKey): ?SymfonyResponse
     {
         // Verificar expiración
         if ($existing->isExpired()) {
@@ -251,7 +262,16 @@ class IdempotencyKeyMiddleware
             return $this->replayResponse($cacheData);
         }
 
-        // En progreso
+        // P1-011: Detección de Zombie Lock (proceso murió antes de guardar respuesta)
+        if ($existing->isProcessingExpired()) {
+            \Log::warning('IdempotencyKey: Zombie lock detected, taking ownership', [
+                'key' => $existing->key,
+            ]);
+            $existing->takeOwnership();
+            return null; // Indica al middleware que debe continuar con la ejecución
+        }
+
+        // En progreso real
         return response()->json([
             'error' => 'request_in_progress',
             'message' => 'Un request con esta Idempotency-Key está siendo procesado.',

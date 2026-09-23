@@ -32,12 +32,14 @@ class IdempotencyKey extends Model
         'user_id',
         'endpoint',
         'expires_at',
+        'processing_until',
     ];
 
     protected $casts = [
         'response_body' => 'array',
         'response_code' => 'integer',
         'expires_at' => 'datetime',
+        'processing_until' => 'datetime',
     ];
 
     protected $attributes = [
@@ -98,4 +100,23 @@ class IdempotencyKey extends Model
     {
         return self::expired()->delete();
     }
+    /**
+     * P1-011: Verifica si el lease de procesamiento ha expirado.
+     * Esto indica un "zombie lock" (el proceso murió antes de guardar la respuesta).
+     */
+    public function isProcessingExpired(): bool
+    {
+        return $this->processing_until && now()->greaterThan($this->processing_until);
+    }
+
+    /**
+     * P1-011: Toma posesión del claim renovando el lease de procesamiento.
+     */
+    public function takeOwnership(): void
+    {
+        $this->update([
+            'processing_until' => now()->addSeconds(60), // 60 segundos de lease
+        ]);
+    }
+
 }
