@@ -80,16 +80,22 @@ async function writeToStorage(key: string, value: string): Promise<void> {
     try {
       await store.set(key, value);
       await store.save();
-      // También mantener mirror en localStorage para getItemSync rápido
-      localStorage.setItem(key, value);
+      // P1-007: NO hacer mirror en localStorage en producción Tauri
+      if (import.meta.env.DEV) {
+        localStorage.setItem(key, value);
+      }
       return;
     } catch (err) {
       console.error("[secureStorage] ❌ Error writing to store:", err);
     }
   }
   
-  // Fallback: localStorage
-  localStorage.setItem(key, value);
+  // Fallback: localStorage SOLO en desarrollo web
+  if (import.meta.env.DEV) {
+    localStorage.setItem(key, value);
+  } else {
+    console.warn("[secureStorage] ⚠️ Tauri store no disponible y no es entorno DEV. Token no persistido.");
+  }
 }
 
 /**
@@ -143,18 +149,17 @@ export async function removeItem(key: string): Promise<void> {
  * SIEMPRE retorna string | null (nunca undefined).
  */
 export function getItemSync(key: string): string | null {
-  if (syncCache.has(key)) {
-    const cached = syncCache.get(key);
-    return cached == null ? null : cached;
+  // P1-007: En producción, NO leer de localStorage por seguridad.
+  if (import.meta.env.DEV) {
+    const fromLs = localStorage.getItem(key);
+    if (fromLs != null) {
+      syncCache.set(key, fromLs);
+      return fromLs;
+    }
   }
   
-  const fromLs = localStorage.getItem(key);
-  if (fromLs != null) {
-    // Popular cache para próximas llamadas
-    syncCache.set(key, fromLs);
-    return fromLs;
-  }
-  
+  // En producción, retornar null. El token debe obtenerse de forma asíncrona.
+  console.warn("[secureStorage] ⚠️ getItemSync bloqueado en producción por P1-007");
   return null;
 }
 
@@ -168,10 +173,14 @@ export function getItemSync(key: string): string | null {
  * 3. Popular syncCache con el valor encontrado
  */
 export async function preloadAuthToken(): Promise<void> {
-  // Primero intentar desde localStorage (siempre disponible)
-  let token = localStorage.getItem("access_token");
+  // P1-007: NO leer de localStorage en producción.
+  let token: string | null = null;
   
-  // Si no está en localStorage, intentar desde Tauri Store
+  if (import.meta.env.DEV) {
+    token = localStorage.getItem("access_token");
+  }
+  
+  // Si no está en localStorage (o es PROD), intentar desde Tauri Store
   if (token == null) {
     token = await getItem("access_token");
   }
