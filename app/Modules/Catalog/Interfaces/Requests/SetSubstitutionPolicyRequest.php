@@ -21,7 +21,7 @@ class SetSubstitutionPolicyRequest extends FormRequest
             'mode' => 'required|string|in:' . implode(',', SetComboItemSubstitutionPolicy::ALLOWED_MODES),
             'allowed_category_id' => 'nullable|uuid|exists:categories,uuid',
             'branch_id' => 'nullable|uuid|exists:branches,uuid',
-            'max_price_delta' => 'nullable|numeric|min:0',
+            'max_price_delta' => 'nullable|integer|min:0',
             'requires_authorization' => 'boolean',
         ];
     }

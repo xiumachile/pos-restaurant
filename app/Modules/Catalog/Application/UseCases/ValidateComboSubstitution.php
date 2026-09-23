@@ -107,7 +107,7 @@ class ValidateComboSubstitution
         $unitPriceDelta = max(0, (int) $replacementProduct->base_price - (int) $originalProduct->base_price);  // ADR-018
 
         // 10. Validar max_price_delta si está definido
-        if ($matchedRule->max_price_delta !== null && $unitPriceDelta > (int) $matchedRule->max_price_delta) {  // ADR-018
+        if ($matchedRule->max_price_delta !== null && (int) $unitPriceDelta > (int) $matchedRule->max_price_delta) {  // ADR-018
             return SubstitutionValidationResult::denied(
                 'exceeds_max_price_delta',
                 "El recargo unitario ({$unitPriceDelta}) excede el máximo permitido ({$matchedRule->max_price_delta})."

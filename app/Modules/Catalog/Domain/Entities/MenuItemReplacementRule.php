@@ -36,7 +36,6 @@ class MenuItemReplacementRule extends Model
     ];
 
     protected $casts = [
-        'max_price_delta' => 'decimal:2',
         'requires_authorization' => 'boolean',
         'priority' => 'integer',
         'is_active' => 'boolean',

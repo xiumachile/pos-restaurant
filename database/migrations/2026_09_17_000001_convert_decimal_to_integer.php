@@ -5,13 +5,6 @@ use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
-    /**
-     * Migración completa DECIMAL(14,2) → INTEGER
-     * 
-     * FIX P1-002: Lee el metadata original (is_nullable, column_default) 
-     * ANTES de cualquier modificación para poder restaurarlo fielmente.
-     */
-    
     protected array $tables = [
         'orders' => ['subtotal', 'subtotal_gross', 'net_amount', 'tax_amount', 'tip_amount', 'discount_amount', 'amount_due', 'total'],
         'bills' => ['subtotal', 'tax_amount', 'tip_amount', 'discount_amount', 'paid_amount', 'remaining_amount', 'total'],
@@ -24,6 +17,14 @@ return new class extends Migration
         'journal_entries' => ['amount'],
         'ledger_entries' => ['debit_amount', 'credit_amount'],
         'order_items' => ['unit_price_snapshot', 'subtotal', 'tax_amount'],
+        // FIX P1-003: Columnas monetarias faltantes
+        'products' => ['base_price'],
+        'product_prices' => ['price'],
+        'menu_items' => ['base_price'],
+        'payment_methods' => ['max_amount'],
+        'cash_registers' => ['max_amount'],
+        'order_item_modifiers' => ['price_adjustment'],
+        'menu_item_replacement_rules' => ['max_price_delta'],
     ];
 
     public function up(): void
@@ -38,7 +39,7 @@ return new class extends Migration
     public function down(): void
     {
         foreach ($this->tables as $table => $columns) {
-            foreach ($columns as $column) {
+            foreach (array_reverse($columns) as $column) {
                 $this->convertColumnToDecimal($table, $column);
             }
         }
@@ -46,7 +47,6 @@ return new class extends Migration
 
     private function convertColumnToInteger(string $table, string $column): void
     {
-        // PASO 0: Leer metadata ORIGINAL antes de cualquier modificación (FIX P1-002)
         $originalColumn = DB::selectOne("
             SELECT data_type, is_nullable, column_default
             FROM information_schema.columns 
@@ -68,35 +68,42 @@ return new class extends Migration
 
         try {
             // PASO 1: Drop DEFAULT si existe
-            if ($originalDefault !== null) {
+            if ($originalDefault !== null && trim((string)$originalDefault) !== 'NULL') {
                 DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} DROP DEFAULT");
             }
 
-            // PASO 2: Drop NOT NULL temporalmente (SOLO si era NOT NULL)
+            // PASO 2: Drop NOT NULL temporalmente
             if (!$wasNullable) {
                 DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} DROP NOT NULL");
             }
 
-            // PASO 3: Convertir tipo (usando ROUND para evitar truncamiento silencioso)
+            // PASO 3: Limpiar valores NULL a 0 SOLO si la columna era originalmente NOT NULL
+            if (!$wasNullable) {
+                DB::statement("UPDATE {$table} SET {$column} = 0 WHERE {$column} IS NULL");
+            }
+
+            // PASO 4: Convertir tipo
             DB::statement("
                 ALTER TABLE {$table} 
                 ALTER COLUMN {$column} TYPE INTEGER 
-                USING (CASE WHEN {$column} IS NULL THEN 0 ELSE ROUND({$column})::INTEGER END)
+                USING (CASE WHEN {$column} IS NULL THEN NULL ELSE ROUND({$column})::INTEGER END)
             ");
 
-            // PASO 4: Restaurar NOT NULL si originalmente era NOT NULL
+            // PASO 5: Restaurar NOT NULL si originalmente era NOT NULL
             if (!$wasNullable) {
-                DB::statement("UPDATE {$table} SET {$column} = 0 WHERE {$column} IS NULL");
                 DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} SET NOT NULL");
             }
 
-            // PASO 5: Restaurar DEFAULT original o aplicar nuevo DEFAULT si es necesario
-            if ($originalDefault !== null) {
-                // Limpiar el default de PostgreSQL (ej: "'0'::numeric" -> 0)
-                $cleanDefault = is_numeric($originalDefault) ? (int)round((float)$originalDefault) : 0;
-                DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} SET DEFAULT {$cleanDefault}");
-            } elseif ($this->shouldHaveDefault($column)) {
-                DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} SET DEFAULT 0");
+            // PASO 6: Aplicar DEFAULT
+            // Si era NOT NULL y no tenía default numérico, aplicar DEFAULT 0
+            // Si tenía default numérico, restaurarlo
+            if (!$wasNullable) {
+                if ($originalDefault !== null && trim((string)$originalDefault) !== 'NULL' && is_numeric($originalDefault)) {
+                    $defaultVal = (int)round((float)$originalDefault);
+                } else {
+                    $defaultVal = 0;
+                }
+                DB::statement("ALTER TABLE {$table} ALTER COLUMN {$column} SET DEFAULT {$defaultVal}");
             }
 
             echo "✅ {$table}.{$column} convertido a INTEGER\n";
@@ -108,7 +115,6 @@ return new class extends Migration
 
     private function convertColumnToDecimal(string $table, string $column): void
     {
-        // FIX P1-002 (Down): También leer metadata antes de modificar en el rollback
         $originalColumn = DB::selectOne("
             SELECT is_nullable
             FROM information_schema.columns 
@@ -137,12 +143,5 @@ return new class extends Migration
             echo "❌ ERROR revertiendo {$table}.{$column}: " . $e->getMessage() . "\n";
             throw $e;
         }
-    }
-
-    private function shouldHaveDefault(string $column): bool
-    {
-        return in_array($column, [
-            'tip_amount', 'discount_amount', 'difference', 'tax_amount', 'debit_amount', 'credit_amount',
-        ]);
     }
 };
