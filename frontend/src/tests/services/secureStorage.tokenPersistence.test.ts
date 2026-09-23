@@ -7,31 +7,38 @@ import * as path from 'path';
  */
 
 describe('P1-007: Seguridad de persistencia de JWT', () => {
-  const originalEnv = import.meta.env;
-
   beforeEach(() => {
     vi.resetModules();
     localStorage.clear();
+    vi.unstubAllEnvs();
   });
 
   afterEach(() => {
-    import.meta.env = originalEnv;
     vi.restoreAllMocks();
   });
 
-  describe('En entorno de PRODUCCIÓN (import.meta.env.DEV = false)', () => {
+  describe('En entorno de PRODUCCIÓN (DEV = false)', () => {
     beforeEach(() => {
       vi.stubEnv('DEV', false);
     });
 
-    it('getItemSync NO debe leer de localStorage y debe retornar null', async () => {
+    it('getItemSync NO debe leer de localStorage, pero SÍ debe leer de syncCache (RAM)', async () => {
+      // Preparar localStorage con un token falso
       localStorage.setItem('access_token', 'fake-prod-token');
-      const { getItemSync } = await import('../../services/secureStorage');
       
+      const { getItemSync, updateSyncCache } = await import('../../services/secureStorage');
+      
+      // Si está en cache (RAM), debe retornarlo (RAM es seguro)
+      updateSyncCache('access_token', 'ram-token');
+      expect(getItemSync('access_token')).toBe('ram-token');
+      
+      // Limpiamos cache para probar que NO cae a localStorage
+      const { clearSyncCache } = await import('../../services/secureStorage');
+      clearSyncCache();
+      
+      // Ahora debe retornar null, ignorando el localStorage
       const result = getItemSync('access_token');
-      
       expect(result).toBeNull();
-      expect(localStorage.getItem('access_token')).toBe('fake-prod-token');
     });
 
     it('writeToStorage NO debe escribir en localStorage', async () => {
@@ -44,14 +51,15 @@ describe('P1-007: Seguridad de persistencia de JWT', () => {
     });
   });
 
-  describe('En entorno de DESARROLLO (import.meta.env.DEV = true)', () => {
+  describe('En entorno de DESARROLLO (DEV = true)', () => {
     beforeEach(() => {
       vi.stubEnv('DEV', true);
     });
 
-    it('getItemSync SÍ debe leer de localStorage', async () => {
+    it('getItemSync SÍ debe leer de localStorage como fallback', async () => {
       localStorage.setItem('access_token', 'fake-dev-token');
-      const { getItemSync } = await import('../../services/secureStorage');
+      const { getItemSync, clearSyncCache } = await import('../../services/secureStorage');
+      clearSyncCache();
       
       const result = getItemSync('access_token');
       expect(result).toBe('fake-dev-token');
@@ -71,14 +79,8 @@ describe('P1-007: Seguridad de persistencia de JWT', () => {
       const storePath = path.resolve(__dirname, '../../store/useAuthStore.ts');
       const content = fs.readFileSync(storePath, 'utf-8');
       
-      // 1. Verificar que existe el comentario de P1-007
       expect(content).toMatch(/P1-007.*NO persistir token/i);
-      
-      // 2. Verificar que NO se está persistiendo el token en el estado
-      // Buscamos la línea exacta que NO debe existir
       expect(content).not.toContain('token: state.token');
-      
-      // 3. Verificar que partialize existe y contiene user e isAuthenticated
       expect(content).toContain('partialize:');
       expect(content).toContain('user: state.user');
       expect(content).toContain('isAuthenticated: state.isAuthenticated');

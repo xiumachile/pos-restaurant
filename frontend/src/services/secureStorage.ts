@@ -149,7 +149,13 @@ export async function removeItem(key: string): Promise<void> {
  * SIEMPRE retorna string | null (nunca undefined).
  */
 export function getItemSync(key: string): string | null {
-  // P1-007: En producción, NO leer de localStorage por seguridad.
+  // 1. Revisar cache en memoria primero (RAM es seguro, siempre permitido)
+  if (syncCache.has(key)) {
+    const cached = syncCache.get(key);
+    return cached == null ? null : cached;
+  }
+  
+  // 2. P1-007: En producción, NO leer de localStorage por seguridad.
   if (import.meta.env.DEV) {
     const fromLs = localStorage.getItem(key);
     if (fromLs != null) {
@@ -158,8 +164,7 @@ export function getItemSync(key: string): string | null {
     }
   }
   
-  // En producción, retornar null. El token debe obtenerse de forma asíncrona.
-  console.warn("[secureStorage] ⚠️ getItemSync bloqueado en producción por P1-007");
+  // En producción, si no está en cache, retornar null.
   return null;
 }
 
