@@ -105,6 +105,16 @@ export class SyncApiClient {
     return response.data.data;
   }
 
+  /**
+   * Elimina un item de una orden existente en el backend.
+   */
+  async removeOrderItem(orderUuid: string, itemUuid: string): Promise<any> {
+    const response = await apiClient.delete(`/orders/${orderUuid}/items/${itemUuid}`, {
+      headers: { "Idempotency-Key": uuidv4() },
+    });
+    return response.data.data;
+  }
+
   async deleteOrder(uuid: string): Promise<void> {
     await apiClient.delete(`/orders/${uuid}`);
   }

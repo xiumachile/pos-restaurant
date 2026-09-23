@@ -338,7 +338,7 @@ export class SyncEngine {
             quantity: payload.item.quantity,
             unit_price: payload.item.unit_price ?? payload.item.price,
             notes: payload.item.notes ?? null,
-            idempotency_key: payload.item.local_uuid || item.idempotency_key,
+            idempotency_key: payload.item.local_uuid,
           });
           return order.cloud_id;
         }
