@@ -1,4 +1,5 @@
 import { localDb } from "../localDb";
+import { validateLocalMoneyPayload } from '../guards/localMoneyGuard';
 import { v4 as uuidv4 } from "uuid";
 import { SyncQueueRepository } from "./SyncQueueRepository";
 
@@ -53,6 +54,8 @@ export class BillRepository {
    * El paid_amount inicia en 0, remaining_amount = grand_total (venta sin propina).
    */
   static async create(payload: CreateBillPayload): Promise<LocalBill> {
+    // P2-003: Local Money Guard
+    validateLocalMoneyPayload(payload as Record<string, unknown>, 'bill');
     const local_uuid = uuidv4();
     const idempotency_key = uuidv4();
     const now = new Date().toISOString();

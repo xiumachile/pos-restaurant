@@ -1,4 +1,5 @@
 import { localDb } from "../localDb";
+import { validateLocalMoneyPayload, LocalMoneyContractViolation } from '../guards/localMoneyGuard';
 import { v4 as uuidv4 } from "uuid";
 import { SyncQueueRepository } from "./SyncQueueRepository";
 import { EventStore } from "./EventStore";
@@ -66,6 +67,8 @@ export class PaymentRepository {
    * Registra un pago local y lo encola automáticamente para sincronización.
    */
   static async create(payload: CreatePaymentPayload): Promise<LocalPayment> {
+    // P2-003: Local Money Guard - Validar contrato monetario antes de insertar
+    validateLocalMoneyPayload(payload as Record<string, unknown>, 'payment');
     const local_uuid = uuidv4();
     const idempotency_key = uuidv4();
 

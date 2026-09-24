@@ -1,4 +1,5 @@
 import { localDb } from "../localDb";
+import { validateLocalMoneyPayload } from '../guards/localMoneyGuard';
 import { SyncQueueRepository } from "./SyncQueueRepository";
 import { localTablesService } from "@/services/localTablesService";
 import { v4 as uuidv4 } from "uuid";
@@ -88,6 +89,8 @@ export class OrderRepository {
    * Crea un nuevo pedido local con UUID único y idempotency key.
    */
   static async create(payload: CreateOrderPayload): Promise<LocalOrder> {
+    // P2-003: Local Money Guard
+    validateLocalMoneyPayload(payload as Record<string, unknown>, 'order');
     const local_uuid = uuidv4();
     const idempotency_key = uuidv4();
     const order_number = `TEMP-${Date.now()}`;
