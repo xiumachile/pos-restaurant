@@ -19,7 +19,7 @@ interface PaymentQueryServiceInterface
      * Obtener resumen de pagos por método de pago en una sesión de caja.
      * 
      * @param int $cashSessionId ID de la sesión de caja
-     * @return Collection<string, array{total_amount: float, total_tips: float, count: int}>
+     * @return Collection<string, array{total_amount: int, total_tips: int, count: int}>
      */
     public function getPaymentsByMethodInSession(int $cashSessionId): Collection;
 
@@ -28,15 +28,15 @@ interface PaymentQueryServiceInterface
      * 
      * @param int $cashSessionId ID de la sesión de caja
      * @param int $waiterId ID del garzón
-     * @return float Total de propinas
+     * @return int Total de propinas
      */
-    public function getWaiterTipsInSession(int $cashSessionId, int $waiterId): float;
+    public function getWaiterTipsInSession(int $cashSessionId, int $waiterId): int;
 
     /**
      * Obtener propinas agrupadas por método de pago en una sesión.
      * 
      * @param int $cashSessionId ID de la sesión de caja
-     * @return Collection<string, array{total_tips: float, count: int}>
+     * @return Collection<string, array{total_tips: int, count: int}>
      */
     public function getTipsByMethodInSession(int $cashSessionId): Collection;
 
@@ -44,7 +44,7 @@ interface PaymentQueryServiceInterface
      * Obtener propinas agrupadas por garzón y método de pago.
      * 
      * @param int $cashSessionId ID de la sesión de caja
-     * @return Collection<int, Collection<string, float>> [waiter_id => [method => total]]
+     * @return Collection<int, Collection<string, int>> [waiter_id => [method => total]]
      */
     public function getTipsByWaiterAndMethod(int $cashSessionId): Collection;
 
@@ -54,7 +54,7 @@ interface PaymentQueryServiceInterface
      * @param int $branchId ID de la sucursal
      * @param string $dateStart Fecha inicio (Y-m-d H:i:s)
      * @param string $dateEnd Fecha fin (Y-m-d H:i:s)
-     * @return Collection<string, array{total_amount: float, total_tips: float, count: int}>
+     * @return Collection<string, array{total_amount: int, total_tips: int, count: int}>
      */
     public function getDailyPaymentsByMethod(int $branchId, string $dateStart, string $dateEnd): Collection;
 

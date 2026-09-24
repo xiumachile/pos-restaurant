@@ -112,7 +112,7 @@ class CashSession extends Model
      * 
      * @param bool $includeMovements Incluir movimientos de caja (retiros/depósitos)
      * @param bool $onlyCashTipsPaidOut Solo descontar propinas pagadas en efectivo
-     * @return float
+     * @return int
      */
     private function calculateExpectedBalanceInternal(
         bool $includeMovements = true,

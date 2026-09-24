@@ -72,7 +72,7 @@ class Account extends Model
      * Para cuentas con saldo normal crédito (Liability, Equity, Revenue):
      *   Balance = SUM(credits) - SUM(debits)
      */
-    public function balance(): float
+    public function balance(): int
     {
         $debits = $this->ledgerEntries()->sum('debit_amount');
         $credits = $this->ledgerEntries()->sum('credit_amount');
