@@ -29,7 +29,7 @@ export interface EnqueuePayload {
 }
 
 // Timeout para considerar una operación syncing como abandonada (2 minutos)
-const SYNCING_TIMEOUT_MINUTES = 2;
+const SYNCING_TIMEOUT_MINUTES = 5;
 
 export class SyncQueueRepository {
   /**
@@ -47,9 +47,9 @@ export class SyncQueueRepository {
       Date.now() - SYNCING_TIMEOUT_MINUTES * 60 * 1000
     ).toISOString();
 
-    // Buscar items en syncing que superaron el timeout
-    const abandoned = await localDb.select<SyncQueueItem>(
-      `SELECT * FROM sync_queue 
+    // Paso 1: Obtener IDs candidatos (solo para logging y cálculo de backoff)
+    const abandoned = await localDb.select<{id: number, attempts: number, max_attempts: number, entity_type: string, action: string}>(
+      `SELECT id, attempts, max_attempts, entity_type, action FROM sync_queue 
        WHERE sync_status = 'syncing' 
          AND updated_at < ?
        ORDER BY created_at ASC`,
@@ -60,46 +60,54 @@ export class SyncQueueRepository {
 
     console.log(`[SyncQueue] ⚠️  Recuperando ${abandoned.length} operaciones syncing abandonadas`);
 
+    let recoveredCount = 0;
     for (const item of abandoned) {
-      const attempts = item.attempts + 1;
+      const newAttempts = item.attempts + 1;
       
-      if (attempts >= item.max_attempts) {
-        // Máximo de intentos alcanzado → fallar definitivamente
-        await localDb.execute(
+      if (newAttempts >= item.max_attempts) {
+        // UPDATE atómico: solo si sigue en 'syncing' (previene TOCTOU)
+        const rowsAffected = await localDb.execute(
           `UPDATE sync_queue 
            SET sync_status = 'failed', 
                attempts = ?, 
                last_error = ?,
                updated_at = CURRENT_TIMESTAMP 
-           WHERE id = ?`,
-          [attempts, `Abandonado tras ${SYNCING_TIMEOUT_MINUTES}min (intento ${attempts})`, item.id]
+           WHERE id = ? AND sync_status = 'syncing'`,
+          [newAttempts, `Abandonado tras ${SYNCING_TIMEOUT_MINUTES}min (intento ${newAttempts})`, item.id]
         );
-        console.log(`[SyncQueue] ❌ ${item.entity_type}/${item.action} falló tras ${attempts} intentos`);
+        if (rowsAffected > 0) {
+          console.log(`[SyncQueue] ❌ ${item.entity_type}/${item.action} falló tras ${newAttempts} intentos`);
+          recoveredCount++;
+        }
       } else {
         // Backoff exponencial
-        const backoffSeconds = Math.pow(2, attempts) * 15;
+        const backoffSeconds = Math.pow(2, newAttempts) * 15;
         const nextRetryAt = new Date(Date.now() + backoffSeconds * 1000).toISOString();
 
-        await localDb.execute(
+        // UPDATE atómico: solo si sigue en 'syncing' (previene TOCTOU)
+        const rowsAffected = await localDb.execute(
           `UPDATE sync_queue 
            SET sync_status = 'pending', 
                attempts = ?, 
                last_error = ?,
                next_retry_at = ?,
                updated_at = CURRENT_TIMESTAMP 
-           WHERE id = ?`,
+           WHERE id = ? AND sync_status = 'syncing'`,
           [
-            attempts,
-            `Sync abandonado (timeout ${SYNCING_TIMEOUT_MINUTES}min, intento ${attempts})`,
+            newAttempts,
+            `Sync abandonado (timeout ${SYNCING_TIMEOUT_MINUTES}min, intento ${newAttempts})`,
             nextRetryAt,
             item.id,
           ]
         );
-        console.log(`[SyncQueue] 🔄 ${item.entity_type}/${item.action} → pending (intento ${attempts})`);
+        if (rowsAffected > 0) {
+          console.log(`[SyncQueue] 🔄 ${item.entity_type}/${item.action} → pending (intento ${newAttempts})`);
+          recoveredCount++;
+        }
       }
     }
 
-    return abandoned.length;
+    return recoveredCount;
   }
 
   /**
