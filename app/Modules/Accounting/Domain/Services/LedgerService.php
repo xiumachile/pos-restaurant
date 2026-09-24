@@ -79,7 +79,7 @@ class LedgerService
         }
 
         // Validar balance
-        if (abs($totalDebits - $totalCredits) > 0.01) {
+        if ($totalDebits !== $totalCredits) {
             throw UnbalancedJournalEntryException::create($totalDebits, $totalCredits);
         }
 

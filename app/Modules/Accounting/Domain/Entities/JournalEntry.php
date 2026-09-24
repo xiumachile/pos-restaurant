@@ -67,7 +67,7 @@ class JournalEntry extends Model
         $debits = $this->ledgerEntries()->sum('debit_amount');
         $credits = $this->ledgerEntries()->sum('credit_amount');
 
-        return abs($debits - $credits) < 0.01; // Tolerancia por redondeo
+        return $debits === $credits; // Validación estricta de enteros (ADR-011)
     }
 
     /**
