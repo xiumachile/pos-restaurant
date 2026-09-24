@@ -29,111 +29,90 @@ use Illuminate\Support\Facades\Log;
 return new class extends Migration
 {
     /**
-     * Columnas monetarias con constraint non-negative.
-     * Solo incluimos columnas que REALMENTE no deberían ser negativas.
-     */
-    protected array $nonNegativeConstraints = [
-        'orders' => ['subtotal', 'tax_amount', 'discount_amount', 'tip_amount', 'total'],
-        'order_items' => ['unit_price_snapshot', 'subtotal', 'tax_amount'],
-        'bills' => ['subtotal', 'total', 'tax_amount', 'tip_amount', 'discount_amount', 'paid_amount'],
-        'payments' => ['amount', 'tip_amount', 'total_amount'],
-        'cash_sessions' => ['opening_amount', 'closing_amount', 'expected_amount'],
-        'cash_movements' => ['amount'],
-        'cash_counts' => ['card_amount', 'cash_amount', 'counted_amount', 'expected_amount', 'other_amount', 'transfer_amount'],
-        'refunds' => ['amount'],
-        'tip_payouts' => ['amount'],
-        'ledger_entries' => ['debit_amount', 'credit_amount'],
-        // journal_entries: NO incluido - no tiene columna amount
-    ];
-
-    /**
-     * Columnas que PUEDEN ser negativas por diseño:
-     * - cash_sessions.difference: sobrante/faltante
-     * - cash_counts.difference: sobrante/faltante
-     * - bills.remaining_amount: sobrepagos permitidos
-     * - cash_movements.balance_after: depende del flujo
-     */
-
-    public function up(): void
-    {
-        DB::transaction(function () {
-            $this->correctPaidAmountInconsistency();
-            $this->addNonNegativeConstraints();
-        });
-
-        Log::info('[MoneyIntegrity] Migración completada exitosamente');
-    }
-
-    public function down(): void
-    {
-        Log::info('[MoneyIntegrity] Revirtiendo constraints (datos no se revierten)');
-
-        foreach ($this->nonNegativeConstraints as $table => $columns) {
-            if (!$this->tableExists($table)) {
-                continue;
-            }
-
-            foreach ($columns as $column) {
-                $constraintName = $this->constraintName($table, $column);
-                try {
-                    DB::statement("ALTER TABLE {$table} DROP CONSTRAINT IF EXISTS {$constraintName}");
-                } catch (\Exception $e) {
-                    Log::warning("[MoneyIntegrity] No se pudo eliminar constraint {$constraintName}");
-                }
-            }
-        }
-
-        Log::info('[MoneyIntegrity] Constraints eliminados (paid_amount NO se revierte - datos ya corregidos)');
-    }
-
-    /**
-     * FASE 1: Corregir inconsistencia en bills.paid_amount
-     *
-     * Problema: 56 bills tenían paid_amount = 2 × total, causando
-     * remaining_amount negativo. La fuente de verdad son los payments
-     * (tabla `payments` con `status = completed`).
+     * FASE 1: Corregir inconsistencia en bills.paid_amount con auditoría financiera explícita.
+     * 
+     * P1: La migración anterior solo sumaba payments.completed, ignorando refunds.
+     * Esto podía causar over-corrección si un pago fue reembolsado.
+     * 
+     * Fórmula financiera correcta:
+     * new_paid = SUM(payments.amount WHERE status = 'completed') 
+     *            - SUM(refunds.amount WHERE status = 'completed' AND payment.bill_id = bill.id)
      */
     private function correctPaidAmountInconsistency(): void
     {
-        // Identificar bills con paid_amount incorrecto
-        $billsWithInconsistency = DB::table('bills as b')
+        Log::info("[MoneyIntegrity] Iniciando auditoría y corrección de paid_amount...");
+
+        // Consulta financiera auditable por bill
+        $billsAudit = DB::table('bills as b')
             ->leftJoin('payments as p', function ($join) {
                 $join->on('p.bill_id', '=', 'b.id')
-                     ->where('p.status', '=', 'completed');
+                     ->where('p.status', '=', 'completed')
+                     ->whereNull('p.deleted_at');
+            })
+            ->leftJoin('refunds as r', function ($join) {
+                $join->on('r.payment_id', '=', 'p.id')
+                     ->where('r.status', '=', 'completed')
+                     ->whereNull('r.deleted_at');
             })
             ->select(
                 'b.id',
+                'b.uuid',
                 'b.total',
-                'b.paid_amount as current_paid',
-                DB::raw('COALESCE(SUM(p.amount), 0) as correct_paid')
+                'b.paid_amount as old_paid',
+                'b.remaining_amount as old_remaining',
+                DB::raw('COALESCE(SUM(DISTINCT p.amount), 0) as completed_payments'),
+                DB::raw('COALESCE(SUM(r.amount), 0) as completed_refunds')
             )
-            ->groupBy('b.id', 'b.total', 'b.paid_amount')
-            ->havingRaw('b.paid_amount <> COALESCE(SUM(p.amount), 0)')
+            ->groupBy('b.id', 'b.uuid', 'b.total', 'b.paid_amount', 'b.remaining_amount')
             ->get();
 
         $correctedCount = 0;
+        $auditReport = [];
 
-        foreach ($billsWithInconsistency as $bill) {
-            // Calcular remaining_amount correcto
-            $correctRemaining = $bill->total - $bill->correct_paid;
+        foreach ($billsAudit as $bill) {
+            // Fórmula financiera auditable
+            $newPaid = max(0, (int) $bill->completed_payments - (int) $bill->completed_refunds);
+            $newRemaining = max(0, (int) $bill->total - $newPaid);
 
-            DB::table('bills')
-                ->where('id', $bill->id)
-                ->update([
-                    'paid_amount' => $bill->correct_paid,
-                    'remaining_amount' => $correctRemaining,
-                    'updated_at' => now(),
-                ]);
+            // Solo actualizar si hay una diferencia real (evitar updates innecesarios)
+            if ((int) $bill->old_paid !== $newPaid || (int) $bill->old_remaining !== $newRemaining) {
+                
+                DB::table('bills')
+                    ->where('id', $bill->id)
+                    ->update([
+                        'paid_amount' => $newPaid,
+                        'remaining_amount' => $newRemaining,
+                        'updated_at' => now(),
+                    ]);
 
-            $correctedCount++;
-
-            Log::info("[MoneyIntegrity] Bill #{$bill->id}: paid_amount {$bill->current_paid} → {$bill->correct_paid}, remaining {$correctRemaining}");
+                $correctedCount++;
+                
+                // Registrar auditoría detallada para trazabilidad financiera
+                $auditLog = [
+                    'bill_id' => $bill->id,
+                    'bill_uuid' => $bill->uuid,
+                    'total' => $bill->total,
+                    'old_paid' => $bill->old_paid,
+                    'old_remaining' => $bill->old_remaining,
+                    'completed_payments' => $bill->completed_payments,
+                    'completed_refunds' => $bill->completed_refunds,
+                    'new_paid' => $newPaid,
+                    'new_remaining' => $newRemaining,
+                    'difference' => $newPaid - $bill->old_paid,
+                ];
+                
+                $auditReport[] = $auditLog;
+                Log::warning("[MoneyIntegrity] Bill corregido: #{$bill->id}", $auditLog);
+            }
         }
 
+        Log::info("[MoneyIntegrity] Auditoría finalizada. Bills corregidos: {$correctedCount}");
+        
+        // Guardar reporte completo en un archivo de log separado para revisión financiera
         if ($correctedCount > 0) {
-            Log::info("[MoneyIntegrity] {$correctedCount} bills corregidos (paid_amount = SUM payments)");
-        } else {
-            Log::info('[MoneyIntegrity] No hay bills con paid_amount incorrecto');
+            $reportPath = storage_path('logs/money_integrity_audit_' . date('Y-m-d_His') . '.json');
+            file_put_contents($reportPath, json_encode($auditReport, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+            Log::info("[MoneyIntegrity] Reporte de auditoría guardado en: {$reportPath}");
         }
     }
 
