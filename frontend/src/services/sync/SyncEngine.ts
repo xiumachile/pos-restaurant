@@ -699,7 +699,7 @@ export class SyncEngine {
           throw new Error("opening_amount es requerido para abrir sesión de caja");
         }
 
-        const idempotencyKey = payload.idempotency_key || `cash-open-${item.entity_local_uuid}`;
+        const idempotencyKey = payload.idempotency_key || item.entity_local_uuid; // Ya es UUIDv4 válido
 
         console.log(`[SyncEngine] 🔓 Abriendo sesión de caja: ${item.entity_local_uuid}`);
 
@@ -740,7 +740,7 @@ export class SyncEngine {
           throw new Error("closing_amount es requerido para cerrar sesión de caja");
         }
 
-        const idempotencyKey = payload.idempotency_key || `cash-close-${cloudId}`;
+        const idempotencyKey = payload.idempotency_key || cloudId; // Ya es UUIDv4 válido
 
         console.log(`[SyncEngine] 🔒 Cerrando sesión de caja: ${cloudId}`);
 

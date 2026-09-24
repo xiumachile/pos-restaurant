@@ -169,7 +169,7 @@ export const paymentsService = {
 
     const response = await apiClient.post<SingleResponse<CashSession>>(
       "/cash-sessions/open",
-      { opening_amount: openingAmount, notes }
+      { opening_amount: openingAmount, notes, idempotency_key: crypto.randomUUID() }
     );
     const session = (response.data as any).data;
 
@@ -233,7 +233,7 @@ export const paymentsService = {
 
     const response = await apiClient.post<SingleResponse<CashSession>>(
       `/cash-sessions/${sessionUuid}/close`,
-      { closing_amount: closingAmount, notes }
+      { closing_amount: closingAmount, notes, idempotency_key: crypto.randomUUID() }
     );
     const session = (response.data as any).data;
 

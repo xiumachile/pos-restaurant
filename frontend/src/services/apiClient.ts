@@ -18,6 +18,11 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   (config) => {
+    // P1-010: Generar Idempotency-Key automático para mutaciones si no existe
+    const isMutation = ['post', 'put', 'patch', 'delete'].includes((config.method || '').toLowerCase());
+    if (isMutation && !config.headers['Idempotency-Key']) {
+      config.headers['Idempotency-Key'] = crypto.randomUUID();
+    }
     // Agregar Authorization header si hay token
     const token = useAuthStore.getState().token;
     if (token) {
