@@ -133,7 +133,7 @@ class Product extends Model
      * Resuelve el precio efectivo del producto para una lista de precios.
      * Jerarquía: lista indicada → lista default de la empresa → base_price.
      */
-    public function resolvePrice(?PriceList $priceList = null): float
+    public function resolvePrice(?PriceList $priceList = null): int
     {
         if ($priceList) {
             $price = $this->prices()->where('price_list_id', $priceList->id)->first();
