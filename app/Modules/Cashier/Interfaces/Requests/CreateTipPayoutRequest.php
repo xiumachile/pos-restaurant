@@ -15,7 +15,7 @@ class CreateTipPayoutRequest extends FormRequest
     {
         return [
             'waiter_id' => 'required|integer|exists:users,id',
-            'amount' => 'required|numeric|min:0.01',
+            'amount' => 'required|integer|min:1',
             'payment_method' => 'nullable|string|in:cash,card,transfer',
             'notes' => 'nullable|string|max:500',
         ];

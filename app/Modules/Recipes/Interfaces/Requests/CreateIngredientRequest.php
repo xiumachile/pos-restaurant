@@ -26,7 +26,7 @@ class CreateIngredientRequest extends FormRequest
             'dimension_type' => ['required', 'string', 'in:' . implode(',', $validDimensions)],
             'base_unit' => ['required', 'string', 'in:' . implode(',', $validUnits)],
             'minimum_stock_base' => ['nullable', 'numeric', 'min:0'],
-            'initial_cost_per_base_unit' => ['nullable', 'numeric', 'min:0'],
+            'initial_cost_per_base_unit' => ['nullable', 'integer', 'min:0'],
         ];
     }
 

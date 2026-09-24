@@ -16,7 +16,7 @@ class RegisterPurchaseRequest extends FormRequest
         return [
             'purchase_unit_name' => ['required', 'string', 'max:50'],
             'purchase_quantity' => ['required', 'numeric', 'min:0.01'],
-            'total_purchase_cost' => ['required', 'numeric', 'min:0'],
+            'total_purchase_cost' => ['required', 'integer', 'min:0'],
             'conversion_factor_to_base' => ['nullable', 'numeric', 'min:0.01'],
         ];
     }

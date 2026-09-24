@@ -23,7 +23,7 @@ class UpsertProductPricesRequest extends FormRequest
                     ->where('company_id', $this->user()->company_id)
                     ->whereNull('deleted_at'),
             ],
-            'prices.*.price' => 'required|numeric|min:0',
+            'prices.*.price' => ['required', 'integer', 'min:0'],
         ];
     }
 }

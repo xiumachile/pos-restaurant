@@ -16,7 +16,7 @@ class CreateMovementRequest extends FormRequest
         return [
             'session_uuid' => ['required', 'uuid', 'exists:cash_sessions,uuid'],
             'type' => ['required', 'string', 'in:withdrawal,deposit,adjustment'],
-            'amount' => ['required', 'numeric', 'min:0.01'],
+            'amount' => ['required', 'integer', 'min:1'],
             'reason' => ['required', 'string', 'max:200'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'authorizer_uuid' => ['nullable', 'uuid', 'exists:users,uuid'],

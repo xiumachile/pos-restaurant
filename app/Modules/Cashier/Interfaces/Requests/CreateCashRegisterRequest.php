@@ -18,7 +18,7 @@ class CreateCashRegisterRequest extends FormRequest
             'code' => ['required', 'string', 'max:50'],
             'description' => ['nullable', 'string', 'max:500'],
             'opening_amount_default' => ['nullable', 'integer', 'min:0'],
-            'max_amount' => ['nullable', 'numeric', 'min:1'],
+            'max_amount' => ['nullable', 'integer', 'min:1'],
             'requires_dual_control' => ['nullable', 'boolean'],
             'printer_id' => ['nullable', 'string', 'max:100'],
             'drawer_serial' => ['nullable', 'string', 'max:100'],
