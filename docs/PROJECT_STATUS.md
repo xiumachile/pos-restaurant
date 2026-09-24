@@ -5,7 +5,7 @@ Métricas Clave (Actualizadas)
 
 Métrica	Valor	Estado
 Tests Backend	997 passed	✅
-Tests Frontend	432 passed	✅
+Tests Frontend: Verificar vía CI	✅
 Total Tests	1,429+	✅
 Commits	510+	✅
 ADRs	16	✅
@@ -92,12 +92,12 @@ Unit Tests	120+	400+
 Feature Tests	877+	2,500+
 Total	997	2,900+
 
-Frontend (432 tests)
+Frontend (dinámico)
 Categoría	Tests	Assertions
 Component Tests	200+	600+
 Hook Tests	150+	450+
 Integration Tests	82+	250+
-Total	432	1,300+
+Total: Verificar en CI
 
 Tests Críticos por Módulo
 Financial Integrity: 10 tests (29 assertions)
@@ -173,7 +173,7 @@ Estado: 🟢 PRODUCCIÓN-READY
 | Componente | Métrica | Estado |
 |------------|---------|--------|
 | **Backend Tests** | 57 passed, 148 assertions | ✅ |
-| **Frontend Tests** | 453 passed (56 files) | ✅ |
+| **Frontend Tests** | Dinámico (ver CI) | ✅ |
 | **TypeScript** | Sin errores | ✅ |
 | **PHP Syntax** | Válida | ✅ |
 | **Modelo Monetario** | CLP entero end-to-end | ✅ |

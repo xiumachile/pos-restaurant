@@ -6,7 +6,7 @@ Fuente de verdad: Ver docs/PROJECT_STATUS.md para información detallada y actua
 
 Métrica	Valor
 Estado	🟢 Producción Ready
-Tests totales	1,469 (1016 backend + 453 frontend)
+Tests totales: Verificar vía CI o ejecutar `php artisan test` && `npm run test:ci`
 Gates completados	4/4
 Checklist validado	176/176 puntos
 Deuda técnica P0/P1	0
@@ -97,7 +97,7 @@ npm install
 npm run tauri dev
 
 Tests
-# Suite completa (1016 tests)
+# Suite completa de tests (verificar conteo en CI)
 php artisan test
 
 # Módulo específico
@@ -127,7 +127,7 @@ Decisiones de Arquitectura
 Ver docs/adr/ para las 21 ADRs documentadas:
 ADR-001 a ADR-016: Autenticación, multi-tenancy, idempotencia, etc.
 🧪 Testing
-Backend (1016 tests)
+Backend (ejecutar `php artisan test`)
 
 # Todos los tests
 php artisan test
@@ -140,7 +140,7 @@ php artisan test --filter=FinancialIntegrityTest
 php artisan test --filter=PaymentIdempotencyTest
 php artisan test --filter=BillIntegrityTest
 
-Frontend (432 tests)
+Frontend (ejecutar `npm run test:ci`)
 cd frontend
 
 # Todos los tests

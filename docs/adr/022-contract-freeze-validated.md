@@ -22,7 +22,7 @@ Declarar el **Frontend Contract Freeze** como válido a partir del commit `fee8f
 ### Validaciones Cumplidas
 
 #### Frontend (Tauri + React + TypeScript)
-- ✅ 453 tests pasando (56 archivos)
+- ✅ Tests de frontend pasando (conteo dinámico verificado en CI)
 - ✅ Typecheck sin errores
 - ✅ SQLite con columnas INTEGER para montos
 - ✅ Sin aritmética flotante en cálculos financieros

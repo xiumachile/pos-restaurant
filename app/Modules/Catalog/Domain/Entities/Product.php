@@ -210,7 +210,7 @@ class Product extends Model
      * Usa la misma fuente que OrderItem::saving() para garantizar consistencia:
      * getEffectiveTax() → product.tax_id → category.tax_id → company default → tax_rate legacy.
      */
-    public function priceWithTax(): float
+    public function priceWithTax(): int
     {
         $effectiveTax = $this->getEffectiveTax();
         $rate = $effectiveTax ? (float) $effectiveTax->rate : (float) ($this->tax_rate ?? 0);
