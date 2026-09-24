@@ -1,46 +1,52 @@
--- Migration 017: Enforce INTEGER values for all money columns (ADR-010 / P1-001)
--- Chile usa CLP sin centavos fraccionarios. Todos los valores de dinero DEBEN ser enteros.
+-- ============================================================================
+-- P1-001: Normalización de datos monetarios (DATA MIGRATION)
+-- ============================================================================
+-- 
+-- NOTA TÉCNICA CRÍTICA:
+-- Esta migración NO cambia el esquema de la base de datos (afinidad de columnas).
+-- El cambio de esquema de REAL/DECIMAL a INTEGER ya fue realizado previamente 
+-- por la migración 010 (reconstrucción de tablas).
 --
--- ESTRATEGIA: En SQLite, los tipos son afinidades, no restricciones estrictas.
--- En lugar de recrear tablas (lo que pierde columnas de migraciones posteriores),
--- simplemente redondeamos todos los valores existentes a enteros.
--- Esto es seguro porque:
--- 1. SQLite no enforce tipos estrictamente
--- 2. Los valores enteros en columnas REAL se comportan como enteros
--- 3. El backend PostgreSQL ya usa INTEGER
--- 4. La validación de fraccionarios se hace en JavaScript antes de esta migración
+-- PROPÓSITO DE ESTA MIGRACIÓN:
+-- 1. Normalizar valores residuales que puedan haber quedado con decimales 
+--    (ej. 1500.00) convirtiéndolos estrictamente a INTEGER.
+-- 2. Garantizar la coherencia total con el contrato monetario INTEGER antes 
+--    de que el sistema procese o sincronice estos registros.
+--
+-- Esta es una migración de DATOS, no de ESQUEMA.
+-- ============================================================================
 
--- ============================================
--- REDONDEAR VALORES EN local_orders
--- ============================================
-UPDATE local_orders SET subtotal = CAST(ROUND(subtotal) AS INTEGER), discount_total = CAST(ROUND(discount_total) AS INTEGER), tax_total = CAST(ROUND(tax_total) AS INTEGER), tip_amount = CAST(ROUND(tip_amount) AS INTEGER), grand_total = CAST(ROUND(grand_total) AS INTEGER);
+-- local_orders
+UPDATE local_orders SET subtotal = CAST(ROUND(subtotal) AS INTEGER) WHERE subtotal IS NOT NULL;
+UPDATE local_orders SET discount_total = CAST(ROUND(discount_total) AS INTEGER) WHERE discount_total IS NOT NULL;
+UPDATE local_orders SET tax_total = CAST(ROUND(tax_total) AS INTEGER) WHERE tax_total IS NOT NULL;
+UPDATE local_orders SET tip_amount = CAST(ROUND(tip_amount) AS INTEGER) WHERE tip_amount IS NOT NULL;
+UPDATE local_orders SET grand_total = CAST(ROUND(grand_total) AS INTEGER) WHERE grand_total IS NOT NULL;
 
--- ============================================
--- REDONDEAR VALORES EN local_order_items
--- ============================================
-UPDATE local_order_items SET unit_price = CAST(ROUND(unit_price) AS INTEGER), subtotal = CAST(ROUND(subtotal) AS INTEGER);
+-- local_order_items
+UPDATE local_order_items SET unit_price = CAST(ROUND(unit_price) AS INTEGER) WHERE unit_price IS NOT NULL;
+UPDATE local_order_items SET subtotal = CAST(ROUND(subtotal) AS INTEGER) WHERE subtotal IS NOT NULL;
 
--- ============================================
--- REDONDEAR VALORES EN local_payments
--- ============================================
-UPDATE local_payments SET amount = CAST(ROUND(amount) AS INTEGER), tip_amount = CAST(ROUND(tip_amount) AS INTEGER);
+-- local_payments
+UPDATE local_payments SET amount = CAST(ROUND(amount) AS INTEGER) WHERE amount IS NOT NULL;
+UPDATE local_payments SET tip_amount = CAST(ROUND(tip_amount) AS INTEGER) WHERE tip_amount IS NOT NULL;
 
--- ============================================
--- REDONDEAR VALORES EN local_bills
--- ============================================
-UPDATE local_bills SET subtotal = CAST(ROUND(subtotal) AS INTEGER), discount_total = CAST(ROUND(discount_total) AS INTEGER), tax_total = CAST(ROUND(tax_total) AS INTEGER), tip_amount = CAST(ROUND(tip_amount) AS INTEGER), grand_total = CAST(ROUND(grand_total) AS INTEGER), paid_amount = CAST(ROUND(paid_amount) AS INTEGER), remaining_amount = CAST(ROUND(remaining_amount) AS INTEGER);
+-- local_bills
+UPDATE local_bills SET subtotal = CAST(ROUND(subtotal) AS INTEGER) WHERE subtotal IS NOT NULL;
+UPDATE local_bills SET discount_total = CAST(ROUND(discount_total) AS INTEGER) WHERE discount_total IS NOT NULL;
+UPDATE local_bills SET tax_total = CAST(ROUND(tax_total) AS INTEGER) WHERE tax_total IS NOT NULL;
+UPDATE local_bills SET tip_amount = CAST(ROUND(tip_amount) AS INTEGER) WHERE tip_amount IS NOT NULL;
+UPDATE local_bills SET grand_total = CAST(ROUND(grand_total) AS INTEGER) WHERE grand_total IS NOT NULL;
+UPDATE local_bills SET paid_amount = CAST(ROUND(paid_amount) AS INTEGER) WHERE paid_amount IS NOT NULL;
+UPDATE local_bills SET remaining_amount = CAST(ROUND(remaining_amount) AS INTEGER) WHERE remaining_amount IS NOT NULL;
 
--- ============================================
--- REDONDEAR VALORES EN local_cash_sessions
--- ============================================
-UPDATE local_cash_sessions SET opening_amount = CAST(ROUND(opening_amount) AS INTEGER), closing_amount = CAST(ROUND(closing_amount) AS INTEGER);
+-- local_cash_sessions
+UPDATE local_cash_sessions SET opening_amount = CAST(ROUND(opening_amount) AS INTEGER) WHERE opening_amount IS NOT NULL;
+UPDATE local_cash_sessions SET closing_amount = CAST(ROUND(closing_amount) AS INTEGER) WHERE closing_amount IS NOT NULL;
 
--- ============================================
--- REDONDEAR VALORES EN local_cash_movements
--- ============================================
-UPDATE local_cash_movements SET amount = CAST(ROUND(amount) AS INTEGER), balance_after = CAST(ROUND(balance_after) AS INTEGER);
+-- local_cash_movements
+UPDATE local_cash_movements SET amount = CAST(ROUND(amount) AS INTEGER) WHERE amount IS NOT NULL;
+UPDATE local_cash_movements SET balance_after = CAST(ROUND(balance_after) AS INTEGER) WHERE balance_after IS NOT NULL;
 
--- ============================================
--- REDONDEAR VALORES EN local_products
--- ============================================
-UPDATE local_products SET base_price = CAST(ROUND(base_price) AS INTEGER);
+-- local_products
+UPDATE local_products SET base_price = CAST(ROUND(base_price) AS INTEGER) WHERE base_price IS NOT NULL;
