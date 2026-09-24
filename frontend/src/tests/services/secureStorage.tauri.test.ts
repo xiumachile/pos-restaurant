@@ -1,132 +1,157 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-
 /**
- * Tests de secureStorage en modo Tauri.
- * 
- * Forzamos isTauri()=true simulando __TAURI_INTERNALS__ en window.
- * Esto hace que secureStorage use el Tauri Store encriptado
- * (mockeado aquí) en lugar del fallback localStorage.
+ * P1-007: Validación de seguridad de secureStorage en modo Tauri (Producción).
  */
 
-import { enableTauriEnv, disableTauriEnv } from "../helpers/tauriEnv";
+// 0. FORZAR ENTORNO TAURI EN globalThis ANTES DE CUALQUIER IMPORTACIÓN
+(globalThis as any).__TAURI_INTERNALS__ = {
+  invoke: vi.fn(),
+  transformCallback: vi.fn(),
+};
 
-// Mock del plugin-store
-vi.mock("@tauri-apps/plugin-store", async () => {
-  const mod = await import("../mocks/tauriStore");
-  return mod;
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { isDev, isProd } from '../../lib/env';
+import { setItem, getItem, removeItem, getItemSync, preloadAuthToken, clearSyncCache } from '../../services/secureStorage';
+
+// 1. Mock del módulo de entorno
+vi.mock('../../lib/env', () => ({
+  isDev: vi.fn(() => true),
+  isProd: vi.fn(() => false),
+}));
+
+// 2. Mock simplificado y robusto del plugin-store
+const mocks = vi.hoisted(() => {
+  const data = new Map<string, any>();
+  return {
+    data,
+    store: {
+      get: vi.fn((key: string) => Promise.resolve(data.get(key) ?? null)),
+      set: vi.fn((key: string, value: any) => {
+        data.set(key, value);
+        return Promise.resolve();
+      }),
+      delete: vi.fn((key: string) => {
+        data.delete(key);
+        return Promise.resolve();
+      }),
+      save: vi.fn(() => Promise.resolve()),
+    }
+  };
 });
 
-// Importar secureStorage
-import {
-  getItem,
-  setItem,
-  removeItem,
-  getItemSync,
-  updateSyncCache,
-  clearSyncCache,
-  preloadAuthToken,
-} from "@/services/secureStorage";
+vi.mock('@tauri-apps/plugin-store', () => ({
+  load: vi.fn().mockResolvedValue(mocks.store),
+}));
 
-import { clearMockStore } from "../mocks/tauriStore";
+const clearMockStore = () => mocks.data.clear();
+const setMockStore = (key: string, value: any) => mocks.data.set(key, value);
 
-describe("secureStorage (modo Tauri)", () => {
+describe('secureStorage (modo Tauri) - P1-007 Security Contract', () => {
   beforeEach(() => {
-    // Forzar entorno Tauri ANTES de cada test
-    enableTauriEnv();
-    
     localStorage.clear();
     clearMockStore();
     clearSyncCache();
+    vi.mocked(isDev).mockReturnValue(true);
+    vi.mocked(isProd).mockReturnValue(false);
   });
 
   afterEach(() => {
-    disableTauriEnv();
+    vi.clearAllMocks();
   });
 
-  describe("API async en Tauri Store", () => {
-    it("debería guardar en Tauri Store y recuperar", async () => {
-      await setItem("tauri_key", "tauri_value");
-      
-      const value = await getItem("tauri_key");
-      expect(value).toBe("tauri_value");
+  describe('PRODUCCIÓN: Tauri Store exclusivo (localStorage PROHIBIDO)', () => {
+    beforeEach(() => {
+      vi.mocked(isDev).mockReturnValue(false);
+      vi.mocked(isProd).mockReturnValue(true);
     });
 
-    it("debería hacer mirror en localStorage para getItemSync", async () => {
-      await setItem("mirror_key", "mirror_value");
+    it('debe escribir en Tauri Store y NO en localStorage', async () => {
+      await setItem('auth_token', 'SECURE_TOKEN_123');
       
-      // El mirror en localStorage debe existir
-      expect(localStorage.getItem("mirror_key")).toBe("mirror_value");
+      // Verificamos que el mock de set fue llamado con un Array (como lo hace la implementación real)
+      expect(mocks.store.set).toHaveBeenCalledWith('auth_token', ['SECURE_TOKEN_123']);
+      expect(localStorage.getItem('auth_token')).toBeNull();
       
-      // Y getItemSync debe leerlo
-      expect(getItemSync("mirror_key")).toBe("mirror_value");
+      // Y que getItem puede leerlo
+      expect(await getItem('auth_token')).toBe('SECURE_TOKEN_123');
     });
 
-    it("debería eliminar de Tauri Store y del mirror", async () => {
-      await setItem("to_delete", "value");
-      expect(await getItem("to_delete")).toBe("value");
-      expect(localStorage.getItem("to_delete")).toBe("value");
+    it('debe leer de Tauri Store y NO de localStorage (incluso si hay residuo)', async () => {
+      localStorage.setItem('auth_token', 'INJECTED_JWT');
+      setMockStore('auth_token', ['VALID_STORE_TOKEN']);
       
-      await removeItem("to_delete");
-      
-      expect(await getItem("to_delete")).toBeNull();
-      expect(localStorage.getItem("to_delete")).toBeNull();
+      const token = await getItem('auth_token');
+      expect(token).toBe('VALID_STORE_TOKEN');
+      expect(localStorage.getItem('auth_token')).toBe('INJECTED_JWT');
     });
 
-    it("debería sobreescribir valores en Tauri Store", async () => {
-      await setItem("overwrite", "v1");
-      await setItem("overwrite", "v2");
-      
-      expect(await getItem("overwrite")).toBe("v2");
-    });
-
-    it("debería retornar null para keys inexistentes en Tauri Store", async () => {
-      const value = await getItem("never_set");
-      expect(value).toBeNull();
-    });
-  });
-
-  describe("preloadAuthToken en Tauri", () => {
-    it("debería precargar token desde mirror localStorage a cache síncrona", async () => {
-      await setItem("access_token", "jwt-tauri-xyz");
-      
-      // Limpiar cache (simular reinicio)
+    it('REGRESIÓN CRÍTICA: NO usa localStorage como fallback en producción', async () => {
+      clearMockStore();
+      localStorage.setItem('access_token', 'JWT-SECRETO-EXPUERTO');
       clearSyncCache();
       
-      // preloadAuthToken lee de localStorage mirror
       await preloadAuthToken();
       
-      expect(getItemSync("access_token")).toBe("jwt-tauri-xyz");
+      expect(getItemSync('access_token')).toBeNull();
+      expect(localStorage.getItem('access_token')).toBe('JWT-SECRETO-EXPUERTO');
     });
 
-    it("debería cargar token si solo está en localStorage (migración desde versión previa)", async () => {
-      // Escenario: usuario tenía token en localStorage antes de migrar a Tauri
-      localStorage.setItem("access_token", "legacy-jwt");
+    it('debe eliminar de Tauri Store y NO tocar localStorage', async () => {
+      setMockStore('to_delete', ['value']);
+      localStorage.setItem('to_delete', 'legacy_value');
       
-      clearSyncCache();
-      await preloadAuthToken();
+      await removeItem('to_delete');
       
-      expect(getItemSync("access_token")).toBe("legacy-jwt");
+      expect(await getItem('to_delete')).toBeNull();
+      expect(localStorage.getItem('to_delete')).toBe('legacy_value');
+    });
+
+    it('getItemSync debe leer de caché RAM, NO de localStorage en PROD', async () => {
+      localStorage.setItem('sync_key', 'RAM_BYPASS_ATTEMPT');
+      expect(getItemSync('sync_key')).toBeNull();
     });
   });
 
-  describe("Garantía de seguridad: Tauri Store encriptado", () => {
-    it("debería detectar entorno Tauri correctamente", () => {
-      // Verificar que enableTauriEnv() setea el flag
-      expect("__TAURI_INTERNALS__" in window).toBe(true);
+  describe('DESARROLLO: localStorage permitido', () => {
+    beforeEach(() => {
+      vi.mocked(isDev).mockReturnValue(true);
+      vi.mocked(isProd).mockReturnValue(false);
     });
 
-    it("debería usar Tauri Store vía setItem/getItem", async () => {
-      // Confirmar entorno Tauri activo
-      expect("__TAURI_INTERNALS__" in window).toBe(true);
+    it('debe hacer mirror en localStorage para getItemSync', async () => {
+      await setItem('dev_key', 'dev_value');
+      expect(localStorage.getItem('dev_key')).toBe('dev_value');
+      expect(getItemSync('dev_key')).toBe('dev_value');
+    });
+
+    it('debe eliminar de Tauri Store y de localStorage en DEV', async () => {
+      await setItem('dev_delete', 'dev_val');
+      expect(localStorage.getItem('dev_delete')).toBe('dev_val');
       
-      await setItem("secure_key", "secure_value");
+      await removeItem('dev_delete');
       
-      // El valor debe estar accesible vía API pública
-      const value = await getItem("secure_key");
-      expect(value).toBe("secure_value");
+      expect(await getItem('dev_delete')).toBeNull();
+      expect(localStorage.getItem('dev_delete')).toBeNull();
+    });
+  });
+
+  describe('preloadAuthToken', () => {
+    it('debe precargar token desde Tauri Store a caché síncrona', async () => {
+      vi.mocked(isDev).mockReturnValue(false);
+      setMockStore('access_token', ['jwt-tauri-xyz']);
+      clearSyncCache();
       
-      // Mirror en localStorage para sync access
-      expect(localStorage.getItem("secure_key")).toBe("secure_value");
+      await preloadAuthToken();
+      expect(getItemSync('access_token')).toBe('jwt-tauri-xyz');
+    });
+
+    it('REGRESIÓN: NO debe cargar token desde localStorage en producción', async () => {
+      vi.mocked(isDev).mockReturnValue(false);
+      localStorage.setItem('access_token', 'legacy-jwt-injection');
+      clearSyncCache();
+      clearMockStore();
+      
+      await preloadAuthToken();
+      expect(getItemSync('access_token')).toBeNull();
     });
   });
 });

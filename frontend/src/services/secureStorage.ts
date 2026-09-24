@@ -26,6 +26,7 @@
  */
 
 import { load } from "@tauri-apps/plugin-store";
+import { isDev } from '../lib/env';
 
 const STORE_NAME = "pos-secure.dat";
 
@@ -78,7 +79,7 @@ async function readFromStorage(key: string): Promise<string | null> {
   }
   
   // Fallback: localStorage (solo en desarrollo)
-  if (import.meta.env.DEV) {
+  if (isDev()) {
     const value = localStorage.getItem(key);
     return value == null ? null : value;
   }
@@ -94,10 +95,10 @@ async function writeToStorage(key: string, value: string): Promise<void> {
   
   if (store) {
     try {
-      await store.set(key, value);
+      await store.set(key, [value]); // Guardar como Array para que readFromStorage pueda extraerlo
       await store.save();
       // P1-007: NO hacer mirror en localStorage en producción Tauri
-      if (import.meta.env.DEV) {
+      if (isDev()) {
         localStorage.setItem(key, value);
       }
       return;
@@ -107,7 +108,7 @@ async function writeToStorage(key: string, value: string): Promise<void> {
   }
   
   // Fallback: localStorage SOLO en desarrollo web
-  if (import.meta.env.DEV) {
+  if (isDev()) {
     localStorage.setItem(key, value);
   } else {
     console.warn("[secureStorage] ⚠️ Tauri store no disponible y no es entorno DEV. Datos no persistidos.");
@@ -124,7 +125,7 @@ async function deleteFromStorage(key: string): Promise<void> {
     try {
       await store.delete(key);
       await store.save();
-      if (import.meta.env.DEV) {
+      if (isDev()) {
         localStorage.removeItem(key);
       }
       return;
@@ -133,7 +134,7 @@ async function deleteFromStorage(key: string): Promise<void> {
     }
   }
   
-  if (import.meta.env.DEV) {
+  if (isDev()) {
     localStorage.removeItem(key);
   }
 }
@@ -178,7 +179,7 @@ export function getItemSync(key: string): string | null {
   }
   
   // 2. P1-007: En producción, NO leer de localStorage por seguridad.
-  if (import.meta.env.DEV) {
+  if (isDev()) {
     const fromLs = localStorage.getItem(key);
     if (fromLs != null) {
       syncCache.set(key, fromLs);
@@ -202,7 +203,7 @@ export function getItemSync(key: string): string | null {
 export async function preloadAuthToken(): Promise<void> {
   let token: string | null = null;
   
-  if (import.meta.env.DEV) {
+  if (isDev()) {
     token = localStorage.getItem("access_token");
   }
   
