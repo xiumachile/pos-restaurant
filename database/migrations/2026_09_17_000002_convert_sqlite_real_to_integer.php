@@ -58,6 +58,46 @@ return new class extends Migration
 
     public function up(): void
     {
+
+    // ========================================================================
+    // P1-001/P1-002: PRE-FLIGHT CHECK DE INTEGRIDAD FINANCIERA
+    // Abortar la migración si se detectan valores fraccionarios.
+    // El redondeo silencioso está PROHIBIDO en migraciones monetarias.
+    // ========================================================================
+    foreach ($this->tables as $table => $columns) {
+        // Verificar si la tabla existe antes de consultar
+        $tableExists = DB::selectOne("SELECT 1 FROM information_schema.tables WHERE table_name = '{$table}'");
+        if (!$tableExists) {
+            continue;
+        }
+
+        foreach ($columns as $column) {
+            // Verificar si la columna existe
+            $columnExists = DB::selectOne("SELECT 1 FROM information_schema.columns WHERE table_name = '{$table}' AND column_name = '{$column}'");
+            if (!$columnExists) {
+                continue;
+            }
+
+            // Buscar valores que no sean enteros exactos
+            $fractionalRecords = DB::selectOne("
+                SELECT COUNT(*) as count 
+                FROM {$table} 
+                WHERE {$column} IS NOT NULL 
+                AND {$column} != CAST(ROUND({$column}) AS INTEGER)
+            ");
+
+            if ($fractionalRecords->count > 0) {
+                throw new \RuntimeException(
+                    "P1-001/P1-002: MIGRACIÓN FINANCIERA ABORTADA. " .
+                    "Se detectaron {$fractionalRecords->count} registros con valores fraccionarios " .
+                    "en la columna '{$column}' de la tabla '{$table}'. " .
+                    "Corrija los datos manualmente a valores enteros (centavos) antes de ejecutar esta migración."
+                );
+            }
+        }
+    }
+    // ========================================================================
+
         // Esta migración solo aplica si estamos en SQLite
         if (DB::getDriverName() !== 'sqlite') {
             return;
