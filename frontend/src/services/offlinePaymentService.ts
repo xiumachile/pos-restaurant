@@ -486,7 +486,7 @@ export const offlinePaymentService = {
       payments,
       totalPaid,
       totalRemaining,
-      isPaid: totalRemaining <= 0.01 && bills.length > 0,
+      isPaid: totalRemaining <= 0 && bills.length > 0,
     };
   },
 };
