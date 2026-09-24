@@ -68,7 +68,7 @@ export class PaymentRepository {
    */
   static async create(payload: CreatePaymentPayload): Promise<LocalPayment> {
     // P2-003: Local Money Guard - Validar contrato monetario antes de insertar
-    validateLocalMoneyPayload(payload as Record<string, unknown>, 'payment');
+    validateLocalMoneyPayload(payload as unknown as Record<string, unknown>, 'payment');
     const local_uuid = uuidv4();
     const idempotency_key = uuidv4();
 

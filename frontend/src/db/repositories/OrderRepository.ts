@@ -90,7 +90,7 @@ export class OrderRepository {
    */
   static async create(payload: CreateOrderPayload): Promise<LocalOrder> {
     // P2-003: Local Money Guard
-    validateLocalMoneyPayload(payload as Record<string, unknown>, 'order');
+    validateLocalMoneyPayload(payload as unknown as Record<string, unknown>, 'order');
     const local_uuid = uuidv4();
     const idempotency_key = uuidv4();
     const order_number = `TEMP-${Date.now()}`;

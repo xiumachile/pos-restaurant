@@ -55,7 +55,7 @@ export class BillRepository {
    */
   static async create(payload: CreateBillPayload): Promise<LocalBill> {
     // P2-003: Local Money Guard
-    validateLocalMoneyPayload(payload as Record<string, unknown>, 'bill');
+    validateLocalMoneyPayload(payload as unknown as Record<string, unknown>, 'bill');
     const local_uuid = uuidv4();
     const idempotency_key = uuidv4();
     const now = new Date().toISOString();
