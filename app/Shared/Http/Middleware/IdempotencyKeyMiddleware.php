@@ -267,7 +267,14 @@ class IdempotencyKeyMiddleware
             \Log::warning('IdempotencyKey: Zombie lock detected, taking ownership', [
                 'key' => $existing->key,
             ]);
-            $existing->takeOwnership();
+            if (!$existing->takeOwnership()) {
+                \Log::warning("IdempotencyKey: Failed to take ownership, another process got it", ["key" => $existing->key]);
+                return response()->json([
+                    "error" => "request_in_progress",
+                    "message" => "Un request con esta Idempotency-Key está siendo procesado.",
+                ], 409)->header("Retry-After", (string) self::IN_PROGRESS_TTL_SECONDS);
+            }
+            \Log::info("IdempotencyKey: Ownership taken successfully", ["key" => $existing->key]);
             return null; // Indica al middleware que debe continuar con la ejecución
         }
 
