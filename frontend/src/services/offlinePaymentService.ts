@@ -200,7 +200,7 @@ export const offlinePaymentService = {
       }
 
       // 3. Validar que amount <= remaining_amount
-      if (amount > bill.remaining_amount + 0.01) {
+      if (amount > bill.remaining_amount) {
         throw new OfflinePaymentError(
           "AMOUNT_EXCEEDS_REMAINING",
           `amount ${amount} exceeds remaining ${bill.remaining_amount}`
