@@ -264,7 +264,7 @@ export class PullEngine {
           // 🔒 Mutación aún pendiente: preservar estado local
           // El cloud tiene un estado diferente (ej: cobrado en otro terminal)
           // pero el cambio local todavía no se ha sincronizado
-          // ADR-012: Obtener tenant context
+          // ADR-012: Obtener tenant context para preservar integridad
           const { companyId, branchId } = this.getCurrentTenantContext();
           await localDb.execute(
             `INSERT OR REPLACE INTO local_tables 
@@ -277,7 +277,9 @@ export class PullEngine {
               table.capacity,
               mutation.pending_status,           // ← Preservado
               mutation.pending_order_uuid,       // ← Preservado
-              table.updated_at
+              table.updated_at,
+              companyId,                         // ← Añadido
+              branchId                           // ← Añadido
             ]
           );
           preserved++;
@@ -403,7 +405,7 @@ export class PullEngine {
             console.log(`[PullEngine] ✅ Mesa ${table.table_number} (${table.uuid}): mutación reconciliada y eliminada (cloud=${table.status})`);
           } else {
             // 🔒 Mutación pendiente: preservar
-            // ADR-012: Obtener tenant context
+            // ADR-012: Obtener tenant context para preservar integridad
             const { companyId, branchId } = this.getCurrentTenantContext();
             await localDb.execute(
               `INSERT OR REPLACE INTO local_tables 
@@ -416,7 +418,9 @@ export class PullEngine {
                 table.capacity,
                 mutation.pending_status,
                 mutation.pending_order_uuid,
-                table.updated_at
+                table.updated_at,
+                companyId,                         // ← Añadido
+                branchId                           // ← Añadido
               ]
             );
             incrementalStats.preserved++;
