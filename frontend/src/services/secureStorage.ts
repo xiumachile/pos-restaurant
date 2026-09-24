@@ -1,17 +1,28 @@
 /**
  * secureStorage.ts
  * 
- * Wrapper unificado para storage seguro de credenciales.
+ * Wrapper unificado para persistencia de credenciales y estado sensible.
  * 
- * ESTRATEGIA:
- * - En Tauri (producción): usa @tauri-apps/plugin-store (encriptado con clave del OS)
- * - En web/dev (fallback): usa localStorage (solo para desarrollo)
+ * ESTRATEGIA DE ALMACENAMIENTO:
+ * - En Tauri (producción): usa @tauri-apps/plugin-store para persistencia 
+ *   en un archivo de datos de la aplicación (pos-secure.dat). 
+ *   ⚠️ NOTA DE SEGURIDAD (P2-006): plugin-store NO cifra los datos por defecto. 
+ *   Ofrece aislamiento del sistema de archivos, pero no es equivalente a 
+ *   "OS secure storage" (como Keychain o Keystore). Para cifrado real, 
+ *   se requeriría implementar cifrado AES antes de guardar o usar un 
+ *   plugin de stronghold.
+ * - En web/dev (fallback): usa localStorage (SOLO para desarrollo local).
+ * 
+ * DISTINCIÓN CRÍTICA:
+ * - OS Secure Storage: Cifrado a nivel de SO (Keychain/Keystore). NO implementado aquí.
+ * - Persistent Application Storage: Archivo .dat aislado en el directorio de la app. 
+ *   Esto es lo que usa plugin-store. Es persistente, pero legible si se accede al disco.
  * 
  * CONTRATO:
  * - getItem() SIEMPRE retorna string | null (nunca undefined)
  * - setItem() guarda el valor
  * - removeItem() elimina el valor
- * - getItemSync() retorna desde cache primero, luego storage subyacente
+ * - getItemSync() retorna desde cache en RAM primero (seguro contra lecturas de disco)
  */
 
 import { load } from "@tauri-apps/plugin-store";
@@ -21,7 +32,8 @@ const STORE_NAME = "pos-secure.dat";
 let storeInstance: any = null;
 let storeLoaded = false;
 
-// Cache síncrona compartida (singleton por módulo)
+// Cache síncrona compartida (singleton por módulo). 
+// Mantiene el token en RAM durante la sesión, evitando lecturas de disco constantes.
 let syncCache: Map<string, string> = new Map();
 
 function isTauri(): boolean {
@@ -65,9 +77,13 @@ async function readFromStorage(key: string): Promise<string | null> {
     }
   }
   
-  // Fallback: localStorage (siempre disponible)
-  const value = localStorage.getItem(key);
-  return value == null ? null : value;
+  // Fallback: localStorage (solo en desarrollo)
+  if (import.meta.env.DEV) {
+    const value = localStorage.getItem(key);
+    return value == null ? null : value;
+  }
+  
+  return null;
 }
 
 /**
@@ -94,7 +110,7 @@ async function writeToStorage(key: string, value: string): Promise<void> {
   if (import.meta.env.DEV) {
     localStorage.setItem(key, value);
   } else {
-    console.warn("[secureStorage] ⚠️ Tauri store no disponible y no es entorno DEV. Token no persistido.");
+    console.warn("[secureStorage] ⚠️ Tauri store no disponible y no es entorno DEV. Datos no persistidos.");
   }
 }
 
@@ -108,14 +124,18 @@ async function deleteFromStorage(key: string): Promise<void> {
     try {
       await store.delete(key);
       await store.save();
-      localStorage.removeItem(key);
+      if (import.meta.env.DEV) {
+        localStorage.removeItem(key);
+      }
       return;
     } catch (err) {
       console.error("[secureStorage] ❌ Error deleting from store:", err);
     }
   }
   
-  localStorage.removeItem(key);
+  if (import.meta.env.DEV) {
+    localStorage.removeItem(key);
+  }
 }
 
 /**
@@ -143,10 +163,12 @@ export async function removeItem(key: string): Promise<void> {
 
 /**
  * Versión síncrona. Orden de búsqueda:
- * 1. syncCache (más rápido)
- * 2. localStorage (fallback)
+ * 1. syncCache (RAM, seguro y rápido)
+ * 2. localStorage (solo en DEV, fallback)
  * 
  * SIEMPRE retorna string | null (nunca undefined).
+ * En producción, si no está en RAM, retorna null para evitar lecturas de disco síncronas 
+ * y forzar el uso de la precarga asíncrona al inicio.
  */
 export function getItemSync(key: string): string | null {
   // 1. Revisar cache en memoria primero (RAM es seguro, siempre permitido)
@@ -173,12 +195,11 @@ export function getItemSync(key: string): string | null {
  * Llamar en App.tsx al iniciar la aplicación.
  * 
  * ESTRATEGIA:
- * 1. Intentar leer desde localStorage primero (más confiable en tests)
- * 2. Si no está, intentar desde Tauri Store
- * 3. Popular syncCache con el valor encontrado
+ * 1. En DEV: intentar leer desde localStorage primero.
+ * 2. Si no está (o es PROD), intentar desde Tauri Store.
+ * 3. Popular syncCache con el valor encontrado para acceso síncrono posterior.
  */
 export async function preloadAuthToken(): Promise<void> {
-  // P1-007: NO leer de localStorage en producción.
   let token: string | null = null;
   
   if (import.meta.env.DEV) {
@@ -192,7 +213,7 @@ export async function preloadAuthToken(): Promise<void> {
   
   if (token != null) {
     syncCache.set("access_token", token);
-    console.log("[secureStorage] 🔐 Auth token precargado en cache");
+    console.log("[secureStorage] 🔐 Auth token precargado en cache RAM");
   }
 }
 
