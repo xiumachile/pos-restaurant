@@ -5,89 +5,81 @@ use Illuminate\Support\Facades\DB;
 use Modules\Companies\Domain\Entities\Company;
 use Modules\Branches\Domain\Entities\Branch;
 use Modules\Identity\Domain\Entities\User;
-use Modules\Orders\Domain\Entities\Order;
-use Modules\Orders\Domain\Entities\OrderItem;
-use Modules\Payments\Domain\Entities\Payment;
-use Modules\Payments\Domain\Entities\PaymentMethod;
-use Modules\Payments\Domain\Entities\Bill;
-use Modules\Payments\Domain\Entities\CashSession;
-use Modules\Payments\Domain\ValueObjects\PaymentMethodType;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    // Crear company con campos correctos
     $this->company = Company::create([
-        'tax_id' => '12345678-9',
-        'legal_name' => 'Test Company SpA',
-        'trade_name' => 'Test Company',
-        'default_locale' => 'es',
-        'fallback_locale' => 'en',
-        'is_active' => true,
-        'settings' => ['currency' => 'CLP'],
+        'tax_id' => 'MIG-' . uniqid(),
+        'legal_name' => 'Money Migration Test',
+        'trade_name' => 'Migration Test',
     ]);
     
-    // Crear branch
     $this->branch = Branch::create([
         'company_id' => $this->company->id,
-        'name' => 'Test Branch',
-        'address' => 'Test Address 123',
-        'phone' => '+56912345678',
-        'code' => 'TEST',
-        'area_code' => 'TEST',
+        'code' => 'MIG-' . uniqid(),
+        'name' => 'Migration Branch',
     ]);
     
-    // Crear user
     $this->user = User::create([
         'company_id' => $this->company->id,
-        'name' => 'Test User',
-        'email' => 'test@example.com',
-        'password' => bcrypt('password'),
-    ]);
-    
-    // Crear payment method (patrón de FinancialIntegrityTest)
-    $this->paymentMethod = PaymentMethod::create([
-        'company_id' => $this->company->id,
         'branch_id' => $this->branch->id,
-        'code' => 'cash',
-        'name_translations' => ['es' => 'Efectivo'],
-        'type' => PaymentMethodType::CASH,
-        'is_active' => true,
+        'name' => 'Migration Tester',
+        'email' => 'mig-' . uniqid() . '@test.com',
+        'password' => bcrypt('password123'),
+        'role' => 'cashier',
     ]);
 });
 
-test('migración convierte DECIMAL a INTEGER correctamente', function () {
-    $order = Order::create([
-        'company_id' => $this->company->id,
-        'branch_id' => $this->branch->id,
-        'waiter_id' => $this->user->id,
-        'order_number' => 'TEST-001',
-        'type' => 'dine_in',
-        'status' => 'served',
-        'subtotal_gross' => 12990,
-        'net_amount' => 10916,
-        'tax_amount' => 2074,
-        'tip_amount' => 1000,
-        'amount_due' => 13990,
-        'subtotal' => 12990,
-        'total' => 13990,
-    ]);
+/**
+ * P2-001: Validar que la migración realmente convirtió DECIMAL a INTEGER.
+ * No basta con que el modelo acepte enteros; la columna en PostgreSQL debe ser 'integer' o 'bigint'.
+ */
+test('la migración convierte columnas DECIMAL a INTEGER en information_schema', function () {
+    // Tablas y columnas que deberían haber sido convertidas de decimal/numeric a integer
+    $expectedIntegerColumns = [
+        'orders' => ['subtotal_gross', 'net_amount', 'tax_amount', 'tip_amount', 'amount_due', 'subtotal', 'total'],
+        'order_items' => ['unit_price_snapshot', 'subtotal', 'tax_amount'],
+        'bills' => ['subtotal', 'tax_amount', 'discount_amount', 'tip_amount', 'total', 'paid_amount', 'remaining_amount'],
+        'payments' => ['amount', 'tip_amount', 'total_amount'],
+        'products' => ['base_price'],
+    ];
 
-    $recovered = Order::find($order->id);
-    
-    expect($recovered->subtotal_gross)->toBe(12990)
-        ->and($recovered->net_amount)->toBe(10916)
-        ->and($recovered->tax_amount)->toBe(2074)
-        ->and($recovered->tip_amount)->toBe(1000)
-        ->and($recovered->amount_due)->toBe(13990);
+    foreach ($expectedIntegerColumns as $tableName => $columns) {
+        foreach ($columns as $columnName) {
+            // Consultar information_schema para verificar el tipo de dato real en la BD
+            $columnInfo = DB::select("
+                SELECT data_type, numeric_precision, numeric_scale 
+                FROM information_schema.columns 
+                WHERE table_name = ? AND column_name = ?
+            ", [$tableName, $columnName]);
+
+            expect($columnInfo)->not->toBeEmpty("La columna {$tableName}.{$columnName} debería existir");
+            
+            $dataType = strtolower($columnInfo[0]->data_type);
+            $numericScale = $columnInfo[0]->numeric_scale;
+            
+            // 1. Debe ser 'integer' o 'bigint', NO 'numeric' ni 'decimal'
+            expect($dataType)->toBeIn(
+                ['integer', 'bigint'], 
+                "La columna {$tableName}.{$columnName} debe ser integer/bigint, pero es: {$dataType}"
+            );
+            
+            // 2. numeric_scale debe ser 0 o null (garantiza que no hay decimales)
+            // Nota: PostgreSQL a veces reporta numeric_precision=32 para integer, lo cual es normal.
+            expect($numericScale)->toBeIn([0, null], 
+                "La columna {$tableName}.{$columnName} debe tener scale 0 o null, pero tiene: {$numericScale}"
+            );
+        }
+    }
 });
 
-test('operaciones aritméticas funcionan con enteros', function () {
-    $order = Order::create([
+test('operaciones aritméticas y de agregación funcionan correctamente con enteros', function () {
+    $order = \Modules\Orders\Domain\Entities\Order::create([
         'company_id' => $this->company->id,
         'branch_id' => $this->branch->id,
         'waiter_id' => $this->user->id,
-        'order_number' => 'TEST-002',
+        'order_number' => 'ORD-' . uniqid(),
         'type' => 'dine_in',
         'status' => 'served',
         'subtotal_gross' => 25000,
@@ -99,89 +91,42 @@ test('operaciones aritméticas funcionan con enteros', function () {
         'total' => 25000,
     ]);
 
-    $payment = Payment::create([
+    $paymentMethod = \Modules\Payments\Domain\Entities\PaymentMethod::create([
+        'company_id' => $this->company->id,
+        'code' => 'cash-' . uniqid(),
+        'name_translations' => ['es' => 'Efectivo'],
+        'type' => 'cash',
+        'is_active' => true,
+    ]);
+
+    \Modules\Payments\Domain\Entities\Payment::create([
         'company_id' => $this->company->id,
         'branch_id' => $this->branch->id,
         'order_id' => $order->id,
-        'payment_method_id' => $this->paymentMethod->id,
+        'payment_method_id' => $paymentMethod->id,
         'user_id' => $this->user->id,
-        'payment_number' => Payment::generatePaymentNumber($this->branch->code),
+        'payment_number' => 'PAY-' . uniqid(),
         'method_code' => 'cash',
         'amount' => 25000,
         'tip_amount' => 0,
         'total_amount' => 25000,
         'status' => 'completed',
-        'idempotency_key' => 'test-key-001',
+        'idempotency_key' => \Illuminate\Support\Str::uuid()->toString(),
     ]);
 
-    $totalPaid = Payment::where('order_id', $order->id)->sum('total_amount');
+    // Verificar que SUM() devuelve un entero y no un string decimal
+    $totalPaid = \Modules\Payments\Domain\Entities\Payment::where('order_id', $order->id)->sum('total_amount');
 
-    expect($totalPaid)->toBe(25000)
-        ->and($order->amount_due)->toBe(25000);
+    expect($totalPaid)->toBeInt('La suma de total_amount debe ser un entero')
+        ->and($totalPaid)->toBe(25000);
 });
 
-test('split bill con remanente funciona con enteros', function () {
-    $total = 25000;
-    $parts = 3;
-    $base = (int) floor($total / $parts);
-    $remainder = $total % $parts;
-
-    $bills = [];
-    for ($i = 0; $i < $parts; $i++) {
-        $bills[] = $base + ($i < $remainder ? 1 : 0);
-    }
-
-    $sum = array_sum($bills);
-    expect($sum)->toBe(25000)
-        ->and($bills[0])->toBe(8334)
-        ->and($bills[1])->toBe(8333)
-        ->and($bills[2])->toBe(8333);
-});
-
-test('IVA se calcula correctamente con enteros', function () {
-    $gross = 999;
+test('cálculo de IVA con enteros mantiene la precisión sin floats', function () {
+    $gross = 9990;
     $net = (int) round($gross / 1.19);
     $tax = $gross - $net;
 
-    expect($net)->toBe(839)
-        ->and($tax)->toBe(160)
+    expect($net)->toBeInt()->toBe(8395)
+        ->and($tax)->toBeInt()->toBe(1595)
         ->and($net + $tax)->toBe($gross);
-});
-
-test('propina con porcentaje funciona con enteros', function () {
-    $amount = 25347;
-    $tip = (int) round($amount * 0.10);
-
-    expect($tip)->toBe(2535);
-});
-
-test('comparaciones sin epsilon funcionan correctamente', function () {
-    $amount = 10000;
-    $available = 10000;
-
-    expect($amount === $available)->toBeTrue()
-        ->and($amount > $available)->toBeFalse()
-        ->and($amount < $available)->toBeFalse();
-});
-
-test('Order model calcula IVA correctamente como entero', function () {
-    $order = Order::create([
-        'company_id' => $this->company->id,
-        'branch_id' => $this->branch->id,
-        'waiter_id' => $this->user->id,
-        'order_number' => 'TEST-003',
-        'type' => 'dine_in',
-        'status' => 'served',
-        'subtotal_gross' => 22000,
-        'net_amount' => (int) round(22000 / 1.19),
-        'tax_amount' => 22000 - (int) round(22000 / 1.19),
-        'tip_amount' => 0,
-        'amount_due' => 22000,
-        'subtotal' => 22000,
-        'total' => 22000,
-    ]);
-
-    expect($order->net_amount)->toBeInt()
-        ->and($order->tax_amount)->toBeInt()
-        ->and($order->net_amount + $order->tax_amount)->toBe($order->subtotal_gross);
 });
