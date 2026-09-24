@@ -33,6 +33,7 @@ class IdempotencyKey extends Model
         'endpoint',
         'expires_at',
         'processing_until',
+        'lock_token',
     ];
 
     protected $casts = [
