@@ -43,7 +43,7 @@ class PaymentQueryService implements PaymentQueryServiceInterface
             ->keyBy('method_code');
     }
 
-    public function getWaiterTipsInSession(int $cashSessionId, int $waiterId): float
+    public function getWaiterTipsInSession(int $cashSessionId, int $waiterId): int
     {
         $this->validateSessionOwnership($cashSessionId);
 
