@@ -111,15 +111,15 @@ export class OrderRepository {
           local_uuid,
           payload.company_id,
           payload.branch_id,
-          payload.terminal_id ?? null,
-          payload.table_id ?? null,
+          payload.terminal_id || null,
+          payload.table_id || null,
           order_number,
           payload.order_type || "dine_in",
           "confirmed",
           payload.guest_count || 1,
-          payload.waiter_id ?? null,
-          payload.waiter_name ?? null,
-          payload.notes ?? null,
+          payload.waiter_id || null,
+          payload.waiter_name || null,
+          payload.notes || null,
           idempotency_key,
         ]
       );
@@ -129,8 +129,8 @@ export class OrderRepository {
         local_uuid,
         company_id: payload.company_id,
         branch_id: payload.branch_id,
-        terminal_id: payload.terminal_id ?? null,
-        table_id: payload.table_id ?? null,
+        terminal_id: payload.terminal_id || null,
+        table_id: payload.table_id || null,
         order_number,
         order_type: payload.order_type || "dine_in",
         status: 'confirmed',
@@ -140,9 +140,9 @@ export class OrderRepository {
         tip_amount: 0,
         grand_total: 0,
         guest_count: payload.guest_count || 1,
-        waiter_id: payload.waiter_id ?? null,
-        waiter_name: payload.waiter_name ?? null,
-        notes: payload.notes ?? null,
+        waiter_id: payload.waiter_id || null,
+        waiter_name: payload.waiter_name || null,
+        notes: payload.notes || null,
         idempotency_key,
         items: [], // Se actualizarán cuando se agreguen items
       };
@@ -211,9 +211,9 @@ export class OrderRepository {
           item.quantity,
           item.unit_price,
           subtotal,
-          item.notes ?? null,
+          item.notes || null,
           item.is_menu_item ? 1 : 0,
-          item.menu_item_id ?? null,
+          item.menu_item_id || null,
         ]
       );
 
@@ -420,7 +420,7 @@ export class OrderRepository {
 
     await localDb.transaction(async (db) => {
       // 1. Crear order (valores iniciales en 0)
-      await db.execute(
+      await (db as any).execute(
         `INSERT INTO local_orders (
           local_uuid, company_id, branch_id, terminal_id, table_id,
           order_number, order_type, status, subtotal, discount_total,
@@ -429,10 +429,10 @@ export class OrderRepository {
           created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
         [
-          local_uuid, payload.company_id, payload.branch_id, payload.terminal_id ?? null,
-          payload.table_id ?? null, order_number, payload.order_type || "dine_in", "confirmed",
-          payload.guest_count || 1, payload.waiter_id ?? null, payload.waiter_name ?? null,
-          payload.notes ?? null, idempotency_key,
+          local_uuid, payload.company_id, payload.branch_id, payload.terminal_id || null,
+          payload.table_id || null, order_number, payload.order_type || "dine_in", "confirmed",
+          payload.guest_count || 1, payload.waiter_id || null, payload.waiter_name || null,
+          payload.notes || null, idempotency_key,
         ]
       );
 
@@ -443,7 +443,7 @@ export class OrderRepository {
         const subtotal = item.quantity * item.unit_price;
         totalSubtotal += subtotal;
 
-        await db.execute(
+        await (db as any).execute(
           `INSERT INTO local_order_items (
             local_uuid, order_local_uuid, product_id, product_name,
             quantity, unit_price, subtotal, notes, kitchen_status,
@@ -451,8 +451,8 @@ export class OrderRepository {
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, CURRENT_TIMESTAMP)`,
           [
             itemUuid, local_uuid, item.product_id, item.product_name,
-            item.quantity, item.unit_price, subtotal, item.notes ?? null,
-            item.is_menu_item ? 1 : 0, item.menu_item_id ?? null,
+            item.quantity, item.unit_price, subtotal, item.notes || null,
+            item.is_menu_item ? 1 : 0, item.menu_item_id || null,
           ]
         );
       }
@@ -463,15 +463,15 @@ export class OrderRepository {
       // 4. Encolar evento de sincronización usando la misma conexión de transacción
       const syncPayload = {
         local_uuid, company_id: payload.company_id, branch_id: payload.branch_id,
-        terminal_id: payload.terminal_id ?? null, table_id: payload.table_id ?? null,
+        terminal_id: payload.terminal_id || null, table_id: payload.table_id || null,
         order_number, order_type: payload.order_type || "dine_in", status: 'confirmed',
-        guest_count: payload.guest_count || 1, waiter_id: payload.waiter_id ?? null,
-        waiter_name: payload.waiter_name ?? null, notes: payload.notes ?? null,
+        guest_count: payload.guest_count || 1, waiter_id: payload.waiter_id || null,
+        waiter_name: payload.waiter_name || null, notes: payload.notes || null,
         idempotency_key,
       };
 
       // Usamos directamente execute de db para encolar en sync_queue
-      await db.execute(
+      await (db as any).execute(
         `INSERT INTO sync_queue (company_id, branch_id, entity_type, entity_local_uuid, action, payload, status, created_at)
          VALUES (?, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)`,
         [

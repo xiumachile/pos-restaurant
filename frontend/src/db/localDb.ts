@@ -80,18 +80,14 @@ class LocalDatabase {
       const result = await fn(db);
       await db.execute("COMMIT;");
       return result;
-    } catch (error: any) {
-      console.error("[LocalDB] ❌ Error DETALLADO en transacción:");
-      console.error("  - Mensaje:", error?.message || error);
-      console.error("  - Stack:", error?.stack || "No stack");
-      console.error("  - Causa (cause):", error?.cause);
-      
+    } catch (error) {
+      console.error("[LocalDB] ❌ Error ORIGINAL dentro de la transacción:", error);
       try {
         await db.execute("ROLLBACK;");
-      } catch (rollbackErr: any) {
-        console.error("[LocalDB] ⚠️ Error al hacer rollback:", rollbackErr?.message || rollbackErr);
+      } catch (rollbackErr) {
+        console.error("[LocalDB] ⚠️ Error al hacer rollback (probablemente auto-rollback de SQLite):", rollbackErr);
       }
-      throw new Error(\`Fallo en transacción: \${error?.message || 'Error desconocido'}. Ver consola para detalles.\`);
+      throw error; // Lanzamos el error original, no el del rollback
     }
   }
 
