@@ -922,7 +922,7 @@ export async function runMigrations(): Promise<void> {
   // ═══════════════════════════════════════════════════════════════
   // MIGRACIÓN 016: Fix orphan local_tables (ADR-012)
   // ═══════════════════════════════════════════════════════════════
-  if (!applied.some(m => m.version === "016")) {
+  if (!applied.some(m => m[0]?.version === "016")) {
     console.log("[Migrations] 🚀 Aplicando migración 016_fix_orphan_local_tables...");
     
     const statements = parseSqlStatements(fixOrphanTablesMigration);
@@ -973,7 +973,7 @@ export async function runMigrations(): Promise<void> {
   // ═══════════════════════════════════════════════════════════════
   // MIGRACIÓN 017: Enforce INTEGER money (P1-001 / ADR-010)
   // ═══════════════════════════════════════════════════════════════
-  if (!applied.some(m => m.version === "017")) {
+  if (!applied.some(m => m[0]?.version === "017")) {
     console.log("[Migrations] 🚀 Aplicando migración 017_enforce_integer_money...");
     
     const statements = parseSqlStatements(enforceIntegerMoneyMigration);

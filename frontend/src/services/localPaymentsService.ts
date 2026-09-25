@@ -62,9 +62,9 @@ export const localPaymentsService = {
     // 2. Agrupar pedidos por table_id
     const ordersByTable = new Map<string, LocalOrderRow[]>();
     for (const order of orders) {
-      const existing = ordersByTable.get(order.table_id) || [];
+      const existing = ordersByTable.get((order as any)[0]?.table_id ?? (order as any).table_id) || [];
       existing.push(order);
-      ordersByTable.set(order.table_id, existing);
+      ordersByTable.set((order as any)[0]?.table_id ?? (order as any).table_id, existing);
     }
 
     console.log(`[localPaymentsService] 🍽️  Mesas con pedidos: ${ordersByTable.size}`);
@@ -95,9 +95,9 @@ export const localPaymentsService = {
     // Agrupar items por pedido
     const itemsByOrder = new Map<string, LocalItemRow[]>();
     for (const item of items) {
-      const existing = itemsByOrder.get(item.order_local_uuid) || [];
+      const existing = itemsByOrder.get((item as any)[0]?.order_local_uuid ?? (item as any).order_local_uuid) || [];
       existing.push(item);
-      itemsByOrder.set(item.order_local_uuid, existing);
+      itemsByOrder.set((item as any)[0]?.order_local_uuid ?? (item as any).order_local_uuid, existing);
     }
 
     // 5. Construir TableBill[] para cada mesa
@@ -116,7 +116,7 @@ export const localPaymentsService = {
         .replace(/\s+/g, "_");
 
       const tableBillOrders: TableBillOrder[] = tableOrders.map(order => {
-        const orderItems = itemsByOrder.get(order.local_uuid) || [];
+        const orderItems = itemsByOrder.get((order as any)[0]?.local_uuid ?? (order as any).local_uuid) || [];
 
         const items: TableBillOrderItem[] = orderItems.map(item => ({
           uuid: item.local_uuid,
@@ -128,7 +128,7 @@ export const localPaymentsService = {
         }));
 
         return {
-          uuid: order.local_uuid,
+          uuid: (order as any)[0]?.local_uuid ?? (order as any).local_uuid,
           order_number: order.order_number,
           status: order.status,
           subtotal: order.subtotal || 0,
