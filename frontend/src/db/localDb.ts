@@ -95,26 +95,24 @@ class LocalDatabase {
    * Si alguna falla, hace rollback de todas.
    */
   async transaction<T>(fn: (db: Database) => Promise<T>): Promise<T> {
-    // Adquirir el mutex para garantizar exclusividad en la escritura
-    const release = await writeMutex.acquire();
     const db = await this.getConnection();
     
+    // BEGIN IMMEDIATE obtiene el bloqueo de escritura inmediatamente.
+    // Combinado con busy_timeout, esperará a otros escritores en lugar de fallar al instante.
+    await db.execute("BEGIN IMMEDIATE");
+    
     try {
-      await db.execute("BEGIN TRANSACTION;");
       const result = await fn(db);
-      await db.execute("COMMIT;");
+      await db.execute("COMMIT");
       return result;
     } catch (error: any) {
       console.error("[LocalDB] ❌ Error en transacción:", error?.message || error);
       try {
-        await db.execute("ROLLBACK;");
+        await db.execute("ROLLBACK");
       } catch (rollbackErr: any) {
         console.error("[LocalDB] ⚠️ Error al hacer rollback:", rollbackErr?.message || rollbackErr);
       }
       throw error;
-    } finally {
-      // Liberar el mutex para la siguiente operación
-      release();
     }
   }
 
