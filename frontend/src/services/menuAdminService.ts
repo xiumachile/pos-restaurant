@@ -17,6 +17,9 @@ export interface Menu {
   updated_at: string;
   deleted_at: string | null;
   price_list?: PriceList;
+  // Propiedades adicionales para la UI de administración
+  activations?: MenuActivation[];
+  menu_products_count?: number;
 }
 
 export interface MenuActivation {
