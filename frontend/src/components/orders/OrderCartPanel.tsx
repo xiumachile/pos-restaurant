@@ -59,33 +59,26 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
   const handleSendOrder = async () => {
     if (items.length === 0 || !user) return;
 
-    setFeedback({ type: "loading", message: "💾 Guardando pedido localmente..." });
+    setFeedback({ type: "loading", message: `💾 Guardando pedido con ${items.length} items...` });
 
     try {
-      // 1. Crear pedido local (SQLite + encolado automático)
-      // 🔒 company_id/branch_id/terminal_id se inyectan automáticamente vía authContext
-      const order = await OrderRepository.create(
+      // Crear pedido + items + encolar sync en UNA SOLA transacción atómica
+      // Esto previene colisiones con el SyncEngine y garantiza consistencia
+      const order = await OrderRepository.createWithItems(
         mergeAuthContext({
           table_id: tableUuid,
           order_type: "dine_in",
-        })
-      );
-
-      setFeedback({
-        type: "loading",
-        message: `📦 Agregando ${items.length} items...`,
-      });
-
-      // 2. Agregar items locales (encolado automático con idempotency_key estable)
-      for (const item of items) {
-        await OrderRepository.addItem(order.local_uuid, {
+        }),
+        items.map(item => ({
           product_id: item.product.uuid,
           product_name: getTranslatedName(item.product.name_translations),
           quantity: item.quantity,
           unit_price: parsePrice(item.product.base_price),
           notes: item.notes,
-        });
-      }
+          is_menu_item: item.is_menu_item,
+          menu_item_id: item.menu_item_id,
+        }))
+      );
 
       // 3. Limpiar carrito local
       clearCart(tableUuid);
