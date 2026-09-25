@@ -759,7 +759,7 @@ export async function runMigrations(): Promise<void> {
     }
 
     await db.execute(
-      "INSERT INTO migrations (version, checksum) VALUES (?, ?)",
+      "INSERT OR IGNORE INTO migrations (version, checksum) VALUES (?, ?)",
       ["012", `multi-tenancy-${executed}-statements-${Date.now()}`]
     );
 
@@ -809,7 +809,7 @@ export async function runMigrations(): Promise<void> {
     }
 
     await db.execute(
-      "INSERT INTO migrations (version, checksum) VALUES (?, ?)",
+      "INSERT OR IGNORE INTO migrations (version, checksum) VALUES (?, ?)",
       ["013", `table-mutations-tenancy-${executed}-statements-${Date.now()}`]
     );
 
@@ -859,7 +859,7 @@ export async function runMigrations(): Promise<void> {
     }
 
     await db.execute(
-      "INSERT INTO migrations (version, checksum) VALUES (?, ?)",
+      "INSERT OR IGNORE INTO migrations (version, checksum) VALUES (?, ?)",
       ["014", `tenant-backfill-${executed}-statements-${Date.now()}`]
     );
 
@@ -909,7 +909,7 @@ export async function runMigrations(): Promise<void> {
     }
 
     await db.execute(
-      "INSERT INTO migrations (version, checksum) VALUES (?, ?)",
+      "INSERT OR IGNORE INTO migrations (version, checksum) VALUES (?, ?)",
       ["015", `bill-link-${executed}-statements-${Date.now()}`]
     );
 
@@ -961,7 +961,7 @@ export async function runMigrations(): Promise<void> {
     }
     
     await db.execute(
-      "INSERT INTO migrations (version, checksum) VALUES (?, ?)",
+      "INSERT OR IGNORE INTO migrations (version, checksum) VALUES (?, ?)",
       ["016", `fix-orphan-${executed}-statements-${Date.now()}`]
     );
     
@@ -1006,7 +1006,7 @@ export async function runMigrations(): Promise<void> {
     }
     
     await db.execute(
-      "INSERT INTO migrations (version, checksum) VALUES (?, ?)",
+      "INSERT OR IGNORE INTO migrations (version, checksum) VALUES (?, ?)",
       ["017", `enforce-integer-money-${executed}-statements-${Date.now()}`]
     );
     
