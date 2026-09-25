@@ -75,8 +75,6 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
           quantity: item.quantity,
           unit_price: parsePrice(item.product.base_price),
           notes: item.notes,
-          is_menu_item: item.is_menu_item,
-          menu_item_id: item.menu_item_id,
         }))
       );
 
