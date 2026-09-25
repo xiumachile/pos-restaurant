@@ -238,17 +238,20 @@ export class OrderRepository {
    * - amount_due = grand_total + tip_amount
    */
   static async recalculateOrderTotals(orderLocalUuid: string, txDb?: any): Promise<void> {
-    const orderRows = await (txDb ? txDb.select : localDb.select)<any>('SELECT * FROM local_orders WHERE local_uuid = ?', [orderLocalUuid]);
+    // Usar la conexión de la transacción si se proporciona, sino la global
+    const dbToUse = txDb || localDb;
+    
+    const orderRows = await dbToUse.select<any>('SELECT * FROM local_orders WHERE local_uuid = ?', [orderLocalUuid]);
     const order = orderRows[0];
     if (!order) return;
 
-    const items = await (txDb ? txDb.select : localDb.select)<any>(
+    const items = await dbToUse.select<any>(
       "SELECT subtotal FROM local_order_items WHERE order_local_uuid = ?",
       [orderLocalUuid]
     );
 
     // ADR-011: Suma de precios IVA incluido
-    const subtotal = sumMoney(items.map(item => item.subtotal));
+    const subtotal = sumMoney(items.map((item: any) => item.subtotal));
     const discountTotal = order.discount_total || 0;
     const tipAmount = order.tip_amount || 0;
 
@@ -260,7 +263,7 @@ export class OrderRepository {
     const grandTotal = subtotal - discountTotal;
     const amountDue = grandTotal + tipAmount;
 
-    await (txDb ? txDb.execute : localDb.execute)(
+    await dbToUse.execute(
       `UPDATE local_orders 
        SET subtotal = ?, discount_total = ?, net_amount = ?, 
            tax_total = ?, tip_amount = ?, grand_total = ?, amount_due = ?,
