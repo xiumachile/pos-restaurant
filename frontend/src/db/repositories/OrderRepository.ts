@@ -1,4 +1,5 @@
 import { localDb } from "../localDb";
+import { localWriteCoordinator } from "../LocalWriteCoordinator";
 import { validateLocalMoneyPayload } from '../guards/localMoneyGuard';
 import { SyncQueueRepository } from "./SyncQueueRepository";
 import { localTablesService } from "@/services/localTablesService";
@@ -96,7 +97,7 @@ export class OrderRepository {
     const order_number = `TEMP-${Date.now()}`;
 
     // TRANSACCIÓN ATÓMICA: todas las operaciones deben completarse juntas
-    await localDb.transaction(async (db) => {
+    await localWriteCoordinator.run(async (db) => {
       // 1. Crear order con modelo chileno (ADR-011)
       // Inicialmente con valores 0, se recalculan al agregar items
       await db.execute(
@@ -195,7 +196,7 @@ export class OrderRepository {
 
     // TRANSACCIÓN ATÓMICA: item + recálculo de totales
     // Si recalculateOrderTotals falla, el item NO queda insertado
-    await localDb.transaction(async (db) => {
+    await localWriteCoordinator.run(async (db) => {
       // 1. Insertar item
       await db.execute(
         `INSERT INTO local_order_items (
@@ -241,11 +242,11 @@ export class OrderRepository {
     // Usar la conexión de la transacción si se proporciona, sino la global
     const dbToUse = txDb || localDb;
     
-    const orderRows = await (dbToUse as any).select('SELECT * FROM local_orders WHERE local_uuid = ?', [orderLocalUuid]);
+    const orderRows = await (txDb ? (txDb as any) : localDb).select('SELECT * FROM local_orders WHERE local_uuid = ?', [orderLocalUuid]);
     const order = orderRows[0];
     if (!order) return;
 
-    const items = await (dbToUse as any).select(
+    const items = await (txDb ? (txDb as any) : localDb).select(
       "SELECT subtotal FROM local_order_items WHERE order_local_uuid = ?",
       [orderLocalUuid]
     );
@@ -263,7 +264,7 @@ export class OrderRepository {
     const grandTotal = subtotal - discountTotal;
     const amountDue = grandTotal + tipAmount;
 
-    await dbToUse.execute(
+    await (txDb ? (txDb as any) : localWriteCoordinator).executeSingle(
       `UPDATE local_orders 
        SET subtotal = ?, discount_total = ?, net_amount = ?, 
            tax_total = ?, tip_amount = ?, grand_total = ?, amount_due = ?,
@@ -280,7 +281,7 @@ export class OrderRepository {
    * Al actualizar tip_amount, recalcula amount_due automáticamente.
    */
   static async updateTipAmount(orderLocalUuid: string, tipAmount: number): Promise<void> {
-    await localDb.execute(
+    await localWriteCoordinator.executeSingle(
       `UPDATE local_orders SET tip_amount = ?, updated_at = CURRENT_TIMESTAMP WHERE local_uuid = ?`,
       [tipAmount, orderLocalUuid]
     );
@@ -293,7 +294,7 @@ export class OrderRepository {
    * Actualiza el estado del pedido.
    */
   static async updateStatus(orderLocalUuid: string, status: LocalOrder["status"]): Promise<void> {
-    await localDb.execute(
+    await localWriteCoordinator.executeSingle(
       `UPDATE local_orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE local_uuid = ?`,
       [status, orderLocalUuid]
     );
@@ -360,14 +361,14 @@ export class OrderRepository {
    * Elimina un pedido y todos sus items (cascade).
    */
   static async delete(orderLocalUuid: string): Promise<void> {
-    await localDb.execute("DELETE FROM local_orders WHERE local_uuid = ?", [orderLocalUuid]);
+    await localWriteCoordinator.executeSingle("DELETE FROM local_orders WHERE local_uuid = ?", [orderLocalUuid]);
   }
 
   /**
    * Marca el pedido como sincronizado con el cloud_id.
    */
   static async markAsSynced(localUuid: string, cloudId: string): Promise<void> {
-    await localDb.execute(
+    await localWriteCoordinator.executeSingle(
       `UPDATE local_orders SET cloud_id = ?, sync_status = 'synced', updated_at = CURRENT_TIMESTAMP WHERE local_uuid = ?`,
       [cloudId, localUuid]
     );
@@ -388,7 +389,7 @@ export class OrderRepository {
    * Marca un pedido como fallido con su error de sincronización.
    */
   static async markSyncError(localUuid: string, error: string): Promise<void> {
-    await localDb.execute(
+    await localWriteCoordinator.executeSingle(
       "UPDATE local_orders SET sync_status = 'failed', sync_error = ?, updated_at = CURRENT_TIMESTAMP WHERE local_uuid = ?",
       [error, localUuid]
     );
@@ -418,7 +419,7 @@ export class OrderRepository {
     const idempotency_key = uuidv4();
     const order_number = `TEMP-${Date.now()}`;
 
-    await localDb.transaction(async (db) => {
+    await localWriteCoordinator.run(async (db) => {
       // 1. Crear order (valores iniciales en 0)
       await (db as any).execute(
         `INSERT INTO local_orders (
