@@ -6,11 +6,11 @@
   "permissions": [
     "core:default",
     "opener:default",
-    "sql:default",
-    "sql:allow-execute",
-    "sql:allow-select",
-    "sql:allow-close",
-    "sql:allow-load",
+    
+    
+    
+    
+    
     "store:default"
   ],
   "platforms": ["linux", "macOS", "windows"]

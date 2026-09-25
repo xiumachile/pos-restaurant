@@ -624,7 +624,7 @@ export async function runMigrations(): Promise<void> {
   // ═══════════════════════════════════════════════════════════════
   // MIGRACIÓN 009: printer_configs (Configuración de impresoras)
   // ═══════════════════════════════════════════════════════════════
-  if (!applied.some(m => m.version === "009")) {
+  if (!applied.some(m => m[0]?.version === "009")) {
     console.log("[Migrations] 🚀 Aplicando migración 009_create_printer_configs...");
 
     const statements = parseSqlStatements(printerConfigsMigration);
@@ -670,7 +670,7 @@ export async function runMigrations(): Promise<void> {
   // ═══════════════════════════════════════════════════════════════
   // MIGRACIÓN 011: Modelo chileno (ADR-011)
   // ═══════════════════════════════════════════════════════════════
-  if (!applied.some(m => m.version === "011")) {
+  if (!applied.some(m => m[0]?.version === "011")) {
     console.log("[Migrations] 🚀 Aplicando migración 011_convert_to_chilean_model...");
 
     const statements = parseSqlStatements(chileanColumnsMigration);
@@ -722,7 +722,7 @@ export async function runMigrations(): Promise<void> {
   // ═══════════════════════════════════════════════════════════════
   // MIGRACIÓN 012: Multi-tenancy local (ADR-012)
   // ═══════════════════════════════════════════════════════════════
-  if (!applied.some(m => m.version === "012")) {
+  if (!applied.some(m => m[0]?.version === "012")) {
     console.log("[Migrations] 🚀 Aplicando migración 012_add_tenant_to_local_tables...");
 
     const statements = parseSqlStatements(multiTenancyMigration);
@@ -772,7 +772,7 @@ export async function runMigrations(): Promise<void> {
   // ═══════════════════════════════════════════════════════════════
   // MIGRACIÓN 013: Tenant en table_local_mutations (ADR-012)
   // ═══════════════════════════════════════════════════════════════
-  if (!applied.some(m => m.version === "013")) {
+  if (!applied.some(m => m[0]?.version === "013")) {
     console.log("[Migrations] 🚀 Aplicando migración 013_add_tenant_to_table_mutations...");
 
     const statements = parseSqlStatements(tableMutationsTenancyMigration);
@@ -822,7 +822,7 @@ export async function runMigrations(): Promise<void> {
   // ═══════════════════════════════════════════════════════════════
   // MIGRACIÓN 014: Backfill + validación de tenant (ADR-012)
   // ═══════════════════════════════════════════════════════════════
-  if (!applied.some(m => m.version === "014")) {
+  if (!applied.some(m => m[0]?.version === "014")) {
     console.log("[Migrations] 🚀 Aplicando migración 014_backfill_and_validate_tenant...");
 
     const statements = parseSqlStatements(tenantBackfillMigration);
@@ -872,7 +872,7 @@ export async function runMigrations(): Promise<void> {
   // ═══════════════════════════════════════════════════════════════
   // MIGRACIÓN 015: bill_local_uuid en local_payments (ADR-019)
   // ═══════════════════════════════════════════════════════════════
-  if (!applied.some(m => m.version === "015")) {
+  if (!applied.some(m => m[0]?.version === "015")) {
     console.log("[Migrations] 🚀 Aplicando migración 015_add_bill_link_to_payments...");
 
     const statements = parseSqlStatements(billLinkMigration);
