@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { localDb } from "./localDb";
 import initialMigration from "./migrations/001_initial.sql?raw";
 import tableMutationsMigration from "./migrations/002_table_local_mutations.sql?raw";

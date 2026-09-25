@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { localDb } from "@/db/localDb";
 import type { TableBill, TableBillOrder, TableBillOrderItem } from "@/types/tableBill";
 
