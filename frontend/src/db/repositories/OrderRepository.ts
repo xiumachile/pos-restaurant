@@ -96,10 +96,10 @@ export class OrderRepository {
     const order_number = `TEMP-${Date.now()}`;
 
     // TRANSACCIÓN ATÓMICA: todas las operaciones deben completarse juntas
-    await localDb.transaction(async () => {
+    await localDb.transaction(async (db) => {
       // 1. Crear order con modelo chileno (ADR-011)
       // Inicialmente con valores 0, se recalculan al agregar items
-      await localDb.execute(
+      await db.execute(
         `INSERT INTO local_orders (
           local_uuid, company_id, branch_id, terminal_id, table_id,
           order_number, order_type, status, subtotal, discount_total,
