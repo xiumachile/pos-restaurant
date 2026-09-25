@@ -1,30 +1,12 @@
 import Database from "@tauri-apps/plugin-sql";
 import { localDb } from "./localDb";
+import { writeMutex } from "./writeMutex";
 
 /**
  * Mutex simple para serializar escrituras a nivel de aplicación.
  * Garantiza que solo una operación de escritura (transacción o statement único)
  * se ejecute a la vez, previniendo "database is locked" en SQLite/Tauri.
  */
-class Mutex {
-  private queue: Promise<void> = Promise.resolve();
-
-  async acquire(): Promise<() => void> {
-    let release!: () => void;
-    const nextPromise = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    
-    const currentQueue = this.queue;
-    this.queue = currentQueue.then(() => nextPromise).catch(() => nextPromise);
-    
-    await currentQueue;
-    return release;
-  }
-}
-
-const writeMutex = new Mutex();
-
 export class LocalWriteCoordinator {
   /**
    * Ejecuta una operación de escritura atómica (multi-statement).
