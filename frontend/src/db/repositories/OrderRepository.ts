@@ -218,7 +218,7 @@ export class OrderRepository {
       );
 
       // 2. Recalcular totales del pedido
-      await this.recalculateOrderTotals(orderLocalUuid);
+      await this.recalculateOrderTotals(orderLocalUuid, db);
     });
 
     return await this.findItemByLocalUuid(itemUuid) as LocalOrderItem;
@@ -237,11 +237,12 @@ export class OrderRepository {
    * - grand_total = subtotal - discount
    * - amount_due = grand_total + tip_amount
    */
-  static async recalculateOrderTotals(orderLocalUuid: string): Promise<void> {
-    const order = await this.findByLocalUuid(orderLocalUuid);
+  static async recalculateOrderTotals(orderLocalUuid: string, txDb?: any): Promise<void> {
+    const orderRows = await (txDb ? txDb.select : localDb.select)<any>('SELECT * FROM local_orders WHERE local_uuid = ?', [orderLocalUuid]);
+    const order = orderRows[0];
     if (!order) return;
 
-    const items = await localDb.select<any>(
+    const items = await (txDb ? txDb.select : localDb.select)<any>(
       "SELECT subtotal FROM local_order_items WHERE order_local_uuid = ?",
       [orderLocalUuid]
     );
@@ -259,7 +260,7 @@ export class OrderRepository {
     const grandTotal = subtotal - discountTotal;
     const amountDue = grandTotal + tipAmount;
 
-    await localDb.execute(
+    await (txDb ? txDb.execute : localDb.execute)(
       `UPDATE local_orders 
        SET subtotal = ?, discount_total = ?, net_amount = ?, 
            tax_total = ?, tip_amount = ?, grand_total = ?, amount_due = ?,
@@ -282,7 +283,7 @@ export class OrderRepository {
     );
     
     // Recalcular amount_due con la nueva propina
-    await this.recalculateOrderTotals(orderLocalUuid);
+    await this.recalculateOrderTotals(orderLocalUuid, db);
   }
 
   /**
