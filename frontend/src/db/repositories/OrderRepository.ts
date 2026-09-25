@@ -218,7 +218,7 @@ export class OrderRepository {
       );
 
       // 2. Recalcular totales del pedido
-      await this.recalculateOrderTotals(orderLocalUuid, db);
+      await this.recalculateOrderTotals(orderLocalUuid);
     });
 
     return await this.findItemByLocalUuid(itemUuid) as LocalOrderItem;
@@ -241,11 +241,11 @@ export class OrderRepository {
     // Usar la conexión de la transacción si se proporciona, sino la global
     const dbToUse = txDb || localDb;
     
-    const orderRows = await dbToUse.select<any>('SELECT * FROM local_orders WHERE local_uuid = ?', [orderLocalUuid]);
+    const orderRows = await (dbToUse as any).select('SELECT * FROM local_orders WHERE local_uuid = ?', [orderLocalUuid]);
     const order = orderRows[0];
     if (!order) return;
 
-    const items = await dbToUse.select<any>(
+    const items = await (dbToUse as any).select(
       "SELECT subtotal FROM local_order_items WHERE order_local_uuid = ?",
       [orderLocalUuid]
     );
@@ -286,7 +286,7 @@ export class OrderRepository {
     );
     
     // Recalcular amount_due con la nueva propina
-    await this.recalculateOrderTotals(orderLocalUuid, db);
+    await this.recalculateOrderTotals(orderLocalUuid);
   }
 
   /**
