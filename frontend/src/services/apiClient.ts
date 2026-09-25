@@ -1,6 +1,7 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '@/store/useAuthStore';
 import { validateRequestMoney, validateResponseMoney } from '@/lib/apiClientMoneyGuard';
+import { getItemSync } from './secureStorage';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
@@ -23,8 +24,8 @@ apiClient.interceptors.request.use(
     if (isMutation && !config.headers['Idempotency-Key']) {
       config.headers['Idempotency-Key'] = crypto.randomUUID();
     }
-    // Agregar Authorization header si hay token
-    const token = useAuthStore.getState().token;
+    // P1-007: Leer token de la fuente de verdad segura (caché RAM), no de Zustand (que no lo persiste)
+    const token = getItemSync('access_token') || useAuthStore.getState().token;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
