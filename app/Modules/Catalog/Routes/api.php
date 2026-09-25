@@ -58,6 +58,7 @@ Route::prefix('v1/catalog')->middleware(['auth:api', TenantContextMiddleware::cl
     // IMPORTANTE: /menus/active debe ir ANTES de /menus/{uuid} para evitar colisión
     Route::get('/menus', [MenuController::class, 'index'])->name('catalog.menus.index');
     Route::get('/menus/active', [MenuController::class, 'active'])->name('catalog.menus.active');
+    Route::get('/menus/resolve-preview', [MenuController::class, 'resolvePreview'])->name('catalog.menus.resolve-preview');
     Route::get('/menus/{uuid}', [MenuController::class, 'show'])->name('catalog.menus.show');
 
     // Cartas/Menús — escritura solo admin/manager

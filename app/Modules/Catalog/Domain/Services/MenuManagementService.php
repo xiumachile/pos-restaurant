@@ -199,6 +199,15 @@ class MenuManagementService
         $query->update(['is_default' => false]);
     }
 
+
+    /**
+     * Resuelve la carta para un contexto dado (usado por preview y active).
+     */
+    public function resolveMenu(int $branchId, string $channelType, ?\Carbon\Carbon $now = null): ?Menu
+    {
+        return $this->resolutionService->resolve($branchId, $channelType, $now);
+    }
+
     /**
      * Construye datos de un item de carta (para show).
      */

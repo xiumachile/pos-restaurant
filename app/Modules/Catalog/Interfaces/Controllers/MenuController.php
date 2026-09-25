@@ -4,6 +4,7 @@ namespace Modules\Catalog\Interfaces\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Modules\Catalog\Domain\Entities\Menu;
 use Modules\Catalog\Domain\Entities\MenuActivation;
@@ -167,6 +168,38 @@ class MenuController extends Controller
         return response()->json([
             'success' => true,
             'data' => $assigned,
+        ]);
+    }
+
+    /**
+     * GET /api/v1/catalog/menus/resolve-preview?channel_type=dine_in&datetime=2026-09-25T15:30:00
+     * Permite al administrador simular qué carta se usaría en un contexto específico.
+     */
+    public function resolvePreview(Request $request): JsonResponse
+    {
+        $channelType = $request->input('channel_type', MenuActivation::CHANNEL_DINE_IN);
+        $branchId = $request->user()->branch_id;
+        
+        // Permitir pasar una fecha/hora específica para pruebas, o usar la actual
+        $datetimeStr = $request->input('datetime');
+        $now = $datetimeStr ? Carbon::parse($datetimeStr) : null;
+
+        $menu = $this->menuService->resolveMenu($branchId, $channelType, $now);
+
+        if (!$menu) {
+            return response()->json([
+                'success' => true,
+                'data' => null,
+                'message' => 'No se encontró ninguna carta activa o default para este contexto.',
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'menu' => $menu->load('priceList'),
+                'resolved_by' => 'activation_rule', // Podríamos mejorar esto para saber si fue por regla o default
+            ],
         ]);
     }
 }
