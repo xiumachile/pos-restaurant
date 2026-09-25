@@ -156,17 +156,23 @@ export class OrderRepository {
         payload: syncPayload,
       });
 
-      // 3. Marcar mesa como occupied (si existe table_id)
-      // ADR-012: Pasar company_id y branch_id explícitos (tenant isolation)
-      if (payload.table_id) {
+    }); // Fin de la transacción de creación de orden
+
+    // 3. Marcar mesa como occupied (FUERA de la transacción para evitar "database is locked")
+    // ADR-012: Pasar company_id y branch_id explícitos (tenant isolation)
+    if (payload.table_id) {
+      try {
         await localTablesService.markOccupied(
           payload.table_id, 
           local_uuid,
           payload.company_id,
           payload.branch_id
         );
+      } catch (err) {
+        console.warn("[OrderRepository] ⚠️ No se pudo marcar la mesa como ocupada:", err);
+        // No fallamos la creación del pedido por esto, el sync lo corregirá
       }
-    });
+    }
 
     console.log("[OrderRepository] 📤 Pedido creado localmente:", local_uuid);
     return await this.findByLocalUuid(local_uuid) as LocalOrder;
@@ -189,9 +195,9 @@ export class OrderRepository {
 
     // TRANSACCIÓN ATÓMICA: item + recálculo de totales
     // Si recalculateOrderTotals falla, el item NO queda insertado
-    await localDb.transaction(async () => {
+    await localDb.transaction(async (db) => {
       // 1. Insertar item
-      await localDb.execute(
+      await db.execute(
         `INSERT INTO local_order_items (
           local_uuid, order_local_uuid, product_id, product_name,
           quantity, unit_price, subtotal, notes, kitchen_status,
