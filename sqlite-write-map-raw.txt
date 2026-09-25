@@ -1,0 +1,751 @@
+src/tests/repositories/PrinterConfigRepository.test.ts:32:    await localDb.execute("DELETE FROM printer_configs");
+src/tests/migration_011.test.ts:23:    await localDb.execute('DELETE FROM local_payments');
+src/tests/migration_011.test.ts:24:    await localDb.execute('DELETE FROM local_bills');
+src/tests/migration_011.test.ts:25:    await localDb.execute('DELETE FROM local_order_items');
+src/tests/migration_011.test.ts:26:    await localDb.execute('DELETE FROM local_orders');
+src/tests/recovery/timeoutRetry.test.ts:42:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/recovery/timeoutRetry.test.ts:43:    await localDb.execute("DELETE FROM local_payments");
+src/tests/recovery/timeoutRetry.test.ts:44:    await localDb.execute("DELETE FROM offline_events");
+src/tests/recovery/timeoutRetry.test.ts:45:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/recovery/timeoutRetry.test.ts:46:    await localDb.execute("DELETE FROM local_orders");
+src/tests/recovery/timeoutRetry.test.ts:47:    await localDb.execute("DELETE FROM sync_state");
+src/tests/recovery/timeoutRetry.test.ts:82:    await localDb.execute(
+src/tests/recovery/timeoutRetry.test.ts:168:    await localDb.execute(
+src/tests/recovery/appRestart.test.ts:48:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/recovery/appRestart.test.ts:49:    await localDb.execute("DELETE FROM local_payments");
+src/tests/recovery/appRestart.test.ts:50:    await localDb.execute("DELETE FROM offline_events");
+src/tests/recovery/appRestart.test.ts:51:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/recovery/appRestart.test.ts:52:    await localDb.execute("DELETE FROM local_orders");
+src/tests/recovery/appRestart.test.ts:53:    await localDb.execute("DELETE FROM sync_state");
+src/tests/recovery/reconnection.test.ts:38:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/recovery/reconnection.test.ts:39:    await localDb.execute("DELETE FROM local_payments");
+src/tests/recovery/reconnection.test.ts:40:    await localDb.execute("DELETE FROM offline_events");
+src/tests/recovery/reconnection.test.ts:41:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/recovery/reconnection.test.ts:42:    await localDb.execute("DELETE FROM local_orders");
+src/tests/recovery/reconnection.test.ts:43:    await localDb.execute("DELETE FROM sync_state");
+src/tests/recovery/doubleClick.test.ts:38:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/recovery/doubleClick.test.ts:39:    await localDb.execute("DELETE FROM local_payments");
+src/tests/recovery/doubleClick.test.ts:40:    await localDb.execute("DELETE FROM offline_events");
+src/tests/recovery/doubleClick.test.ts:41:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/recovery/doubleClick.test.ts:42:    await localDb.execute("DELETE FROM local_orders");
+src/tests/recovery/crashDuringSync.test.ts:46:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/recovery/crashDuringSync.test.ts:47:    await localDb.execute("DELETE FROM local_payments");
+src/tests/recovery/crashDuringSync.test.ts:48:    await localDb.execute("DELETE FROM offline_events");
+src/tests/recovery/crashDuringSync.test.ts:49:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/recovery/crashDuringSync.test.ts:50:    await localDb.execute("DELETE FROM local_orders");
+src/tests/recovery/crashDuringSync.test.ts:51:    await localDb.execute("DELETE FROM sync_state");
+src/tests/recovery/crashDuringSync.test.ts:91:    await localDb.execute(
+src/tests/recovery/crashDuringSync.test.ts:200:    await localDb.execute(
+src/tests/recovery/crashDuringSync.test.ts:211:    await localDb.execute(
+src/tests/recovery/multiTerminal.test.ts:48:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/recovery/multiTerminal.test.ts:49:    await localDb.execute("DELETE FROM local_payments");
+src/tests/recovery/multiTerminal.test.ts:50:    await localDb.execute("DELETE FROM offline_events");
+src/tests/recovery/multiTerminal.test.ts:51:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/recovery/multiTerminal.test.ts:52:    await localDb.execute("DELETE FROM local_orders");
+src/tests/recovery/multiTerminal.test.ts:53:    await localDb.execute("DELETE FROM local_cash_movements");
+src/tests/recovery/multiTerminal.test.ts:54:    await localDb.execute("DELETE FROM local_cash_sessions");
+src/tests/recovery/multiTerminal.test.ts:55:    await localDb.execute("DELETE FROM sync_state");
+src/tests/services/syncEngine.cashMovement.test.ts:38:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/services/syncEngine.cashMovement.test.ts:39:    await localDb.execute("DELETE FROM local_cash_movements");
+src/tests/services/syncEngine.cashMovement.test.ts:40:    await localDb.execute("DELETE FROM local_cash_sessions");
+src/tests/services/multiTenantIsolation.test.ts:49:    await localDb.execute('DELETE FROM local_tables');
+src/tests/services/multiTenantIsolation.test.ts:50:    await localDb.execute('DELETE FROM table_local_mutations');
+src/tests/services/multiTenantIsolation.test.ts:51:    await localDb.execute('DELETE FROM local_products');
+src/tests/services/multiTenantIsolation.test.ts:52:    await localDb.execute('DELETE FROM local_categories');
+src/tests/services/multiTenantIsolation.test.ts:53:    await localDb.execute('DELETE FROM local_payment_methods');
+src/tests/services/multiTenantIsolation.test.ts:54:    await localDb.execute('DELETE FROM printer_configs');
+src/tests/services/multiTenantIsolation.test.ts:59:      await localDb.execute(
+src/tests/services/multiTenantIsolation.test.ts:69:      await localDb.execute(
+src/tests/services/multiTenantIsolation.test.ts:82:      await localDb.execute(
+src/tests/services/multiTenantIsolation.test.ts:109:      await localDb.execute(
+src/tests/services/multiTenantIsolation.test.ts:138:      await localDb.execute(
+src/tests/services/multiTenantIsolation.test.ts:156:      await localDb.execute(
+src/tests/services/multiTenantIsolation.test.ts:173:      await localDb.execute(
+src/tests/services/multiTenantIsolation.test.ts:183:      await localDb.execute(
+src/tests/services/multiTenantIsolation.test.ts:196:      await localDb.execute(
+src/tests/services/offlinePaymentService.cashAtomicity.test.ts:49:    await localDb.execute("DELETE FROM local_payments");
+src/tests/services/offlinePaymentService.cashAtomicity.test.ts:50:    await localDb.execute("DELETE FROM local_bills");
+src/tests/services/offlinePaymentService.cashAtomicity.test.ts:51:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/services/offlinePaymentService.cashAtomicity.test.ts:52:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/offlinePaymentService.cashAtomicity.test.ts:53:    await localDb.execute("DELETE FROM local_cash_movements");
+src/tests/services/offlinePaymentService.cashAtomicity.test.ts:54:    await localDb.execute("DELETE FROM local_cash_sessions");
+src/tests/services/offlinePaymentService.cashAtomicity.test.ts:55:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/services/syncEngine.multiTenant.test.ts:49:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/services/syncEngine.multiTenant.test.ts:50:    await localDb.execute("DELETE FROM local_payments");
+src/tests/services/syncEngine.multiTenant.test.ts:51:    await localDb.execute("DELETE FROM offline_events");
+src/tests/services/syncEngine.multiTenant.test.ts:52:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/services/syncEngine.multiTenant.test.ts:53:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/syncEngine.multiTenant.test.ts:76:      await localDb.execute(
+src/tests/services/syncEngine.multiTenant.test.ts:110:      await localDb.execute(
+src/tests/services/syncEngine.multiTenant.test.ts:141:      await localDb.execute(
+src/tests/services/syncEngine.multiTenant.test.ts:177:      await localDb.execute(
+src/tests/services/syncEngine.multiTenant.test.ts:210:      await localDb.execute(
+src/tests/services/syncEngine.multiTenant.test.ts:223:      await localDb.execute(
+src/tests/services/syncEngine.bill.test.ts:42:  await localDb.execute(
+src/tests/services/syncEngine.bill.test.ts:69:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/services/syncEngine.bill.test.ts:70:    await localDb.execute("DELETE FROM local_bills");
+src/tests/services/syncEngine.bill.test.ts:71:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/services/syncEngine.bill.test.ts:72:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/offlinePaymentService.test.ts:28:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/services/offlinePaymentService.test.ts:29:    await localDb.execute("DELETE FROM local_payments");
+src/tests/services/offlinePaymentService.test.ts:30:    await localDb.execute("DELETE FROM local_bills");
+src/tests/services/offlinePaymentService.test.ts:31:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/services/offlinePaymentService.test.ts:32:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/offlinePaymentService.test.ts:33:    await localDb.execute("DELETE FROM local_tables");
+src/tests/services/offlinePaymentService.test.ts:34:    await localDb.execute("DELETE FROM table_local_mutations");
+src/tests/services/offlinePaymentService.test.ts:36:    await localDb.execute(
+src/tests/services/offlinePaymentService.authContext.test.ts:37:    await localDb.execute("DELETE FROM local_payments");
+src/tests/services/offlinePaymentService.authContext.test.ts:38:    await localDb.execute("DELETE FROM local_bills");
+src/tests/services/offlinePaymentService.authContext.test.ts:39:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/services/offlinePaymentService.authContext.test.ts:40:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/offlinePaymentService.authContext.test.ts:41:    await localDb.execute("DELETE FROM local_cash_movements");
+src/tests/services/offlinePaymentService.authContext.test.ts:42:    await localDb.execute("DELETE FROM local_cash_sessions");
+src/tests/services/syncEngine.splitBillE2E.test.ts:39:  await localDb.execute(
+src/tests/services/syncEngine.splitBillE2E.test.ts:73:  await localDb.execute(
+src/tests/services/syncEngine.splitBillE2E.test.ts:120:    await localDb.execute(
+src/tests/services/syncEngine.splitBillE2E.test.ts:138:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/services/syncEngine.splitBillE2E.test.ts:139:    await localDb.execute("DELETE FROM local_payments");
+src/tests/services/syncEngine.splitBillE2E.test.ts:140:    await localDb.execute("DELETE FROM local_bills");
+src/tests/services/syncEngine.splitBillE2E.test.ts:141:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/services/syncEngine.splitBillE2E.test.ts:142:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/syncEngine.splitBillE2E.test.ts:143:    await localDb.execute("DELETE FROM local_payment_methods");
+src/tests/services/syncEngine.test.ts:41:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/services/syncEngine.test.ts:42:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/services/syncEngine.test.ts:43:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/syncEngine.test.ts:130:    await localDb.execute(
+src/tests/services/syncEngine.test.ts:190:    await localDb.execute(
+src/tests/services/syncEngine.addItem.test.ts:35:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/services/syncEngine.addItem.test.ts:36:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/services/syncEngine.addItem.test.ts:37:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/syncEngine.addItem.test.ts:49:    await localDb.execute(
+src/tests/services/syncEngine.addItem.test.ts:56:    await localDb.execute(
+src/tests/services/syncEngine.addItem.test.ts:108:    await localDb.execute(
+src/tests/services/syncEngine.addItem.test.ts:113:    await localDb.execute(
+src/tests/services/syncEngine.addItem.test.ts:144:    await localDb.execute(
+src/tests/services/syncEngine.addItem.test.ts:149:    await localDb.execute(
+src/tests/services/offlinePaymentService.splitBill.test.ts:33:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/services/offlinePaymentService.splitBill.test.ts:34:    await localDb.execute("DELETE FROM local_payments");
+src/tests/services/offlinePaymentService.splitBill.test.ts:35:    await localDb.execute("DELETE FROM local_bills");
+src/tests/services/offlinePaymentService.splitBill.test.ts:36:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/offlinePaymentService.splitBill.test.ts:156:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/services/offlinePaymentService.splitBill.test.ts:157:    await localDb.execute("DELETE FROM local_payments");
+src/tests/services/offlinePaymentService.splitBill.test.ts:158:    await localDb.execute("DELETE FROM local_bills");
+src/tests/services/offlinePaymentService.splitBill.test.ts:159:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/kitchenPrintService.test.ts:27:    await localDb.execute("DELETE FROM local_print_jobs");
+src/tests/services/kitchenPrintService.test.ts:28:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/services/kitchenPrintService.test.ts:29:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/kitchenPrintService.test.ts:30:    await localDb.execute("DELETE FROM local_tables");
+src/tests/services/kitchenPrintService.test.ts:33:    await localDb.execute(
+src/tests/services/OfflinePrintEngine.test.ts:28:    await localDb.execute("DELETE FROM local_print_jobs");
+src/tests/services/OfflinePrintEngine.test.ts:141:      await localDb.execute(
+src/tests/services/offlineCashCloseService.test.ts:29:    await localDb.execute("DELETE FROM local_print_jobs");
+src/tests/services/offlineCashCloseService.test.ts:30:    await localDb.execute("DELETE FROM local_cash_movements");
+src/tests/services/offlineCashCloseService.test.ts:31:    await localDb.execute("DELETE FROM local_cash_sessions");
+src/tests/services/offlineCashCloseService.test.ts:54:      await localDb.execute(
+src/tests/services/pullEngine.test.ts:26:    await localDb.execute("DELETE FROM local_categories");
+src/tests/services/pullEngine.test.ts:27:    await localDb.execute("DELETE FROM local_products");
+src/tests/services/pullEngine.test.ts:28:    await localDb.execute("DELETE FROM local_tables");
+src/tests/services/pullEngine.test.ts:29:    await localDb.execute("DELETE FROM local_payment_methods");
+src/tests/services/pullEngine.test.ts:30:    await localDb.execute("DELETE FROM sync_state");
+src/tests/services/pullEngine.test.ts:115:    await localDb.execute(
+src/tests/services/pullEngine.test.ts:181:    await localDb.execute("DELETE FROM sync_state");
+src/tests/services/pullEngine.test.ts:186:    await localDb.execute(
+src/tests/services/pullEngine.test.ts:230:    await localDb.execute(
+src/tests/services/pullEngine.test.ts:236:    await localDb.execute(
+src/tests/services/offlinePaymentService.printing.test.ts:27:    await localDb.execute("DELETE FROM local_print_jobs");
+src/tests/services/offlinePaymentService.printing.test.ts:28:    await localDb.execute("DELETE FROM local_payments");
+src/tests/services/offlinePaymentService.printing.test.ts:29:    await localDb.execute("DELETE FROM local_bills");
+src/tests/services/offlinePaymentService.printing.test.ts:30:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/services/offlinePaymentService.printing.test.ts:31:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/offlinePaymentService.printing.test.ts:32:    await localDb.execute("DELETE FROM local_tables");
+src/tests/services/offlinePaymentService.printing.test.ts:35:    await localDb.execute(
+src/tests/services/paymentsService.retry.test.ts:17:    await localDb.execute('DELETE FROM local_cash_sessions');
+src/tests/services/paymentsService.retry.test.ts:18:    await localDb.execute('DELETE FROM sync_queue');
+src/tests/services/SyncEngine.cashSession.test.ts:23:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/services/SyncEngine.cashSession.test.ts:24:    await localDb.execute("DELETE FROM local_cash_sessions");
+src/tests/db/localDb.test.ts:43:    await localDb.execute(
+src/tests/db/localDb.test.ts:49:    await localDb.execute(
+src/tests/db/localDb.test.ts:63:    await localDb.execute("DELETE FROM test_items WHERE local_uuid = ?", [
+src/tests/db/localDb.test.ts:69:    await localDb.execute(
+src/tests/db/localDb.test.ts:75:    await localDb.transaction(async (db) => {
+src/tests/db/eventSourcing.test.ts:27:    await localDb.execute("DELETE FROM offline_events");
+src/tests/db/eventSourcing.test.ts:28:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/db/eventSourcing.test.ts:29:    await localDb.execute("DELETE FROM local_cash_movements");
+src/tests/db/eventSourcing.test.ts:30:    await localDb.execute("DELETE FROM local_cash_sessions");
+src/tests/db/eventSourcing.test.ts:31:    await localDb.execute("DELETE FROM local_payments");
+src/tests/db/eventSourcing.test.ts:226:      await localDb.execute(
+src/tests/db/eventSourcing.test.ts:252:      await localDb.execute(
+src/tests/db/cashMovementRepository.test.ts:27:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/db/cashMovementRepository.test.ts:28:    await localDb.execute("DELETE FROM local_cash_movements");
+src/tests/db/cashMovementRepository.test.ts:29:    await localDb.execute("DELETE FROM local_cash_sessions");
+src/tests/db/cashMovementRepository.test.ts:264:      await localDb.execute("DELETE FROM local_cash_movements");
+src/tests/db/repositories.test.ts:28:    await localDb.execute("DELETE FROM table_local_mutations");
+src/tests/db/repositories.test.ts:29:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/db/repositories.test.ts:30:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/db/repositories.test.ts:31:    await localDb.execute("DELETE FROM local_payments");
+src/tests/db/repositories.test.ts:32:    await localDb.execute("DELETE FROM local_bills");
+src/tests/db/repositories.test.ts:33:    await localDb.execute("DELETE FROM local_orders");
+src/tests/db/repositories.test.ts:34:    await localDb.execute("DELETE FROM local_tables");
+src/tests/db/repositories.test.ts:37:    await localDb.execute(
+src/tests/db/repositories.test.ts:41:    await localDb.execute(
+src/tests/db/OrderRepository.money.test.ts:20:    await localDb.execute('DELETE FROM local_order_items');
+src/tests/db/OrderRepository.money.test.ts:21:    await localDb.execute('DELETE FROM local_orders');
+src/tests/db/migration.money.test.ts:44:    await localDb.execute('DELETE FROM local_orders');
+src/tests/db/migration.money.test.ts:45:    await localDb.execute('DELETE FROM local_order_items');
+src/tests/db/migration.money.test.ts:46:    await localDb.execute('DELETE FROM local_payments');
+src/tests/db/migration.money.test.ts:47:    await localDb.execute('DELETE FROM local_cash_sessions');
+src/tests/db/migration.money.test.ts:48:    await localDb.execute('DELETE FROM local_bills');
+src/tests/db/migration.money.test.ts:49:    await localDb.execute('DELETE FROM local_cash_movements');
+src/tests/db/migration.money.test.ts:50:    await localDb.execute('DELETE FROM local_products');
+src/tests/db/migration.money.test.ts:55:      await localDb.execute(`
+src/tests/db/migration.money.test.ts:80:      await localDb.execute(`
+src/tests/db/migration.money.test.ts:85:      await localDb.execute(`
+src/tests/db/migration.money.test.ts:100:      await localDb.execute(`
+src/tests/db/migration.money.test.ts:105:      await localDb.execute(`
+src/tests/db/migration.money.test.ts:120:      await localDb.execute(`
+src/tests/db/migration.money.test.ts:134:      await localDb.execute(`
+src/tests/db/migration.money.test.ts:139:      await localDb.execute(`
+src/tests/db/migration.money.test.ts:169:      await localDb.execute(`
+src/tests/db/migration.money.test.ts:175:      await localDb.execute(`
+src/tests/db/migration.money.test.ts:193:      await localDb.execute(`
+src/tests/db/migration.money.test.ts:220:      await localDb.execute(`
+src/tests/db/localPrintJobRepository.test.ts:24:    await localDb.execute("DELETE FROM local_print_jobs");
+src/tests/db/localPrintJobRepository.test.ts:162:      await localDb.execute(
+src/tests/db/cashSessionRepository.test.ts:23:    await localDb.execute("DELETE FROM local_cash_movements");
+src/tests/db/cashSessionRepository.test.ts:24:    await localDb.execute("DELETE FROM local_cash_sessions");
+src/tests/db/migration.015.billLink.test.ts:34:    await localDb.execute('DELETE FROM local_payments');
+src/tests/db/migration.015.billLink.test.ts:35:    await localDb.execute('DELETE FROM local_bills');
+src/tests/db/migration.015.billLink.test.ts:36:    await localDb.execute('DELETE FROM local_orders');
+src/tests/db/migration.015.billLink.test.ts:48:    await localDb.execute(`
+src/tests/db/migration.015.billLink.test.ts:56:    await localDb.execute(`
+src/tests/db/migration.015.billLink.test.ts:74:    await localDb.execute(`
+src/tests/db/migration.015.billLink.test.ts:82:    await localDb.execute(`
+src/tests/db/migration.015.billLink.test.ts:90:    await localDb.execute(`
+src/tests/db/migration.015.billLink.test.ts:108:    await localDb.execute(`
+src/tests/db/migration.015.billLink.test.ts:116:    await localDb.execute(`
+src/tests/db/migration.015.billLink.test.ts:124:    await localDb.execute(`
+src/tests/db/migration.015.billLink.test.ts:133:    await localDb.execute(`
+src/tests/db/migration.015.billLink.test.ts:143:    await localDb.execute(`
+src/tests/db/migrations/017_enforce_integer_money.test.ts:53:    await localDb.execute(`
+src/tests/db/migrations/017_enforce_integer_money.test.ts:61:    await localDb.execute("DROP TABLE IF EXISTS local_orders");
+src/tests/db/migrations/017_enforce_integer_money.test.ts:62:    await localDb.execute("DELETE FROM migrations WHERE version = '017'");
+src/tests/db/migrations/017_enforce_integer_money.test.ts:66:    await localDb.execute(`
+src/tests/db/migrations/017_enforce_integer_money.test.ts:73:    await localDb.execute("INSERT INTO local_orders (local_uuid, subtotal, grand_total) VALUES ('order-1', 10000, 10000)");
+src/tests/db/migrations/017_enforce_integer_money.test.ts:80:        await localDb.execute(stmt); 
+src/tests/db/migrations/017_enforce_integer_money.test.ts:101:    await localDb.execute(`
+src/tests/db/migrations/017_enforce_integer_money.test.ts:108:    await localDb.execute("INSERT INTO local_orders (local_uuid, subtotal, grand_total) VALUES ('order-2', 10000.50, 10000.50)");
+src/tests/db/orderAtomicity.test.ts:24:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/db/orderAtomicity.test.ts:25:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/db/orderAtomicity.test.ts:26:    await localDb.execute("DELETE FROM local_orders");
+src/tests/db/orderAtomicity.test.ts:27:    await localDb.execute("DELETE FROM local_tables");
+src/tests/db/orderAtomicity.test.ts:28:    await localDb.execute("DELETE FROM table_local_mutations");
+src/tests/db/orderAtomicity.test.ts:52:    await localDb.execute(
+src/tests/integration/tipFlowIntegration.test.ts:66:    await localDb.execute("DELETE FROM local_payments");
+src/tests/integration/tipFlowIntegration.test.ts:67:    await localDb.execute("DELETE FROM local_bills");
+src/tests/integration/tipFlowIntegration.test.ts:68:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/integration/tipFlowIntegration.test.ts:69:    await localDb.execute("DELETE FROM local_orders");
+src/tests/integration/tipFlowIntegration.test.ts:70:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/integration/tipFlowIntegration.test.ts:71:    await localDb.execute("DELETE FROM local_tables");
+src/tests/integration/tipFlowIntegration.test.ts:74:    await localDb.execute(
+src/services/offlinePaymentService.ts:128:    return await localDb.transaction(async () => {
+src/services/offlinePaymentService.ts:387:    await localDb.execute(
+src/services/offlineCashCloseService.ts:68:    return localDb.transaction(async () => {
+src/services/offlineCashCloseService.ts:98:      await localDb.execute(
+src/services/sync/SyncEngine.ts:263:                await localDb.execute(
+src/services/sync/PullEngine.ts:179:    await localDb.execute(
+src/services/sync/PullEngine.ts:184:      await localDb.execute(
+src/services/sync/PullEngine.ts:196:    await localDb.execute(
+src/services/sync/PullEngine.ts:201:      await localDb.execute(
+src/services/sync/PullEngine.ts:249:          await localDb.execute(
+src/services/sync/PullEngine.ts:255:          await localDb.execute(
+src/services/sync/PullEngine.ts:269:          await localDb.execute(
+src/services/sync/PullEngine.ts:292:        await localDb.execute(
+src/services/sync/PullEngine.ts:311:    await localDb.execute(
+src/services/sync/PullEngine.ts:316:      await localDb.execute(
+src/services/sync/PullEngine.ts:331:        await localDb.execute("DELETE FROM local_categories WHERE uuid = ? AND company_id = ? AND branch_id = ?", [cat.uuid, companyId, branchId]);
+src/services/sync/PullEngine.ts:334:        await localDb.execute(
+src/services/sync/PullEngine.ts:348:        await localDb.execute("DELETE FROM local_products WHERE uuid = ? AND company_id = ? AND branch_id = ?", [prod.uuid, companyId, branchId]);
+src/services/sync/PullEngine.ts:350:        await localDb.execute(
+src/services/sync/PullEngine.ts:378:        await localDb.execute("DELETE FROM table_local_mutations WHERE table_uuid = ?", [table.uuid]);
+src/services/sync/PullEngine.ts:379:        await localDb.execute("DELETE FROM local_tables WHERE uuid = ?", [table.uuid]);
+src/services/sync/PullEngine.ts:392:            await localDb.execute(
+src/services/sync/PullEngine.ts:398:            await localDb.execute(
+src/services/sync/PullEngine.ts:410:            await localDb.execute(
+src/services/sync/PullEngine.ts:433:          await localDb.execute(
+src/services/sync/PullEngine.ts:455:        await localDb.execute("DELETE FROM local_payment_methods WHERE uuid = ? AND company_id = ? AND branch_id = ?", [method.uuid, companyId, branchId]);
+src/services/sync/PullEngine.ts:457:        await localDb.execute(
+src/services/sync/PullEngine.ts:467:    await localDb.execute(
+src/services/localTablesService.ts:216:    await localDb.execute(
+src/services/localTablesService.ts:224:    await localDb.execute(
+src/services/localTablesService.ts:252:      await localDb.execute(
+src/services/localTablesService.ts:258:      await localDb.execute(
+src/services/localTablesService.ts:283:    await localDb.execute(
+src/services/localTablesService.ts:305:    await localDb.execute(
+src/db/repositories/BillRepository.ts:72:    await localDb.execute(
+src/db/repositories/BillRepository.ts:198:    await localDb.execute(
+src/db/repositories/BillRepository.ts:225:    await localDb.execute(
+src/db/repositories/BillRepository.ts:247:    await localDb.execute(
+src/db/repositories/BillRepository.ts:259:    await localDb.execute(
+src/db/repositories/LocalPrintJobRepository.ts:67:    await localDb.execute(
+src/db/repositories/LocalPrintJobRepository.ts:149:        await localDb.execute(
+src/db/repositories/LocalPrintJobRepository.ts:179:    await localDb.execute(
+src/db/repositories/LocalPrintJobRepository.ts:196:    await localDb.execute(
+src/db/repositories/LocalPrintJobRepository.ts:220:      await localDb.execute(
+src/db/repositories/LocalPrintJobRepository.ts:230:      await localDb.execute(
+src/db/repositories/LocalPrintJobRepository.ts:247:    await localDb.execute(
+src/db/repositories/LocalPrintJobRepository.ts:297:    return await localDb.execute(
+src/db/repositories/LocalPrintJobRepository.ts:322:    await localDb.execute(
+src/db/repositories/PaymentRepository.ts:88:    await localDb.execute(
+src/db/repositories/PaymentRepository.ts:209:    await localDb.execute(
+src/db/repositories/PaymentRepository.ts:219:    await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:69:        const rowsAffected = await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:88:        const rowsAffected = await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:129:    const result = await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:144:    await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:233:    await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:251:          await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:259:    await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:273:      await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:282:      await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:291:    const result = await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:323:    await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:373:    await localDb.execute("DELETE FROM sync_queue WHERE id = ?", [id]);
+src/db/repositories/SyncQueueRepository.ts:380:    const result = await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:390:    await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:406:    const result = await localDb.execute(
+src/db/repositories/EventStore.ts:86:    await localDb.execute(
+src/db/repositories/EventStore.ts:162:    await localDb.execute(
+src/db/repositories/EventStore.ts:176:    await localDb.execute(
+src/db/repositories/PrinterConfigRepository.ts:138:      await localDb.execute(
+src/db/repositories/PrinterConfigRepository.ts:144:    await localDb.execute(
+src/db/repositories/PrinterConfigRepository.ts:183:      await localDb.execute(
+src/db/repositories/PrinterConfigRepository.ts:224:    await localDb.execute(
+src/db/repositories/PrinterConfigRepository.ts:247:    await localDb.execute(
+src/db/repositories/CashMovementRepository.ts:89:    await localDb.execute(
+src/db/repositories/CashMovementRepository.ts:231:    await localDb.execute(
+src/db/repositories/CashMovementRepository.ts:243:    await localDb.execute(
+src/db/repositories/OrderRepository.ts:99:    await localDb.transaction(async (db) => {
+src/db/repositories/OrderRepository.ts:198:    await localDb.transaction(async (db) => {
+src/db/repositories/OrderRepository.ts:283:    await localDb.execute(
+src/db/repositories/OrderRepository.ts:296:    await localDb.execute(
+src/db/repositories/OrderRepository.ts:363:    await localDb.execute("DELETE FROM local_orders WHERE local_uuid = ?", [orderLocalUuid]);
+src/db/repositories/OrderRepository.ts:370:    await localDb.execute(
+src/db/repositories/OrderRepository.ts:391:    await localDb.execute(
+src/db/repositories/OrderRepository.ts:421:    await localDb.transaction(async (db) => {
+src/db/repositories/CashSessionRepository.ts:41:    await localDb.execute(
+src/db/repositories/CashSessionRepository.ts:127:    await localDb.execute(
+src/db/repositories/CashSessionRepository.ts:163:    await localDb.execute(
+src/components/orders/OrderCartPanel.tsx:55:   * 3. NO llamar confirm() — SyncEngine hace DRAFT → items → UPDATE confirmed
+src/components/orders/OrdersSyncList.tsx:64:        "UPDATE local_orders SET sync_status = 'pending', sync_error = NULL WHERE local_uuid = ?",
+src/components/orders/OrdersSyncList.tsx:69:        `UPDATE sync_queue 
+src/components/orders/OrdersSyncList.tsx:90:        `UPDATE sync_queue 
+src/components/orders/OrdersSyncList.tsx:97:        `UPDATE local_orders 
+src/tests/repositories/PrinterConfigRepository.test.ts:32:    await localDb.execute("DELETE FROM printer_configs");
+src/tests/migration_011.test.ts:23:    await localDb.execute('DELETE FROM local_payments');
+src/tests/migration_011.test.ts:24:    await localDb.execute('DELETE FROM local_bills');
+src/tests/migration_011.test.ts:25:    await localDb.execute('DELETE FROM local_order_items');
+src/tests/migration_011.test.ts:26:    await localDb.execute('DELETE FROM local_orders');
+src/tests/recovery/timeoutRetry.test.ts:42:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/recovery/timeoutRetry.test.ts:43:    await localDb.execute("DELETE FROM local_payments");
+src/tests/recovery/timeoutRetry.test.ts:44:    await localDb.execute("DELETE FROM offline_events");
+src/tests/recovery/timeoutRetry.test.ts:45:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/recovery/timeoutRetry.test.ts:46:    await localDb.execute("DELETE FROM local_orders");
+src/tests/recovery/timeoutRetry.test.ts:47:    await localDb.execute("DELETE FROM sync_state");
+src/tests/recovery/timeoutRetry.test.ts:83:      "UPDATE sync_queue SET next_retry_at = ?",
+src/tests/recovery/timeoutRetry.test.ts:169:      "UPDATE sync_queue SET next_retry_at = ?",
+src/tests/recovery/appRestart.test.ts:48:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/recovery/appRestart.test.ts:49:    await localDb.execute("DELETE FROM local_payments");
+src/tests/recovery/appRestart.test.ts:50:    await localDb.execute("DELETE FROM offline_events");
+src/tests/recovery/appRestart.test.ts:51:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/recovery/appRestart.test.ts:52:    await localDb.execute("DELETE FROM local_orders");
+src/tests/recovery/appRestart.test.ts:53:    await localDb.execute("DELETE FROM sync_state");
+src/tests/recovery/reconnection.test.ts:38:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/recovery/reconnection.test.ts:39:    await localDb.execute("DELETE FROM local_payments");
+src/tests/recovery/reconnection.test.ts:40:    await localDb.execute("DELETE FROM offline_events");
+src/tests/recovery/reconnection.test.ts:41:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/recovery/reconnection.test.ts:42:    await localDb.execute("DELETE FROM local_orders");
+src/tests/recovery/reconnection.test.ts:43:    await localDb.execute("DELETE FROM sync_state");
+src/tests/recovery/doubleClick.test.ts:38:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/recovery/doubleClick.test.ts:39:    await localDb.execute("DELETE FROM local_payments");
+src/tests/recovery/doubleClick.test.ts:40:    await localDb.execute("DELETE FROM offline_events");
+src/tests/recovery/doubleClick.test.ts:41:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/recovery/doubleClick.test.ts:42:    await localDb.execute("DELETE FROM local_orders");
+src/tests/recovery/crashDuringSync.test.ts:46:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/recovery/crashDuringSync.test.ts:47:    await localDb.execute("DELETE FROM local_payments");
+src/tests/recovery/crashDuringSync.test.ts:48:    await localDb.execute("DELETE FROM offline_events");
+src/tests/recovery/crashDuringSync.test.ts:49:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/recovery/crashDuringSync.test.ts:50:    await localDb.execute("DELETE FROM local_orders");
+src/tests/recovery/crashDuringSync.test.ts:51:    await localDb.execute("DELETE FROM sync_state");
+src/tests/recovery/crashDuringSync.test.ts:92:      "UPDATE sync_queue SET next_retry_at = ?",
+src/tests/recovery/crashDuringSync.test.ts:201:      "UPDATE sync_queue SET next_retry_at = ?",
+src/tests/recovery/crashDuringSync.test.ts:212:      "UPDATE sync_queue SET next_retry_at = ?",
+src/tests/recovery/multiTerminal.test.ts:48:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/recovery/multiTerminal.test.ts:49:    await localDb.execute("DELETE FROM local_payments");
+src/tests/recovery/multiTerminal.test.ts:50:    await localDb.execute("DELETE FROM offline_events");
+src/tests/recovery/multiTerminal.test.ts:51:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/recovery/multiTerminal.test.ts:52:    await localDb.execute("DELETE FROM local_orders");
+src/tests/recovery/multiTerminal.test.ts:53:    await localDb.execute("DELETE FROM local_cash_movements");
+src/tests/recovery/multiTerminal.test.ts:54:    await localDb.execute("DELETE FROM local_cash_sessions");
+src/tests/recovery/multiTerminal.test.ts:55:    await localDb.execute("DELETE FROM sync_state");
+src/tests/services/syncEngine.cashMovement.test.ts:38:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/services/syncEngine.cashMovement.test.ts:39:    await localDb.execute("DELETE FROM local_cash_movements");
+src/tests/services/syncEngine.cashMovement.test.ts:40:    await localDb.execute("DELETE FROM local_cash_sessions");
+src/tests/services/multiTenantIsolation.test.ts:49:    await localDb.execute('DELETE FROM local_tables');
+src/tests/services/multiTenantIsolation.test.ts:50:    await localDb.execute('DELETE FROM table_local_mutations');
+src/tests/services/multiTenantIsolation.test.ts:51:    await localDb.execute('DELETE FROM local_products');
+src/tests/services/multiTenantIsolation.test.ts:52:    await localDb.execute('DELETE FROM local_categories');
+src/tests/services/multiTenantIsolation.test.ts:53:    await localDb.execute('DELETE FROM local_payment_methods');
+src/tests/services/multiTenantIsolation.test.ts:54:    await localDb.execute('DELETE FROM printer_configs');
+src/tests/services/multiTenantIsolation.test.ts:60:        `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status, company_id, branch_id)
+src/tests/services/multiTenantIsolation.test.ts:70:        `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status, company_id, branch_id)
+src/tests/services/multiTenantIsolation.test.ts:83:        `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status, company_id, branch_id)
+src/tests/services/multiTenantIsolation.test.ts:110:        `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status, company_id, branch_id)
+src/tests/services/multiTenantIsolation.test.ts:139:        `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status, company_id, branch_id)
+src/tests/services/multiTenantIsolation.test.ts:157:        `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status, company_id, branch_id)
+src/tests/services/multiTenantIsolation.test.ts:174:        `INSERT INTO local_products (uuid, name_translations, base_price, is_active, company_id, branch_id)
+src/tests/services/multiTenantIsolation.test.ts:184:        `INSERT INTO local_products (uuid, name_translations, base_price, is_active, company_id, branch_id)
+src/tests/services/multiTenantIsolation.test.ts:197:        `INSERT INTO local_categories (uuid, name_translations, sort_order, is_active, company_id, branch_id)
+src/tests/services/offlinePaymentService.cashAtomicity.test.ts:49:    await localDb.execute("DELETE FROM local_payments");
+src/tests/services/offlinePaymentService.cashAtomicity.test.ts:50:    await localDb.execute("DELETE FROM local_bills");
+src/tests/services/offlinePaymentService.cashAtomicity.test.ts:51:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/services/offlinePaymentService.cashAtomicity.test.ts:52:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/offlinePaymentService.cashAtomicity.test.ts:53:    await localDb.execute("DELETE FROM local_cash_movements");
+src/tests/services/offlinePaymentService.cashAtomicity.test.ts:54:    await localDb.execute("DELETE FROM local_cash_sessions");
+src/tests/services/offlinePaymentService.cashAtomicity.test.ts:55:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/services/syncEngine.multiTenant.test.ts:49:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/services/syncEngine.multiTenant.test.ts:50:    await localDb.execute("DELETE FROM local_payments");
+src/tests/services/syncEngine.multiTenant.test.ts:51:    await localDb.execute("DELETE FROM offline_events");
+src/tests/services/syncEngine.multiTenant.test.ts:52:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/services/syncEngine.multiTenant.test.ts:53:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/syncEngine.multiTenant.test.ts:77:        `INSERT INTO sync_queue (
+src/tests/services/syncEngine.multiTenant.test.ts:111:        `INSERT INTO sync_queue (
+src/tests/services/syncEngine.multiTenant.test.ts:142:        `INSERT INTO sync_queue (
+src/tests/services/syncEngine.multiTenant.test.ts:178:        `INSERT INTO sync_queue (
+src/tests/services/syncEngine.multiTenant.test.ts:211:        `INSERT INTO sync_queue (
+src/tests/services/syncEngine.multiTenant.test.ts:224:        `INSERT INTO sync_queue (
+src/tests/services/syncEngine.bill.test.ts:43:    `INSERT INTO local_orders (
+src/tests/services/syncEngine.bill.test.ts:69:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/services/syncEngine.bill.test.ts:70:    await localDb.execute("DELETE FROM local_bills");
+src/tests/services/syncEngine.bill.test.ts:71:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/services/syncEngine.bill.test.ts:72:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/offlinePaymentService.test.ts:28:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/services/offlinePaymentService.test.ts:29:    await localDb.execute("DELETE FROM local_payments");
+src/tests/services/offlinePaymentService.test.ts:30:    await localDb.execute("DELETE FROM local_bills");
+src/tests/services/offlinePaymentService.test.ts:31:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/services/offlinePaymentService.test.ts:32:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/offlinePaymentService.test.ts:33:    await localDb.execute("DELETE FROM local_tables");
+src/tests/services/offlinePaymentService.test.ts:34:    await localDb.execute("DELETE FROM table_local_mutations");
+src/tests/services/offlinePaymentService.test.ts:37:      `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status, company_id, branch_id)
+src/tests/services/offlinePaymentService.authContext.test.ts:37:    await localDb.execute("DELETE FROM local_payments");
+src/tests/services/offlinePaymentService.authContext.test.ts:38:    await localDb.execute("DELETE FROM local_bills");
+src/tests/services/offlinePaymentService.authContext.test.ts:39:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/services/offlinePaymentService.authContext.test.ts:40:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/offlinePaymentService.authContext.test.ts:41:    await localDb.execute("DELETE FROM local_cash_movements");
+src/tests/services/offlinePaymentService.authContext.test.ts:42:    await localDb.execute("DELETE FROM local_cash_sessions");
+src/tests/services/syncEngine.splitBillE2E.test.ts:40:    `INSERT INTO local_orders (
+src/tests/services/syncEngine.splitBillE2E.test.ts:74:    `INSERT INTO local_bills (
+src/tests/services/syncEngine.splitBillE2E.test.ts:138:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/services/syncEngine.splitBillE2E.test.ts:139:    await localDb.execute("DELETE FROM local_payments");
+src/tests/services/syncEngine.splitBillE2E.test.ts:140:    await localDb.execute("DELETE FROM local_bills");
+src/tests/services/syncEngine.splitBillE2E.test.ts:141:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/services/syncEngine.splitBillE2E.test.ts:142:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/syncEngine.splitBillE2E.test.ts:143:    await localDb.execute("DELETE FROM local_payment_methods");
+src/tests/services/syncEngine.test.ts:41:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/services/syncEngine.test.ts:42:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/services/syncEngine.test.ts:43:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/syncEngine.test.ts:131:      "UPDATE sync_queue SET attempts = 4 WHERE id = ?",
+src/tests/services/syncEngine.test.ts:191:      "UPDATE sync_queue SET attempts = 1, next_retry_at = ? WHERE id = ?",
+src/tests/services/syncEngine.addItem.test.ts:35:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/services/syncEngine.addItem.test.ts:36:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/services/syncEngine.addItem.test.ts:37:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/syncEngine.addItem.test.ts:50:      "UPDATE local_orders SET cloud_id = ?, sync_status = 'synced' WHERE local_uuid = ?",
+src/tests/services/syncEngine.addItem.test.ts:57:      `UPDATE sync_queue 
+src/tests/services/syncEngine.addItem.test.ts:109:      "UPDATE local_orders SET cloud_id = ?, sync_status = 'synced' WHERE local_uuid = ?",
+src/tests/services/syncEngine.addItem.test.ts:114:      `UPDATE sync_queue 
+src/tests/services/syncEngine.addItem.test.ts:145:      "UPDATE local_orders SET cloud_id = ?, sync_status = 'synced' WHERE local_uuid = ?",
+src/tests/services/syncEngine.addItem.test.ts:150:      `UPDATE sync_queue 
+src/tests/services/offlinePaymentService.splitBill.test.ts:33:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/services/offlinePaymentService.splitBill.test.ts:34:    await localDb.execute("DELETE FROM local_payments");
+src/tests/services/offlinePaymentService.splitBill.test.ts:35:    await localDb.execute("DELETE FROM local_bills");
+src/tests/services/offlinePaymentService.splitBill.test.ts:36:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/offlinePaymentService.splitBill.test.ts:156:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/services/offlinePaymentService.splitBill.test.ts:157:    await localDb.execute("DELETE FROM local_payments");
+src/tests/services/offlinePaymentService.splitBill.test.ts:158:    await localDb.execute("DELETE FROM local_bills");
+src/tests/services/offlinePaymentService.splitBill.test.ts:159:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/kitchenPrintService.test.ts:27:    await localDb.execute("DELETE FROM local_print_jobs");
+src/tests/services/kitchenPrintService.test.ts:28:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/services/kitchenPrintService.test.ts:29:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/kitchenPrintService.test.ts:30:    await localDb.execute("DELETE FROM local_tables");
+src/tests/services/kitchenPrintService.test.ts:34:      `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status, company_id, branch_id)
+src/tests/services/OfflinePrintEngine.test.ts:28:    await localDb.execute("DELETE FROM local_print_jobs");
+src/tests/services/OfflinePrintEngine.test.ts:142:        `UPDATE local_print_jobs 
+src/tests/services/offlineCashCloseService.test.ts:29:    await localDb.execute("DELETE FROM local_print_jobs");
+src/tests/services/offlineCashCloseService.test.ts:30:    await localDb.execute("DELETE FROM local_cash_movements");
+src/tests/services/offlineCashCloseService.test.ts:31:    await localDb.execute("DELETE FROM local_cash_sessions");
+src/tests/services/offlineCashCloseService.test.ts:55:        `UPDATE local_cash_sessions SET status = 'closed' WHERE local_uuid = ?`,
+src/tests/services/pullEngine.test.ts:26:    await localDb.execute("DELETE FROM local_categories");
+src/tests/services/pullEngine.test.ts:27:    await localDb.execute("DELETE FROM local_products");
+src/tests/services/pullEngine.test.ts:28:    await localDb.execute("DELETE FROM local_tables");
+src/tests/services/pullEngine.test.ts:29:    await localDb.execute("DELETE FROM local_payment_methods");
+src/tests/services/pullEngine.test.ts:30:    await localDb.execute("DELETE FROM sync_state");
+src/tests/services/pullEngine.test.ts:116:      `INSERT INTO local_products (uuid, name_translations, base_price, is_active, company_id, branch_id) 
+src/tests/services/pullEngine.test.ts:181:    await localDb.execute("DELETE FROM sync_state");
+src/tests/services/pullEngine.test.ts:187:      `INSERT INTO sync_state (key, value) VALUES ('last_pull_at', '2026-08-20T16:00:00Z')`
+src/tests/services/pullEngine.test.ts:231:      `INSERT INTO local_products (uuid, name_translations, base_price, is_active, company_id, branch_id) 
+src/tests/services/pullEngine.test.ts:237:      `INSERT INTO sync_state (key, value) VALUES ('last_pull_at', '2026-08-20T16:00:00Z')`
+src/tests/services/sync/SyncQueueAtomicClaim.test.ts:9: * porque usaban SELECT (getPending) seguido de UPDATE (markAsSyncing) en 
+src/tests/services/sync/SyncQueueAtomicClaim.test.ts:12: * La solución implementa UPDATE ... RETURNING en una sola operación atómica.
+src/tests/services/sync/SyncQueueAtomicClaim.test.ts:16:  it('SyncQueueRepository debería usar UPDATE ... RETURNING en claimPending', () => {
+src/tests/services/sync/SyncQueueAtomicClaim.test.ts:23:    // 2. Verificar que usa UPDATE con RETURNING (atomicidad garantizada por SQLite)
+src/tests/services/offlinePaymentService.printing.test.ts:27:    await localDb.execute("DELETE FROM local_print_jobs");
+src/tests/services/offlinePaymentService.printing.test.ts:28:    await localDb.execute("DELETE FROM local_payments");
+src/tests/services/offlinePaymentService.printing.test.ts:29:    await localDb.execute("DELETE FROM local_bills");
+src/tests/services/offlinePaymentService.printing.test.ts:30:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/services/offlinePaymentService.printing.test.ts:31:    await localDb.execute("DELETE FROM local_orders");
+src/tests/services/offlinePaymentService.printing.test.ts:32:    await localDb.execute("DELETE FROM local_tables");
+src/tests/services/offlinePaymentService.printing.test.ts:36:      `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status, company_id, branch_id)
+src/tests/services/paymentsService.retry.test.ts:17:    await localDb.execute('DELETE FROM local_cash_sessions');
+src/tests/services/paymentsService.retry.test.ts:18:    await localDb.execute('DELETE FROM sync_queue');
+src/tests/services/SyncEngine.cashSession.test.ts:23:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/services/SyncEngine.cashSession.test.ts:24:    await localDb.execute("DELETE FROM local_cash_sessions");
+src/tests/db/localDb.test.ts:50:      "INSERT INTO test_items (local_uuid, name, value) VALUES (?, ?, ?)",
+src/tests/db/localDb.test.ts:63:    await localDb.execute("DELETE FROM test_items WHERE local_uuid = ?", [
+src/tests/db/localDb.test.ts:76:      await db.execute("INSERT INTO tx_test (local_uuid) VALUES (?)", [
+src/tests/db/eventSourcing.test.ts:27:    await localDb.execute("DELETE FROM offline_events");
+src/tests/db/eventSourcing.test.ts:28:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/db/eventSourcing.test.ts:29:    await localDb.execute("DELETE FROM local_cash_movements");
+src/tests/db/eventSourcing.test.ts:30:    await localDb.execute("DELETE FROM local_cash_sessions");
+src/tests/db/eventSourcing.test.ts:31:    await localDb.execute("DELETE FROM local_payments");
+src/tests/db/eventSourcing.test.ts:213:    it("NO debería permitir UPDATE directo en offline_events", async () => {
+src/tests/db/eventSourcing.test.ts:224:      // Intentar UPDATE directo (debería fallar o ser ignorado a nivel aplicación)
+src/tests/db/eventSourcing.test.ts:227:        "UPDATE offline_events SET payload = ? WHERE event_uuid = ?",
+src/tests/db/eventSourcing.test.ts:235:      // El UPDATE funcionó en SQLite, pero la convención es no hacerlo
+src/tests/db/eventSourcing.test.ts:253:        "DELETE FROM offline_events WHERE event_uuid = ?",
+src/tests/db/cashMovementRepository.test.ts:27:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/db/cashMovementRepository.test.ts:28:    await localDb.execute("DELETE FROM local_cash_movements");
+src/tests/db/cashMovementRepository.test.ts:29:    await localDb.execute("DELETE FROM local_cash_sessions");
+src/tests/db/cashMovementRepository.test.ts:264:      await localDb.execute("DELETE FROM local_cash_movements");
+src/tests/db/repositories.test.ts:28:    await localDb.execute("DELETE FROM table_local_mutations");
+src/tests/db/repositories.test.ts:29:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/db/repositories.test.ts:30:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/db/repositories.test.ts:31:    await localDb.execute("DELETE FROM local_payments");
+src/tests/db/repositories.test.ts:32:    await localDb.execute("DELETE FROM local_bills");
+src/tests/db/repositories.test.ts:33:    await localDb.execute("DELETE FROM local_orders");
+src/tests/db/repositories.test.ts:34:    await localDb.execute("DELETE FROM local_tables");
+src/tests/db/repositories.test.ts:38:      `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status, company_id, branch_id)
+src/tests/db/repositories.test.ts:42:      `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status, company_id, branch_id)
+src/tests/db/OrderRepository.money.test.ts:20:    await localDb.execute('DELETE FROM local_order_items');
+src/tests/db/OrderRepository.money.test.ts:21:    await localDb.execute('DELETE FROM local_orders');
+src/tests/db/migration.money.test.ts:44:    await localDb.execute('DELETE FROM local_orders');
+src/tests/db/migration.money.test.ts:45:    await localDb.execute('DELETE FROM local_order_items');
+src/tests/db/migration.money.test.ts:46:    await localDb.execute('DELETE FROM local_payments');
+src/tests/db/migration.money.test.ts:47:    await localDb.execute('DELETE FROM local_cash_sessions');
+src/tests/db/migration.money.test.ts:48:    await localDb.execute('DELETE FROM local_bills');
+src/tests/db/migration.money.test.ts:49:    await localDb.execute('DELETE FROM local_cash_movements');
+src/tests/db/migration.money.test.ts:50:    await localDb.execute('DELETE FROM local_products');
+src/tests/db/migration.money.test.ts:56:        INSERT INTO local_orders (
+src/tests/db/migration.money.test.ts:81:        INSERT INTO local_orders (local_uuid, order_number, company_id, branch_id, order_type, status, subtotal, grand_total, idempotency_key, sync_status)
+src/tests/db/migration.money.test.ts:86:        INSERT INTO local_order_items (local_uuid, order_local_uuid, product_id, product_name, quantity, unit_price, subtotal, kitchen_status)
+src/tests/db/migration.money.test.ts:101:        INSERT INTO local_orders (local_uuid, order_number, company_id, branch_id, order_type, status, subtotal, grand_total, idempotency_key, sync_status)
+src/tests/db/migration.money.test.ts:106:        INSERT INTO local_payments (local_uuid, company_id, branch_id, order_local_uuid, payment_method, amount, sale_amount, tip_amount, idempotency_key, status, sync_status)
+src/tests/db/migration.money.test.ts:121:        INSERT INTO local_cash_sessions (local_uuid, company_id, branch_id, user_id, status, opening_amount, sync_status)
+src/tests/db/migration.money.test.ts:135:        INSERT INTO local_orders (local_uuid, order_number, company_id, branch_id, order_type, status, subtotal, grand_total, idempotency_key, sync_status)
+src/tests/db/migration.money.test.ts:140:        INSERT INTO local_bills (
+src/tests/db/migration.money.test.ts:170:        INSERT INTO local_cash_sessions (local_uuid, company_id, branch_id, user_id, status, opening_amount, sync_status)
+src/tests/db/migration.money.test.ts:176:        INSERT INTO local_cash_movements (local_uuid, company_id, branch_id, cash_session_local_uuid, user_id, type, amount, balance_after, idempotency_key, sync_status)
+src/tests/db/migration.money.test.ts:194:        INSERT INTO local_products (uuid, name_translations, base_price, tax_rate, company_id, branch_id)
+src/tests/db/migration.money.test.ts:221:        INSERT INTO local_orders (local_uuid, order_number, company_id, branch_id, order_type, status, subtotal, grand_total, idempotency_key, sync_status)
+src/tests/db/localPrintJobRepository.test.ts:24:    await localDb.execute("DELETE FROM local_print_jobs");
+src/tests/db/localPrintJobRepository.test.ts:163:        "UPDATE local_print_jobs SET attempts = 5 WHERE local_uuid = ?",
+src/tests/db/cashSessionRepository.test.ts:23:    await localDb.execute("DELETE FROM local_cash_movements");
+src/tests/db/cashSessionRepository.test.ts:24:    await localDb.execute("DELETE FROM local_cash_sessions");
+src/tests/db/migration.015.billLink.test.ts:34:    await localDb.execute('DELETE FROM local_payments');
+src/tests/db/migration.015.billLink.test.ts:35:    await localDb.execute('DELETE FROM local_bills');
+src/tests/db/migration.015.billLink.test.ts:36:    await localDb.execute('DELETE FROM local_orders');
+src/tests/db/migration.015.billLink.test.ts:49:      INSERT INTO local_orders (
+src/tests/db/migration.015.billLink.test.ts:57:      INSERT INTO local_payments (
+src/tests/db/migration.015.billLink.test.ts:75:      INSERT INTO local_orders (
+src/tests/db/migration.015.billLink.test.ts:83:      INSERT INTO local_bills (
+src/tests/db/migration.015.billLink.test.ts:91:      INSERT INTO local_payments (
+src/tests/db/migration.015.billLink.test.ts:109:      INSERT INTO local_orders (
+src/tests/db/migration.015.billLink.test.ts:117:      INSERT INTO local_bills (
+src/tests/db/migration.015.billLink.test.ts:125:      INSERT INTO local_bills (
+src/tests/db/migration.015.billLink.test.ts:134:      INSERT INTO local_payments (
+src/tests/db/migration.015.billLink.test.ts:144:      INSERT INTO local_payments (
+src/tests/db/migrations/017_enforce_integer_money.test.ts:62:    await localDb.execute("DELETE FROM migrations WHERE version = '017'");
+src/tests/db/migrations/017_enforce_integer_money.test.ts:73:    await localDb.execute("INSERT INTO local_orders (local_uuid, subtotal, grand_total) VALUES ('order-1', 10000, 10000)");
+src/tests/db/migrations/017_enforce_integer_money.test.ts:87:        // Para otros errores, verificar si es un UPDATE en tabla inexistente
+src/tests/db/migrations/017_enforce_integer_money.test.ts:108:    await localDb.execute("INSERT INTO local_orders (local_uuid, subtotal, grand_total) VALUES ('order-2', 10000.50, 10000.50)");
+src/tests/db/orderAtomicity.test.ts:24:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/db/orderAtomicity.test.ts:25:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/db/orderAtomicity.test.ts:26:    await localDb.execute("DELETE FROM local_orders");
+src/tests/db/orderAtomicity.test.ts:27:    await localDb.execute("DELETE FROM local_tables");
+src/tests/db/orderAtomicity.test.ts:28:    await localDb.execute("DELETE FROM table_local_mutations");
+src/tests/db/orderAtomicity.test.ts:53:      `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status, company_id, branch_id)
+src/tests/mocks/tauriSql.ts:7: *   - Semántica POSICIONAL de "INSERT INTO x SELECT * FROM y" cuando cambia
+src/tests/integration/tipFlowIntegration.test.ts:66:    await localDb.execute("DELETE FROM local_payments");
+src/tests/integration/tipFlowIntegration.test.ts:67:    await localDb.execute("DELETE FROM local_bills");
+src/tests/integration/tipFlowIntegration.test.ts:68:    await localDb.execute("DELETE FROM local_order_items");
+src/tests/integration/tipFlowIntegration.test.ts:69:    await localDb.execute("DELETE FROM local_orders");
+src/tests/integration/tipFlowIntegration.test.ts:70:    await localDb.execute("DELETE FROM sync_queue");
+src/tests/integration/tipFlowIntegration.test.ts:71:    await localDb.execute("DELETE FROM local_tables");
+src/tests/integration/tipFlowIntegration.test.ts:75:      `INSERT INTO local_tables (uuid, table_number, area_name, capacity, status, company_id, branch_id)
+src/services/offlinePaymentService.ts:388:      `UPDATE local_tables 
+src/services/offlineCashCloseService.ts:99:        `UPDATE local_cash_sessions 
+src/services/sync/SyncEngine.ts:264:                  "DELETE FROM table_local_mutations WHERE table_uuid = ? AND pending_status = 'occupied'",
+src/services/sync/PullEngine.ts:180:      "DELETE FROM local_categories WHERE company_id = ? AND branch_id = ?",
+src/services/sync/PullEngine.ts:197:      "DELETE FROM local_products WHERE company_id = ? AND branch_id = ?",
+src/services/sync/PullEngine.ts:250:            "DELETE FROM table_local_mutations WHERE table_uuid = ?",
+src/services/sync/PullEngine.ts:312:      "DELETE FROM local_payment_methods WHERE company_id = ? AND branch_id = ?",
+src/services/sync/PullEngine.ts:331:        await localDb.execute("DELETE FROM local_categories WHERE uuid = ? AND company_id = ? AND branch_id = ?", [cat.uuid, companyId, branchId]);
+src/services/sync/PullEngine.ts:348:        await localDb.execute("DELETE FROM local_products WHERE uuid = ? AND company_id = ? AND branch_id = ?", [prod.uuid, companyId, branchId]);
+src/services/sync/PullEngine.ts:378:        await localDb.execute("DELETE FROM table_local_mutations WHERE table_uuid = ?", [table.uuid]);
+src/services/sync/PullEngine.ts:379:        await localDb.execute("DELETE FROM local_tables WHERE uuid = ?", [table.uuid]);
+src/services/sync/PullEngine.ts:393:              "DELETE FROM table_local_mutations WHERE table_uuid = ?",
+src/services/sync/PullEngine.ts:455:        await localDb.execute("DELETE FROM local_payment_methods WHERE uuid = ? AND company_id = ? AND branch_id = ?", [method.uuid, companyId, branchId]);
+src/services/localTablesService.ts:225:      `UPDATE local_tables
+src/services/localTablesService.ts:253:        "DELETE FROM table_local_mutations WHERE table_uuid = ? AND company_id = ? AND branch_id = ?",
+src/services/localTablesService.ts:259:        `UPDATE local_tables
+src/services/localTablesService.ts:284:      "DELETE FROM table_local_mutations WHERE table_uuid = ? AND company_id = ? AND branch_id = ?",
+src/services/localTablesService.ts:306:      "DELETE FROM table_local_mutations WHERE company_id = ? AND branch_id = ?",
+src/db/repositories/BillRepository.ts:73:      `INSERT INTO local_bills (
+src/db/repositories/BillRepository.ts:199:      `UPDATE local_bills
+src/db/repositories/BillRepository.ts:226:      `UPDATE local_bills
+src/db/repositories/BillRepository.ts:248:      `UPDATE local_bills
+src/db/repositories/BillRepository.ts:260:      `UPDATE local_bills
+src/db/repositories/LocalPrintJobRepository.ts:68:      `INSERT INTO local_print_jobs (
+src/db/repositories/LocalPrintJobRepository.ts:150:          `UPDATE local_print_jobs 
+src/db/repositories/LocalPrintJobRepository.ts:180:      `UPDATE local_print_jobs 
+src/db/repositories/LocalPrintJobRepository.ts:197:      `UPDATE local_print_jobs 
+src/db/repositories/LocalPrintJobRepository.ts:221:        `UPDATE local_print_jobs 
+src/db/repositories/LocalPrintJobRepository.ts:231:        `UPDATE local_print_jobs 
+src/db/repositories/LocalPrintJobRepository.ts:248:      `UPDATE local_print_jobs 
+src/db/repositories/LocalPrintJobRepository.ts:298:      `DELETE FROM local_print_jobs 
+src/db/repositories/LocalPrintJobRepository.ts:323:      "DELETE FROM local_print_jobs WHERE local_uuid = ?",
+src/db/repositories/PaymentRepository.ts:89:      `INSERT INTO local_payments (
+src/db/repositories/PaymentRepository.ts:210:      `UPDATE local_payments SET cloud_id = ?, sync_status = 'synced' WHERE local_uuid = ?`,
+src/db/repositories/PaymentRepository.ts:220:      "UPDATE local_payments SET sync_status = 'failed', sync_error = ? WHERE local_uuid = ?",
+src/db/repositories/PaymentRepository.ts:229:   * NO hace UPDATE en local_payments.
+src/db/repositories/SyncQueueRepository.ts:68:        // UPDATE atómico: solo si sigue en 'syncing' (previene TOCTOU)
+src/db/repositories/SyncQueueRepository.ts:70:          `UPDATE sync_queue 
+src/db/repositories/SyncQueueRepository.ts:87:        // UPDATE atómico: solo si sigue en 'syncing' (previene TOCTOU)
+src/db/repositories/SyncQueueRepository.ts:89:          `UPDATE sync_queue 
+src/db/repositories/SyncQueueRepository.ts:130:      `UPDATE sync_queue 
+src/db/repositories/SyncQueueRepository.ts:145:      `INSERT INTO sync_queue (
+src/db/repositories/SyncQueueRepository.ts:208:    // Paso 2: Claim atómico con UPDATE ... RETURNING
+src/db/repositories/SyncQueueRepository.ts:209:    // La subconsulta limita el número de filas, y el UPDATE las marca como 'syncing'
+src/db/repositories/SyncQueueRepository.ts:212:      UPDATE sync_queue 
+src/db/repositories/SyncQueueRepository.ts:234:      `UPDATE sync_queue SET sync_status = 'syncing', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND sync_status = 'pending'`,
+src/db/repositories/SyncQueueRepository.ts:252:            `UPDATE ${table} SET cloud_id = ?, sync_status = 'synced' WHERE local_uuid = ?`,
+src/db/repositories/SyncQueueRepository.ts:260:      `UPDATE sync_queue SET sync_status = 'synced', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+src/db/repositories/SyncQueueRepository.ts:274:        `UPDATE sync_queue SET sync_status = 'failed', attempts = ?, last_error = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+src/db/repositories/SyncQueueRepository.ts:283:        `UPDATE sync_queue SET sync_status = 'pending', attempts = ?, last_error = ?, next_retry_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+src/db/repositories/SyncQueueRepository.ts:292:      `DELETE FROM sync_queue WHERE sync_status = 'synced' AND updated_at < ?`,
+src/db/repositories/SyncQueueRepository.ts:324:      `UPDATE sync_queue 
+src/db/repositories/SyncQueueRepository.ts:373:    await localDb.execute("DELETE FROM sync_queue WHERE id = ?", [id]);
+src/db/repositories/SyncQueueRepository.ts:381:      "DELETE FROM sync_queue WHERE sync_status = 'failed'"
+src/db/repositories/SyncQueueRepository.ts:391:      `UPDATE sync_queue 
+src/db/repositories/SyncQueueRepository.ts:407:      `UPDATE sync_queue 
+src/db/repositories/EventStore.ts:73: * 3. Solo se permite UPDATE para sync_status y cloud_event_id
+src/db/repositories/EventStore.ts:87:      `INSERT INTO offline_events (
+src/db/repositories/EventStore.ts:159:   * IMPORTANTE: Este es el ÚNICO UPDATE permitido en la tabla.
+src/db/repositories/EventStore.ts:163:      `UPDATE offline_events 
+src/db/repositories/EventStore.ts:173:   * IMPORTANTE: Este es el ÚNICO UPDATE permitido en la tabla.
+src/db/repositories/EventStore.ts:177:      `UPDATE offline_events 
+src/db/repositories/PrinterConfigRepository.ts:139:        "UPDATE printer_configs SET is_default = 0 WHERE printer_type = ? AND company_id = ? AND branch_id = ?",
+src/db/repositories/PrinterConfigRepository.ts:145:      `INSERT INTO printer_configs (
+src/db/repositories/PrinterConfigRepository.ts:184:        "UPDATE printer_configs SET is_default = 0 WHERE printer_type = ? AND local_uuid != ? AND company_id = ? AND branch_id = ?",
+src/db/repositories/PrinterConfigRepository.ts:225:      `UPDATE printer_configs SET ${updates.join(", ")} WHERE local_uuid = ? AND company_id = ? AND branch_id = ?`,
+src/db/repositories/PrinterConfigRepository.ts:248:      "DELETE FROM printer_configs WHERE local_uuid = ? AND company_id = ? AND branch_id = ?",
+src/db/repositories/CashMovementRepository.ts:90:      `INSERT INTO local_cash_movements (
+src/db/repositories/CashMovementRepository.ts:232:      `UPDATE local_cash_movements 
+src/db/repositories/CashMovementRepository.ts:244:      `UPDATE local_cash_movements 
+src/db/repositories/OrderRepository.ts:103:        `INSERT INTO local_orders (
+src/db/repositories/OrderRepository.ts:201:        `INSERT INTO local_order_items (
+src/db/repositories/OrderRepository.ts:267:      `UPDATE local_orders 
+src/db/repositories/OrderRepository.ts:284:      `UPDATE local_orders SET tip_amount = ?, updated_at = CURRENT_TIMESTAMP WHERE local_uuid = ?`,
+src/db/repositories/OrderRepository.ts:297:      `UPDATE local_orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE local_uuid = ?`,
+src/db/repositories/OrderRepository.ts:363:    await localDb.execute("DELETE FROM local_orders WHERE local_uuid = ?", [orderLocalUuid]);
+src/db/repositories/OrderRepository.ts:371:      `UPDATE local_orders SET cloud_id = ?, sync_status = 'synced', updated_at = CURRENT_TIMESTAMP WHERE local_uuid = ?`,
+src/db/repositories/OrderRepository.ts:392:      "UPDATE local_orders SET sync_status = 'failed', sync_error = ?, updated_at = CURRENT_TIMESTAMP WHERE local_uuid = ?",
+src/db/repositories/OrderRepository.ts:424:        `INSERT INTO local_orders (
+src/db/repositories/OrderRepository.ts:447:          `INSERT INTO local_order_items (
+src/db/repositories/OrderRepository.ts:475:        `INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid, action, payload)
+src/db/repositories/CashSessionRepository.ts:42:      `INSERT INTO local_cash_sessions 
+src/db/repositories/CashSessionRepository.ts:128:      `UPDATE local_cash_sessions 
+src/db/repositories/CashSessionRepository.ts:164:      `UPDATE local_cash_sessions 
+src/db/repositories/PrinterConfigRepository.ts:58: *   await PrinterConfigRepository.create({ printer_type: "receipt", name: "Caja 1", ip: "192.168.1.100" });
+src/db/repositories/PrinterConfigRepository.ts:269:      created_at: row.created_at,
+src/db/repositories/PrinterConfigRepository.ts:270:      updated_at: row.updated_at,
+src/services/offlinePaymentService.ts:174:          await OrderRepository.updateTipAmount(orderLocalUuid, effectiveTipAmount);
+src/services/offlinePaymentService.ts:187:        bill = await BillRepository.create({
+src/services/offlinePaymentService.ts:233:      const payment = await PaymentRepository.create({
+src/services/offlinePaymentService.ts:301:        await OrderRepository.updateStatus(order.local_uuid, "paid");
+src/services/offlinePaymentService.ts:345:            await LocalPrintJobRepository.create({
+src/services/offlinePaymentService.ts:436:    return await CashMovementRepository.create(cashSessionLocalUuid, {
+src/services/capabilitiesService.ts:50:    return this.update(companyUuid, { [key]: enabled });
+src/services/menuAdminService.ts:126:    await apiClient.delete(`/catalog/menus/${uuid}`);
+src/services/recipeService.ts:143:    await apiClient.delete(`/recipes/${recipeUuid}`);
+src/services/paymentsService.ts:111:              await CashSessionRepository.create({
+src/services/paymentsService.ts:184:        await CashSessionRepository.create({
+src/services/tipService.ts:49:    await apiClient.delete(`/cashier/tip-payouts/${uuid}`);
+src/services/offlineCashCloseService.ts:172:            createdAt: new Date(m.created_at),
+src/services/offlineCashCloseService.ts:192:      const printJobUuid = await LocalPrintJobRepository.create({
+src/services/syncApi.ts:112:    const response = await apiClient.delete(`/orders/${orderUuid}/items/${itemUuid}`, {
+src/services/syncApi.ts:119:    await apiClient.delete(`/orders/${uuid}`, {
+src/services/priceListService.ts:103:    await apiClient.delete(`/catalog/price-lists/${uuid}`);
+src/services/priceListService.ts:138:    await apiClient.delete(
+src/services/authContext.ts:15: *   await OrderRepository.create({ ...ctx, order_type: "dine_in" });
+src/services/authContext.ts:149: *   await OrderRepository.create(payload);
+src/services/authContext.ts:217: *   await CashSessionRepository.create({ ...ctx, opening_amount: 100 });
+src/services/apiClient.ts:8:const apiClient = axios.create({
+src/services/ordersService.ts:60:    await apiClient.delete(`/orders/${orderUuid}`);
+src/services/secureStorage.ts:126:      await store.delete(key);
+src/services/secureStorage.ts:162:  syncCache.delete(key);
+src/services/localPaymentsService.ts:152:      const dates = tableOrders.map(o => o.created_at).sort();
+src/services/kitchenPrintService.ts:64:      createdAt: new Date(order.created_at),
+src/services/kitchenPrintService.ts:77:    const printJobUuid = await LocalPrintJobRepository.create({
+src/services/catalogAdminService.ts:83:    await apiClient.delete(`/catalog/categories/${uuid}`);
+src/services/catalogAdminService.ts:135:    await apiClient.delete(`/catalog/products/${uuid}`);
+src/services/printing/ticketFormatters.ts:125:  builder.leftRight("Fecha:", formatDateTime(data.createdAt));
+src/services/printing/ticketFormatters.ts:196:  builder.line(formatDateTime(data.createdAt));
+src/services/printing/ticketFormatters.ts:245:  builder.leftRight("Fecha:", formatDateTime(data.createdAt));
+src/services/sync/SyncEngine.ts:60:          store.updateProgress({
+src/services/sync/SyncEngine.ts:94:      store.updateProgress({
+src/services/sync/SyncEngine.ts:192:        const response = await syncApi.createOrder({
+src/services/sync/SyncEngine.ts:355:        await syncApi.updateOrder(order.cloud_id, payload, item.id);
+src/services/sync/SyncEngine.ts:364:        await syncApi.deleteOrder(cloudId, item.id);
+src/services/sync/SyncEngine.ts:421:    const response = await syncApi.createPayment(paymentPayload);
+src/services/sync/SyncEngine.ts:484:    const response = await syncApi.createBill(billPayload);
+src/services/sync/SyncEngine.ts:500:    await syncApi.updateTableStatus(item.entity_local_uuid, payload.status);
+src/services/sync/SyncEngine.ts:561:    const response = await syncApi.createMovement(movementPayload);
+src/services/sync/SyncEngine.ts:638:      store.updateProgress({
+src/services/sync/SyncEngine.ts:644:      store.updateProgress({
+src/services/sync/PullEngine.ts:69:    store.updateProgress({
+src/services/sync/PullEngine.ts:78:    store.updateProgress({
+src/services/sync/PullEngine.ts:98:    await this.updatePullTimestamp(timestamp);
+src/services/sync/PullEngine.ts:100:    store.updateProgress({
+src/services/sync/PullEngine.ts:129:    store.updateProgress({
+src/services/sync/PullEngine.ts:136:    store.updateProgress({ percentage: 25 });
+src/services/sync/PullEngine.ts:147:    store.updateProgress({
+src/services/sync/PullEngine.ts:165:    await this.updatePullTimestamp(new Date().toISOString());
+src/services/sync/PullEngine.ts:187:        [cat.uuid, cat.id, JSON.stringify(cat.name_translations), cat.sort_order || 0, cat.is_active ? 1 : 0, cat.updated_at, companyId, branchId]
+src/services/sync/PullEngine.ts:206:         prod.base_price, prod.tax_rate, prod.is_combo ? 1 : 0, prod.kitchen_zone_id, prod.is_active ? 1 : 0, prod.updated_at, companyId, branchId]
+src/services/sync/PullEngine.ts:259:            [table.uuid, table.table_number, table.area_name, table.capacity, table.status, table.current_order_uuid, table.updated_at, companyId, branchId]
+src/services/sync/PullEngine.ts:280:              table.updated_at,
+src/services/sync/PullEngine.ts:296:          [table.uuid, table.table_number, table.area_name, table.capacity, table.status, table.current_order_uuid, table.updated_at, companyId, branchId]
+src/services/sync/PullEngine.ts:319:        [method.uuid, method.code, method.type, method.is_active ? 1 : 0, method.updated_at, companyId, branchId]
+src/services/sync/PullEngine.ts:329:      if (cat.deleted) {
+src/services/sync/PullEngine.ts:337:          [cat.uuid, cat.id, JSON.stringify(cat.name_translations), cat.sort_order || 0, cat.is_active ? 1 : 0, cat.updated_at, companyId, branchId]
+src/services/sync/PullEngine.ts:347:      if (prod.deleted) {
+src/services/sync/PullEngine.ts:355:           prod.base_price, prod.tax_rate, prod.is_combo ? 1 : 0, prod.kitchen_zone_id, prod.is_active ? 1 : 0, prod.updated_at, companyId, branchId]
+src/services/sync/PullEngine.ts:375:      if (table.deleted) {
+src/services/sync/PullEngine.ts:380:        incrementalStats.deleted++;
+src/services/sync/PullEngine.ts:402:              [table.uuid, table.table_number, table.area_name, table.capacity, table.status, table.current_order_uuid, table.updated_at, companyId, branchId]
+src/services/sync/PullEngine.ts:421:                table.updated_at,
+src/services/sync/PullEngine.ts:437:            [table.uuid, table.table_number, table.area_name, table.capacity, table.status, table.current_order_uuid, table.updated_at, companyId, branchId]
+src/services/sync/PullEngine.ts:444:    const total = incrementalStats.cloud + incrementalStats.preserved + incrementalStats.reconciled + incrementalStats.deleted;
+src/services/sync/PullEngine.ts:446:      console.log(`[PullEngine] 📊 Mesas incrementales: ${incrementalStats.cloud} cloud, ${incrementalStats.preserved} preservadas, ${incrementalStats.reconciled} reconciliadas, ${incrementalStats.deleted} eliminadas`);
+src/services/sync/PullEngine.ts:454:      if (method.deleted) {
+src/services/sync/PullEngine.ts:460:          [method.uuid, method.code, method.type, method.is_active ? 1 : 0, method.updated_at, companyId, branchId]
+src/services/comboService.ts:77:    const response = await apiClient.delete(

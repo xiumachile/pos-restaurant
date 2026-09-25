@@ -1,119 +1,57 @@
 import Database from "@tauri-apps/plugin-sql";
+import { writeMutex } from "./writeMutex";
 
-
-// Mutex simple para serializar escrituras en SQLite y prevenir "database is locked"
-class WriteMutex {
-  private queue: Promise<void> = Promise.resolve();
-
-  async acquire(): Promise<() => void> {
-    let release!: () => void;
-    const nextPromise = new Promise<void>(resolve => {
-      release = resolve;
-    });
-    
-    const currentQueue = this.queue;
-    this.queue = currentQueue.then(() => nextPromise).catch(() => nextPromise);
-    
-    await currentQueue;
-    return release;
-  }
-}
-
-const writeMutex = new WriteMutex();
-
-/**
- * Wrapper type-safe sobre el plugin SQL de Tauri.
- * Proporciona acceso a la base de datos SQLite local con WAL mode.
- */
-class LocalDatabase {
+export class LocalDatabase {
   private db: Database | null = null;
   private initPromise: Promise<Database> | null = null;
 
-  /**
-   * Obtiene la instancia de la base de datos (singleton).
-   * La primera vez que se llama, inicializa la DB y aplica WAL mode.
-   */
-  async getConnection(): Promise<Database> {
+  async initialize(): Promise<Database> {
     if (this.db) return this.db;
-
-    if (!this.initPromise) {
-      this.initPromise = this.initialize();
-    }
-
-    return this.initPromise;
-  }
-
-  private async initialize(): Promise<Database> {
-    console.log("[LocalDB] Inicializando base de datos SQLite...");
-
-    // Cargar/crear la base de datos
+    
     const db = await Database.load("sqlite:pos_local.db");
-
-    // Configurar WAL mode para concurrencia
-    await db.execute('PRAGMA busy_timeout = 5000;');
-    await db.execute("PRAGMA journal_mode=WAL;");
-    await db.execute("PRAGMA synchronous=NORMAL;");
-    await db.execute("PRAGMA foreign_keys=ON;");
-
-    console.log("[LocalDB] SQLite configurado con WAL mode");
-
+    
+    await db.execute("PRAGMA journal_mode = WAL;");
+    await db.execute("PRAGMA busy_timeout = 5000;");
+    await db.execute("PRAGMA synchronous = NORMAL;");
+    await db.execute("PRAGMA foreign_keys = ON;");
+    
     this.db = db;
+    console.log("[LocalDB] SQLite configurado con WAL y busy_timeout");
     return db;
   }
 
-  /**
-   * Ejecuta una consulta que modifica datos (INSERT, UPDATE, DELETE).
-   * Retorna el número de filas afectadas.
-   */
-  async execute(query: string, params?: unknown[]): Promise<number> {
-    const db = await this.getConnection();
-    const result = await db.execute(query, params as any);
-    // El plugin retorna QueryResult con rowsAffected
-    return (result as any)?.rowsAffected ?? 0;
+  async getConnection(): Promise<Database> {
+    if (!this.db) {
+      if (!this.initPromise) {
+        this.initPromise = this.initialize();
+      }
+      this.db = await this.initPromise;
+    }
+    return this.db;
   }
 
-  /**
-   * Ejecuta una consulta SELECT y retorna los resultados.
-   */
+  async execute(query: string, params?: unknown[]): Promise<any> {
+    const db = await this.getConnection();
+    
+    // Detectar escrituras y serializarlas con mutex
+    const isWrite = /\b(INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|BEGIN|COMMIT|ROLLBACK)\b/i.test(query);
+    
+    if (isWrite) {
+      const release = await writeMutex.lock();
+      try {
+        return await db.execute(query, params as any);
+      } finally {
+        release();
+      }
+    }
+    
+    return await db.execute(query, params as any);
+  }
+
   async select<T = any>(query: string, params?: unknown[]): Promise<T[]> {
     const db = await this.getConnection();
-    const results = await db.select<T>(query, params as any);
-    // select retorna T[] directamente
-    return (results ?? []) as T[];
-  }
-
-  /**
-   * Ejecuta una consulta SELECT y retorna el primer resultado.
-   */
-  async selectOne<T = any>(query: string, params?: unknown[]): Promise<T | null> {
-    const results = await this.select<T>(query, params);
-    return results.length > 0 ? results[0] : null;
-  }
-
-  /**
-   * Ejecuta múltiples queries en una transacción.
-   * Si alguna falla, hace rollback de todas.
-   */
-  /**
-   * @deprecated Usa localWriteCoordinator.run() en su lugar para garantizar la serialización de escrituras.
-   */
-  async transaction<T>(fn: (db: Database) => Promise<T>): Promise<T> {
-    console.warn("[LocalDB] ⚠️ localDb.transaction está obsoleto. Usa localWriteCoordinator.run().");
-    const { localWriteCoordinator } = await import("./LocalWriteCoordinator");
-    return localWriteCoordinator.run(fn);
-  }
-
-  /**
-   * Cierra la conexión (útil para limpieza).
-   */
-  async close(): Promise<void> {
-    if (this.db) {
-      await this.db.close();
-      this.db = null;
-      this.initPromise = null;
-    }
+    return await db.select(query, params as any);
   }
 }
 
-// Exportar singleton
 export const localDb = new LocalDatabase();

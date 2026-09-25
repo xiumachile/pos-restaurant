@@ -264,7 +264,7 @@ export class OrderRepository {
     const grandTotal = subtotal - discountTotal;
     const amountDue = grandTotal + tipAmount;
 
-    await (txDb ? (txDb as any) : localWriteCoordinator).executeSingle(
+    await (txDb ? (txDb as any) : localDb).execute(
       `UPDATE local_orders 
        SET subtotal = ?, discount_total = ?, net_amount = ?, 
            tax_total = ?, tip_amount = ?, grand_total = ?, amount_due = ?,

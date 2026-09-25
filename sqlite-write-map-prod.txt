@@ -1,0 +1,201 @@
+src/db/repositories/BillRepository.ts:72:    await localDb.execute(
+src/db/repositories/BillRepository.ts:198:    await localDb.execute(
+src/db/repositories/BillRepository.ts:225:    await localDb.execute(
+src/db/repositories/BillRepository.ts:247:    await localDb.execute(
+src/db/repositories/BillRepository.ts:259:    await localDb.execute(
+src/db/repositories/LocalPrintJobRepository.ts:67:    await localDb.execute(
+src/db/repositories/LocalPrintJobRepository.ts:149:        await localDb.execute(
+src/db/repositories/LocalPrintJobRepository.ts:179:    await localDb.execute(
+src/db/repositories/LocalPrintJobRepository.ts:196:    await localDb.execute(
+src/db/repositories/LocalPrintJobRepository.ts:220:      await localDb.execute(
+src/db/repositories/LocalPrintJobRepository.ts:230:      await localDb.execute(
+src/db/repositories/LocalPrintJobRepository.ts:247:    await localDb.execute(
+src/db/repositories/LocalPrintJobRepository.ts:297:    return await localDb.execute(
+src/db/repositories/LocalPrintJobRepository.ts:322:    await localDb.execute(
+src/db/repositories/PaymentRepository.ts:88:    await localDb.execute(
+src/db/repositories/PaymentRepository.ts:209:    await localDb.execute(
+src/db/repositories/PaymentRepository.ts:219:    await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:69:        const rowsAffected = await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:88:        const rowsAffected = await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:129:    const result = await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:144:    await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:233:    await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:251:          await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:259:    await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:273:      await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:282:      await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:291:    const result = await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:323:    await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:373:    await localDb.execute("DELETE FROM sync_queue WHERE id = ?", [id]);
+src/db/repositories/SyncQueueRepository.ts:380:    const result = await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:390:    await localDb.execute(
+src/db/repositories/SyncQueueRepository.ts:406:    const result = await localDb.execute(
+src/db/repositories/EventStore.ts:86:    await localDb.execute(
+src/db/repositories/EventStore.ts:162:    await localDb.execute(
+src/db/repositories/EventStore.ts:176:    await localDb.execute(
+src/db/repositories/PrinterConfigRepository.ts:138:      await localDb.execute(
+src/db/repositories/PrinterConfigRepository.ts:144:    await localDb.execute(
+src/db/repositories/PrinterConfigRepository.ts:183:      await localDb.execute(
+src/db/repositories/PrinterConfigRepository.ts:224:    await localDb.execute(
+src/db/repositories/PrinterConfigRepository.ts:247:    await localDb.execute(
+src/db/repositories/CashMovementRepository.ts:89:    await localDb.execute(
+src/db/repositories/CashMovementRepository.ts:231:    await localDb.execute(
+src/db/repositories/CashMovementRepository.ts:243:    await localDb.execute(
+src/db/repositories/OrderRepository.ts:99:    await localDb.transaction(async (db) => {
+src/db/repositories/OrderRepository.ts:198:    await localDb.transaction(async (db) => {
+src/db/repositories/OrderRepository.ts:283:    await localDb.execute(
+src/db/repositories/OrderRepository.ts:296:    await localDb.execute(
+src/db/repositories/OrderRepository.ts:363:    await localDb.execute("DELETE FROM local_orders WHERE local_uuid = ?", [orderLocalUuid]);
+src/db/repositories/OrderRepository.ts:370:    await localDb.execute(
+src/db/repositories/OrderRepository.ts:391:    await localDb.execute(
+src/db/repositories/OrderRepository.ts:421:    await localDb.transaction(async (db) => {
+src/db/repositories/CashSessionRepository.ts:41:    await localDb.execute(
+src/db/repositories/CashSessionRepository.ts:127:    await localDb.execute(
+src/db/repositories/CashSessionRepository.ts:163:    await localDb.execute(
+src/services/offlinePaymentService.ts:128:    return await localDb.transaction(async () => {
+src/services/offlinePaymentService.ts:387:    await localDb.execute(
+src/services/offlineCashCloseService.ts:68:    return localDb.transaction(async () => {
+src/services/offlineCashCloseService.ts:98:      await localDb.execute(
+src/services/sync/SyncEngine.ts:263:                await localDb.execute(
+src/services/sync/PullEngine.ts:179:    await localDb.execute(
+src/services/sync/PullEngine.ts:184:      await localDb.execute(
+src/services/sync/PullEngine.ts:196:    await localDb.execute(
+src/services/sync/PullEngine.ts:201:      await localDb.execute(
+src/services/sync/PullEngine.ts:249:          await localDb.execute(
+src/services/sync/PullEngine.ts:255:          await localDb.execute(
+src/services/sync/PullEngine.ts:269:          await localDb.execute(
+src/services/sync/PullEngine.ts:292:        await localDb.execute(
+src/services/sync/PullEngine.ts:311:    await localDb.execute(
+src/services/sync/PullEngine.ts:316:      await localDb.execute(
+src/services/sync/PullEngine.ts:331:        await localDb.execute("DELETE FROM local_categories WHERE uuid = ? AND company_id = ? AND branch_id = ?", [cat.uuid, companyId, branchId]);
+src/services/sync/PullEngine.ts:334:        await localDb.execute(
+src/services/sync/PullEngine.ts:348:        await localDb.execute("DELETE FROM local_products WHERE uuid = ? AND company_id = ? AND branch_id = ?", [prod.uuid, companyId, branchId]);
+src/services/sync/PullEngine.ts:350:        await localDb.execute(
+src/services/sync/PullEngine.ts:378:        await localDb.execute("DELETE FROM table_local_mutations WHERE table_uuid = ?", [table.uuid]);
+src/services/sync/PullEngine.ts:379:        await localDb.execute("DELETE FROM local_tables WHERE uuid = ?", [table.uuid]);
+src/services/sync/PullEngine.ts:392:            await localDb.execute(
+src/services/sync/PullEngine.ts:398:            await localDb.execute(
+src/services/sync/PullEngine.ts:410:            await localDb.execute(
+src/services/sync/PullEngine.ts:433:          await localDb.execute(
+src/services/sync/PullEngine.ts:455:        await localDb.execute("DELETE FROM local_payment_methods WHERE uuid = ? AND company_id = ? AND branch_id = ?", [method.uuid, companyId, branchId]);
+src/services/sync/PullEngine.ts:457:        await localDb.execute(
+src/services/sync/PullEngine.ts:467:    await localDb.execute(
+src/services/localTablesService.ts:216:    await localDb.execute(
+src/services/localTablesService.ts:224:    await localDb.execute(
+src/services/localTablesService.ts:252:      await localDb.execute(
+src/services/localTablesService.ts:258:      await localDb.execute(
+src/services/localTablesService.ts:283:    await localDb.execute(
+src/services/localTablesService.ts:305:    await localDb.execute(
+src/db/repositories/BillRepository.ts:73:      `INSERT INTO local_bills (
+src/db/repositories/BillRepository.ts:199:      `UPDATE local_bills
+src/db/repositories/BillRepository.ts:226:      `UPDATE local_bills
+src/db/repositories/BillRepository.ts:248:      `UPDATE local_bills
+src/db/repositories/BillRepository.ts:260:      `UPDATE local_bills
+src/db/repositories/LocalPrintJobRepository.ts:68:      `INSERT INTO local_print_jobs (
+src/db/repositories/LocalPrintJobRepository.ts:150:          `UPDATE local_print_jobs 
+src/db/repositories/LocalPrintJobRepository.ts:180:      `UPDATE local_print_jobs 
+src/db/repositories/LocalPrintJobRepository.ts:197:      `UPDATE local_print_jobs 
+src/db/repositories/LocalPrintJobRepository.ts:221:        `UPDATE local_print_jobs 
+src/db/repositories/LocalPrintJobRepository.ts:231:        `UPDATE local_print_jobs 
+src/db/repositories/LocalPrintJobRepository.ts:248:      `UPDATE local_print_jobs 
+src/db/repositories/LocalPrintJobRepository.ts:298:      `DELETE FROM local_print_jobs 
+src/db/repositories/LocalPrintJobRepository.ts:323:      "DELETE FROM local_print_jobs WHERE local_uuid = ?",
+src/db/repositories/PaymentRepository.ts:89:      `INSERT INTO local_payments (
+src/db/repositories/PaymentRepository.ts:210:      `UPDATE local_payments SET cloud_id = ?, sync_status = 'synced' WHERE local_uuid = ?`,
+src/db/repositories/PaymentRepository.ts:220:      "UPDATE local_payments SET sync_status = 'failed', sync_error = ? WHERE local_uuid = ?",
+src/db/repositories/PaymentRepository.ts:229:   * NO hace UPDATE en local_payments.
+src/db/repositories/SyncQueueRepository.ts:68:        // UPDATE atómico: solo si sigue en 'syncing' (previene TOCTOU)
+src/db/repositories/SyncQueueRepository.ts:70:          `UPDATE sync_queue 
+src/db/repositories/SyncQueueRepository.ts:87:        // UPDATE atómico: solo si sigue en 'syncing' (previene TOCTOU)
+src/db/repositories/SyncQueueRepository.ts:89:          `UPDATE sync_queue 
+src/db/repositories/SyncQueueRepository.ts:130:      `UPDATE sync_queue 
+src/db/repositories/SyncQueueRepository.ts:145:      `INSERT INTO sync_queue (
+src/db/repositories/SyncQueueRepository.ts:208:    // Paso 2: Claim atómico con UPDATE ... RETURNING
+src/db/repositories/SyncQueueRepository.ts:209:    // La subconsulta limita el número de filas, y el UPDATE las marca como 'syncing'
+src/db/repositories/SyncQueueRepository.ts:212:      UPDATE sync_queue 
+src/db/repositories/SyncQueueRepository.ts:234:      `UPDATE sync_queue SET sync_status = 'syncing', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND sync_status = 'pending'`,
+src/db/repositories/SyncQueueRepository.ts:252:            `UPDATE ${table} SET cloud_id = ?, sync_status = 'synced' WHERE local_uuid = ?`,
+src/db/repositories/SyncQueueRepository.ts:260:      `UPDATE sync_queue SET sync_status = 'synced', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+src/db/repositories/SyncQueueRepository.ts:274:        `UPDATE sync_queue SET sync_status = 'failed', attempts = ?, last_error = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+src/db/repositories/SyncQueueRepository.ts:283:        `UPDATE sync_queue SET sync_status = 'pending', attempts = ?, last_error = ?, next_retry_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+src/db/repositories/SyncQueueRepository.ts:292:      `DELETE FROM sync_queue WHERE sync_status = 'synced' AND updated_at < ?`,
+src/db/repositories/SyncQueueRepository.ts:324:      `UPDATE sync_queue 
+src/db/repositories/SyncQueueRepository.ts:373:    await localDb.execute("DELETE FROM sync_queue WHERE id = ?", [id]);
+src/db/repositories/SyncQueueRepository.ts:381:      "DELETE FROM sync_queue WHERE sync_status = 'failed'"
+src/db/repositories/SyncQueueRepository.ts:391:      `UPDATE sync_queue 
+src/db/repositories/SyncQueueRepository.ts:407:      `UPDATE sync_queue 
+src/db/repositories/EventStore.ts:73: * 3. Solo se permite UPDATE para sync_status y cloud_event_id
+src/db/repositories/EventStore.ts:87:      `INSERT INTO offline_events (
+src/db/repositories/EventStore.ts:159:   * IMPORTANTE: Este es el ÚNICO UPDATE permitido en la tabla.
+src/db/repositories/EventStore.ts:163:      `UPDATE offline_events 
+src/db/repositories/EventStore.ts:173:   * IMPORTANTE: Este es el ÚNICO UPDATE permitido en la tabla.
+src/db/repositories/EventStore.ts:177:      `UPDATE offline_events 
+src/db/repositories/PrinterConfigRepository.ts:139:        "UPDATE printer_configs SET is_default = 0 WHERE printer_type = ? AND company_id = ? AND branch_id = ?",
+src/db/repositories/PrinterConfigRepository.ts:145:      `INSERT INTO printer_configs (
+src/db/repositories/PrinterConfigRepository.ts:184:        "UPDATE printer_configs SET is_default = 0 WHERE printer_type = ? AND local_uuid != ? AND company_id = ? AND branch_id = ?",
+src/db/repositories/PrinterConfigRepository.ts:225:      `UPDATE printer_configs SET ${updates.join(", ")} WHERE local_uuid = ? AND company_id = ? AND branch_id = ?`,
+src/db/repositories/PrinterConfigRepository.ts:248:      "DELETE FROM printer_configs WHERE local_uuid = ? AND company_id = ? AND branch_id = ?",
+src/db/repositories/CashMovementRepository.ts:90:      `INSERT INTO local_cash_movements (
+src/db/repositories/CashMovementRepository.ts:232:      `UPDATE local_cash_movements 
+src/db/repositories/CashMovementRepository.ts:244:      `UPDATE local_cash_movements 
+src/db/repositories/OrderRepository.ts:103:        `INSERT INTO local_orders (
+src/db/repositories/OrderRepository.ts:201:        `INSERT INTO local_order_items (
+src/db/repositories/OrderRepository.ts:267:      `UPDATE local_orders 
+src/db/repositories/OrderRepository.ts:284:      `UPDATE local_orders SET tip_amount = ?, updated_at = CURRENT_TIMESTAMP WHERE local_uuid = ?`,
+src/db/repositories/OrderRepository.ts:297:      `UPDATE local_orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE local_uuid = ?`,
+src/db/repositories/OrderRepository.ts:363:    await localDb.execute("DELETE FROM local_orders WHERE local_uuid = ?", [orderLocalUuid]);
+src/db/repositories/OrderRepository.ts:371:      `UPDATE local_orders SET cloud_id = ?, sync_status = 'synced', updated_at = CURRENT_TIMESTAMP WHERE local_uuid = ?`,
+src/db/repositories/OrderRepository.ts:392:      "UPDATE local_orders SET sync_status = 'failed', sync_error = ?, updated_at = CURRENT_TIMESTAMP WHERE local_uuid = ?",
+src/db/repositories/OrderRepository.ts:424:        `INSERT INTO local_orders (
+src/db/repositories/OrderRepository.ts:447:          `INSERT INTO local_order_items (
+src/db/repositories/OrderRepository.ts:475:        `INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid, action, payload)
+src/db/repositories/CashSessionRepository.ts:42:      `INSERT INTO local_cash_sessions 
+src/db/repositories/CashSessionRepository.ts:128:      `UPDATE local_cash_sessions 
+src/db/repositories/CashSessionRepository.ts:164:      `UPDATE local_cash_sessions 
+src/services/offlinePaymentService.ts:388:      `UPDATE local_tables 
+src/services/offlineCashCloseService.ts:99:        `UPDATE local_cash_sessions 
+src/services/sync/SyncEngine.ts:264:                  "DELETE FROM table_local_mutations WHERE table_uuid = ? AND pending_status = 'occupied'",
+src/services/sync/PullEngine.ts:180:      "DELETE FROM local_categories WHERE company_id = ? AND branch_id = ?",
+src/services/sync/PullEngine.ts:197:      "DELETE FROM local_products WHERE company_id = ? AND branch_id = ?",
+src/services/sync/PullEngine.ts:250:            "DELETE FROM table_local_mutations WHERE table_uuid = ?",
+src/services/sync/PullEngine.ts:312:      "DELETE FROM local_payment_methods WHERE company_id = ? AND branch_id = ?",
+src/services/sync/PullEngine.ts:331:        await localDb.execute("DELETE FROM local_categories WHERE uuid = ? AND company_id = ? AND branch_id = ?", [cat.uuid, companyId, branchId]);
+src/services/sync/PullEngine.ts:348:        await localDb.execute("DELETE FROM local_products WHERE uuid = ? AND company_id = ? AND branch_id = ?", [prod.uuid, companyId, branchId]);
+src/services/sync/PullEngine.ts:378:        await localDb.execute("DELETE FROM table_local_mutations WHERE table_uuid = ?", [table.uuid]);
+src/services/sync/PullEngine.ts:379:        await localDb.execute("DELETE FROM local_tables WHERE uuid = ?", [table.uuid]);
+src/services/sync/PullEngine.ts:393:              "DELETE FROM table_local_mutations WHERE table_uuid = ?",
+src/services/sync/PullEngine.ts:455:        await localDb.execute("DELETE FROM local_payment_methods WHERE uuid = ? AND company_id = ? AND branch_id = ?", [method.uuid, companyId, branchId]);
+src/services/localTablesService.ts:225:      `UPDATE local_tables
+src/services/localTablesService.ts:253:        "DELETE FROM table_local_mutations WHERE table_uuid = ? AND company_id = ? AND branch_id = ?",
+src/services/localTablesService.ts:259:        `UPDATE local_tables
+src/services/localTablesService.ts:284:      "DELETE FROM table_local_mutations WHERE table_uuid = ? AND company_id = ? AND branch_id = ?",
+src/services/localTablesService.ts:306:      "DELETE FROM table_local_mutations WHERE company_id = ? AND branch_id = ?",
+src/db/repositories/PrinterConfigRepository.ts:58: *   await PrinterConfigRepository.create({ printer_type: "receipt", name: "Caja 1", ip: "192.168.1.100" });
+src/db/repositories/OrderRepository.ts:165:        await localTablesService.markOccupied(
+src/db/repositories/OrderRepository.ts:487:        await localTablesService.markOccupied(
+src/services/offlinePaymentService.ts:187:        bill = await BillRepository.create({
+src/services/offlinePaymentService.ts:233:      const payment = await PaymentRepository.create({
+src/services/offlinePaymentService.ts:345:            await LocalPrintJobRepository.create({
+src/services/offlinePaymentService.ts:436:    return await CashMovementRepository.create(cashSessionLocalUuid, {
+src/services/capabilitiesService.ts:50:    return this.update(companyUuid, { [key]: enabled });
+src/services/menuAdminService.ts:126:    await apiClient.delete(`/catalog/menus/${uuid}`);
+src/services/recipeService.ts:143:    await apiClient.delete(`/recipes/${recipeUuid}`);
+src/services/paymentsService.ts:111:              await CashSessionRepository.create({
+src/services/paymentsService.ts:184:        await CashSessionRepository.create({
+src/services/tipService.ts:49:    await apiClient.delete(`/cashier/tip-payouts/${uuid}`);
+src/services/offlineCashCloseService.ts:192:      const printJobUuid = await LocalPrintJobRepository.create({
+src/services/syncApi.ts:112:    const response = await apiClient.delete(`/orders/${orderUuid}/items/${itemUuid}`, {
+src/services/syncApi.ts:119:    await apiClient.delete(`/orders/${uuid}`, {
+src/services/priceListService.ts:103:    await apiClient.delete(`/catalog/price-lists/${uuid}`);
+src/services/priceListService.ts:138:    await apiClient.delete(
+src/services/authContext.ts:15: *   await OrderRepository.create({ ...ctx, order_type: "dine_in" });
+src/services/authContext.ts:149: *   await OrderRepository.create(payload);
+src/services/authContext.ts:217: *   await CashSessionRepository.create({ ...ctx, opening_amount: 100 });
+src/services/apiClient.ts:8:const apiClient = axios.create({
+src/services/ordersService.ts:60:    await apiClient.delete(`/orders/${orderUuid}`);
+src/services/secureStorage.ts:126:      await store.delete(key);
+src/services/secureStorage.ts:162:  syncCache.delete(key);
+src/services/kitchenPrintService.ts:77:    const printJobUuid = await LocalPrintJobRepository.create({
+src/services/catalogAdminService.ts:83:    await apiClient.delete(`/catalog/categories/${uuid}`);
+src/services/catalogAdminService.ts:135:    await apiClient.delete(`/catalog/products/${uuid}`);
+src/services/comboService.ts:77:    const response = await apiClient.delete(
