@@ -90,20 +90,23 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
           : "✓ Guardado. Sincronizando con cocina...",
       });
 
+      // P0: NO forzar sync inmediato. El worker de fondo (cada 15s) lo manejará 
+      // de forma segura sin competir con las escrituras locales recién terminadas.
+      // Esto elimina la causa raíz de "database is locked" durante la creación de pedidos.
+      
+      // Solo refrescamos la UI local inmediatamente
+      refetchActiveOrders();
+      
       if (syncStatus !== "offline") {
-        try {
-          await useSyncStore.getState().triggerFullSync();
-          
-          // Esperar 500ms para que el backend procese completamente
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          // Refrescar pedidos activos con retry
-          await refetchActiveOrders();
-          await new Promise(resolve => setTimeout(resolve, 300));
-          await refetchActiveOrders();
-        } catch (syncErr) {
-          console.warn("[OrderCartPanel] Sync diferida:", syncErr);
-        }
+        setFeedback({
+          type: "success",
+          message: "✓ Pedido guardado. Sincronizando en segundo plano...",
+        });
+      } else {
+        setFeedback({
+          type: "success",
+          message: "✓ Pedido guardado offline.",
+        });
       }
       
       // FIX: invalidateTables() SIEMPRE se ejecuta, sin importar:
