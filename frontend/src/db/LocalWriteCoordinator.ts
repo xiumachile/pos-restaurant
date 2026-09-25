@@ -1,4 +1,4 @@
-import { Database } from "@tauri-apps/plugin-sql";
+import Database from "@tauri-apps/plugin-sql";
 import { localDb } from "./localDb";
 
 /**
