@@ -128,7 +128,7 @@ async function seedPaymentMethods(): Promise<void> {
 
 describe("SyncEngine - Split Bill E2E (ADR-020)", () => {
   beforeAll(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
   });
 

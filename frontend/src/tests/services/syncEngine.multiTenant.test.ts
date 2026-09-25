@@ -42,7 +42,7 @@ describe("SyncEngine - Validación Multi-Tenant", () => {
 
   beforeEach(async () => {
     mockAuthContext();
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
     
     // Reset completo de estado

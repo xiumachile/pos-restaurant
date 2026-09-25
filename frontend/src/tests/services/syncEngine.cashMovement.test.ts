@@ -29,7 +29,7 @@ describe("SyncEngine - Cash Movements", () => {
   let sessionCloudId: string;
 
   beforeAll(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
   });
 

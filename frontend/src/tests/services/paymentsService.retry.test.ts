@@ -12,7 +12,7 @@ import { SyncQueueRepository } from '@/db/repositories/SyncQueueRepository';
 
 describe('paymentsService retry pattern', () => {
   beforeEach(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
     await localDb.execute('DELETE FROM local_cash_sessions');
     await localDb.execute('DELETE FROM sync_queue');

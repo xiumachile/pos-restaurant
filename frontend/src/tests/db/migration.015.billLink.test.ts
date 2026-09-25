@@ -28,7 +28,7 @@ import { runMigrations } from '@/db/schema';
  */
 describe('Migration 015: bill_local_uuid in local_payments (ADR-019)', () => {
   beforeEach(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
 
     await localDb.execute('DELETE FROM local_payments');

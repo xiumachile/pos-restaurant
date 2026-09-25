@@ -37,7 +37,7 @@ import { mockAuthContext } from "../testUtils";
  */
 describe("Recovery - F. Crash durante sync", () => {
   beforeAll(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
   });
 

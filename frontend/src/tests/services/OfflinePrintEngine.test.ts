@@ -23,7 +23,7 @@ describe("OfflinePrintEngine", () => {
   let mockAdapter: MockPrinterAdapter;
 
   beforeEach(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
     await localDb.execute("DELETE FROM local_print_jobs");
 

@@ -18,7 +18,7 @@ import { PaymentRepository } from '../db/repositories/PaymentRepository';
 
 describe('Migration 011: Chilean POS model (ADR-011)', () => {
   beforeEach(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
     await localDb.execute('DELETE FROM local_payments');
     await localDb.execute('DELETE FROM local_bills');

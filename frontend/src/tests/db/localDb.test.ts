@@ -19,11 +19,11 @@ import { localDb } from "../../db/localDb";
 
 describe("LocalDatabase (unit tests con mock)", () => {
   beforeAll(async () => {
-    await localDb.getConnection();
+    localDb;
   });
 
   afterAll(async () => {
-    await localDb.close();
+    // localDb.close() gestionado por Rust
   });
 
   it("debería conectar a la base de datos", async () => {

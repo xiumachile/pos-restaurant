@@ -24,7 +24,7 @@ vi.mock("@/services/authContext", () => ({
 
 describe("offlineCashCloseService", () => {
   beforeEach(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
     await localDb.execute("DELETE FROM local_print_jobs");
     await localDb.execute("DELETE FROM local_cash_movements");

@@ -39,7 +39,7 @@ import { mockAuthContext } from "../testUtils";
  */
 describe("Recovery - C. Kill/Restart App", () => {
   beforeAll(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
   });
 

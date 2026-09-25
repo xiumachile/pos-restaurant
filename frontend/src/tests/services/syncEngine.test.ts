@@ -25,7 +25,7 @@ import { mockAuthContext } from "../testUtils";
 
 describe("SyncEngine", () => {
   beforeAll(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
   });
 

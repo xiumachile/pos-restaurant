@@ -59,7 +59,7 @@ async function createOrderWithoutEnqueue(opts: {
 
 describe("SyncEngine - Bill sync (ADR-020)", () => {
   beforeAll(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
   });
 

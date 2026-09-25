@@ -22,7 +22,7 @@ vi.mock("@/services/authContext", () => ({
 
 describe("kitchenPrintService", () => {
   beforeEach(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
     await localDb.execute("DELETE FROM local_print_jobs");
     await localDb.execute("DELETE FROM local_order_items");

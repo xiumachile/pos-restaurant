@@ -12,12 +12,12 @@ import { LocalPrintJobRepository } from "@/db/repositories/LocalPrintJobReposito
 
 describe("LocalPrintJobRepository", () => {
   beforeAll(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
   });
 
   afterAll(async () => {
-    await localDb.close();
+    // localDb.close() gestionado por Rust
   });
 
   beforeEach(async () => {

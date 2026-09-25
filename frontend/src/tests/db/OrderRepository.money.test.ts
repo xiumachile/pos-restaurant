@@ -15,7 +15,7 @@ vi.mock('@tauri-apps/api/core', () => ({
 
 describe('OrderRepository - Money integrity (ADR-011: Modelo chileno)', () => {
   beforeEach(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
     await localDb.execute('DELETE FROM local_order_items');
     await localDb.execute('DELETE FROM local_orders');

@@ -42,7 +42,7 @@ function makeUser(companyUuid: string, branchId: string, userId: string = 'user-
  */
 describe('Multi-tenant isolation (ADR-012)', () => {
   beforeEach(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
     
     // Limpiar todas las tablas tenant-aware

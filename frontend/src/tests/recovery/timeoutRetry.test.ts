@@ -32,7 +32,7 @@ import { mockAuthContext } from "../testUtils";
  */
 describe("Recovery - B. Timeout + retry", () => {
   beforeAll(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
   });
 

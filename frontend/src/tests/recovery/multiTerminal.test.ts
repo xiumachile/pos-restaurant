@@ -39,7 +39,7 @@ import { mockAuthContext } from "../testUtils";
  */
 describe("Recovery - E. Dos terminales simultáneos", () => {
   beforeAll(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
   });
 

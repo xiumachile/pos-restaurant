@@ -29,7 +29,7 @@ import { mockAuthContext } from "../testUtils";
  */
 describe("Recovery - D. Offline → Online (reconnection)", () => {
   beforeAll(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
   });
 

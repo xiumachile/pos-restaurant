@@ -49,7 +49,7 @@ async function validateNoFractionalValues(): Promise<void> {
 
 describe("Migración 017: Enforce INTEGER money (P1-001)", () => {
   beforeAll(async () => {
-    await localDb.getConnection();
+    localDb;
     await localDb.execute(`
       CREATE TABLE IF NOT EXISTS migrations (
         version TEXT PRIMARY KEY, applied_at TEXT DEFAULT CURRENT_TIMESTAMP, checksum TEXT

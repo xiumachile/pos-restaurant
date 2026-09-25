@@ -31,7 +31,7 @@ describe("offlinePaymentService - Propagación de contexto", () => {
   };
 
   beforeEach(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
     
     await localDb.execute("DELETE FROM local_payments");

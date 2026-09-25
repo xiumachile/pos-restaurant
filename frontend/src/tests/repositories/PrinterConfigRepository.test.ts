@@ -27,7 +27,7 @@ describe("PrinterConfigRepository", () => {
       } as any,
     });
 
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
     await localDb.execute("DELETE FROM printer_configs");
   });

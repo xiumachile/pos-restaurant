@@ -18,7 +18,7 @@ import { apiClient } from "../../services/apiClient";
 
 describe("PullEngine", () => {
   beforeAll(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
   });
 

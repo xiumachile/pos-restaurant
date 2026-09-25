@@ -30,7 +30,7 @@ import { apiClient } from "../../services/apiClient";
  */
 describe("Recovery - A. Double click", () => {
   beforeAll(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
   });
 

@@ -12,12 +12,12 @@ import { SyncQueueRepository } from "../../db/repositories/SyncQueueRepository";
 
 describe("OrderRepository - Atomicidad", () => {
   beforeAll(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
   });
 
   afterAll(async () => {
-    await localDb.close();
+    // localDb.close() gestionado por Rust
   });
 
   beforeEach(async () => {

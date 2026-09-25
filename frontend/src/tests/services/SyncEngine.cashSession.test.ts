@@ -18,7 +18,7 @@ const mockSyncApi = vi.mocked(syncApi);
 describe("SyncEngine - Cash Session Sync", () => {
   beforeEach(async () => {
     mockAuthContext();
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
     await localDb.execute("DELETE FROM sync_queue");
     await localDb.execute("DELETE FROM local_cash_sessions");

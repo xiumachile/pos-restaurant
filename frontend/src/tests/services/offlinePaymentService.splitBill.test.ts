@@ -21,12 +21,12 @@ import { offlinePaymentService } from "../../services/offlinePaymentService";
 
 describe("P0-1: Split Bill Ambiguity Protection", () => {
   beforeAll(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
   });
 
   afterAll(async () => {
-    await localDb.close();
+    // localDb.close() gestionado por Rust
   });
 
   beforeEach(async () => {
@@ -144,12 +144,12 @@ describe("P0-1: Split Bill Ambiguity Protection", () => {
 
 describe("ADR-019: Bill link en payments", () => {
   beforeAll(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
   });
 
   afterAll(async () => {
-    await localDb.close();
+    // localDb.close() gestionado por Rust
   });
 
   beforeEach(async () => {

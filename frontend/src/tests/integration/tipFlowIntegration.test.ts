@@ -50,12 +50,12 @@ import { mockAuthContext } from "../testUtils";
 
 describe("Tip Flow Integration (ADR-011, ADR-019)", () => {
   beforeAll(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
   });
 
   afterAll(async () => {
-    await localDb.close();
+    // localDb.close() gestionado por Rust
   });
 
   beforeEach(async () => {

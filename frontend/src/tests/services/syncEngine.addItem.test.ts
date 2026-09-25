@@ -25,7 +25,7 @@ import { mockAuthContext } from "../testUtils";
 
 describe("SyncEngine - order/add_item fix (P0-001)", () => {
   beforeAll(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
   });
 

@@ -15,12 +15,12 @@ import type { OfflineEvent } from "../../db/repositories/EventStore";
 
 describe("Event Sourcing - Auditoría inmutable", () => {
   beforeAll(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
   });
 
   afterAll(async () => {
-    await localDb.close();
+    // localDb.close() gestionado por Rust
   });
 
   beforeEach(async () => {

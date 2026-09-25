@@ -37,7 +37,7 @@ import { runMigrations } from '@/db/schema';
  */
 describe('Migration 011: Money columns as INTEGER (modelo chileno)', () => {
   beforeEach(async () => {
-    await localDb.getConnection();
+    localDb;
     await runMigrations();
 
     // Limpiar tablas antes de cada test
