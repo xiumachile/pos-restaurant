@@ -80,8 +80,13 @@ class LocalDatabase {
       await db.execute("COMMIT;");
       return result;
     } catch (error) {
-      await db.execute("ROLLBACK;");
-      throw error;
+      console.error("[LocalDB] ❌ Error ORIGINAL dentro de la transacción:", error);
+      try {
+        await db.execute("ROLLBACK;");
+      } catch (rollbackErr) {
+        console.error("[LocalDB] ⚠️ Error al hacer rollback (probablemente auto-rollback de SQLite):", rollbackErr);
+      }
+      throw error; // Lanzamos el error original, no el del rollback
     }
   }
 
