@@ -75,7 +75,7 @@ export const localCatalogService = {
     `, [ctx.company_id, ctx.branch_id]);
 
     console.log(`[localCatalogService] ✅ ${rows.length} categorías encontradas`);
-    return rows.map((row) => this.toCategory(row));
+    return rows.map((row: any) => this.toCategory(row));
   },
 
   /**
@@ -116,12 +116,12 @@ export const localCatalogService = {
     const rows = await db.select<LocalProductRow[]>(query, params);
     console.log(`[localCatalogService] 📦 ${rows.length} productos en resultado`);
 
-    let products = rows.map((row) => this.toProduct(row));
+    let products = rows.map((row: any) => this.toProduct(row));
 
     // Filtro por búsqueda en memoria
     if (filters?.search && filters.search.trim()) {
       const search = filters.search.trim().toLowerCase();
-      products = products.filter((p) => {
+      products = products.filter((p: any) => {
         const name = (p.name_translations?.es || p.name_translations?.en || "").toLowerCase();
         const sku = (p.sku || "").toLowerCase();
         return name.includes(search) || sku.includes(search);

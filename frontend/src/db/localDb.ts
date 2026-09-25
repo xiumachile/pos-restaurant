@@ -9,11 +9,9 @@ import { localWriteCoordinator } from "./LocalWriteCoordinator";
 export class LocalDatabase {
   /**
    * Verifica que la conexión nativa de Rust esté activa.
-   * (Rust ya abre y configura la BD con PRAGMAs en el setup).
    */
   async initialize(): Promise<void> {
     try {
-      // Hacemos un ping simple a la BD nativa
       await executeQuery("SELECT 1 as ping");
       console.log("[LocalDB] ✅ Conexión con SQLite nativo verificada");
     } catch (error) {
@@ -23,8 +21,7 @@ export class LocalDatabase {
   }
 
   /**
-   * Ejecuta una consulta de escritura (INSERT, UPDATE, DELETE) o un statement único.
-   * Lo envuelve en una transacción atómica de 1 solo statement para garantizar seguridad.
+   * Ejecuta una consulta de escritura (INSERT, UPDATE, DELETE).
    */
   async execute(query: string, params?: unknown[]): Promise<any> {
     const statements: DbStatement[] = [{ 
@@ -57,17 +54,17 @@ export class LocalDatabase {
   }
 
   /**
-   * Método de compatibilidad. Devuelve localDb mismo ya que actúa como fachada.
+   * Método de compatibilidad para tests. Devuelve esta misma instancia.
    */
-  async getConnection(): Promise<any> {
+  async getConnection(): Promise<LocalDatabase> {
     return this;
   }
 
   /**
-   * Método de compatibilidad. No-op en arquitectura nativa.
+   * Método de compatibilidad para tests. No-op en arquitectura nativa.
    */
   async close(): Promise<void> {
-    // La conexión es gestionada por Rust
+    // La conexión es gestionada por el estado global de Rust
   }
 }
 
