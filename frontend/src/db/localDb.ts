@@ -94,26 +94,13 @@ class LocalDatabase {
    * Ejecuta múltiples queries en una transacción.
    * Si alguna falla, hace rollback de todas.
    */
+  /**
+   * @deprecated Usa localWriteCoordinator.run() en su lugar para garantizar la serialización de escrituras.
+   */
   async transaction<T>(fn: (db: Database) => Promise<T>): Promise<T> {
-    const db = await this.getConnection();
-    
-    // BEGIN IMMEDIATE obtiene el bloqueo de escritura inmediatamente.
-    // Combinado con busy_timeout, esperará a otros escritores en lugar de fallar al instante.
-    await db.execute("BEGIN IMMEDIATE");
-    
-    try {
-      const result = await fn(db);
-      await db.execute("COMMIT");
-      return result;
-    } catch (error: any) {
-      console.error("[LocalDB] ❌ Error en transacción:", error?.message || error);
-      try {
-        await db.execute("ROLLBACK");
-      } catch (rollbackErr: any) {
-        console.error("[LocalDB] ⚠️ Error al hacer rollback:", rollbackErr?.message || rollbackErr);
-      }
-      throw error;
-    }
+    console.warn("[LocalDB] ⚠️ localDb.transaction está obsoleto. Usa localWriteCoordinator.run().");
+    const { localWriteCoordinator } = await import("./LocalWriteCoordinator");
+    return localWriteCoordinator.run(fn);
   }
 
   /**
