@@ -1,21 +1,20 @@
 /**
- * Mutex global para serializar TODAS las escrituras en SQLite a nivel de aplicación.
- * Esto previene que cualquier módulo (PullEngine, SyncEngine, Repositories) 
- * colisione a nivel nativo con el LocalWriteCoordinator.
+ * Mutex robusto para serializar escrituras en SQLite.
+ * Garantiza que solo una operación de escritura se ejecute a la vez a nivel de aplicación.
  */
 export class Mutex {
-  private queue: Promise<void> = Promise.resolve();
+  private mutex = Promise.resolve();
 
-  async acquire(): Promise<() => void> {
-    let release!: () => void;
-    const nextPromise = new Promise<void>((resolve) => {
+  async lock(): Promise<() => void> {
+    let release: () => void = () => {};
+    const nextMutex = new Promise<void>((resolve) => {
       release = resolve;
     });
     
-    const currentQueue = this.queue;
-    this.queue = currentQueue.then(() => nextPromise).catch(() => nextPromise);
+    const currentMutex = this.mutex;
+    this.mutex = nextMutex;
     
-    await currentQueue;
+    await currentMutex;
     return release;
   }
 }
