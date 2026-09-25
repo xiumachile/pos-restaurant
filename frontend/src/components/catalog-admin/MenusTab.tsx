@@ -193,7 +193,7 @@ export function MenusTab() {
                   Inactivo
                 </span>
               )}
-              {menu.menu_products_count > 0 && (
+              {(menu.menu_products_count ?? 0) > 0 && (
                 <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs">
                   🍽️ {menu.menu_products_count} productos
                 </span>
