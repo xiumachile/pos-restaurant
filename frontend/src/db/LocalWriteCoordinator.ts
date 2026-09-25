@@ -1,34 +1,52 @@
-import Database from "@tauri-apps/plugin-sql";
-import { localDb } from "./localDb";
-import { writeMutex } from "./writeMutex";
+import { executeTransaction, executeQuery, DbStatement } from "./nativeDb";
 
 export class LocalWriteCoordinator {
-  async run<T>(operation: (db: Database) => Promise<T>): Promise<T> {
-    const release = await writeMutex.lock();
-    const db = await localDb.getConnection();
+  /**
+   * Ejecuta una transacción atómica usando el comando Rust personalizado.
+   * Pasa un objeto 'txDb' que acumula las llamadas a execute() para enviarlas en un solo bloque a Rust.
+   */
+  async run<T>(operation: (db: any) => Promise<T>): Promise<T> {
+    const statements: DbStatement[] = [];
     
+    // Objeto mock que intercepta execute() y select() dentro de la transacción
+    const txDb = {
+      execute: (sql: string, params: any[] = []) => {
+        statements.push({ sql, params });
+      },
+      select: async (sql: string, params: any[] = []) => {
+        // Nota: Los SELECT dentro de la transacción se ejecutan inmediatamente en Rust.
+        // No verán los INSERTs acumulados en 'statements' porque aún no se han enviado.
+        // Para lógica que dependa de datos recién insertados, el cálculo debe hacerse en JS.
+        return await executeQuery(sql, params);
+      }
+    };
+
     try {
-      // Llamar directamente a db.execute (no a localDb.execute) para evitar deadlock
-      await db.execute("BEGIN IMMEDIATE;");
-      const result = await operation(db);
-      await db.execute("COMMIT;");
+      const result = await operation(txDb);
+      
+      if (statements.length > 0) {
+        await executeTransaction(statements);
+      }
+      
       return result;
     } catch (error: any) {
       console.error("[LocalWriteCoordinator] ❌ Error en transacción:", error?.message || error);
-      try {
-        await db.execute("ROLLBACK;");
-      } catch (rollbackErr: any) {
-        console.error("[LocalWriteCoordinator] ⚠️ Error al hacer rollback:", rollbackErr?.message || rollbackErr);
-      }
       throw error;
-    } finally {
-      release();
     }
   }
 
-  async executeSingle(query: string, params?: unknown[]): Promise<any> {
-    // Usar localDb.execute que ya tiene el mutex
-    return await localDb.execute(query, params);
+  /**
+   * Ejecuta una consulta de lectura simple.
+   */
+  async select<T = any>(query: string, params?: unknown[]): Promise<T[]> {
+    return await executeQuery<T>(query, params as any[]);
+  }
+
+  /**
+   * Wrapper de compatibilidad para código que usa localDb.transaction().
+   */
+  async transaction<T>(fn: (db: any) => Promise<T>): Promise<T> {
+    return await this.run(fn);
   }
 }
 

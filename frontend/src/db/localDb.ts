@@ -1,4 +1,5 @@
 import { executeQuery, executeTransaction, DbStatement } from "./nativeDb";
+import { localWriteCoordinator } from "./LocalWriteCoordinator";
 
 /**
  * Fachada de base de datos local que delega todas las operaciones
@@ -46,6 +47,27 @@ export class LocalDatabase {
   async selectOne<T = any>(query: string, params?: unknown[]): Promise<T | null> {
     const results = await this.select<T>(query, params);
     return results.length > 0 ? results[0] : null;
+  }
+
+  /**
+   * Ejecuta una transacción atómica delegando al LocalWriteCoordinator.
+   */
+  async transaction<T>(fn: (db: any) => Promise<T>): Promise<T> {
+    return await localWriteCoordinator.transaction(fn);
+  }
+
+  /**
+   * Método de compatibilidad. Devuelve localDb mismo ya que actúa como fachada.
+   */
+  async getConnection(): Promise<any> {
+    return this;
+  }
+
+  /**
+   * Método de compatibilidad. No-op en arquitectura nativa.
+   */
+  async close(): Promise<void> {
+    // La conexión es gestionada por Rust
   }
 }
 
