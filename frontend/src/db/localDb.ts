@@ -1,5 +1,26 @@
 import Database from "@tauri-apps/plugin-sql";
 
+
+// Mutex simple para serializar escrituras en SQLite y prevenir "database is locked"
+class WriteMutex {
+  private queue: Promise<void> = Promise.resolve();
+
+  async acquire(): Promise<() => void> {
+    let release!: () => void;
+    const nextPromise = new Promise<void>(resolve => {
+      release = resolve;
+    });
+    
+    const currentQueue = this.queue;
+    this.queue = currentQueue.then(() => nextPromise).catch(() => nextPromise);
+    
+    await currentQueue;
+    return release;
+  }
+}
+
+const writeMutex = new WriteMutex();
+
 /**
  * Wrapper type-safe sobre el plugin SQL de Tauri.
  * Proporciona acceso a la base de datos SQLite local con WAL mode.
@@ -74,22 +95,26 @@ class LocalDatabase {
    * Si alguna falla, hace rollback de todas.
    */
   async transaction<T>(fn: (db: Database) => Promise<T>): Promise<T> {
+    // Adquirir el mutex para garantizar exclusividad en la escritura
+    const release = await writeMutex.acquire();
     const db = await this.getConnection();
-    await db.execute("BEGIN TRANSACTION;");
+    
     try {
+      await db.execute("BEGIN TRANSACTION;");
       const result = await fn(db);
       await db.execute("COMMIT;");
       return result;
     } catch (error: any) {
-      console.error("[LocalDB] ❌ Error DETALLADO en transacción:");
-      console.error("  - Mensaje:", error?.message || error);
-      console.error("  - Causa:", error?.cause);
+      console.error("[LocalDB] ❌ Error en transacción:", error?.message || error);
       try {
         await db.execute("ROLLBACK;");
       } catch (rollbackErr: any) {
         console.error("[LocalDB] ⚠️ Error al hacer rollback:", rollbackErr?.message || rollbackErr);
       }
-      throw new Error("Fallo en transacción: " + (error?.message || "Error desconocido"));
+      throw error;
+    } finally {
+      // Liberar el mutex para la siguiente operación
+      release();
     }
   }
 
