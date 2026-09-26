@@ -160,7 +160,9 @@ export class OrderRepository {
 
       // 3. Validar y actualizar estado de la mesa (si aplica)
       if (payload.table_id) {
-        const tableExists = await db.select(
+        // Usamos executeQuery directamente para garantizar que funcione dentro de la transacción
+        const { executeQuery } = await import('../../db/nativeDb');
+        const tableExists = await executeQuery(
           "SELECT uuid FROM local_tables WHERE uuid = ? AND company_id = ? AND branch_id = ?",
           [payload.table_id, payload.company_id, payload.branch_id]
         );
