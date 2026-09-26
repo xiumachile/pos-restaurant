@@ -7,30 +7,44 @@ export interface DbStatement {
 
 /**
  * Ejecuta una transacción atómica en Rust.
- * Si ignoreDuplicateErrors es true, los errores de "duplicate column" o "already exists"
- * se ignoran silenciosamente (útil para migraciones idempotentes).
+ * Detecta automáticamente statements SELECT y los ejecuta con executeQuery.
  */
 export async function executeTransaction(
   statements: DbStatement[], 
   options?: { ignoreDuplicateErrors?: boolean }
 ): Promise<void> {
-  try {
-    await invoke<string>("execute_transaction", { statements });
-  } catch (error: any) {
-    const msg = error.message || error.toString();
+  for (const stmt of statements) {
+    const isSelect = /^\s*SELECT\s/i.test(stmt.sql);
     
-    // Si está habilitado, ignorar errores de duplicación (migraciones idempotentes)
-    if (options?.ignoreDuplicateErrors && (
-      msg.includes("duplicate column") ||
-      msg.includes("already exists") ||
-      msg.includes("UNIQUE constraint")
-    )) {
-      console.warn("[NativeDB] ⚠️ Duplicado ignorado (migración idempotente)");
-      return;
+    if (isSelect) {
+      // Ejecutar SELECT con executeQuery
+      try {
+        await executeQuery(stmt.sql, stmt.params);
+      } catch (error: any) {
+        console.error("[NativeDB] ❌ Error en SELECT:", error);
+        throw error;
+      }
+    } else {
+      // Ejecutar escritura con transacción atómica
+      try {
+        await invoke<string>("execute_transaction", { statements: [stmt] });
+      } catch (error: any) {
+        const msg = error.message || error.toString();
+        
+        // Si está habilitado, ignorar errores de duplicación
+        if (options?.ignoreDuplicateErrors && (
+          msg.includes("duplicate column") ||
+          msg.includes("already exists") ||
+          msg.includes("UNIQUE constraint")
+        )) {
+          console.warn("[NativeDB] ⚠️ Duplicado ignorado (migración idempotente)");
+          continue;
+        }
+        
+        console.error("[NativeDB] ❌ Error en transacción:", error);
+        throw new Error(msg);
+      }
     }
-    
-    console.error("[NativeDB] ❌ Error en transacción:", error);
-    throw new Error(msg);
   }
 }
 
