@@ -8,15 +8,11 @@ export class LocalWriteCoordinator {
   async run<T>(operation: (db: any) => Promise<T>): Promise<T> {
     const statements: DbStatement[] = [];
     
-    // Objeto mock que intercepta execute() y select() dentro de la transacción
     const txDb = {
       execute: (sql: string, params: any[] = []) => {
         statements.push({ sql, params });
       },
       select: async (sql: string, params: any[] = []) => {
-        // Nota: Los SELECT dentro de la transacción se ejecutan inmediatamente en Rust.
-        // No verán los INSERTs acumulados en 'statements' porque aún no se han enviado.
-        // Para lógica que dependa de datos recién insertados, el cálculo debe hacerse en JS.
         return await executeQuery(sql, params);
       }
     };
@@ -47,6 +43,17 @@ export class LocalWriteCoordinator {
    */
   async transaction<T>(fn: (db: any) => Promise<T>): Promise<T> {
     return await this.run(fn);
+  }
+
+  /**
+   * Ejecuta un statement de escritura único de forma atómica.
+   */
+  async executeSingle(query: string, params?: unknown[]): Promise<any> {
+    const statements: DbStatement[] = [{ 
+      sql: query, 
+      params: (params as any[]) || [] 
+    }];
+    return await executeTransaction(statements);
   }
 }
 
