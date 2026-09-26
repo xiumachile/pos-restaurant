@@ -6,8 +6,7 @@ export interface DbStatement {
 let testDb: any = null;
 
 /**
- * Obtiene la instancia de BD en memoria para pruebas (Node.js/CI).
- * Se crea una sola vez y se reutiliza para mantener el estado durante la suite de pruebas.
+ * Obtiene la instancia de BD en memoria para pruebas.
  */
 function getTestDb() {
   if (!testDb) {
@@ -20,22 +19,32 @@ function getTestDb() {
 }
 
 /**
- * Detecta de forma infalible si estamos en Node.js (Vitest, CI, scripts).
+ * Detecta si estamos en un entorno de pruebas (Vitest/CI) o fuera de Tauri.
  */
-function isNodeEnvironment(): boolean {
-  return typeof process !== 'undefined' && process.versions && process.versions.node;
+function shouldUseBetterSqlite3(): boolean {
+  // 1. Variable de entorno explícita de Vitest
+  if (typeof process !== 'undefined' && process.env.VITEST === 'true') {
+    return true;
+  }
+  // 2. Si no estamos en un navegador, o estamos en un navegador pero sin Tauri
+  if (typeof window === 'undefined') {
+    return true; // Entorno Node.js puro
+  }
+  if (typeof (window as any).__TAURI__ === 'undefined') {
+    return true; // Entorno de navegador simulado (jsdom/happy-dom) sin Tauri
+  }
+  
+  return false; // Estamos en Tauri real
 }
 
 /**
  * Ejecuta una transacción atómica.
- * En Node.js: usa better-sqlite3 en memoria.
- * En Tauri: usa el comando nativo de Rust.
  */
 export async function executeTransaction(
   statements: DbStatement[],
   options?: { ignoreDuplicateErrors?: boolean }
 ): Promise<void> {
-  if (isNodeEnvironment()) {
+  if (shouldUseBetterSqlite3()) {
     const db = getTestDb();
     const transaction = db.transaction((stmts: DbStatement[]) => {
       for (const stmt of stmts) {
@@ -51,7 +60,7 @@ export async function executeTransaction(
             error.message.includes("already exists") ||
             error.message.includes("UNIQUE constraint")
           )) {
-            continue; // Ignorar errores de duplicación en migraciones
+            continue;
           }
           throw error;
         }
@@ -94,7 +103,7 @@ export async function executeQuery<T = any>(
   sql: string,
   params: (string | number | boolean | null)[] = []
 ): Promise<T[]> {
-  if (isNodeEnvironment()) {
+  if (shouldUseBetterSqlite3()) {
     const db = getTestDb();
     return db.prepare(sql).all(...params) as T[];
   }
@@ -105,9 +114,6 @@ export async function executeQuery<T = any>(
   return (result as T[]) || [];
 }
 
-/**
- * Limpia la BD de pruebas (útil para resetear entre suites si es necesario).
- */
 export function resetTestDb() {
   if (testDb) {
     testDb.close();
