@@ -175,13 +175,8 @@ export class OrderRepository {
         );
 
         await db.execute(
-          "INSERT OR REPLACE INTO table_local_mutations (table_uuid, action, payload, company_id, branch_id, created_at) VALUES (?, 'update', ?, ?, ?, CURRENT_TIMESTAMP)",
-          [
-            payload.table_id, 
-            JSON.stringify({ status: 'occupied', current_order_uuid: local_uuid }), 
-            payload.company_id, 
-            payload.branch_id
-          ]
+          "INSERT OR REPLACE INTO table_local_mutations (table_uuid, pending_status, pending_order_uuid, created_at) VALUES (?, 'occupied', ?, CURRENT_TIMESTAMP)",
+          [payload.table_id, local_uuid]
         );
       }
 
