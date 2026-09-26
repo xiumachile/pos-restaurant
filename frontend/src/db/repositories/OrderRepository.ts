@@ -97,7 +97,7 @@ export class OrderRepository {
     const order_number = `TEMP-${Date.now()}`;
 
     // TRANSACCIÓN ATÓMICA: todas las operaciones deben completarse juntas
-        await localWriteCoordinator.run(async (db) => {
+    await localWriteCoordinator.run(async (db) => {
       // 1. VALIDACIÓN FAIL-FAST: Verificar mesa ANTES de cualquier escritura
       if (payload.table_id) {
         const { executeQuery } = await import('../../db/nativeDb');
@@ -106,19 +106,19 @@ export class OrderRepository {
           [payload.table_id, payload.company_id, payload.branch_id]
         );
         if (!tableExists || tableExists.length === 0) {
-          throw new Error(\`Mesa \${payload.table_id} no existe o no pertenece al tenant\`);
+          throw new Error(`Mesa ${payload.table_id} no existe o no pertenece al tenant`);
         }
       }
 
       // 2. Crear order con modelo chileno (ADR-011)
       await db.execute(
-        \`INSERT INTO local_orders (
+        `INSERT INTO local_orders (
           local_uuid, company_id, branch_id, terminal_id, table_id,
           order_number, order_type, status, subtotal, discount_total,
           net_amount, tax_total, tip_amount, grand_total, amount_due, guest_count,
           waiter_id, waiter_name, notes, idempotency_key, sync_status,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)\`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
         [
           local_uuid, payload.company_id, payload.branch_id, payload.terminal_id || null,
           payload.table_id || null, order_number, payload.order_type || "dine_in", "confirmed",
@@ -127,7 +127,7 @@ export class OrderRepository {
         ]
       );
 
-      // 3. Encolar evento de sincronización DENTRO de la misma transacción (usando db.execute)
+      // 3. Encolar evento de sincronización DENTRO de la misma transacción
       const syncPayload = {
         local_uuid, company_id: payload.company_id, branch_id: payload.branch_id,
         terminal_id: payload.terminal_id || null, table_id: payload.table_id || null,
@@ -139,7 +139,7 @@ export class OrderRepository {
       };
       
       await db.execute(
-        \`INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid, action, payload, sync_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)\`,
+        `INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid, action, payload, sync_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)`,
         [local_uuid, payload.company_id, payload.branch_id, 'order', local_uuid, 'create', JSON.stringify(syncPayload)]
       );
 
@@ -177,63 +177,30 @@ export class OrderRepository {
 
     // TRANSACCIÓN ATÓMICA: item + recálculo de totales
     // Si recalculateOrderTotals falla, el item NO queda insertado
-        await localWriteCoordinator.run(async (db) => {
-      // 1. VALIDACIÓN FAIL-FAST: Verificar mesa ANTES de cualquier escritura
-      if (payload.table_id) {
-        const { executeQuery } = await import('../../db/nativeDb');
-        const tableExists = await executeQuery(
-          "SELECT uuid FROM local_tables WHERE uuid = ? AND company_id = ? AND branch_id = ?",
-          [payload.table_id, payload.company_id, payload.branch_id]
-        );
-        if (!tableExists || tableExists.length === 0) {
-          throw new Error(\`Mesa \${payload.table_id} no existe o no pertenece al tenant\`);
-        }
-      }
-
-      // 2. Crear order con modelo chileno (ADR-011)
+    await localWriteCoordinator.run(async (db) => {
+      // 1. Insertar item
       await db.execute(
-        \`INSERT INTO local_orders (
-          local_uuid, company_id, branch_id, terminal_id, table_id,
-          order_number, order_type, status, subtotal, discount_total,
-          net_amount, tax_total, tip_amount, grand_total, amount_due, guest_count,
-          waiter_id, waiter_name, notes, idempotency_key, sync_status,
-          created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)\`,
+        `INSERT INTO local_order_items (
+          local_uuid, order_local_uuid, product_id, product_name,
+          quantity, unit_price, subtotal, notes, kitchen_status,
+          is_menu_item, menu_item_id, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, CURRENT_TIMESTAMP)`,
         [
-          local_uuid, payload.company_id, payload.branch_id, payload.terminal_id || null,
-          payload.table_id || null, order_number, payload.order_type || "dine_in", "confirmed",
-          payload.guest_count || 1, payload.waiter_id || null, payload.waiter_name || null,
-          payload.notes || null, idempotency_key,
+          itemUuid,
+          orderLocalUuid,
+          item.product_id,
+          item.product_name,
+          item.quantity,
+          item.unit_price,
+          subtotal,
+          item.notes || null,
+          item.is_menu_item ? 1 : 0,
+          item.menu_item_id || null,
         ]
       );
 
-      // 3. Encolar evento de sincronización DENTRO de la misma transacción (usando db.execute)
-      const syncPayload = {
-        local_uuid, company_id: payload.company_id, branch_id: payload.branch_id,
-        terminal_id: payload.terminal_id || null, table_id: payload.table_id || null,
-        order_number, order_type: payload.order_type || "dine_in", status: 'confirmed',
-        subtotal: 0, discount_total: 0, tax_total: 0, tip_amount: 0, grand_total: 0,
-        guest_count: payload.guest_count || 1, waiter_id: payload.waiter_id || null,
-        waiter_name: payload.waiter_name || null, notes: payload.notes || null,
-        idempotency_key, items: []
-      };
-      
-      await db.execute(
-        \`INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid, action, payload, sync_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)\`,
-        [local_uuid, payload.company_id, payload.branch_id, 'order', local_uuid, 'create', JSON.stringify(syncPayload)]
-      );
-
-      // 4. Actualizar estado de la mesa (si aplica)
-      if (payload.table_id) {
-        await db.execute(
-          "UPDATE local_tables SET status = 'occupied', current_order_uuid = ? WHERE uuid = ?",
-          [local_uuid, payload.table_id]
-        );
-        await db.execute(
-          "INSERT OR REPLACE INTO table_local_mutations (table_uuid, pending_status, pending_order_uuid, created_at) VALUES (?, 'occupied', ?, CURRENT_TIMESTAMP)",
-          [payload.table_id, local_uuid]
-        );
-      }
+      // 2. Recalcular totales del pedido
+      await this.recalculateOrderTotals(orderLocalUuid);
     });
 
     return await this.findItemByLocalUuid(itemUuid) as LocalOrderItem;
@@ -433,28 +400,16 @@ export class OrderRepository {
     const idempotency_key = uuidv4();
     const order_number = `TEMP-${Date.now()}`;
 
-        await localWriteCoordinator.run(async (db) => {
-      // 1. VALIDACIÓN FAIL-FAST: Verificar mesa ANTES de cualquier escritura
-      if (payload.table_id) {
-        const { executeQuery } = await import('../../db/nativeDb');
-        const tableExists = await executeQuery(
-          "SELECT uuid FROM local_tables WHERE uuid = ? AND company_id = ? AND branch_id = ?",
-          [payload.table_id, payload.company_id, payload.branch_id]
-        );
-        if (!tableExists || tableExists.length === 0) {
-          throw new Error(\`Mesa \${payload.table_id} no existe o no pertenece al tenant\`);
-        }
-      }
-
-      // 2. Crear order con modelo chileno (ADR-011)
-      await db.execute(
-        \`INSERT INTO local_orders (
+    await localWriteCoordinator.run(async (db) => {
+      // 1. Crear order (valores iniciales en 0)
+      await (db as any).execute(
+        `INSERT INTO local_orders (
           local_uuid, company_id, branch_id, terminal_id, table_id,
           order_number, order_type, status, subtotal, discount_total,
           net_amount, tax_total, tip_amount, grand_total, amount_due, guest_count,
           waiter_id, waiter_name, notes, idempotency_key, sync_status,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)\`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
         [
           local_uuid, payload.company_id, payload.branch_id, payload.terminal_id || null,
           payload.table_id || null, order_number, payload.order_type || "dine_in", "confirmed",
@@ -463,31 +418,78 @@ export class OrderRepository {
         ]
       );
 
-      // 3. Encolar evento de sincronización DENTRO de la misma transacción (usando db.execute)
+      // 2. Insertar todos los items
+      let totalSubtotal = 0;
+      for (const item of items) {
+        const itemUuid = uuidv4();
+        const subtotal = item.quantity * item.unit_price;
+        totalSubtotal += subtotal;
+
+        await (db as any).execute(
+          `INSERT INTO local_order_items (
+            local_uuid, order_local_uuid, product_id, product_name,
+            quantity, unit_price, subtotal, notes, kitchen_status,
+            is_menu_item, menu_item_id, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, CURRENT_TIMESTAMP)`,
+          [
+            itemUuid, local_uuid, item.product_id, item.product_name,
+            item.quantity, item.unit_price, subtotal, item.notes || null,
+            item.is_menu_item ? 1 : 0, item.menu_item_id || null,
+          ]
+        );
+      }
+
+      // 3. Recalcular totales del pedido (usando la misma conexión 'db')
+      await this.recalculateOrderTotals(local_uuid, db);
+
+      // 4. Encolar evento de sincronización usando la misma conexión de transacción
       const syncPayload = {
         local_uuid, company_id: payload.company_id, branch_id: payload.branch_id,
         terminal_id: payload.terminal_id || null, table_id: payload.table_id || null,
         order_number, order_type: payload.order_type || "dine_in", status: 'confirmed',
-        subtotal: 0, discount_total: 0, tax_total: 0, tip_amount: 0, grand_total: 0,
         guest_count: payload.guest_count || 1, waiter_id: payload.waiter_id || null,
         waiter_name: payload.waiter_name || null, notes: payload.notes || null,
-        idempotency_key, items: []
+        idempotency_key,
       };
-      
-      await db.execute(
-        \`INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid, action, payload, sync_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)\`,
-        [local_uuid, payload.company_id, payload.branch_id, 'order', local_uuid, 'create', JSON.stringify(syncPayload)]
+
+      // Usamos directamente execute de db para encolar en sync_queue
+      await (db as any).execute(
+        `INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid, action, payload, sync_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)`,
+        [
+          local_uuid, // id
+          payload.company_id, payload.branch_id, 'order', local_uuid, 'create',
+          JSON.stringify(syncPayload)
+        ]
       );
 
-      // 4. Actualizar estado de la mesa (si aplica)
+      // 5. Marcar mesa como occupied (DIRECTAMENTE en la transacción para garantizar atomicidad)
       if (payload.table_id) {
-        await db.execute(
-          "UPDATE local_tables SET status = 'occupied', current_order_uuid = ? WHERE uuid = ?",
+        // a) Validar que la mesa existe
+        const tableExists = await (db as any).select(
+          "SELECT uuid FROM local_tables WHERE uuid = ? AND company_id = ? AND branch_id = ?",
+          [payload.table_id, payload.company_id, payload.branch_id]
+        );
+        if (!tableExists || tableExists.length === 0) {
+          throw new Error(`Mesa ${payload.table_id} no existe o no pertenece al tenant`);
+        }
+
+        // b) Actualizar estado de la mesa (se acumula en la transacción)
+        await (db as any).execute(
+          `UPDATE local_tables SET status = 'occupied', current_order_uuid = ? WHERE uuid = ?`,
           [local_uuid, payload.table_id]
         );
-        await db.execute(
-          "INSERT OR REPLACE INTO table_local_mutations (table_uuid, pending_status, pending_order_uuid, created_at) VALUES (?, 'occupied', ?, CURRENT_TIMESTAMP)",
-          [payload.table_id, local_uuid]
+
+        // c) Registrar mutación para el SyncEngine (se acumula en la transacción)
+        await (db as any).execute(
+          `INSERT OR REPLACE INTO table_local_mutations 
+             (table_uuid, action, payload, company_id, branch_id, created_at)
+           VALUES (?, 'update', ?, ?, ?, CURRENT_TIMESTAMP)`,
+          [
+            payload.table_id, 
+            JSON.stringify({ status: 'occupied', current_order_uuid: local_uuid }), 
+            payload.company_id, 
+            payload.branch_id
+          ]
         );
       }
     });

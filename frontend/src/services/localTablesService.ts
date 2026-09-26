@@ -205,7 +205,7 @@ export const localTablesService = {
     });
 
     // 0. Verificar que la mesa existe en local_tables Y pertenece al tenant
-    const tableCheck = await (db || localDb).select<{ uuid: string }>(
+    const tableCheck = await (db || localDb).select(
       "SELECT uuid FROM local_tables WHERE uuid = ? AND company_id = ? AND branch_id = ?",
       [tableUuid, companyId, branchId]
     );
