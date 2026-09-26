@@ -478,15 +478,15 @@ export class OrderRepository {
 
         // b) Actualizar estado de la mesa (se acumula en la transacción)
         await (db as any).execute(
-          \`UPDATE local_tables SET status = 'occupied', current_order_uuid = ? WHERE uuid = ?\`,
+          `UPDATE local_tables SET status = 'occupied', current_order_uuid = ? WHERE uuid = ?`,
           [local_uuid, payload.table_id]
         );
 
         // c) Registrar mutación para el SyncEngine (se acumula en la transacción)
         await (db as any).execute(
-          \`INSERT OR REPLACE INTO table_local_mutations 
+          `INSERT OR REPLACE INTO table_local_mutations 
              (table_uuid, action, payload, company_id, branch_id, created_at)
-           VALUES (?, 'update', ?, ?, ?, CURRENT_TIMESTAMP)\`,
+           VALUES (?, 'update', ?, ?, ?, CURRENT_TIMESTAMP)`,
           [
             payload.table_id, 
             JSON.stringify({ status: 'occupied', current_order_uuid: local_uuid }), 
