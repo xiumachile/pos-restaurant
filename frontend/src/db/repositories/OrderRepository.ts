@@ -480,18 +480,17 @@ export class OrderRepository {
           JSON.stringify(syncPayload)
         ]
       );
-    });
-
-    // 5. Marcar mesa como occupied.
-    // Si esto falla, se lanza el error para que el llamador pueda manejar la inconsistencia.
-    if (payload.table_id) {
-      await localTablesService.markOccupied(
-        payload.table_id, 
-        local_uuid,
-        payload.company_id,
-        payload.branch_id
-      );
     }
+      // Marcar mesa como occupied (DENTRO de la transacción para garantizar atomicidad)
+      if (payload.table_id) {
+        await localTablesService.markOccupied(
+          payload.table_id, 
+          local_uuid,
+          payload.company_id,
+          payload.branch_id
+        );
+      }
+    });
 
     console.log("[OrderRepository] 📤 Pedido + Items creados atómicamente:", local_uuid);
     return await this.findByLocalUuid(local_uuid) as LocalOrder;
