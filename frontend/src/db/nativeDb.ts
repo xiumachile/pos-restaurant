@@ -3,49 +3,39 @@ export interface DbStatement {
   params: (string | number | boolean | null)[];
 }
 
-// Variable para mantener la conexión en memoria durante las pruebas
 let testDb: any = null;
 
 /**
- * Obtiene una instancia de base de datos en memoria para pruebas.
+ * Obtiene la instancia de BD en memoria para pruebas (Node.js/CI).
+ * Se crea una sola vez y se reutiliza para mantener el estado durante la suite de pruebas.
  */
 function getTestDb() {
   if (!testDb) {
-    try {
-      // Dynamic import para evitar errores en Tauri real
-      const Database = require('better-sqlite3');
-      // Base de datos en memoria para pruebas rápidas y aisladas
-      testDb = new Database(':memory:');
-      
-      // Habilitar foreign keys en la BD de prueba
-      testDb.pragma('journal_mode = WAL');
-      testDb.pragma('foreign_keys = ON');
-    } catch (error) {
-      throw new Error("better-sqlite3 no está instalado. Ejecuta: npm install --save-dev better-sqlite3");
-    }
+    const Database = require('better-sqlite3');
+    testDb = new Database(':memory:');
+    testDb.pragma('journal_mode = WAL');
+    testDb.pragma('foreign_keys = ON');
   }
   return testDb;
 }
 
 /**
- * Detecta si estamos en un entorno Tauri real.
+ * Detecta de forma infalible si estamos en Node.js (Vitest, CI, scripts).
  */
-function isTauriEnvironment(): boolean {
-  return typeof window !== 'undefined' && 
-         typeof (window as any).__TAURI__ !== 'undefined';
+function isNodeEnvironment(): boolean {
+  return typeof process !== 'undefined' && process.versions && process.versions.node;
 }
 
 /**
  * Ejecuta una transacción atómica.
+ * En Node.js: usa better-sqlite3 en memoria.
  * En Tauri: usa el comando nativo de Rust.
- * En Tests/CI: usa better-sqlite3 en memoria.
  */
 export async function executeTransaction(
   statements: DbStatement[],
   options?: { ignoreDuplicateErrors?: boolean }
 ): Promise<void> {
-  if (!isTauriEnvironment()) {
-    // Entorno de prueba: ejecutar con better-sqlite3
+  if (isNodeEnvironment()) {
     const db = getTestDb();
     const transaction = db.transaction((stmts: DbStatement[]) => {
       for (const stmt of stmts) {
@@ -61,7 +51,7 @@ export async function executeTransaction(
             error.message.includes("already exists") ||
             error.message.includes("UNIQUE constraint")
           )) {
-            continue; // Ignorar y continuar
+            continue; // Ignorar errores de duplicación en migraciones
           }
           throw error;
         }
@@ -71,36 +61,26 @@ export async function executeTransaction(
     return;
   }
 
-  // Entorno Tauri real: usar invoke
+  // Entorno Tauri real
   const mod = await import("@tauri-apps/api/core");
   const invoke = mod.invoke;
 
   for (const stmt of statements) {
     const isSelect = /^\s*SELECT\s/i.test(stmt.sql);
-
     if (isSelect) {
-      try {
-        await executeQuery(stmt.sql, stmt.params);
-      } catch (error: any) {
-        console.error("[NativeDB] ❌ Error en SELECT:", error);
-        throw error;
-      }
+      await executeQuery(stmt.sql, stmt.params);
     } else {
       try {
         await invoke("execute_transaction", { statements: [stmt] });
       } catch (error: any) {
         const msg = error.message || error.toString();
-
         if (options?.ignoreDuplicateErrors && (
           msg.includes("duplicate column") ||
           msg.includes("already exists") ||
           msg.includes("UNIQUE constraint")
         )) {
-          console.warn("[NativeDB] ⚠️ Duplicado ignorado (migración idempotente)");
           continue;
         }
-
-        console.error("[NativeDB] ❌ Error en transacción:", error);
         throw new Error(msg);
       }
     }
@@ -114,27 +94,19 @@ export async function executeQuery<T = any>(
   sql: string,
   params: (string | number | boolean | null)[] = []
 ): Promise<T[]> {
-  if (!isTauriEnvironment()) {
-    // Entorno de prueba
+  if (isNodeEnvironment()) {
     const db = getTestDb();
     return db.prepare(sql).all(...params) as T[];
   }
 
-  // Entorno Tauri real
   const mod = await import("@tauri-apps/api/core");
   const invoke = mod.invoke;
-  
-  try {
-    const result = await invoke("execute_query", { sql, params });
-    return (result as T[]) || [];
-  } catch (error: any) {
-    console.error("[NativeDB] ❌ Error en query:", error);
-    throw new Error(error.message || "Error en query nativa");
-  }
+  const result = await invoke("execute_query", { sql, params });
+  return (result as T[]) || [];
 }
 
 /**
- * Limpia la base de datos de prueba (útil para afterEach en tests)
+ * Limpia la BD de pruebas (útil para resetear entre suites si es necesario).
  */
 export function resetTestDb() {
   if (testDb) {
