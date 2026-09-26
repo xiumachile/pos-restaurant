@@ -97,7 +97,7 @@ export class OrderRepository {
     const order_number = `TEMP-${Date.now()}`;
 
     // TRANSACCIÓN ATÓMICA: todas las operaciones deben completarse juntas
-        await localWriteCoordinator.run(async (db) => {
+            await localWriteCoordinator.run(async (db) => {
       // 1. VALIDACIÓN FAIL-FAST: Verificar mesa ANTES de cualquier escritura
       if (payload.table_id) {
         const { executeQuery } = await import('../../db/nativeDb');
@@ -106,19 +106,19 @@ export class OrderRepository {
           [payload.table_id, payload.company_id, payload.branch_id]
         );
         if (!tableExists || tableExists.length === 0) {
-          throw new Error(\`Mesa \${payload.table_id} no existe o no pertenece al tenant\`);
+          throw new Error(`Mesa ${payload.table_id} no existe o no pertenece al tenant`);
         }
       }
 
       // 2. Crear order con modelo chileno (ADR-011)
       await db.execute(
-        \`INSERT INTO local_orders (
+        `INSERT INTO local_orders (
           local_uuid, company_id, branch_id, terminal_id, table_id,
           order_number, order_type, status, subtotal, discount_total,
           net_amount, tax_total, tip_amount, grand_total, amount_due, guest_count,
           waiter_id, waiter_name, notes, idempotency_key, sync_status,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)\`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
         [
           local_uuid, payload.company_id, payload.branch_id, payload.terminal_id || null,
           payload.table_id || null, order_number, payload.order_type || "dine_in", "confirmed",
@@ -127,7 +127,7 @@ export class OrderRepository {
         ]
       );
 
-      // 3. Encolar evento de sincronización DENTRO de la misma transacción (usando db.execute)
+      // 3. Encolar evento de sincronización DENTRO de la misma transacción
       const syncPayload = {
         local_uuid, company_id: payload.company_id, branch_id: payload.branch_id,
         terminal_id: payload.terminal_id || null, table_id: payload.table_id || null,
@@ -139,7 +139,7 @@ export class OrderRepository {
       };
       
       await db.execute(
-        \`INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid, action, payload, sync_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)\`,
+        `INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid, action, payload, sync_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)`,
         [local_uuid, payload.company_id, payload.branch_id, 'order', local_uuid, 'create', JSON.stringify(syncPayload)]
       );
 
@@ -154,7 +154,8 @@ export class OrderRepository {
           [payload.table_id, local_uuid]
         );
       }
-    }); // Fin de la transacción de creación de orden
+    });
+ // Fin de la transacción de creación de orden
 
     console.log("[OrderRepository] 📤 Pedido creado localmente:", local_uuid);
     return await this.findByLocalUuid(local_uuid) as LocalOrder;
@@ -186,19 +187,19 @@ export class OrderRepository {
           [payload.table_id, payload.company_id, payload.branch_id]
         );
         if (!tableExists || tableExists.length === 0) {
-          throw new Error(\`Mesa \${payload.table_id} no existe o no pertenece al tenant\`);
+          throw new Error(`Mesa \${payload.table_id} no existe o no pertenece al tenant`);
         }
       }
 
       // 2. Crear order con modelo chileno (ADR-011)
       await db.execute(
-        \`INSERT INTO local_orders (
+        `INSERT INTO local_orders (
           local_uuid, company_id, branch_id, terminal_id, table_id,
           order_number, order_type, status, subtotal, discount_total,
           net_amount, tax_total, tip_amount, grand_total, amount_due, guest_count,
           waiter_id, waiter_name, notes, idempotency_key, sync_status,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)\`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
         [
           local_uuid, payload.company_id, payload.branch_id, payload.terminal_id || null,
           payload.table_id || null, order_number, payload.order_type || "dine_in", "confirmed",
@@ -219,7 +220,7 @@ export class OrderRepository {
       };
       
       await db.execute(
-        \`INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid, action, payload, sync_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)\`,
+        `INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid, action, payload, sync_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)`,
         [local_uuid, payload.company_id, payload.branch_id, 'order', local_uuid, 'create', JSON.stringify(syncPayload)]
       );
 
@@ -442,19 +443,19 @@ export class OrderRepository {
           [payload.table_id, payload.company_id, payload.branch_id]
         );
         if (!tableExists || tableExists.length === 0) {
-          throw new Error(\`Mesa \${payload.table_id} no existe o no pertenece al tenant\`);
+          throw new Error(`Mesa \${payload.table_id} no existe o no pertenece al tenant`);
         }
       }
 
       // 2. Crear order con modelo chileno (ADR-011)
       await db.execute(
-        \`INSERT INTO local_orders (
+        `INSERT INTO local_orders (
           local_uuid, company_id, branch_id, terminal_id, table_id,
           order_number, order_type, status, subtotal, discount_total,
           net_amount, tax_total, tip_amount, grand_total, amount_due, guest_count,
           waiter_id, waiter_name, notes, idempotency_key, sync_status,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)\`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
         [
           local_uuid, payload.company_id, payload.branch_id, payload.terminal_id || null,
           payload.table_id || null, order_number, payload.order_type || "dine_in", "confirmed",
@@ -475,7 +476,7 @@ export class OrderRepository {
       };
       
       await db.execute(
-        \`INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid, action, payload, sync_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)\`,
+        `INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid, action, payload, sync_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)`,
         [local_uuid, payload.company_id, payload.branch_id, 'order', local_uuid, 'create', JSON.stringify(syncPayload)]
       );
 
