@@ -3,7 +3,7 @@ export interface DbStatement {
   params: (string | number | boolean | null)[];
 }
 
-// Mock para entornos de prueba (Node.js/CI) donde Tauri no está disponible
+// Mock para entornos de prueba (Node.js/CI/Vitest) donde Tauri no está disponible
 const mockInvoke = async (cmd: string, _args?: any): Promise<any> => {
   if (cmd === 'execute_transaction') return "Transacción exitosa";
   if (cmd === 'execute_query') return [];
@@ -14,26 +14,39 @@ const mockInvoke = async (cmd: string, _args?: any): Promise<any> => {
 let _invoke: ((cmd: string, args?: any) => Promise<any>) | null = null;
 
 /**
+ * Detecta si estamos en un entorno Tauri real.
+ * En Tauri, window.__TAURI__ existe. En Node.js/CI/Vitest, no.
+ */
+function isTauriEnvironment(): boolean {
+  return typeof window !== 'undefined' && 
+         typeof (window as any).__TAURI__ !== 'undefined';
+}
+
+/**
  * Obtiene la función invoke correcta según el entorno.
- * En Tauri real: usa @tauri-apps/api/core.
- * En Node.js/CI: usa el mock.
- * Se cachea después del primer llamado.
+ * Se cachea después del primer llamado para evitar overhead.
  */
 async function getInvoke(): Promise<(cmd: string, args?: any) => Promise<any>> {
   if (_invoke) return _invoke;
 
+  // Detección rápida: si no estamos en Tauri, usar mock directamente
+  if (!isTauriEnvironment()) {
+    _invoke = mockInvoke;
+    return _invoke;
+  }
+
+  // Estamos en Tauri: intentar importar la API real
   try {
-    // Dynamic import: solo se ejecuta si no hay cache
-    // En Node.js/CI, esto fallará gracefully y usaremos el mock
     const mod = await import("@tauri-apps/api/core");
-    if (typeof mod.invoke === 'function') {
+    if (mod && typeof mod.invoke === 'function') {
       _invoke = mod.invoke;
       return _invoke;
     }
-  } catch {
-    // Import falló (entorno Node.js/CI) - usar mock
+  } catch (error) {
+    console.warn("[NativeDB] ⚠️ No se pudo importar @tauri-apps/api/core, usando mock:", error);
   }
 
+  // Fallback final: usar mock
   _invoke = mockInvoke;
   return _invoke;
 }
