@@ -157,6 +157,34 @@ export class OrderRepository {
         payload: syncPayload,
       });
 
+
+      // 3. Validar y actualizar estado de la mesa (si aplica)
+      if (payload.table_id) {
+        const tableExists = await db.select(
+          "SELECT uuid FROM local_tables WHERE uuid = ? AND company_id = ? AND branch_id = ?",
+          [payload.table_id, payload.company_id, payload.branch_id]
+        );
+        
+        if (!tableExists || tableExists.length === 0) {
+          throw new Error(`Mesa ${payload.table_id} no existe o no pertenece al tenant`);
+        }
+
+        await db.execute(
+          "UPDATE local_tables SET status = 'occupied', current_order_uuid = ? WHERE uuid = ?",
+          [local_uuid, payload.table_id]
+        );
+
+        await db.execute(
+          "INSERT OR REPLACE INTO table_local_mutations (table_uuid, action, payload, company_id, branch_id, created_at) VALUES (?, 'update', ?, ?, ?, CURRENT_TIMESTAMP)",
+          [
+            payload.table_id, 
+            JSON.stringify({ status: 'occupied', current_order_uuid: local_uuid }), 
+            payload.company_id, 
+            payload.branch_id
+          ]
+        );
+      }
+
     }); // Fin de la transacción de creación de orden
 
     console.log("[OrderRepository] 📤 Pedido creado localmente:", local_uuid);
