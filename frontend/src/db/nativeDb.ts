@@ -16,18 +16,20 @@ function getTestDb() {
 }
 
 /**
- * Detección robusta de entorno de pruebas (Vitest, CI, Node.js).
+ * Detección infalible de entorno de pruebas (Vitest, Jest, CI, Node.js).
  */
 function isTestEnvironment(): boolean {
-  // 1. Variable de entorno explícita de Vitest
-  if (typeof process !== 'undefined' && process.env.VITEST === 'true') {
-    return true;
-  }
-  // 2. Si no estamos en un navegador (Node.js puro, como en GitHub Actions CI)
+  // 1. Entorno Node.js puro (GitHub Actions CI, scripts)
   if (typeof window === 'undefined') {
     return true;
   }
-  // 3. Si existe el objeto global de Vitest o Jest
+  // 2. Variables de entorno estándar de testing
+  if (typeof process !== 'undefined') {
+    if (process.env.VITEST === 'true' || process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID) {
+      return true;
+    }
+  }
+  // 3. Globales inyectados por runners de pruebas (incluso en jsdom/happy-dom)
   if (typeof (globalThis as any).vi !== 'undefined' || typeof (globalThis as any).jest !== 'undefined') {
     return true;
   }
