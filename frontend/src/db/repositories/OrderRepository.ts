@@ -154,7 +154,8 @@ export class OrderRepository {
           [payload.table_id, local_uuid]
         );
       }
-    }); // Fin de la transacción de creación de orden
+    });
+ // Fin de la transacción de creación de orden
 
     console.log("[OrderRepository] 📤 Pedido creado localmente:", local_uuid);
     return await this.findByLocalUuid(local_uuid) as LocalOrder;
