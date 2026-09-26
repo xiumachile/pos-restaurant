@@ -482,7 +482,8 @@ export class OrderRepository {
           payload.table_id, 
           local_uuid,
           payload.company_id,
-          payload.branch_id
+          payload.branch_id,
+          db // <-- Pasar el contexto transaccional
         );
       }
     });

@@ -197,14 +197,15 @@ export const localTablesService = {
     tableUuid: string,
     orderLocalUuid: string,
     companyId: string,
-    branchId: string
+    branchId: string,
+    db?: any // Opcional: para usar dentro de transacciones
   ): Promise<void> {
     console.log("[localTablesService] 🪑 markOccupied:", {
       tableUuid, orderLocalUuid, companyId, branchId
     });
 
     // 0. Verificar que la mesa existe en local_tables Y pertenece al tenant
-    const tableCheck = await localDb.select<{ uuid: string }>(
+    const tableCheck = await (db || localDb).select<{ uuid: string }>(
       "SELECT uuid FROM local_tables WHERE uuid = ? AND company_id = ? AND branch_id = ?",
       [tableUuid, companyId, branchId]
     );
@@ -213,7 +214,7 @@ export const localTablesService = {
     }
 
     // 1. Registrar mutación pendiente (autoridad principal) con tenant
-    await localDb.execute(
+    await (db || localDb).execute(
       `INSERT OR REPLACE INTO table_local_mutations
        (table_uuid, pending_status, pending_order_uuid, company_id, branch_id, created_at)
        VALUES (?, 'occupied', ?, ?, ?, CURRENT_TIMESTAMP)`,
