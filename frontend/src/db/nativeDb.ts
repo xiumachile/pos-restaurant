@@ -5,9 +5,6 @@ export interface DbStatement {
 
 let testDb: any = null;
 
-/**
- * Obtiene la instancia de BD en memoria para pruebas.
- */
 function getTestDb() {
   if (!testDb) {
     const Database = require('better-sqlite3');
@@ -19,32 +16,30 @@ function getTestDb() {
 }
 
 /**
- * Detecta si estamos en un entorno de pruebas (Vitest/CI) o fuera de Tauri.
+ * Detección robusta de entorno de pruebas (Vitest, CI, Node.js).
  */
-function shouldUseBetterSqlite3(): boolean {
+function isTestEnvironment(): boolean {
   // 1. Variable de entorno explícita de Vitest
   if (typeof process !== 'undefined' && process.env.VITEST === 'true') {
     return true;
   }
-  // 2. Si no estamos en un navegador, o estamos en un navegador pero sin Tauri
+  // 2. Si no estamos en un navegador (Node.js puro, como en GitHub Actions CI)
   if (typeof window === 'undefined') {
-    return true; // Entorno Node.js puro
+    return true;
   }
-  if (typeof (window as any).__TAURI__ === 'undefined') {
-    return true; // Entorno de navegador simulado (jsdom/happy-dom) sin Tauri
+  // 3. Si existe el objeto global de Vitest o Jest
+  if (typeof (globalThis as any).vi !== 'undefined' || typeof (globalThis as any).jest !== 'undefined') {
+    return true;
   }
   
-  return false; // Estamos en Tauri real
+  return false; // Estamos en Tauri real (navegador con __TAURI__)
 }
 
-/**
- * Ejecuta una transacción atómica.
- */
 export async function executeTransaction(
   statements: DbStatement[],
   options?: { ignoreDuplicateErrors?: boolean }
 ): Promise<void> {
-  if (shouldUseBetterSqlite3()) {
+  if (isTestEnvironment()) {
     const db = getTestDb();
     const transaction = db.transaction((stmts: DbStatement[]) => {
       for (const stmt of stmts) {
@@ -75,8 +70,7 @@ export async function executeTransaction(
   const invoke = mod.invoke;
 
   for (const stmt of statements) {
-    const isSelect = /^\s*SELECT\s/i.test(stmt.sql);
-    if (isSelect) {
+    if (/^\s*SELECT\s/i.test(stmt.sql)) {
       await executeQuery(stmt.sql, stmt.params);
     } else {
       try {
@@ -96,14 +90,11 @@ export async function executeTransaction(
   }
 }
 
-/**
- * Ejecuta una consulta de lectura (SELECT).
- */
 export async function executeQuery<T = any>(
   sql: string,
   params: (string | number | boolean | null)[] = []
 ): Promise<T[]> {
-  if (shouldUseBetterSqlite3()) {
+  if (isTestEnvironment()) {
     const db = getTestDb();
     return db.prepare(sql).all(...params) as T[];
   }
