@@ -480,7 +480,7 @@ export class OrderRepository {
           JSON.stringify(syncPayload)
         ]
       );
-    }
+
       // Marcar mesa como occupied (DENTRO de la transacción para garantizar atomicidad)
       if (payload.table_id) {
         await localTablesService.markOccupied(
