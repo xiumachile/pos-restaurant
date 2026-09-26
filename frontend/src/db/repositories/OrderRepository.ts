@@ -201,7 +201,7 @@ export class OrderRepository {
       );
 
       // 2. Recalcular totales del pedido
-      await this.recalculateOrderTotals(orderLocalUuid);
+      await this.recalculateOrderTotals(orderLocalUuid, db);
     });
 
     return await this.findItemByLocalUuid(itemUuid) as LocalOrderItem;

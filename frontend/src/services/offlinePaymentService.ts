@@ -125,7 +125,7 @@ export const offlinePaymentService = {
     // TRANSACCIÓN ATÓMICA
     // ═══════════════════════════════════════════════════════
 
-    return await localDb.transaction(async () => {
+    return await localDb.transaction(async (db) => {
       // 1. Buscar bill existente del order
       // P0-1 FIX: Lógica defensiva para split bill
       const existingBills = await BillRepository.findByOrder(orderLocalUuid);
@@ -224,7 +224,8 @@ export const offlinePaymentService = {
       // 5. Registrar pago en la bill (actualiza paid/remaining/status)
       const updatedBill = await BillRepository.registerPayment(
         bill.local_uuid,
-        amount
+        amount,
+        db // <-- Pasar contexto de transacción
       );
 
       // 6. Crear el LocalPayment (propaga company/branch desde el order)
@@ -241,7 +242,7 @@ export const offlinePaymentService = {
         tip_amount: order.tip_amount,  // ✅ Usa order.tip_amount (consistente con Bill)
         reference_code: referenceCode,
         notes,
-      });
+      }, db); // <-- Pasar contexto de transacción
 
       // 7. Si es pago en efectivo y hay sesión abierta, registrar movimiento de caja
       //
@@ -298,7 +299,7 @@ export const offlinePaymentService = {
 
       if (updatedBill.status === "paid") {
         // Marcar order como paid
-        await OrderRepository.updateStatus(order.local_uuid, "paid");
+        await OrderRepository.updateStatus(order.local_uuid, "paid"); // <-- Pasar contexto de transacción
         orderStatusUpdated = true;
 
         // Liberar mesa si existe

@@ -177,7 +177,7 @@ export class BillRepository {
    * Registra un pago en la bill: actualiza paid_amount, remaining_amount y status.
    * Si remaining_amount llega a 0, status cambia a 'paid'.
    */
-  static async registerPayment(localUuid: string, amount: number): Promise<LocalBill> {
+  static async registerPayment(localUuid: string, amount: number, txDb?: any): Promise<LocalBill> {
     const bill = await this.findByLocalUuid(localUuid);
     if (!bill) {
       throw new Error(`Bill ${localUuid} not found`);
@@ -195,7 +195,8 @@ export class BillRepository {
     const newStatus: BillStatus =
       newRemainingAmount === 0 ? "paid" : newPaidAmount > 0 ? "partial" : "open";
 
-    await localDb.execute(
+    const dbToUse = txDb || localDb;
+    await (txDb ? (txDb as any) : localDb).execute(
       `UPDATE local_bills
        SET paid_amount = ?, remaining_amount = ?, status = ?,
            sync_status = 'pending', sync_error = NULL
@@ -204,10 +205,18 @@ export class BillRepository {
     );
 
     // NOTA (ADR-009): Las bills NO se sincronizan como entidades independientes.
-    // El backend reconstruye bills desde order + payments sincronizados.
-    const updated = await this.findByLocalUuid(localUuid);
+    // Construimos el objeto actualizado en memoria para evitar lecturas obsoletas 
+    // dentro de la misma transacción antes del commit.
+    const updatedBill: LocalBill = {
+      ...bill,
+      paid_amount: newPaidAmount,
+      remaining_amount: newRemainingAmount,
+      status: newStatus,
+      sync_status: 'pending',
+      sync_error: null,
+    };
 
-    return updated!;
+    return updatedBill;
   }
 
   /**
@@ -232,6 +241,7 @@ export class BillRepository {
       [finalNotes, localUuid]
     );
 
+    // NOTA (ADR-009): Las bills NO se sincronizan como entidades independientes.
     // NOTA (ADR-009): Las bills NO se sincronizan como entidades independientes.
     // El backend reconstruye bills desde order + payments sincronizados.
     const updated = await this.findByLocalUuid(localUuid);

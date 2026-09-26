@@ -66,7 +66,7 @@ export class PaymentRepository {
   /**
    * Registra un pago local y lo encola automáticamente para sincronización.
    */
-  static async create(payload: CreatePaymentPayload): Promise<LocalPayment> {
+  static async create(payload: CreatePaymentPayload, txDb?: any): Promise<LocalPayment> {
     // P2-003: Local Money Guard - Validar contrato monetario antes de insertar
     validateLocalMoneyPayload(payload as unknown as Record<string, unknown>, 'payment');
     const local_uuid = uuidv4();
@@ -85,7 +85,8 @@ export class PaymentRepository {
     // ADR-019: Persistir bill_local_uuid si se especificó
     const billLocalUuid = payload.bill_local_uuid || null;
 
-    await localDb.execute(
+    const dbToUse = txDb || localDb;
+    await (txDb ? (txDb as any) : localDb).execute(
       `INSERT INTO local_payments (
         local_uuid, company_id, branch_id, order_local_uuid, order_cloud_id,
         bill_local_uuid, payment_method, amount, sale_amount, tip_amount,
@@ -107,7 +108,27 @@ export class PaymentRepository {
       ]
     );
 
-    const payment = (await this.findByLocalUuid(local_uuid)) as LocalPayment;
+    // Construir el objeto payment en memoria (más seguro y rápido dentro de transacción)
+    const payment: LocalPayment = {
+      local_uuid,
+      cloud_id: null,
+      company_id: payload.company_id,
+      branch_id: payload.branch_id,
+      order_local_uuid: payload.order_local_uuid || null,
+      order_cloud_id: payload.order_cloud_id || null,
+      bill_local_uuid: billLocalUuid,
+      payment_method: payload.payment_method,
+      payment_method_uuid: paymentMethodUuid,
+      amount: payload.amount,
+      sale_amount: saleAmount,
+      tip_amount: tipAmount,
+      reference_code: payload.reference_code || null,
+      status: 'pending',
+      idempotency_key,
+      sync_status: 'pending',
+      created_at: new Date().toISOString(), // Aproximación, la BD usa CURRENT_TIMESTAMP
+      notes: payload.notes || null,
+    } as LocalPayment;
 
     // Encolar automáticamente para sincronización
     await SyncQueueRepository.enqueue({
