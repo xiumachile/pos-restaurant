@@ -482,18 +482,15 @@ export class OrderRepository {
       );
     });
 
-    // 5. Marcar mesa como occupied (FUERA de la transacción para evitar bloqueos)
+    // 5. Marcar mesa como occupied.
+    // Si esto falla, se lanza el error para que el llamador pueda manejar la inconsistencia.
     if (payload.table_id) {
-      try {
-        await localTablesService.markOccupied(
-          payload.table_id, 
-          local_uuid,
-          payload.company_id,
-          payload.branch_id
-        );
-      } catch (err) {
-        console.warn("[OrderRepository] ⚠️ No se pudo marcar la mesa:", err);
-      }
+      await localTablesService.markOccupied(
+        payload.table_id, 
+        local_uuid,
+        payload.company_id,
+        payload.branch_id
+      );
     }
 
     console.log("[OrderRepository] 📤 Pedido + Items creados atómicamente:", local_uuid);

@@ -2,58 +2,57 @@ import { executeTransaction, executeQuery, DbStatement } from "./nativeDb";
 
 export class LocalWriteCoordinator {
   /**
-   * Ejecuta una transacción atómica usando el comando Rust personalizado.
-   * Pasa un objeto 'txDb' que acumula las llamadas a execute() para enviarlas en un solo bloque a Rust.
+   * Ejecuta una operación que puede contener múltiples escrituras y lecturas.
+   * Las escrituras se acumulan para enviarse en lotes atómicos a Rust.
+   * Si se realiza una lectura (select), se hace flush de las escrituras pendientes
+   * para asegurar que la lectura vea los datos más recientes (consistencia).
    */
   async run<T>(operation: (db: any) => Promise<T>): Promise<T> {
-    const statements: DbStatement[] = [];
+    const pendingStatements: DbStatement[] = [];
     
+    const flush = async () => {
+      if (pendingStatements.length > 0) {
+        await executeTransaction(pendingStatements);
+        pendingStatements.length = 0; // Limpiar el array
+      }
+    };
+
     const txDb = {
       execute: (sql: string, params: any[] = []) => {
-        statements.push({ sql, params });
+        pendingStatements.push({ sql, params });
       },
       select: async (sql: string, params: any[] = []) => {
+        // ¡CRUCIAL! Asegurar que las escrituras previas se hayan aplicado 
+        // antes de leer, para mantener la consistencia dentro del callback.
+        await flush();
         return await executeQuery(sql, params);
       }
     };
 
     try {
       const result = await operation(txDb);
-      
-      if (statements.length > 0) {
-        await executeTransaction(statements);
-      }
-      
+      // Ejecutar cualquier escritura restante al finalizar el callback
+      await flush();
       return result;
     } catch (error: any) {
-      console.error("[LocalWriteCoordinator] ❌ Error en transacción:", error?.message || error);
-      throw error;
+      console.error("[LocalWriteCoordinator] ❌ Error en operación:", error?.message || error);
+      throw error; // Relanzar para que el llamador pueda manejar el rollback/fallo
     }
   }
 
-  /**
-   * Ejecuta una consulta de lectura simple.
-   */
   async select<T = any>(query: string, params?: unknown[]): Promise<T[]> {
     return await executeQuery<T>(query, params as any[]);
   }
 
-  /**
-   * Wrapper de compatibilidad para código que usa localDb.transaction().
-   */
   async transaction<T>(fn: (db: any) => Promise<T>): Promise<T> {
     return await this.run(fn);
   }
 
-  /**
-   * Ejecuta un statement de escritura único de forma atómica.
-   */
   async executeSingle(query: string, params?: unknown[]): Promise<any> {
-    const statements: DbStatement[] = [{ 
+    return await executeTransaction([{ 
       sql: query, 
       params: (params as any[]) || [] 
-    }];
-    return await executeTransaction(statements);
+    }]);
   }
 }
 

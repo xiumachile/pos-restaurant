@@ -18,6 +18,7 @@ function getTestDb() {
       testDb = new Database(':memory:');
       
       // Habilitar foreign keys en la BD de prueba
+      testDb.pragma('journal_mode = WAL');
       testDb.pragma('foreign_keys = ON');
     } catch (error) {
       throw new Error("better-sqlite3 no está instalado. Ejecuta: npm install --save-dev better-sqlite3");
