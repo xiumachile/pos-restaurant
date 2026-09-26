@@ -473,7 +473,7 @@ export class OrderRepository {
 
       // Usamos directamente execute de db para encolar en sync_queue
       await (db as any).execute(
-        `INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid, action, payload, sync_status, created_at) VALUES (?, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)`,
+        `INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid, action, payload, sync_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)`,
         [
           payload.company_id, payload.branch_id, 'order', local_uuid, 'create',
           JSON.stringify(syncPayload)
