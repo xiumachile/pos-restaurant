@@ -483,6 +483,17 @@ export class OrderRepository {
 
       // Marcar mesa como occupied (DENTRO de la transacción para garantizar atomicidad)
       if (payload.table_id) {
+        // Validar que la mesa existe ANTES de llamar a markOccupied
+        // Esto asegura que el error se propague correctamente dentro de la transacción
+        const tableExists = await (db as any).select(
+          "SELECT uuid FROM local_tables WHERE uuid = ? AND company_id = ? AND branch_id = ?",
+          [payload.table_id, payload.company_id, payload.branch_id]
+        );
+        
+        if (!tableExists || tableExists.length === 0) {
+          throw new Error(`Mesa ${payload.table_id} no existe o no pertenece al tenant (${payload.company_id}/${payload.branch_id})`);
+        }
+        
         await localTablesService.markOccupied(
           payload.table_id, 
           local_uuid,
