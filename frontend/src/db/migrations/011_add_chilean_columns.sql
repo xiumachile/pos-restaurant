@@ -9,11 +9,11 @@
 -- local_orders: agregar columnas chilenas
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-ALTER TABLE local_orders ADD COLUMN IF NOT EXISTS net_amount INTEGER DEFAULT 0;
-ALTER TABLE local_orders ADD COLUMN IF NOT EXISTS amount_due INTEGER DEFAULT 0;
-ALTER TABLE local_orders ADD COLUMN IF NOT EXISTS guest_count INTEGER DEFAULT 1;
-ALTER TABLE local_orders ADD COLUMN IF NOT EXISTS terminal_id TEXT;
-ALTER TABLE local_orders ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
+ALTER TABLE local_orders ADD COLUMN net_amount INTEGER DEFAULT 0;
+ALTER TABLE local_orders ADD COLUMN amount_due INTEGER DEFAULT 0;
+ALTER TABLE local_orders ADD COLUMN guest_count INTEGER DEFAULT 1;
+ALTER TABLE local_orders ADD COLUMN terminal_id TEXT;
+ALTER TABLE local_orders ADD COLUMN idempotency_key TEXT;
 
 -- Calcular valores para filas existentes
 UPDATE local_orders SET
@@ -29,7 +29,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_local_orders_idempotency
 -- local_payments: agregar sale_amount
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-ALTER TABLE local_payments ADD COLUMN IF NOT EXISTS sale_amount INTEGER DEFAULT 0;
+ALTER TABLE local_payments ADD COLUMN sale_amount INTEGER DEFAULT 0;
 
 UPDATE local_payments SET
   sale_amount = CAST(ROUND(amount - tip_amount) AS INTEGER)
@@ -39,12 +39,12 @@ WHERE sale_amount = 0;
 -- local_bills: agregar columnas chilenas
 -- ═══════════════════════════════════════════════════════════════════════════════
 
-ALTER TABLE local_bills ADD COLUMN IF NOT EXISTS net_amount INTEGER DEFAULT 0;
-ALTER TABLE local_bills ADD COLUMN IF NOT EXISTS amount_due INTEGER DEFAULT 0;
-ALTER TABLE local_bills ADD COLUMN IF NOT EXISTS company_id TEXT;
-ALTER TABLE local_bills ADD COLUMN IF NOT EXISTS branch_id TEXT;
-ALTER TABLE local_bills ADD COLUMN IF NOT EXISTS terminal_id TEXT;
-ALTER TABLE local_bills ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
+ALTER TABLE local_bills ADD COLUMN net_amount INTEGER DEFAULT 0;
+ALTER TABLE local_bills ADD COLUMN amount_due INTEGER DEFAULT 0;
+ALTER TABLE local_bills ADD COLUMN company_id TEXT;
+ALTER TABLE local_bills ADD COLUMN branch_id TEXT;
+ALTER TABLE local_bills ADD COLUMN terminal_id TEXT;
+ALTER TABLE local_bills ADD COLUMN idempotency_key TEXT;
 
 UPDATE local_bills SET
   net_amount = CAST(ROUND(grand_total / 1.19) AS INTEGER),
