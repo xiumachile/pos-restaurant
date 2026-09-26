@@ -465,25 +465,34 @@ export class OrderRepository {
         ]
       );
 
-      // Marcar mesa como occupied (DENTRO de la transacción para garantizar atomicidad)
+      // 5. Marcar mesa como occupied (DIRECTAMENTE en la transacción para garantizar atomicidad)
       if (payload.table_id) {
-        // Validar que la mesa existe ANTES de llamar a markOccupied
-        // Esto asegura que el error se propague correctamente dentro de la transacción
+        // a) Validar que la mesa existe
         const tableExists = await (db as any).select(
           "SELECT uuid FROM local_tables WHERE uuid = ? AND company_id = ? AND branch_id = ?",
           [payload.table_id, payload.company_id, payload.branch_id]
         );
-        
         if (!tableExists || tableExists.length === 0) {
-          throw new Error(`Mesa ${payload.table_id} no existe o no pertenece al tenant (${payload.company_id}/${payload.branch_id})`);
+          throw new Error(`Mesa ${payload.table_id} no existe o no pertenece al tenant`);
         }
-        
-        await localTablesService.markOccupied(
-          payload.table_id, 
-          local_uuid,
-          payload.company_id,
-          payload.branch_id,
-          db // <-- Pasar el contexto transaccional
+
+        // b) Actualizar estado de la mesa (se acumula en la transacción)
+        await (db as any).execute(
+          \`UPDATE local_tables SET status = 'occupied', current_order_uuid = ? WHERE uuid = ?\`,
+          [local_uuid, payload.table_id]
+        );
+
+        // c) Registrar mutación para el SyncEngine (se acumula en la transacción)
+        await (db as any).execute(
+          \`INSERT OR REPLACE INTO table_local_mutations 
+             (table_uuid, action, payload, company_id, branch_id, created_at)
+           VALUES (?, 'update', ?, ?, ?, CURRENT_TIMESTAMP)\`,
+          [
+            payload.table_id, 
+            JSON.stringify({ status: 'occupied', current_order_uuid: local_uuid }), 
+            payload.company_id, 
+            payload.branch_id
+          ]
         );
       }
     });
