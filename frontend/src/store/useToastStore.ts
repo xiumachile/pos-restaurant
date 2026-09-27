@@ -19,9 +19,11 @@ export const useToastStore = create<ToastState>((set) => ({
   
   addToast: (type, message, duration = 5000) => {
     const id = crypto.randomUUID();
-    set((state) => ({
-      toasts: [...state.toasts, { id, type, message, duration }],
-    }));
+    set((state) => {
+      const newToasts = [...state.toasts, { id, type, message, duration }];
+      // Mantener máximo 2 toasts para evitar amontonamiento visual
+      return { toasts: newToasts.slice(-2) };
+    });
     
     if (duration > 0) {
       setTimeout(() => {

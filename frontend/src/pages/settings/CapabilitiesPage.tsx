@@ -120,9 +120,6 @@ function CapabilityRow({
         <span className="text-2xl">{capability.icon}</span>
         <div>
           <div className="font-medium">{capability.description}</div>
-          <div className="text-xs text-slate-500 font-mono">
-            {capability.key}
-          </div>
         </div>
       </div>
 

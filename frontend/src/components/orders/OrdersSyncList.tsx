@@ -130,7 +130,7 @@ export function OrdersSyncList() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center space-y-2">
-          <RefreshCw className="w-8 h-8 animate-spin mx-auto text-gray-400" />
+          <RefreshCw className="w-8 h-8 animate-spin mx-auto text-gray-500" />
           <p className="text-gray-500">Cargando pedidos...</p>
         </div>
       </div>
@@ -143,21 +143,21 @@ export function OrdersSyncList() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Pedidos</h1>
-          <p className="text-gray-600 mt-1">
-            Estado de sincronización de pedidos locales
+          <p className="text-gray-500 mt-1">
+            Estado de pedidos y sincronización
           </p>
         </div>
         <div className="flex items-center gap-2">
           {status === "offline" && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <AlertTriangle className="h-4 w-4 text-yellow-600" />
-              <span className="text-sm text-yellow-800">Modo offline</span>
+            <div className="flex items-center gap-2 px-3 py-2 bg-yellow-900/30 border border-yellow-700 rounded-lg">
+              <AlertTriangle className="h-4 w-4 text-yellow-400" />
+              <span className="text-sm text-yellow-400">Modo offline</span>
             </div>
           )}
           <button
             onClick={handleSyncNow}
             disabled={buttonDisabled}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-gray-700 disabled:cursor-not-allowed transition-colors"
           >
             <RefreshCw className={`w-4 h-4 ${syncing || stats.syncing > 0 ? "animate-spin" : ""}`} />
             Sincronizar ahora
@@ -167,40 +167,40 @@ export function OrdersSyncList() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="bg-white rounded-lg border p-4">
-          <div className="flex items-center gap-2 text-gray-600 mb-1">
+        <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+          <div className="flex items-center gap-2 text-gray-400 mb-1">
             <Package className="w-4 h-4" />
             <span className="text-sm font-medium">Total</span>
           </div>
           <p className="text-2xl font-bold">{stats.total}</p>
         </div>
 
-        <div className="bg-green-50 rounded-lg border border-green-200 p-4">
-          <div className="flex items-center gap-2 text-green-600 mb-1">
+        <div className="bg-green-900/20 rounded-lg border border-green-800 p-4">
+          <div className="flex items-center gap-2 text-green-400 mb-1">
             <CheckCircle className="w-4 h-4" />
             <span className="text-sm font-medium">Sincronizados</span>
           </div>
           <p className="text-2xl font-bold text-green-700">{stats.synced}</p>
         </div>
 
-        <div className="bg-yellow-50 rounded-lg border border-yellow-200 p-4">
-          <div className="flex items-center gap-2 text-yellow-600 mb-1">
+        <div className="bg-yellow-900/20 rounded-lg border border-yellow-800 p-4">
+          <div className="flex items-center gap-2 text-yellow-400 mb-1">
             <Clock className="w-4 h-4" />
             <span className="text-sm font-medium">Pendientes</span>
           </div>
           <p className="text-2xl font-bold text-yellow-700">{stats.pending}</p>
         </div>
 
-        <div className="bg-blue-50 rounded-lg border border-blue-200 p-4">
-          <div className="flex items-center gap-2 text-blue-600 mb-1">
+        <div className="bg-blue-900/20 rounded-lg border border-blue-800 p-4">
+          <div className="flex items-center gap-2 text-blue-400 mb-1">
             <RefreshCw className="w-4 h-4" />
             <span className="text-sm font-medium">Sincronizando</span>
           </div>
           <p className="text-2xl font-bold text-blue-700">{stats.syncing}</p>
         </div>
 
-        <div className="bg-red-50 rounded-lg border border-red-200 p-4">
-          <div className="flex items-center gap-2 text-red-600 mb-1">
+        <div className="bg-red-900/20 rounded-lg border border-red-800 p-4">
+          <div className="flex items-center gap-2 text-red-400 mb-1">
             <AlertTriangle className="w-4 h-4" />
             <span className="text-sm font-medium">Fallidos</span>
           </div>

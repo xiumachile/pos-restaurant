@@ -36,13 +36,13 @@ export function OrderSyncCard({ order, onRetry }: OrderSyncCardProps) {
   };
 
   return (
-    <div className="bg-white rounded-lg border-2 p-4 border-gray-200">
+    <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 space-y-2">
           {/* Header */}
           <div className="flex items-center gap-2">
             <h3 className="font-semibold text-lg">#{order.order_number}</h3>
-            <span className="px-2 py-1 text-xs font-medium border border-gray-300 rounded">
+            <span className="px-2 py-1 text-xs font-medium border border-gray-600 rounded">
               {order.order_type === "dine_in" ? "Mesa" : "Para llevar"}
             </span>
             {order.cloud_id ? (
@@ -53,10 +53,10 @@ export function OrderSyncCard({ order, onRetry }: OrderSyncCardProps) {
           </div>
 
           {/* Info */}
-          <div className="text-sm text-gray-600 space-y-1">
+          <div className="text-sm text-gray-400 space-y-1">
             <div className="flex items-center gap-2">
               <span className="font-medium">Total:</span>
-              <span className="font-semibold text-gray-900">
+              <span className="font-semibold text-gray-100">
                 {formatCurrency(order.grand_total)}
               </span>
             </div>
@@ -90,7 +90,7 @@ export function OrderSyncCard({ order, onRetry }: OrderSyncCardProps) {
         {order.sync_status === "failed" && onRetry && (
           <button
             onClick={() => onRetry(order.local_uuid)}
-            className="flex items-center gap-2 px-3 py-2 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 text-sm font-medium border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors"
             aria-label="Reintentar sincronización"
           >
             <RefreshCw className="w-4 h-4" />

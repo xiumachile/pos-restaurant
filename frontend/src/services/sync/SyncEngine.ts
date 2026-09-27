@@ -607,7 +607,7 @@ export class SyncEngine {
 
     try {
       // Fase 1: Push
-      toastStore.addToast("info", "Subiendo cambios locales...");
+      toastStore.addToast("info", "Guardando cambios en el servidor...");
       const pushStats = await this.processBatch();
 
       if (pushStats.failed > 0) {
@@ -628,11 +628,11 @@ export class SyncEngine {
         percentage: 0,
       });
 
-      toastStore.addToast("info", "Descargando datos del servidor...");
+      toastStore.addToast("info", "Actualizando información...");
       const pullStats = await pullEngine.pullAll();
 
       if (!pullStats.success) {
-        throw new Error(pullStats.error || "Error en pull");
+        throw new Error("No se pudo actualizar la información. Reintentando...");
       }
 
       store.updateProgress({
