@@ -98,15 +98,21 @@ export class OrderRepository {
 
     // TRANSACCIÓN ATÓMICA: todas las operaciones deben completarse juntas
     await localWriteCoordinator.run(async (db) => {
-      // 1. VALIDACIÓN FAIL-FAST: Verificar mesa ANTES de cualquier escritura
+      // 1. VALIDACIÓN FAIL-FAST ATÓMICA: Verificar que la mesa exista y esté DISPONIBLE
       if (payload.table_id) {
-        const { executeQuery } = await import('../../db/nativeDb');
-        const tableExists = await executeQuery(
-          "SELECT uuid FROM local_tables WHERE uuid = ? AND company_id = ? AND branch_id = ?",
+        // Usar el contexto de transacción (db) para leer el estado actual.
+        // Esto garantiza que vemos los cambios de transacciones anteriores ya confirmadas.
+        const tableCheck = await (db as any).select(
+          "SELECT uuid, status FROM local_tables WHERE uuid = ? AND company_id = ? AND branch_id = ?",
           [payload.table_id, payload.company_id, payload.branch_id]
         );
-        if (!tableExists || tableExists.length === 0) {
+        
+        if (!tableCheck || tableCheck.length === 0) {
           throw new Error(`Mesa ${payload.table_id} no existe o no pertenece al tenant`);
+        }
+        
+        if (tableCheck[0].status !== 'available') {
+          throw new Error(`Mesa ${payload.table_id} ya está ocupada (estado: ${tableCheck[0].status})`);
         }
       }
 
@@ -275,8 +281,32 @@ export class OrderRepository {
   /**
    * Actualiza el estado del pedido.
    */
-  static async updateStatus(orderLocalUuid: string, status: LocalOrder["status"]): Promise<void> {
-    await localWriteCoordinator.executeSingle(
+  static async updateStatus(orderLocalUuid: string, status: LocalOrder["status"], txDb?: any): Promise<void> {
+    const dbToUse = txDb || localDb;
+    
+    // 1. Leer estado actual para validar transición de estado
+    const currentOrder = await (txDb ? (txDb as any) : localDb).select(
+      "SELECT status FROM local_orders WHERE local_uuid = ?",
+      [orderLocalUuid]
+    );
+
+    if (!currentOrder || currentOrder.length === 0) {
+      throw new Error(`Order ${orderLocalUuid} no encontrado`);
+    }
+
+    const currentStatus = currentOrder[0].status;
+
+    // 2. Validación de transiciones de estado inválidas (Fail-Fast)
+    if (currentStatus === 'paid' && status !== 'paid') {
+      throw new Error(`No se puede modificar un pedido ya pagado. Estado actual: ${currentStatus}`);
+    }
+
+    if (currentStatus === 'cancelled' && status !== 'cancelled') {
+      throw new Error(`No se puede modificar un pedido ya cancelado. Estado actual: ${currentStatus}`);
+    }
+
+    // 3. Ejecutar actualización
+    await (txDb ? (txDb as any) : localDb).execute(
       `UPDATE local_orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE local_uuid = ?`,
       [status, orderLocalUuid]
     );
