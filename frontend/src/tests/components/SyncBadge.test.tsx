@@ -47,13 +47,13 @@ describe("SyncBadge", () => {
 
   it("aplica variante compact", () => {
     const { container } = render(<SyncBadge status="pending" variant="compact" />);
-    const badge = container.firstChild;
+    const badge = container.querySelector("[role='status']");
     expect(badge).toHaveClass("px-2", "py-1", "text-xs");
   });
 
   it("aplica variante normal por defecto", () => {
     const { container } = render(<SyncBadge status="pending" />);
-    const badge = container.firstChild;
+    const badge = container.querySelector("[role='status']");
     expect(badge).toHaveClass("px-3", "py-2", "text-sm");
   });
 
