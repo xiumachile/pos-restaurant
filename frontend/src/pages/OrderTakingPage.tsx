@@ -68,7 +68,7 @@ export function OrderTakingPage() {
   const tableIsFree = table.status === "available" || table.status === "maintenance";
   const hasActiveOrders = activeOrders.length > 0;
 
-  const statusStyle = TABLE_STATUS_STYLES[table.status];
+  const statusStyle = TABLE_STATUS_STYLES[table.status as keyof typeof TABLE_STATUS_STYLES] || TABLE_STATUS_STYLES.available;
 
   const handleAddProduct = (product: Product) => {
     addItem(table.uuid, product);

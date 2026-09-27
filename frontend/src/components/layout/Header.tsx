@@ -2,6 +2,8 @@ import { useNavigate } from "react-router-dom";
 import { LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { SyncStatusIndicator } from "@/components/system/SyncStatusIndicator";
+import { useThemeStore } from "@/store/useThemeStore";
+import { Sun, Moon } from "lucide-react";
 
 /**
  * Header con información del usuario, indicador de sincronización y logout.
@@ -13,6 +15,7 @@ import { SyncStatusIndicator } from "@/components/system/SyncStatusIndicator";
  */
 export function Header() {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useThemeStore();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -21,7 +24,7 @@ export function Header() {
   };
 
   return (
-    <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 px-6 py-4">
+    <header className="bg-white dark:bg-slate-800/50 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 px-6 py-4 transition-colors duration-200">
       <div className="flex items-center justify-between">
         {/* Info del usuario */}
         <div className="flex items-center gap-4">
@@ -29,8 +32,8 @@ export function Header() {
             {user?.name?.charAt(0).toUpperCase() || "U"}
           </div>
           <div>
-            <p className="text-white font-medium">{user?.name}</p>
-            <p className="text-xs text-slate-400 capitalize">{user?.role}</p>
+            <p className="text-gray-900 dark:text-white font-medium">{user?.name}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400 capitalize">{user?.role}</p>
           </div>
         </div>
 

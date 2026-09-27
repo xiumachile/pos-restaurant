@@ -6,6 +6,7 @@ import { useSyncWorker } from "./hooks/useSyncWorker";
 import { usePrintEngine } from "./hooks/usePrintEngine";
 import { useAuthRefresh } from "./hooks/useAuthRefresh";
 import { useSyncStore } from "./store/useSyncStore";
+import { useThemeStore } from "./store/useThemeStore";
 import { useCatalogSyncInvalidation } from "./hooks/useCatalog";
 import { DatabaseLoader } from "./components/system/DatabaseLoader";
 import { router } from "./router";
@@ -13,6 +14,18 @@ import i18n from "./i18n/config";
 import { preloadAuthToken } from "./services/secureStorage";
 
 function AppContent() {
+
+  // 🌗 Aplicar tema oscuro/claro globalmente
+  useEffect(() => {
+    const root = window.document.documentElement;
+    const theme = useThemeStore.getState().theme;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+  }, []); // Se ejecuta una vez al montar
+
   // Refresh automático del JWT cuando queda < 2 minutos
   useAuthRefresh();
 

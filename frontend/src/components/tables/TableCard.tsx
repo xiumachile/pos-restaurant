@@ -11,7 +11,16 @@ interface TableCardProps {
 }
 
 export function TableCard({ table, onClick, cartItems }: TableCardProps) {
-  const style = TABLE_STATUS_STYLES[table.status];
+  // Fix defensivo: si el estado es desconocido o undefined, usar un fallback
+  const style = TABLE_STATUS_STYLES[table.status as keyof typeof TABLE_STATUS_STYLES] || {
+    bg: "bg-slate-700",
+    border: "border-slate-600",
+    text: "text-slate-300"
+  };
+
+  if (!TABLE_STATUS_STYLES[table.status as keyof typeof TABLE_STATUS_STYLES]) {
+    console.warn(`[TableCard] Estado de mesa desconocido: "${table.status}". Usando fallback.`);
+  }
   const isClickable = table.status !== "maintenance";
 
   // Items en el carrito local de esta mesa

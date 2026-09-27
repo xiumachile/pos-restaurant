@@ -30,8 +30,8 @@ describe('P1-010: Idempotency-Key estable en reintentos de SyncQueue', () => {
     expect(content).toMatch(/async removeOrderItem\([^)]+idempotencyKey\?:\s*string/);
   });
 
-  it('SyncEngine.ts debería pasar item.id como Idempotency-Key en mutaciones', () => {
-    const enginePath = path.resolve(__dirname, '../../../services/sync/SyncEngine.ts');
+  it('SyncStrategies.ts debería pasar item.id como Idempotency-Key en mutaciones', () => {
+    const enginePath = path.resolve(__dirname, '../../../services/sync/strategies/SyncStrategies.ts');
     const content = fs.readFileSync(enginePath, 'utf-8');
 
     // Verificar que se pasa item.id en updateOrder
@@ -45,7 +45,7 @@ describe('P1-010: Idempotency-Key estable en reintentos de SyncQueue', () => {
   });
 
   it('No debería haber generación aleatoria de uuidv4() para Idempotency-Key en SyncEngine', () => {
-    const enginePath = path.resolve(__dirname, '../../../services/sync/SyncEngine.ts');
+    const enginePath = path.resolve(__dirname, '../../../services/sync/strategies/SyncStrategies.ts');
     const content = fs.readFileSync(enginePath, 'utf-8');
 
     // Buscar llamadas a syncApi que NO tengan item.id como tercer argumento (o segundo en deleteOrder)

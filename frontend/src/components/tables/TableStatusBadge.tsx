@@ -6,7 +6,7 @@ interface TableStatusBadgeProps {
 }
 
 export function TableStatusBadge({ status }: TableStatusBadgeProps) {
-  const style = TABLE_STATUS_STYLES[status];
+  const style = TABLE_STATUS_STYLES[status as keyof typeof TABLE_STATUS_STYLES] || { bg: "bg-slate-700", border: "border-slate-600", text: "text-slate-300" };
   const label = TABLE_STATUS_LABELS[status];
 
   return (

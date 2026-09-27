@@ -63,15 +63,29 @@ function applyOfflineOverlay(
 ): TablesArea[] {
   if (overrides.size === 0) return areas;
 
+  // Estados válidos según el enum TableStatus
+  const VALID_STATUSES = ['available', 'occupied', 'reserved', 'maintenance'];
+
   return areas.map(area => ({
     ...area,
     tables: area.tables.map((table: RestaurantTable) => {
       const overrideStatus = overrides.get(table.uuid);
       if (!overrideStatus) return table;
 
+      // Defensa en profundidad: normalizar cualquier estado inválido a 'available'
+      const normalizedStatus = VALID_STATUSES.includes(overrideStatus) 
+        ? overrideStatus 
+        : 'available';
+
+      if (normalizedStatus !== overrideStatus) {
+        console.warn(
+          `[tablesService] Override inválido para mesa ${table.table_number}: "${overrideStatus}" -> "${normalizedStatus}"`
+        );
+      }
+
       return {
         ...table,
-        status: overrideStatus as TableStatus,
+        status: normalizedStatus as TableStatus,
         _isOfflineOverride: true,
       } as RestaurantTable & { _isOfflineOverride: boolean };
     }),

@@ -513,13 +513,17 @@ export class OrderRepository {
         // c) Registrar mutación para el SyncEngine (se acumula en la transacción)
         await (db as any).execute(
           `INSERT OR REPLACE INTO table_local_mutations 
-             (table_uuid, action, payload, company_id, branch_id, created_at)
-           VALUES (?, 'update', ?, ?, ?, CURRENT_TIMESTAMP)`,
+             (table_uuid, pending_status, pending_order_uuid, company_id, branch_id, action, payload, created_at)
+           VALUES (?, 'occupied', ?, ?, ?, 'update', ?, CURRENT_TIMESTAMP)`,
           [
-            payload.table_id, 
-            JSON.stringify({ status: 'occupied', current_order_uuid: local_uuid }), 
-            payload.company_id, 
-            payload.branch_id
+            payload.table_id,
+            local_uuid,
+            payload.company_id,
+            payload.branch_id,
+            JSON.stringify({
+              status: 'occupied',
+              current_order_uuid: local_uuid,
+            }),
           ]
         );
       }
