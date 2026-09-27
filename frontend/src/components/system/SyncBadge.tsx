@@ -1,3 +1,4 @@
+import { Tooltip } from "@/components/ui/Tooltip";
 import { Clock, CheckCircle, AlertCircle, RefreshCw } from "lucide-react";
 
 export type SyncStatus = "pending" | "syncing" | "synced" | "failed";
@@ -21,30 +22,30 @@ const SYNC_CONFIG: Record<SyncStatus, {
   pending: {
     icon: Clock,
     label: "Pendiente",
-    color: "text-yellow-600",
-    bgColor: "bg-yellow-50",
-    borderColor: "border-yellow-200",
+    color: "text-yellow-400",
+    bgColor: "bg-yellow-900/20",
+    borderColor: "border-yellow-800",
   },
   syncing: {
     icon: RefreshCw,
     label: "Sincronizando",
-    color: "text-blue-600",
-    bgColor: "bg-blue-50",
-    borderColor: "border-blue-200",
+    color: "text-blue-400",
+    bgColor: "bg-blue-900/20",
+    borderColor: "border-blue-800",
   },
   synced: {
     icon: CheckCircle,
     label: "Sincronizado",
-    color: "text-green-600",
-    bgColor: "bg-green-50",
-    borderColor: "border-green-200",
+    color: "text-green-400",
+    bgColor: "bg-green-900/20",
+    borderColor: "border-green-800",
   },
   failed: {
     icon: AlertCircle,
     label: "Error",
-    color: "text-red-600",
-    bgColor: "bg-red-50",
-    borderColor: "border-red-200",
+    color: "text-red-400",
+    bgColor: "bg-red-900/20",
+    borderColor: "border-red-800",
   },
 };
 
@@ -66,12 +67,20 @@ export function SyncBadge({
 
   const iconSize = variant === "compact" ? "w-3 h-3" : "w-4 h-4";
 
+  const tooltipMessages = {
+    pending: "Pedido guardado localmente. Se sincronizará automáticamente cuando haya conexión.",
+    syncing: "Enviando datos al servidor en este momento...",
+    synced: "Pedido sincronizado correctamente con la nube.",
+    failed: "Error al sincronizar. Se reintentará automáticamente o puedes hacerlo manualmente.",
+  };
+
   return (
-    <div
-      className={`inline-flex items-center gap-2 rounded-lg border ${config.bgColor} ${config.borderColor} ${sizeClasses} ${className}`}
-      role="status"
-      aria-label={`Estado de sincronización: ${config.label}`}
-    >
+    <Tooltip content={tooltipMessages[status]} position="top">
+      <div
+        className={`inline-flex items-center gap-2 rounded-lg border ${config.bgColor} ${config.borderColor} ${sizeClasses} ${className} cursor-help`}
+        role="status"
+        aria-label={`Estado de sincronización: ${config.label}`}
+      >
       <Icon 
         className={`${iconSize} ${config.color} ${isSyncing && "animate-spin"}`}
         aria-hidden="true"
@@ -80,10 +89,11 @@ export function SyncBadge({
         {config.label}
       </span>
       {showCloudId && status === "synced" && cloudId && (
-        <span className="text-xs text-gray-500 ml-auto" aria-label={`ID en la nube: ${cloudId}`}>
+        <span className="text-xs text-gray-400 ml-auto" aria-label={`ID en la nube: ${cloudId}`}>
           ID: {cloudId.substring(0, 8)}...
         </span>
       )}
     </div>
+    </Tooltip>
   );
 }

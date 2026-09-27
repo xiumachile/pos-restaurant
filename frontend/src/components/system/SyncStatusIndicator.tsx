@@ -1,5 +1,6 @@
 import { useSyncStore } from '../../store/useSyncStore';
 import { RefreshCw, Wifi, WifiOff, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Tooltip } from '@/components/ui/Tooltip';
 
 /**
  * Indicador de estado de sincronización offline-first.
@@ -100,12 +101,13 @@ export function SyncStatusIndicator() {
         
         {/* Badge de pendientes (solo si no está sincronizando) */}
         {pendingCount > 0 && !isSyncing && (
-          <span 
-            className="bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full"
-            title={`${pendingCount} cambios pendientes de sincronizar`}
-          >
-            {pendingCount}
-          </span>
+          <Tooltip content="Cambios guardados localmente que aún no se han enviado al servidor." position="bottom">
+            <span 
+              className="bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full cursor-help"
+            >
+              {pendingCount}
+            </span>
+          </Tooltip>
         )}
       </div>
       
@@ -117,18 +119,19 @@ export function SyncStatusIndicator() {
       )}
 
       {/* Botón de sync manual (siempre visible, deshabilitado durante sync) */}
-      <button
-        onClick={triggerFullSync}
-        disabled={isSyncing}
-        className="p-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-        title={isSyncing ? 'Sincronización en progreso' : 'Sincronizar ahora'}
-        aria-label={isSyncing ? 'Sincronización en progreso' : 'Sincronizar ahora'}
-      >
-        <RefreshCw
-          size={16}
-          className={`text-blue-400 ${isSyncing ? 'animate-spin' : ''}`}
-        />
-      </button>
+      <Tooltip content={isSyncing ? 'Sincronización en progreso...' : 'Forzar sincronización manual de todos los cambios pendientes'} position="bottom">
+        <button
+          onClick={triggerFullSync}
+          disabled={isSyncing}
+          className="p-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-help"
+          aria-label={isSyncing ? 'Sincronización en progreso' : 'Sincronizar ahora'}
+        >
+          <RefreshCw
+            size={16}
+            className={`text-blue-400 ${isSyncing ? 'animate-spin' : ''}`}
+          />
+        </button>
+      </Tooltip>
     </div>
   );
 }

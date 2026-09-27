@@ -16,8 +16,10 @@ import {
   Wallet,
   Coins,
   ChevronRight,
+  HelpCircle,
 } from "lucide-react";
 import { PrintableTipVouchers } from "./PrintableTipVouchers";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 interface CashCloseWizardProps {
   isOpen: boolean;
@@ -48,12 +50,7 @@ export function CashCloseWizard({
   // Porque al momento del arqueo las propinas ya no están en caja
   const totalTipsReceived = tipSummary?.tips_received?.total ?? 0;
   
-  console.log("🔍 CashCloseWizard:", { 
-    expectedAmount,
-    totalTipsReceived,
-    realPendingTips,
-    hasPendingTips
-  });
+  // console.log de depuración eliminado para producción
   
   const queryClient = useQueryClient();
   const [step, setStep] = useState<WizardStep>(1);
