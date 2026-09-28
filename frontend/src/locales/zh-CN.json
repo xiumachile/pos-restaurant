@@ -1,0 +1,73 @@
+{
+  "common": {
+    "loading": "加载中...",
+    "error": "错误",
+    "retry": "重试",
+    "save": "保存",
+    "cancel": "取消",
+    "confirm": "确认",
+    "back": "返回"
+  },
+  "auth": {
+    "login": "登录",
+    "logout": "退出登录",
+    "username": "用户名",
+    "password": "密码",
+    "invalid_credentials": "用户名或密码无效"
+  },
+  "tables": {
+    "title": "桌台",
+    "not_found": "未找到桌台",
+    "back_to_tables": "返回桌台",
+    "capacity": "人",
+    "available": "空闲",
+    "occupied": "占用",
+    "reserved": "已预订",
+    "maintenance": "维护中",
+    "header": "桌台",
+    "count_info": "{{count}} 张桌台在 {{areas}} 个区域",
+    "tap_hint": "点击桌台开始点餐",
+    "no_tables": "没有可用的桌台",
+    "refresh": "刷新",
+    "available_plural": "空闲",
+    "occupied_plural": "占用",
+    "pending_payment": "待结账",
+    "maintenance_plural": "维护中",
+    "all": "全部",
+    "filter_count": "{{label}} ({{count}})"
+  },
+  "orders": {
+    "new_order": "新账单",
+    "add_item": "添加商品",
+    "split_bill": "分单",
+    "title": "订单"
+  },
+  "cashier": {
+    "title": "收银台"
+  },
+  "dashboard": {
+    "title": "主面板"
+  },
+  "sync": {
+    "offline": "离线模式",
+    "syncing": "同步中...",
+    "online": "在线",
+    "sync_error": "同步错误",
+    "queue": "同步"
+  },
+  "settings": {
+    "title": "设置"
+  },
+  "kitchen": {
+    "title": "厨房"
+  },
+  "reports": {
+    "title": "报告"
+  },
+  "catalog": {
+    "title": "目录"
+  },
+  "roles": {
+    "admin": "主管理员"
+  }
+}

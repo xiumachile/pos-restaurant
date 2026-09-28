@@ -1,0 +1,73 @@
+{
+  "common": {
+    "loading": "Cargando...",
+    "error": "Error",
+    "retry": "Reintentar",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "back": "Volver"
+  },
+  "auth": {
+    "login": "Ingresar",
+    "logout": "Cerrar sesión",
+    "username": "Usuario",
+    "password": "Contraseña",
+    "invalid_credentials": "Usuario o contraseña inválidos"
+  },
+  "tables": {
+    "title": "Mesas",
+    "not_found": "Mesa no encontrada",
+    "back_to_tables": "Volver a mesas",
+    "capacity": "personas",
+    "available": "Disponible",
+    "occupied": "Ocupada",
+    "reserved": "Reservada",
+    "maintenance": "Mantenimiento",
+    "header": "Mesas",
+    "count_info": "{{count}} mesas en {{areas}} áreas",
+    "tap_hint": "Toca una mesa para tomar pedido",
+    "no_tables": "No hay mesas disponibles",
+    "refresh": "Actualizar",
+    "available_plural": "Disponibles",
+    "occupied_plural": "Ocupadas",
+    "pending_payment": "Por cobrar",
+    "maintenance_plural": "Mantenimiento",
+    "all": "Todas",
+    "filter_count": "{{label}} ({{count}})"
+  },
+  "orders": {
+    "new_order": "Nueva Cuenta",
+    "add_item": "Agregar Producto",
+    "split_bill": "Dividir Cuenta",
+    "title": "Pedidos"
+  },
+  "sync": {
+    "offline": "Modo sin conexión",
+    "syncing": "Sincronizando...",
+    "online": "En línea",
+    "sync_error": "Error de sincronización",
+    "queue": "Sincronización"
+  },
+  "cashier": {
+    "title": "Caja"
+  },
+  "dashboard": {
+    "title": "Panel Principal"
+  },
+  "settings": {
+    "title": "Configuración"
+  },
+  "kitchen": {
+    "title": "Cocina"
+  },
+  "reports": {
+    "title": "Reportes"
+  },
+  "catalog": {
+    "title": "Catálogo"
+  },
+  "roles": {
+    "admin": "Admin principal"
+  }
+}

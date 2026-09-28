@@ -1,4 +1,5 @@
 import type { TablesArea } from "@/types/tables";
+import { useTranslation } from 'react-i18next';
 import { flattenAreas } from "@/types/tables";
 import { CheckCircle, Users, DollarSign, Wrench } from "lucide-react";
 
@@ -7,6 +8,7 @@ interface TablesStatsProps {
 }
 
 export function TablesStats({ areas }: TablesStatsProps) {
+  const { t } = useTranslation();
   const tables = flattenAreas(areas);
 
   const stats = {

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
@@ -6,6 +7,7 @@ import { useAutoSync } from '../../hooks/useAutoSync';
 import { ToastContainer } from '../system/ToastContainer';
 
 export function AppLayout() {
+  const { t } = useTranslation();
 // useSyncWorker() movido a App.tsx (único punto de montaje)
   // Sync periódico cada 5min (el sync inicial lo hace useSyncWorker en App.tsx)
   useAutoSync({ intervalMinutes: 5 });

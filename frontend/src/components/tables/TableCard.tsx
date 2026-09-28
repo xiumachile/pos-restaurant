@@ -3,6 +3,7 @@ import type { TableCart } from "@/types/cart";
 import { TableStatusBadge } from "./TableStatusBadge";
 import { TABLE_STATUS_STYLES } from "@/types/tables";
 import { Users, ShoppingCart } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 
 interface TableCardProps {
   table: RestaurantTable;
@@ -11,6 +12,7 @@ interface TableCardProps {
 }
 
 export function TableCard({ table, onClick, cartItems }: TableCardProps) {
+  const { t } = useTranslation();
   // Fix defensivo: si el estado es desconocido o undefined, usar un fallback
   const style = TABLE_STATUS_STYLES[table.status as keyof typeof TABLE_STATUS_STYLES] || {
     bg: "bg-slate-700",

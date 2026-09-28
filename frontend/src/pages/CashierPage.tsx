@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from 'react-i18next';
 import {
   useCashierDashboard,
   useTablesWithBills,
@@ -24,6 +25,7 @@ import { CapabilityKey } from "@/types/capabilities";
  * como protagonista absoluto de la pantalla.
  */
 export function CashierPage() {
+  const { t } = useTranslation();
   const { data: dashboard, isLoading: loadingDashboard } = useCashierDashboard();
   const { data: tablesWithBills = [], isLoading: loadingTables } = useTablesWithBills();
   const [selectedTableUuid, setSelectedTableUuid] = useState<string | null>(null);
@@ -42,6 +44,7 @@ export function CashierPage() {
   const isSessionOpen = !!dashboard?.current_session;
 
   const getElapsedMinutes = (isoString: string | null) => {
+  const { t } = useTranslation();
     if (!isoString) return "";
     const minutes = Math.floor(
       (Date.now() - new Date(isoString).getTime()) / 60000

@@ -2,6 +2,7 @@ import type { TablesArea, RestaurantTable } from "@/types/tables";
 import type { TableCart } from "@/types/cart";
 import { TableCard } from "./TableCard";
 import { MapPin } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 
 interface TablesGridProps {
   area: TablesArea;
@@ -10,6 +11,7 @@ interface TablesGridProps {
 }
 
 export function TablesGrid({ area, onTableClick, cartItems }: TablesGridProps) {
+  const { t } = useTranslation();
   return (
     <div className="mb-8">
       <div className="flex items-center gap-2 mb-4">

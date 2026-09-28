@@ -12,6 +12,7 @@ import {
   Database,
   WifiOff,
 } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from "@/store/useAuthStore";
 import { useCapabilitiesStore } from "@/store/useCapabilitiesStore";
 import { CapabilityKey } from "@/types/capabilities";
@@ -25,35 +26,37 @@ interface NavItem {
   requiresCapability?: CapabilityKey;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { to: "/", label: "Mesas", icon: LayoutGrid, end: true },
-  { to: "/catalog", label: "Catálogo", icon: UtensilsCrossed },
-  { 
-    to: "/kitchen", 
-    label: "Cocina", 
-    icon: ChefHat,
-    requiresCapability: CapabilityKey.HAS_KITCHEN_DISPLAY,
-  },
-  { to: "/orders", label: "Pedidos", icon: ListOrdered },
-  { to: "/cashier", label: "Caja", icon: CreditCard },
-  { to: "/reports", label: "Reportes", icon: BarChart3 },
-  { to: "/settings", label: "Configuración", icon: Settings },
-  { 
-    to: "/sync-queue", 
-    label: "Sincronización", 
-    icon: Database 
-  },
-];
-
 /**
  * Sidebar principal de navegación.
  * Muestra las secciones del POS según capabilities de la empresa.
  */
 export function Sidebar() {
+  const { t } = useTranslation();
   const user = useAuthStore((state) => state.user);
   const clearAuth = useAuthStore((state) => state.clearAuth);
   const isEnabled = useCapabilitiesStore((state) => state.isCapabilityEnabled);
   const { online: isOnline } = useOnlineStatus();
+
+  // NAV_ITEMS dentro del componente para que t() esté disponible
+  const NAV_ITEMS: NavItem[] = [
+    { to: "/", label: t("tables.title"), icon: LayoutGrid, end: true },
+    { to: "/catalog", label: t("catalog.title"), icon: UtensilsCrossed },
+    { 
+      to: "/kitchen", 
+      label: t("kitchen.title"), 
+      icon: ChefHat,
+      requiresCapability: CapabilityKey.HAS_KITCHEN_DISPLAY,
+    },
+    { to: "/orders", label: t("orders.title"), icon: ListOrdered },
+    { to: "/cashier", label: t("cashier.title"), icon: CreditCard },
+    { to: "/reports", label: t("reports.title"), icon: BarChart3 },
+    { to: "/settings", label: t("settings.title"), icon: Settings },
+    { 
+      to: "/sync-queue", 
+      label: t("sync.queue"), 
+      icon: Database 
+    },
+  ];
 
   const visibleItems = NAV_ITEMS.filter((item) => {
     if (!item.requiresCapability) return true;
@@ -67,7 +70,7 @@ export function Sidebar() {
         <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">
           🍜 Wok & Mesa
         </h1>
-        <p className="text-xs text-slate-500 mt-1">Sistema POS</p>
+        <p className="text-xs text-slate-500 mt-1">{t("common.pos_system", "Sistema POS")}</p>
       </div>
 
       {/* Navegación */}
@@ -101,12 +104,12 @@ export function Sidebar() {
           {isOnline ? (
             <>
               <Wifi size={14} className="text-green-400" />
-              <span className="text-xs text-green-400">En línea</span>
+              <span className="text-xs text-green-400">{t("sync.online")}</span>
             </>
           ) : (
             <>
               <WifiOff size={14} className="text-amber-400" />
-              <span className="text-xs text-amber-400">Offline</span>
+              <span className="text-xs text-amber-400">{t("sync.offline")}</span>
             </>
           )}
         </div>
@@ -125,8 +128,8 @@ export function Sidebar() {
             <button
               onClick={clearAuth}
               className="p-2 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors"
-              title="Cerrar sesión"
-              aria-label="Cerrar sesión"
+              title={t("auth.logout")}
+              aria-label={t("auth.logout")}
             >
               <LogOut size={16} />
             </button>

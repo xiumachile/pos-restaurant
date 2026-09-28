@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { RouterProvider } from "react-router-dom";
 import { I18nextProvider } from "react-i18next";
 import { useDatabaseInit } from "./hooks/useDatabaseInit";
@@ -9,12 +9,12 @@ import { useSyncStore } from "./store/useSyncStore";
 import { useThemeStore } from "./store/useThemeStore";
 import { useCatalogSyncInvalidation } from "./hooks/useCatalog";
 import { DatabaseLoader } from "./components/system/DatabaseLoader";
+import { LanguageSetup } from "./components/LanguageSetup";
 import { router } from "./router";
-import i18n from "./i18n/config";
+import i18n from "./i18n";
 import { preloadAuthToken } from "./services/secureStorage";
 
 function AppContent() {
-
   // 🌗 Aplicar tema oscuro/claro globalmente
   useEffect(() => {
     const root = window.document.documentElement;
@@ -24,14 +24,12 @@ function AppContent() {
     } else {
       root.classList.remove('dark');
     }
-  }, []); // Se ejecuta una vez al montar
+  }, []);
 
   // Refresh automático del JWT cuando queda < 2 minutos
   useAuthRefresh();
 
   // 🔐 SEGURIDAD: Precargar token desde Tauri Store a cache síncrona
-  // Esto garantiza que los interceptors de axios puedan acceder al token
-  // sin tener que hacer await en cada request
   useEffect(() => {
     preloadAuthToken().catch((err) => {
       console.warn("[App] ⚠️ No se pudo precargar token:", err);
@@ -39,7 +37,6 @@ function AppContent() {
   }, []);
 
   // Atajo Ctrl+Shift+O para toggle de modo offline simulado
-  // Útil para testing cuando el backend corre en localhost
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "o") {
@@ -50,13 +47,14 @@ function AppContent() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
   // Iniciar worker de sincronización en background
   useSyncWorker();
+  
   // Iniciar PrintEngine (polling de PrintJobs cada 5s)
   usePrintEngine();
+  
   // FIX: Invalidar queries de catálogo cuando cambia el estado de conexión
-  // Esto garantiza que al pasar online↔offline, useCategories y useProducts
-  // recarguen los datos desde SQLite (offline) o backend (online)
   useCatalogSyncInvalidation();
 
   return (
@@ -67,7 +65,16 @@ function AppContent() {
 }
 
 function App() {
+  const [showLanguageSetup, setShowLanguageSetup] = useState(() => {
+    return !localStorage.getItem('terminal_language');
+  });
+
   const { isReady, isInitializing, error } = useDatabaseInit();
+
+  // Si es la primera vez, mostrar selector de idioma
+  if (showLanguageSetup) {
+    return <LanguageSetup onComplete={() => setShowLanguageSetup(false)} />;
+  }
 
   return (
     <DatabaseLoader isInitializing={isInitializing} error={error}>

@@ -11,12 +11,14 @@ import { ArrowLeft, Users, Loader2, AlertCircle, Scissors } from "lucide-react";
 import { useToastStore } from "@/store/useToastStore";
 import { CapabilityGate } from "@/components/CapabilityGate";
 import { CapabilityKey } from "@/types/capabilities";
+import { useTranslation } from 'react-i18next';
 
 /**
  * Vista de toma de pedido para una mesa específica.
  * Valida que la mesa tenga pedidos activos (no solo paid/closed).
  */
 export function OrderTakingPage() {
+  const { t } = useTranslation();
   const { tableUuid } = useParams<{ tableUuid: string }>();
   const navigate = useNavigate();
 
@@ -53,12 +55,12 @@ export function OrderTakingPage() {
   if (!table) {
     return (
       <div className="bg-red-900/30 border border-red-800 rounded-lg p-6 text-center">
-        <p className="text-red-300">Mesa no encontrada</p>
+        <p className="text-red-300">{t("tables.not_found")}</p>
         <button
           onClick={() => navigate("/")}
           className="mt-3 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg"
         >
-          Volver a mesas
+          {t("tables.back_to_tables")}
         </button>
       </div>
     );
@@ -97,33 +99,8 @@ export function OrderTakingPage() {
                 </span>
               </h1>
               
-              {/* Botón dividir cuenta (solo si está habilitado) */}
-              <CapabilityGate requires={CapabilityKey.CAN_SPLIT_BILLS}>
-                {hasActiveOrders && (
-                  <button
-                    className="ml-4 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
-                    onClick={() => {
-                      // TODO(post-demo): Conectar SplitBillModal cuando feature esté validada
-                      // Infraestructura existente:
-                      //   - SplitBillModal.tsx (equal/items/custom)
-                      //   - useSplitOrder() hook
-                      //   - Backend: POST /orders/{uuid}/split
-                      //   - Capability: can_split_bills (ya habilitada)
-                      // Decisión: Mantener desconectado para demo del 11 Sep
-                      //           para evitar introducir bugs en flujo crítico.
-                      useToastStore.getState().addToast(
-                        "info",
-                        "División de cuenta estará disponible en próxima versión. Por ahora, crea sub-cuentas manualmente desde el flujo de pedido.",
-                        5000
-                      );
-                    }}
-                    title="Dividir cuenta entre varios clientes"
-                  >
-                    <Scissors size={16} />
-                    Dividir Cuenta
-                  </button>
-                )}
-              </CapabilityGate>
+          {/* TODO: Dividir Cuenta pendiente de integración */}
+          {/* TODO: Dividir Cuenta pendiente de integración */}
             </div>
             <p className="text-sm text-slate-400 mt-1 flex items-center gap-3">
               <span className="flex items-center gap-1">
@@ -149,7 +126,7 @@ export function OrderTakingPage() {
         <div className="mb-4 bg-blue-900/20 border border-blue-700/50 rounded-lg p-3 flex items-center gap-2 text-sm text-blue-200">
           <AlertCircle size={16} className="flex-shrink-0" />
           <span>
-            Mesa libre. Al enviar un pedido se marcará como <strong>Ocupada</strong>.
+            Mesa libre. Al enviar un pedido se marcará como <strong>{t("tables.occupied")}</strong>.
           </span>
         </div>
       )}

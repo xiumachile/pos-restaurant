@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTables } from "@/hooks/useTables";
@@ -9,6 +10,7 @@ import type { RestaurantTable, TableStatus, TablesArea } from "@/types/tables";
 import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
 
 export function TablesPage() {
+  const { t } = useTranslation();
   const { data: areas = [], isLoading, error, refetch, isRefetching } = useTables();
   const [statusFilter, setStatusFilter] = useState<TableStatus | "all">("all");
   const carts = useCartStore((s) => s.carts);
@@ -60,9 +62,9 @@ export function TablesPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Mesas</h1>
+          <h1 className="text-3xl font-bold">{t("tables.header")}</h1>
           <p className="text-slate-400 mt-1">
-            {allTables.length} mesas en {areas.length} áreas · Toca una mesa para tomar pedido
+            {allTables.length} mesas en {areas.length} áreas · {t("tables.tap_hint")}
           </p>
         </div>
 

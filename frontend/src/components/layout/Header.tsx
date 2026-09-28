@@ -3,6 +3,8 @@ import { LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { SyncStatusIndicator } from "@/components/system/SyncStatusIndicator";
 import { useThemeStore } from "@/store/useThemeStore";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useTranslation } from 'react-i18next';
 import { Sun, Moon } from "lucide-react";
 
 /**
@@ -15,6 +17,7 @@ import { Sun, Moon } from "lucide-react";
  */
 export function Header() {
   const { user, logout } = useAuth();
+  const { t } = useTranslation();
   const { theme, toggleTheme } = useThemeStore();
   const navigate = useNavigate();
 
@@ -41,13 +44,16 @@ export function Header() {
         <div className="flex items-center gap-4">
           <SyncStatusIndicator />
 
+          {/* Selector de idioma */}
+          <LanguageSwitcher />
+
           {/* Botón de logout */}
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors"
           >
             <LogOut size={16} />
-            <span className="text-sm font-medium">Cerrar sesión</span>
+            <span className="text-sm font-medium">{t('auth.logout')}</span>
           </button>
         </div>
       </div>

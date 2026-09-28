@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useToastStore } from '@/store/useToastStore';
 import { useKitchenQueue, useKitchenStats, useKitchenTransition } from "@/hooks/useKitchenOrders";
 import { KitchenColumn } from "@/components/kitchen/KitchenColumn";
 import { TableHistoryModal } from "@/components/kitchen/TableHistoryModal";
@@ -29,6 +30,7 @@ export function KitchenPage() {
       await action(uuid);
     } catch (error) {
       console.error("Error en transición:", error);
+          useToastStore.getState().addToast('error', 'No se pudo actualizar el estado. Verifica tu conexión.');
     } finally {
       setTransitioningUuids((prev) => {
         const next = new Set(prev);
