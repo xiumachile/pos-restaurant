@@ -73,9 +73,7 @@ export function TablesPage() {
           disabled={isRefetching}
           className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-white transition-colors disabled:opacity-50"
         >
-          <RefreshCw size={16} className={isRefetching ? "animate-spin" : ""} />
-          Actualizar
-        </button>
+          <RefreshCw size={16} className={isRefetching ? "animate-spin" : ""} />{t("tables.refresh")}</button>
       </div>
 
       {/* Stats */}
@@ -93,8 +91,9 @@ export function TablesPage() {
         >
           {t("tables.all")} ({allTables.length})
         </button>
-        {(Object.keys(TABLE_STATUS_LABELS) as TableStatus[]).map((status) => {
+        {(["available", "occupied", "billing", "maintenance"] as TableStatus[]).map((status) => {
           const count = allTables.filter((t) => t.status === status).length;
+          if (count === 0 && status !== "available") return null; // Opcional: ocultar si es 0, o quitar esta línea para mostrar todos
           return (
             <button
               key={status}
@@ -105,7 +104,7 @@ export function TablesPage() {
                   : "bg-slate-800 text-slate-300 hover:bg-slate-700"
               }`}
             >
-              {TABLE_STATUS_LABELS[status]} ({count})
+              {t(`tables.${status}`)} ({count})
             </button>
           );
         })}

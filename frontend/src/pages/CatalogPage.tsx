@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState } from "react";
 import { useCategories, useProducts } from "@/hooks/useCatalog";
 import { CategoryList } from "@/components/catalog/CategoryList";
@@ -9,6 +10,7 @@ import { Search, Loader2, AlertCircle, Package } from "lucide-react";
  * El flujo de pedidos se hace desde las mesas (OrderTakingPage).
  */
 export function CatalogPage() {
+  const { t } = useTranslation();
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -29,9 +31,9 @@ export function CatalogPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Catálogo</h1>
+          <h1 className="text-3xl font-bold">{t("catalog.title")}</h1>
           <p className="text-slate-400 mt-1">
-            {products.length} productos · Vista de administración
+            {t("catalog.subtitle", { count: products.length })}
           </p>
         </div>
 

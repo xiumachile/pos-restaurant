@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from "react";
 import { usePriceLists, useUpsertProductPrices } from "@/hooks/usePriceLists";
 import { useProductPrices } from "@/hooks/useProductPrices";
@@ -48,6 +49,8 @@ export type PriceEditorState = Record<
 >;
 
 export function ProductFormModal({ product, categories, onClose }: ProductFormModalProps) {
+  const { t } = useTranslation();
+
   const [sku, setSku] = useState(product?.sku ?? "");
   const [nameEs, setNameEs] = useState(product?.name_translations?.es ?? "");
   const [categoryId, setCategoryId] = useState(
@@ -227,9 +230,9 @@ export function ProductFormModal({ product, categories, onClose }: ProductFormMo
           setSaveStatus("Guardando receta...");
           const recipeResult = await (window as any).__saveRecipe();
           if (!recipeResult.saved) {
-            setSaveStatus("⚠️ Producto guardado, pero error al guardar receta");
+            setSaveStatus(t("catalog_admin.product_saved_recipe_error"));
           } else {
-            setSaveStatus("✅ Producto y receta guardados");
+            setSaveStatus(t("catalog_admin.product_recipe_saved"));
           }
         }
       }
@@ -259,7 +262,7 @@ export function ProductFormModal({ product, categories, onClose }: ProductFormMo
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
         <h2 className="text-xl font-bold text-white mb-4">
-          {product ? "Editar producto" : "Nuevo producto"}
+          {product ? t("catalog_admin.edit_product") : t("catalog_admin.new_product")}
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -277,7 +280,7 @@ export function ProductFormModal({ product, categories, onClose }: ProductFormMo
               />
             </div>
             <div>
-              <label className="block text-sm text-slate-400 mb-1.5">Categoría *</label>
+              <label className="block text-sm text-slate-400 mb-1.5">{t("catalog_admin.category_required")}</label>
               <select
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
@@ -447,7 +450,7 @@ export function ProductFormModal({ product, categories, onClose }: ProductFormMo
                 onChange={(e) => setIsActive(e.target.checked)}
                 className="w-4 h-4 accent-orange-500"
               />
-              <span className="text-sm text-slate-300">Producto activo</span>
+              <span className="text-sm text-slate-300">{t("catalog_admin.active_product")}</span>
             </label>
             {product && (
               <label className="flex items-center gap-2 cursor-pointer">
@@ -486,8 +489,8 @@ export function ProductFormModal({ product, categories, onClose }: ProductFormMo
               {isSaving
                 ? "Guardando..."
                 : product
-                ? "Guardar cambios"
-                : "Crear producto"}
+                ? t("catalog_admin.save_changes")
+                : t("catalog_admin.create_product")}
             </button>
             <button
               type="button"

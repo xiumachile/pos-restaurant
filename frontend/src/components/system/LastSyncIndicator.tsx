@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Clock } from "lucide-react";
 import { useSyncStore } from "../../store/useSyncStore";
 
@@ -6,6 +7,7 @@ import { useSyncStore } from "../../store/useSyncStore";
  * Para colocar en sidebar o footer.
  */
 export function LastSyncIndicator() {
+  const { t } = useTranslation();
   const lastSyncAt = useSyncStore((s) => s.lastSyncAt);
   const pendingCount = useSyncStore((s) => s.pendingCount);
 
@@ -29,7 +31,7 @@ export function LastSyncIndicator() {
   return (
     <div className="flex items-center gap-2 px-3 py-2 text-xs text-slate-400">
       <Clock size={12} />
-      <span>Última sync: {formatRelativeTime(lastSyncAt)}</span>
+      <span>{t("sync.last_sync")}: {formatRelativeTime(lastSyncAt)}</span>
       {pendingCount > 0 && (
         <span className="bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
           {pendingCount}

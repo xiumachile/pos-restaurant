@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Tooltip } from "@/components/ui/Tooltip";
 import { Clock, CheckCircle, AlertCircle, RefreshCw } from "lucide-react";
 
@@ -14,35 +15,35 @@ interface SyncBadgeProps {
 
 const SYNC_CONFIG: Record<SyncStatus, {
   icon: typeof Clock;
-  label: string;
+  labelKey: string;
   color: string;
   bgColor: string;
   borderColor: string;
 }> = {
   pending: {
     icon: Clock,
-    label: "Pendiente",
+    labelKey: "Pendiente",
     color: "text-yellow-400",
     bgColor: "bg-yellow-900/20",
     borderColor: "border-yellow-800",
   },
   syncing: {
     icon: RefreshCw,
-    label: "Sincronizando",
+    labelKey: "Sincronizando",
     color: "text-blue-400",
     bgColor: "bg-blue-900/20",
     borderColor: "border-blue-800",
   },
   synced: {
     icon: CheckCircle,
-    label: "Sincronizado",
+    labelKey: "Sincronizado",
     color: "text-green-400",
     bgColor: "bg-green-900/20",
     borderColor: "border-green-800",
   },
   failed: {
     icon: AlertCircle,
-    label: "Error",
+    labelKey: "Error",
     color: "text-red-400",
     bgColor: "bg-red-900/20",
     borderColor: "border-red-800",
@@ -57,6 +58,7 @@ export function SyncBadge({
   showCloudId = false,
   className = "",
 }: SyncBadgeProps) {
+  const { t } = useTranslation();
   const config = SYNC_CONFIG[status];
   const Icon = config.icon;
   const isSyncing = status === "syncing";
@@ -79,14 +81,14 @@ export function SyncBadge({
       <div
         className={`inline-flex items-center gap-2 rounded-lg border ${config.bgColor} ${config.borderColor} ${sizeClasses} ${className} cursor-help`}
         role="status"
-        aria-label={`Estado de sincronización: ${config.label}`}
+        aria-label={`${t("sync.sync_status")}: ${t(config.labelKey)}`}
       >
       <Icon 
         className={`${iconSize} ${config.color} ${isSyncing && "animate-spin"}`}
         aria-hidden="true"
       />
       <span className={`font-medium ${config.color}`}>
-        {config.label}
+        {config.labelKey}
       </span>
       {showCloudId && status === "synced" && cloudId && (
         <span className="text-xs text-gray-400 ml-auto" aria-label={`ID en la nube: ${cloudId}`}>

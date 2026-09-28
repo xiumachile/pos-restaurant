@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState } from "react";
 import {
   Plus,
@@ -26,6 +27,8 @@ const CHANNEL_TYPES = [
 ];
 
 export function PriceListsTab() {
+  const { t } = useTranslation();
+
   const { data: priceLists = [], isLoading, error } = usePriceLists();
   const [editingList, setEditingList] = useState<PriceList | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -33,7 +36,7 @@ export function PriceListsTab() {
   const deleteMutation = useDeletePriceList();
 
   const handleDelete = async (list: PriceList) => {
-    if (confirm(`¿Eliminar la lista "${list.display_name}"?`)) {
+    if (confirm(t("catalog_admin.confirm_delete_list", { name: list.display_name }))) {
       try {
         await deleteMutation.mutateAsync(list.uuid);
       } catch (err: any) {
@@ -64,20 +67,14 @@ export function PriceListsTab() {
     <div>
       <div className="flex justify-between items-center mb-4">
         <div>
-          <h2 className="text-xl font-semibold">
-            Listas de precios ({priceLists.length})
-          </h2>
-          <p className="text-sm text-slate-400 mt-1">
-            Configura N listas según tus canales de venta. Los menús seleccionan cuál usar.
-          </p>
+          <h2 className="text-xl font-semibold">{t("catalog_admin.price_lists_title", { count: priceLists.length })}</h2>
+          <p className="text-sm text-slate-400 mt-1">{t("catalog_admin.price_lists_subtitle")}</p>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
           className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors"
         >
-          <Plus size={18} />
-          Nueva lista
-        </button>
+          <Plus size={18} />{t("catalog_admin.new_price_list")}</button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -104,14 +101,14 @@ export function PriceListsTab() {
                 <button
                   onClick={() => setEditingList(list)}
                   className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors"
-                  title="Editar"
+                  title={t("catalog_admin.edit")}
                 >
                   <Pencil size={14} />
                 </button>
                 <button
                   onClick={() => handleDelete(list)}
                   className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
-                  title="Eliminar"
+                  title={t("catalog_admin.delete")}
                 >
                   <Trash2 size={14} />
                 </button>
@@ -150,16 +147,14 @@ export function PriceListsTab() {
       {priceLists.length === 0 && (
         <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-12 text-center">
           <Tags className="mx-auto text-slate-500 mb-3" size={48} />
-          <p className="text-slate-400">No hay listas de precios creadas</p>
+          <p className="text-slate-400">{t("catalog_admin.no_lists_created")}</p>
         </div>
       )}
 
       {/* Info box */}
       <div className="mt-6 bg-blue-900/20 border border-blue-800/50 rounded-lg p-4">
         <p className="text-sm text-blue-300">
-          💡 <strong>Nota:</strong> Los precios por producto se configuran desde la pestaña
-          de productos (editor de precios múltiples). Cada menú selecciona una lista de
-          precios mediante un desplegable.
+          {t("catalog_admin.price_lists_note")}
         </p>
       </div>
 
@@ -183,6 +178,7 @@ interface PriceListFormModalProps {
 }
 
 function PriceListFormModal({ list, onClose }: PriceListFormModalProps) {
+  const { t } = useTranslation();
   const [name, setName] = useState(list?.name ?? "");
   const [displayName, setDisplayName] = useState(list?.display_name ?? "");
   const [channelType, setChannelType] = useState(list?.channel_type ?? "");
@@ -236,7 +232,7 @@ function PriceListFormModal({ list, onClose }: PriceListFormModalProps) {
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-w-md w-full p-6">
         <h2 className="text-xl font-bold text-white mb-4">
-          {list ? "Editar lista de precios" : "Nueva lista de precios"}
+          {list ? t("catalog_admin.edit_price_list") : t("catalog_admin.new_price_list")}
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -249,7 +245,7 @@ function PriceListFormModal({ list, onClose }: PriceListFormModalProps) {
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               required
-              placeholder="Ej: Precio Comedor"
+              placeholder={t("catalog_admin.visible_name_placeholder")}
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 [color-scheme:dark]"
             />
           </div>
@@ -314,7 +310,7 @@ function PriceListFormModal({ list, onClose }: PriceListFormModalProps) {
               disabled={isSaving}
               className="flex-1 px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-700 text-white rounded-lg font-medium transition-colors"
             >
-              {isSaving ? "Guardando..." : list ? "Guardar cambios" : "Crear lista"}
+              {isSaving ? t("catalog_admin.saving") : list ? t("catalog_admin.save_changes") : t("catalog_admin.create_list")}
             </button>
             <button
               type="button"

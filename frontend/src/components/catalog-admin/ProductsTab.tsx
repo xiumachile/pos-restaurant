@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from "react";
 import {
   Plus,
@@ -23,6 +24,8 @@ import { getTranslatedName, formatPrice } from "@/types/catalog";
 import { RecipeSection } from "./RecipeSection";
 
 export function ProductsTab() {
+  const { t } = useTranslation();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -38,7 +41,7 @@ export function ProductsTab() {
 
   const handleDelete = async (product: Product) => {
     const name = getTranslatedName(product.name_translations);
-    if (confirm(`¿Eliminar el producto "${name}"?`)) {
+    if (confirm(t("catalog_admin.confirm_delete_product", { name }))) {
       try {
         await deleteMutation.mutateAsync(product.uuid);
       } catch (err) {
@@ -68,9 +71,7 @@ export function ProductsTab() {
     <div>
       {/* Header con búsqueda y filtros */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-4">
-        <h2 className="text-xl font-semibold">
-          Productos ({products.length})
-        </h2>
+        <h2 className="text-xl font-semibold">{t("catalog_admin.products_tab")} ({products.length})</h2>
 
         <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
           {/* Búsqueda */}
@@ -80,7 +81,7 @@ export function ProductsTab() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar por nombre o SKU..."
+              placeholder={t("catalog_admin.search_placeholder")}
               className="pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500 w-full sm:w-64"
             />
           </div>
@@ -106,9 +107,7 @@ export function ProductsTab() {
             onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors"
           >
-            <Plus size={18} />
-            Nuevo producto
-          </button>
+            <Plus size={18} />{t("catalog_admin.new_product")}</button>
         </div>
       </div>
 
@@ -130,14 +129,14 @@ export function ProductsTab() {
                 <button
                   onClick={() => setEditingProduct(product)}
                   className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors"
-                  title="Editar"
+                  title={t("catalog_admin.edit")}
                 >
                   <Pencil size={14} />
                 </button>
                 <button
                   onClick={() => handleDelete(product)}
                   className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
-                  title="Eliminar"
+                  title={t("catalog_admin.delete")}
                 >
                   <Trash2 size={14} />
                 </button>
@@ -161,9 +160,7 @@ export function ProductsTab() {
                   </span>
                 )}
                 {product.is_active ? (
-                  <span className="px-2 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-500/30 text-xs">
-                    Activo
-                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-500/30 text-xs">{t("catalog_admin.active")}</span>
                 ) : (
                   <span className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/30 text-xs">
                     Inactivo

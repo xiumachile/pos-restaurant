@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from 'react-i18next';
 import type { KitchenOrder } from "@/types/kitchen";
 import { getUrgencyColor, formatWaitingTime } from "@/types/kitchen";
 import { Clock, Play, CheckCircle2, UtensilsCrossed, AlertTriangle, Loader2 } from "lucide-react";
@@ -13,9 +14,9 @@ interface OrderCardProps {
 }
 
 const PRIORITY_CONFIG = {
-  vip: { label: "VIP", color: "text-purple-400", bg: "bg-purple-900/30", border: "border-purple-500" },
-  rush: { label: "URGENTE", color: "text-red-400", bg: "bg-red-900/30", border: "border-red-500" },
-  normal: { label: "Normal", color: "text-slate-400", bg: "bg-slate-800", border: "border-slate-700" },
+  vip: { labelKey: "kitchen.vip", color: "text-purple-400", bg: "bg-purple-900/30", border: "border-purple-500" },
+  rush: { labelKey: "kitchen.urgent", color: "text-red-400", bg: "bg-red-900/30", border: "border-red-500" },
+  normal: { labelKey: "kitchen.normal", color: "text-slate-400", bg: "bg-slate-800", border: "border-slate-700" },
 };
 
 export function OrderCard({
@@ -26,6 +27,7 @@ export function OrderCard({
   onTableClick,
   isTransitioning = false,
 }: OrderCardProps) {
+  const { t } = useTranslation();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const urgency = getUrgencyColor(order.waiting_minutes);
@@ -48,7 +50,7 @@ export function OrderCard({
           className="w-full py-2 bg-slate-700 rounded-lg text-slate-400 font-medium flex items-center justify-center gap-2"
         >
           <Loader2 size={16} className="animate-spin" />
-          Procesando...
+          {t("kitchen.processing")}
         </button>
       );
     }
@@ -61,7 +63,7 @@ export function OrderCard({
             className="w-full py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white font-medium flex items-center justify-center gap-2 transition-colors"
           >
             <Play size={16} />
-            Empezar
+            {t("kitchen.start")}
           </button>
         );
       case "preparing":
@@ -71,7 +73,7 @@ export function OrderCard({
             className="w-full py-2 bg-amber-500 hover:bg-amber-600 rounded-lg text-white font-medium flex items-center justify-center gap-2 transition-colors"
           >
             <CheckCircle2 size={16} />
-            Listo
+            {t("kitchen.ready")}
           </button>
         );
       case "ready":
@@ -81,7 +83,7 @@ export function OrderCard({
             className="w-full py-2 bg-green-500 hover:bg-green-600 rounded-lg text-white font-medium flex items-center justify-center gap-2 transition-colors"
           >
             <UtensilsCrossed size={16} />
-            Servido
+            {t("kitchen.served")}
           </button>
         );
       default:
@@ -108,7 +110,7 @@ export function OrderCard({
           <span
             className={`px-2 py-0.5 rounded text-xs font-bold ${priority.bg} ${priority.color} border ${priority.border}`}
           >
-            {priority.label}
+            {t(priority.labelKey)}
           </span>
         )}
       </div>
@@ -119,9 +121,9 @@ export function OrderCard({
           <button
             onClick={() => order.table_uuid && onTableClick?.(order.table_uuid)}
             className="font-semibold hover:text-orange-400 transition-colors"
-            title="Ver historial de mesa"
+            title={t("kitchen.view_table_history")}
           >
-            Mesa {order.table_number}
+            {t("tables.table")} {order.table_number}
           </button>
         )}
         {order.area_code && (

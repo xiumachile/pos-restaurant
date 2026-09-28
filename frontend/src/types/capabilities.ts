@@ -18,7 +18,7 @@ export interface CapabilityInfo {
   key: CapabilityKey;
   is_enabled: boolean;
   settings?: Record<string, unknown>;
-  description: string;
+  descriptionKey: string;
   icon: string;
   category: 'operations' | 'payments' | 'marketing';
 }
@@ -36,49 +36,49 @@ export interface CapabilityResponse {
 export const CAPABILITY_META: Record<CapabilityKey, Omit<CapabilityInfo, 'is_enabled' | 'settings'>> = {
   [CapabilityKey.CAN_SPLIT_BILLS]: {
     key: CapabilityKey.CAN_SPLIT_BILLS,
-    description: 'Permitir dividir cuentas entre varios clientes',
+    descriptionKey: 'capabilities.descriptions.CAN_SPLIT_BILLS',
     icon: '📋',
     category: 'payments',
   },
   [CapabilityKey.CAN_MANAGE_INVENTORY]: {
     key: CapabilityKey.CAN_MANAGE_INVENTORY,
-    description: 'Gestionar stock e insumos',
+    descriptionKey: 'capabilities.descriptions.CAN_MANAGE_INVENTORY',
     icon: '📦',
     category: 'operations',
   },
   [CapabilityKey.REQUIRES_CASHIER_SESSION]: {
     key: CapabilityKey.REQUIRES_CASHIER_SESSION,
-    description: 'Requerir apertura y cierre de caja por turno',
+    descriptionKey: 'capabilities.descriptions.REQUIRES_CASHIER_SESSION',
     icon: '💵',
     category: 'payments',
   },
   [CapabilityKey.CAN_ACCEPT_TIPS]: {
     key: CapabilityKey.CAN_ACCEPT_TIPS,
-    description: 'Aceptar propinas en los pagos',
+    descriptionKey: 'capabilities.descriptions.CAN_ACCEPT_TIPS',
     icon: '💰',
     category: 'payments',
   },
   [CapabilityKey.HAS_KITCHEN_DISPLAY]: {
     key: CapabilityKey.HAS_KITCHEN_DISPLAY,
-    description: 'Kitchen Display System (pantalla de cocina)',
+    descriptionKey: 'capabilities.descriptions.HAS_KITCHEN_DISPLAY',
     icon: '👨‍🍳',
     category: 'operations',
   },
   [CapabilityKey.CAN_PRINT_RECEIPTS]: {
     key: CapabilityKey.CAN_PRINT_RECEIPTS,
-    description: 'Imprimir tickets y comandas',
+    descriptionKey: 'capabilities.descriptions.CAN_PRINT_RECEIPTS',
     icon: '🖨️',
     category: 'operations',
   },
   [CapabilityKey.SUPPORTS_LOYALTY_PROGRAM]: {
     key: CapabilityKey.SUPPORTS_LOYALTY_PROGRAM,
-    description: 'Programa de lealtad y puntos',
+    descriptionKey: 'capabilities.descriptions.SUPPORTS_LOYALTY_PROGRAM',
     icon: '⭐',
     category: 'marketing',
   },
   [CapabilityKey.CAN_MANAGE_RESERVATIONS]: {
     key: CapabilityKey.CAN_MANAGE_RESERVATIONS,
-    description: 'Gestionar reservaciones de mesas',
+    descriptionKey: 'capabilities.descriptions.CAN_MANAGE_RESERVATIONS',
     icon: '📅',
     category: 'operations',
   },

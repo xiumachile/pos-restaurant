@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState } from "react";
 import { useCreateMenu, useUpdateMenu } from "@/hooks/useMenus";
 import type { Menu } from "@/services/menuAdminService";
@@ -10,6 +11,8 @@ export interface MenuFormModalProps {
 }
 
 export function MenuFormModal({ menu, priceLists, onClose }: MenuFormModalProps) {
+  const { t } = useTranslation();
+
   const [name, setName] = useState(menu?.name ?? "");
   const [description, setDescription] = useState(menu?.description ?? "");
   const [priceListId, setPriceListId] = useState(
@@ -57,7 +60,7 @@ export function MenuFormModal({ menu, priceLists, onClose }: MenuFormModalProps)
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-w-md w-full p-6">
         <h2 className="text-xl font-bold text-white mb-4">
-          {menu ? "Editar menú" : "Nuevo menú"}
+          {menu ? t("catalog_admin.edit_menu") : t("catalog_admin.new_menu")}
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">

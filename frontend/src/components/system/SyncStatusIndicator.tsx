@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useSyncStore } from '../../store/useSyncStore';
 import { RefreshCw, Wifi, WifiOff, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -18,6 +19,7 @@ import { Tooltip } from '@/components/ui/Tooltip';
  * ⚠ Error: "Error de sincronización" + botón "Reintentar"
  */
 export function SyncStatusIndicator() {
+  const { t } = useTranslation();
   const status = useSyncStore((s) => s.status);
   const pendingCount = useSyncStore((s) => s.pendingCount);
   const lastSyncAt = useSyncStore((s) => s.lastSyncAt);
@@ -114,17 +116,17 @@ export function SyncStatusIndicator() {
       {/* Tiempo desde última sync (solo si no está sincronizando y hay timestamp) */}
       {lastSyncAt && !isSyncing && (
         <span className="text-xs text-slate-400">
-          Última: {formatTime(lastSyncAt)}
+          {t("sync.last")}: {formatTime(lastSyncAt)}
         </span>
       )}
 
       {/* Botón de sync manual (siempre visible, deshabilitado durante sync) */}
-      <Tooltip content={isSyncing ? 'Sincronización en progreso...' : 'Forzar sincronización manual de todos los cambios pendientes'} position="bottom">
+      <Tooltip content={isSyncing ? t('sync.in_progress') : t('sync.force_tooltip')} position="bottom">
         <button
           onClick={triggerFullSync}
           disabled={isSyncing}
           className="p-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-help"
-          aria-label={isSyncing ? 'Sincronización en progreso' : 'Sincronizar ahora'}
+          aria-label={isSyncing ? t('sync.in_progress') : t('sync.sync_now')}
         >
           <RefreshCw
             size={16}

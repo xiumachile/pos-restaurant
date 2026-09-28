@@ -1,9 +1,11 @@
+import { useTranslation } from 'react-i18next';
 import { SyncQueueStats } from "@/components/system/SyncQueueStats";
 import { SyncQueueTable } from "@/components/system/SyncQueueTable";
 import { useSyncQueueActions, useSyncQueueStats } from "@/hooks/useSyncQueue";
 import { RefreshCw, Trash2, Play } from "lucide-react";
 
 export function SyncQueuePage() {
+  const { t } = useTranslation();
   const { retryAllFailed, deleteAllFailed, triggerSync } = useSyncQueueActions();
   const { data: stats } = useSyncQueueStats();
 
@@ -13,10 +15,10 @@ export function SyncQueuePage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">
-            Cola de Sincronización
+            {t("sync.queue")}
           </h1>
           <p className="text-slate-400">
-            Diagnóstico y gestión de operaciones pendientes
+            {t("sync.diagnostic")}
           </p>
         </div>
         <div className="flex gap-2">
@@ -40,7 +42,7 @@ export function SyncQueuePage() {
               </button>
               <button
                 onClick={() => {
-                  if (confirm(`¿Eliminar ${stats.failed} items fallidos?`)) {
+                  if (confirm(t('sync.confirm_delete_failed', { count: stats.failed }))) {
                     deleteAllFailed.mutate();
                   }
                 }}

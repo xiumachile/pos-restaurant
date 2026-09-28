@@ -44,7 +44,7 @@ export function CashierPage() {
   const isSessionOpen = !!dashboard?.current_session;
 
   const getElapsedMinutes = (isoString: string | null) => {
-  const { t } = useTranslation();
+  
     if (!isoString) return "";
     const minutes = Math.floor(
       (Date.now() - new Date(isoString).getTime()) / 60000
@@ -76,7 +76,7 @@ export function CashierPage() {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Receipt size={20} className="text-orange-400" />
-            <h2 className="text-lg font-bold">Cuentas por Cobrar</h2>
+            <h2 className="text-lg font-bold">{t("cashier.bills_to_collect")}</h2>
             <span className="px-2 py-0.5 bg-orange-500/20 border border-orange-700/50 rounded-full text-orange-300 text-xs font-bold">
               {tablesWithBills.length}
             </span>
@@ -88,7 +88,7 @@ export function CashierPage() {
             <div className="bg-amber-900/30 border border-amber-700 rounded-lg p-2.5 mb-3 text-xs text-amber-200 flex items-center gap-2">
               <AlertCircle size={14} className="flex-shrink-0" />
               <span>
-                Debes <strong>abrir caja</strong> antes de poder cobrar cuentas.
+                {t("cashier.must_open_session")}
               </span>
             </div>
           )}
@@ -131,7 +131,7 @@ export function CashierPage() {
                     {/* Header */}
                     <div className="flex items-start justify-between mb-2">
                       <div className="text-xl font-bold text-white">
-                        Mesa {table.table_number}
+                        {t("cashier.table")} {table.table_number}
                       </div>
                       {elapsed && (
                         <span
@@ -162,7 +162,7 @@ export function CashierPage() {
 
                     {/* Total */}
                     <div className="pt-2 border-t border-slate-700 flex items-center justify-between">
-                      <span className="text-[11px] text-slate-400">Total:</span>
+                      <span className="text-[11px] text-slate-400">{t("orders.total")}:</span>
                       <span className="text-lg font-bold text-orange-400">
                         {formatPrice(table.total_amount)}
                       </span>

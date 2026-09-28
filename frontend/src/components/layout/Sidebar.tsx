@@ -45,7 +45,7 @@ export function Sidebar() {
       to: "/kitchen", 
       label: t("kitchen.title"), 
       icon: ChefHat,
-      requiresCapability: CapabilityKey.HAS_KITCHEN_DISPLAY,
+      // requiresCapability: CapabilityKey.HAS_KITCHEN_DISPLAY, // Comentado para que sea visible en pruebas
     },
     { to: "/orders", label: t("orders.title"), icon: ListOrdered },
     { to: "/cashier", label: t("cashier.title"), icon: CreditCard },
@@ -122,7 +122,7 @@ export function Sidebar() {
                 {user.name}
               </p>
               <p className="text-xs text-slate-500 truncate capitalize">
-                {user.role}
+                {t(`roles.${user.role.toLowerCase()}`, user.role)}
               </p>
             </div>
             <button

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from 'react-i18next';
 import { useToastStore } from '@/store/useToastStore';
 import { useKitchenQueue, useKitchenStats, useKitchenTransition } from "@/hooks/useKitchenOrders";
 import { KitchenColumn } from "@/components/kitchen/KitchenColumn";
@@ -7,6 +8,7 @@ import { TablesTodayView } from "@/components/kitchen/TablesTodayView";
 import { Loader2, RefreshCw, ChefHat, History } from "lucide-react";
 
 export function KitchenPage() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<"queue" | "history">("queue");
   
   const { data: zones = [], isLoading, refetch, isRefetching } = useKitchenQueue();
@@ -30,7 +32,7 @@ export function KitchenPage() {
       await action(uuid);
     } catch (error) {
       console.error("Error en transición:", error);
-          useToastStore.getState().addToast('error', 'No se pudo actualizar el estado. Verifica tu conexión.');
+      useToastStore.getState().addToast('error', t('kitchen.transition_error'));
     } finally {
       setTransitioningUuids((prev) => {
         const next = new Set(prev);
@@ -60,20 +62,20 @@ export function KitchenPage() {
           <div className="flex items-center gap-3">
             <ChefHat size={32} className="text-orange-400" />
             <div>
-              <h1 className="text-3xl font-bold">Cocina</h1>
+              <h1 className="text-3xl font-bold">{t("kitchen.title")}</h1>
               {activeTab === "queue" && (
                 <p className="text-slate-400 mt-1">
-                  {stats?.total_active || 0} pedidos activos
+                  {stats?.total_active || 0} {t("kitchen.active_orders")}
                   {stats?.avg_preparation_minutes && stats.avg_preparation_minutes > 0 && (
                     <span className="ml-2">
-                      · Promedio: {stats.avg_preparation_minutes} min
+                      · {t("kitchen.avg_time", { minutes: stats.avg_preparation_minutes })}
                     </span>
                   )}
                 </p>
               )}
               {activeTab === "history" && (
                 <p className="text-slate-400 mt-1">
-                  Historial de mesas del día
+                  {t("kitchen.history_subtitle")}
                 </p>
               )}
             </div>
@@ -89,7 +91,7 @@ export function KitchenPage() {
                   : "bg-slate-800 text-slate-300 hover:bg-slate-700"
               }`}
             >
-              Cola de Pedidos
+              {t("kitchen.queue_tab")}
             </button>
             <button
               onClick={() => setActiveTab("history")}
@@ -100,7 +102,7 @@ export function KitchenPage() {
               }`}
             >
               <History size={16} />
-              Historial del Día
+              {t("kitchen.history_tab")}
             </button>
           </div>
         </div>
@@ -112,7 +114,7 @@ export function KitchenPage() {
             className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-white transition-colors disabled:opacity-50"
           >
             <RefreshCw size={16} className={isRefetching ? "animate-spin" : ""} />
-            Actualizar
+            {t("kitchen.refresh")}
           </button>
         )}
       </div>
@@ -121,7 +123,7 @@ export function KitchenPage() {
       {activeTab === "queue" && (
         <div className="flex-1 flex gap-4 overflow-hidden">
           <KitchenColumn
-            title="Confirmados"
+            title={t("kitchen.confirmed")}
             icon="confirmed"
             orders={confirmed}
             onPrepare={(uuid) => handleTransition(uuid, prepare.mutateAsync)}
@@ -130,7 +132,7 @@ export function KitchenPage() {
           />
 
           <KitchenColumn
-            title="En Preparación"
+            title={t("kitchen.preparing")}
             icon="preparing"
             orders={preparing}
             onReady={(uuid) => handleTransition(uuid, ready.mutateAsync)}
@@ -139,7 +141,7 @@ export function KitchenPage() {
           />
 
           <KitchenColumn
-            title="Listos"
+            title={t("kitchen.ready")}
             icon="ready"
             orders={readyOrders}
             onServe={(uuid) => handleTransition(uuid, serve.mutateAsync)}

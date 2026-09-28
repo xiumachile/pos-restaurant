@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useCapabilities } from '@/hooks/useCapabilities';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCapabilitiesStore } from '@/store/useCapabilitiesStore';
@@ -5,10 +6,10 @@ import { CapabilityKey, type CapabilityInfo } from '@/types/capabilities';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 
-const CATEGORY_LABELS = {
-  operations: '🏪 Operaciones',
-  payments: '💳 Pagos',
-  marketing: '📣 Marketing',
+const CATEGORY_LABEL_KEYS = {
+  operations: 'capabilities.category_operations',
+  payments: 'capabilities.category_payments',
+  marketing: 'capabilities.category_marketing',
 } as const;
 
 /**
@@ -16,6 +17,7 @@ const CATEGORY_LABELS = {
  * Permite habilitar/deshabilitar features de forma granular.
  */
 export function CapabilitiesPage() {
+  const { t } = useTranslation();
   const user = useAuthStore((state) => state.user);
   const { capabilities, isLoading, error, refetch } = useCapabilities();
   const toggleCapability = useCapabilitiesStore((state) => state.toggleCapability);
@@ -44,15 +46,13 @@ export function CapabilitiesPage() {
         <button
           onClick={() => navigate('/settings')}
           className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
-          aria-label="Volver a configuración"
+          aria-label={t("capabilities.back_to_settings")}
         >
           <ArrowLeft size={20} />
         </button>
         <div>
-          <h1 className="text-3xl font-bold">Capacidades de la Empresa</h1>
-          <p className="text-slate-400 mt-1">
-            Habilita o deshabilita funcionalidades específicas del POS
-          </p>
+          <h1 className="text-3xl font-bold">{t("capabilities.title")}</h1>
+          <p className="text-slate-400 mt-1">{t("capabilities.subtitle")}</p>
         </div>
       </div>
 
@@ -65,7 +65,7 @@ export function CapabilitiesPage() {
 
       {error && (
         <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 mb-6">
-          <p className="text-red-400 mb-2">Error al cargar capacidades</p>
+          <p className="text-red-400 mb-2">{t("capabilities.error_loading")}</p>
           <p className="text-sm text-slate-400 mb-3">{error}</p>
           <button
             onClick={refetch}
@@ -82,7 +82,7 @@ export function CapabilitiesPage() {
           {Object.entries(grouped).map(([category, caps]) => (
             <div key={category}>
               <h2 className="text-lg font-semibold mb-3 text-slate-200">
-                {CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS]}
+                {t(CATEGORY_LABEL_KEYS[category as keyof typeof CATEGORY_LABEL_KEYS])}
               </h2>
               <div className="space-y-2">
                 {caps.map((cap) => (
@@ -90,6 +90,7 @@ export function CapabilitiesPage() {
                     key={cap.key}
                     capability={cap}
                     onToggle={() => handleToggle(cap.key)}
+                    t={t}
                   />
                 ))}
               </div>
@@ -104,9 +105,11 @@ export function CapabilitiesPage() {
 function CapabilityRow({
   capability,
   onToggle,
+  t,
 }: {
   capability: CapabilityInfo;
   onToggle: () => void;
+  t: (key: string) => string;
 }) {
   return (
     <div
@@ -119,7 +122,7 @@ function CapabilityRow({
       <div className="flex items-center gap-3">
         <span className="text-2xl">{capability.icon}</span>
         <div>
-          <div className="font-medium">{capability.description}</div>
+          <div className="font-medium">{t(capability.descriptionKey)}</div>
         </div>
       </div>
 
@@ -128,7 +131,7 @@ function CapabilityRow({
         className={`relative w-12 h-6 rounded-full transition-colors ${
           capability.is_enabled ? 'bg-orange-500' : 'bg-slate-600'
         }`}
-        aria-label={`${capability.is_enabled ? 'Deshabilitar' : 'Habilitar'} ${capability.description}`}
+        aria-label={`${capability.is_enabled ? t('capabilities.disable') : t('capabilities.enable')} ${t(capability.descriptionKey)}`}
       >
         <span
           className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${

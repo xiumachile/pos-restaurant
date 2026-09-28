@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState } from "react";
 import {
   Plus,
@@ -23,6 +24,8 @@ import type { Menu, MenuActivation, MenuActivationPayload } from "@/services/men
 import { getTranslatedName } from "@/types/catalog";
 
 export function MenusTab() {
+  const { t } = useTranslation();
+
   const { data: menus = [], isLoading, error } = useMenus();
   const { data: priceLists = [] } = usePriceLists();
   const [editingMenu, setEditingMenu] = useState<Menu | null>(null);
@@ -32,7 +35,7 @@ export function MenusTab() {
   const deleteMutation = useDeleteMenu();
 
   const handleDelete = async (menu: Menu) => {
-    if (confirm(`¿Eliminar el menú "${menu.name}"?`)) {
+    if (confirm(t("catalog_admin.confirm_delete_menu", { name: menu.name }))) {
       try {
         await deleteMutation.mutateAsync(menu.uuid);
       } catch (err) {
@@ -62,19 +65,16 @@ export function MenusTab() {
     <div>
       <div className="flex justify-between items-center mb-4">
         <div>
-          <h2 className="text-xl font-semibold">Menús ({menus.length})</h2>
+          <h2 className="text-xl font-semibold">{t("catalog_admin.menus_tab")} ({menus.length})</h2>
           <p className="text-sm text-slate-400 mt-1">
-            El sistema resuelve automáticamente qué carta usar según el contexto.
-            El mesero no selecciona la carta.
+            {t("catalog_admin.menus_subtitle")}
           </p>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
           className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors"
         >
-          <Plus size={18} />
-          Nuevo menú
-        </button>
+          <Plus size={18} />{t("catalog_admin.new_menu")}</button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -110,14 +110,14 @@ export function MenusTab() {
                 <button
                   onClick={() => setEditingMenu(menu)}
                   className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors"
-                  title="Editar"
+                  title={t("catalog_admin.edit")}
                 >
                   <Pencil size={14} />
                 </button>
                 <button
                   onClick={() => handleDelete(menu)}
                   className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
-                  title="Eliminar"
+                  title={t("catalog_admin.delete")}
                 >
                   <Trash2 size={14} />
                 </button>
@@ -188,15 +188,14 @@ export function MenusTab() {
       {menus.length === 0 && (
         <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-12 text-center">
           <BookOpen className="mx-auto text-slate-500 mb-3" size={48} />
-          <p className="text-slate-400">No hay menús creados</p>
+          <p className="text-slate-400">{t("catalog_admin.no_menus_created")}</p>
         </div>
       )}
 
       {/* Info box */}
       <div className="mt-6 bg-blue-900/20 border border-blue-800/50 rounded-lg p-4">
         <p className="text-sm text-blue-300">
-          💡 <strong>Nota:</strong> La resolución automática considera el canal de venta,
-          horario y día de la semana. Si ninguna regla matchea, se usa el menú default.
+          {t("catalog_admin.menus_note")}
         </p>
       </div>
 

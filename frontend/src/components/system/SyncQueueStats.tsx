@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useSyncQueueStats } from "@/hooks/useSyncQueue";
 import { useSyncStore } from "@/store/useSyncStore";
 import { Clock, RefreshCw, CheckCircle, AlertCircle, History } from "lucide-react";
@@ -22,6 +23,7 @@ function formatTimeAgo(timestamp: string | null): string {
 }
 
 export function SyncQueueStats() {
+  const { t } = useTranslation();
   const { data: stats, isLoading } = useSyncQueueStats();
   const lastSyncAt = useSyncStore((s) => s.lastSyncAt);
 
@@ -43,7 +45,7 @@ export function SyncQueueStats() {
 
   const cards = [
     {
-      label: "Pendientes",
+      labelKey: "orders.pending",
       value: stats.pending,
       icon: Clock,
       color: "text-yellow-400",
@@ -51,7 +53,7 @@ export function SyncQueueStats() {
       borderColor: "border-yellow-500/30",
     },
     {
-      label: "Sincronizando",
+      labelKey: "orders.syncing",
       value: stats.syncing,
       icon: RefreshCw,
       color: "text-blue-400",
@@ -59,7 +61,7 @@ export function SyncQueueStats() {
       borderColor: "border-blue-500/30",
     },
     {
-      label: "Sincronizados",
+      labelKey: "orders.synced",
       value: stats.synced,
       icon: CheckCircle,
       color: "text-green-400",
@@ -67,7 +69,7 @@ export function SyncQueueStats() {
       borderColor: "border-green-500/30",
     },
     {
-      label: "Errores",
+      labelKey: "orders.failed",
       value: stats.failed,
       icon: AlertCircle,
       color: "text-red-400",
@@ -75,7 +77,7 @@ export function SyncQueueStats() {
       borderColor: "border-red-500/30",
     },
     {
-      label: "Última Sync",
+      labelKey: "sync.last_sync",
       value: formatTimeAgo(lastSyncAt),
       icon: History,
       color: "text-purple-400",
@@ -84,7 +86,7 @@ export function SyncQueueStats() {
       isText: true,
     },
     {
-      label: "Total Histórico",
+      labelKey: "sync.total_historical",
       value: totalHistorical,
       icon: RefreshCw,
       color: "text-slate-400",
@@ -99,12 +101,12 @@ export function SyncQueueStats() {
         const Icon = card.icon;
         return (
           <div
-            key={card.label}
+            key={t(card.labelKey)}
             className={`${card.bgColor} rounded-lg p-4 border ${card.borderColor}`}
           >
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-slate-400 uppercase tracking-wide">
-                {card.label}
+                {t(card.labelKey)}
               </span>
               <Icon className={`w-4 h-4 ${card.color}`} />
             </div>

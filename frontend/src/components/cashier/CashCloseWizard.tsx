@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { tipWizardService } from "@/services/tipService";
@@ -38,6 +39,7 @@ export function CashCloseWizard({
   expectedAmount,
   pendingTips,
 }: CashCloseWizardProps) {
+  const { t } = useTranslation();
   // Datos en tiempo real del estado de propinas
   const { data: tipSummary } = useTipSummary(isOpen);
   
@@ -206,7 +208,7 @@ export function CashCloseWizard({
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold flex items-center gap-2">
                 <Calculator size={20} className="text-orange-400" />
-                Cierre de Caja
+                {t("cashier.close_wizard_title")}
               </h2>
               <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-lg">
                 <X size={20} />
@@ -282,9 +284,9 @@ export function CashCloseWizard({
                           <thead className="text-xs text-slate-400 bg-slate-800/80">
                             <tr>
                               <th className="text-left p-3">Garzón</th>
-                              <th className="text-right p-3">Efectivo</th>
-                              <th className="text-right p-3">Tarjeta</th>
-                              <th className="text-right p-3">Total</th>
+                              <th className="text-right p-3">{t("cashier.cash")}</th>
+                              <th className="text-right p-3">{t("cashier.card")}</th>
+                              <th className="text-right p-3">{t("orders.total")}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -326,7 +328,7 @@ export function CashCloseWizard({
                     onClick={onClose}
                     className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium"
                   >
-                    Cancelar
+                    {t("cashier.cancel")}
                   </button>
                   {hasPendingTips ? (
                     <button
@@ -409,7 +411,7 @@ export function CashCloseWizard({
                     )}
 
                     <div className="bg-blue-900/30 rounded-lg p-4 flex justify-between items-center">
-                      <span className="font-semibold text-blue-200">Total para nómina:</span>
+                      <span className="font-semibold text-blue-200">{t("cashier.total_for_payroll")}:</span>
                       <span className="font-bold text-blue-400 text-xl">
                         {formatPrice(generatedPayrollItems.reduce((s, p) => s + p.amount, 0))}
                       </span>
@@ -451,7 +453,7 @@ export function CashCloseWizard({
                       <div className="bg-slate-800 rounded-lg overflow-hidden">
                         <div className="p-3 bg-green-700/30 font-semibold text-sm flex items-center gap-2">
                           <Banknote size={16} className="text-green-400" />
-                          Entrega Física (Efectivo)
+                          {t("cashier.physical_delivery")}
                         </div>
                         <div className="space-y-2 p-3">
                           {generatedCashPayouts.map((payout) => (
@@ -465,7 +467,7 @@ export function CashCloseWizard({
                                 </div>
                                 <div>
                                   <div className="font-semibold text-white">{payout.waiter_name}</div>
-                                  <div className="text-xs text-slate-400">Efectivo - sale de caja</div>
+                                  <div className="text-xs text-slate-400">{t("cashier.cash")} - sale de caja</div>
                                 </div>
                               </div>
                               <span className="font-bold text-green-400 text-lg">
@@ -475,7 +477,7 @@ export function CashCloseWizard({
                           ))}
                         </div>
                         <div className="p-3 bg-green-900/20 flex justify-between items-center">
-                          <span className="text-sm text-green-200">Total a entregar físicamente:</span>
+                          <span className="text-sm text-green-200">{t("cashier.total_physical_delivery")}:</span>
                           <span className="font-bold text-green-400">
                             {formatPrice(generatedCashPayouts.reduce((s, p) => s + p.amount, 0))}
                           </span>
@@ -487,7 +489,7 @@ export function CashCloseWizard({
                       <div className="bg-slate-800 rounded-lg overflow-hidden">
                         <div className="p-3 bg-blue-700/30 font-semibold text-sm flex items-center gap-2">
                           <Wallet size={16} className="text-blue-400" />
-                          Para Nómina (Tarjeta/Transfer)
+                          {t("cashier.for_payroll")}
                         </div>
                         <div className="space-y-2 p-3">
                           {generatedPayrollItems.map((item) => (
@@ -506,7 +508,7 @@ export function CashCloseWizard({
                           ))}
                         </div>
                         <div className="p-3 bg-blue-900/20 flex justify-between items-center">
-                          <span className="text-sm text-blue-200">Total para nómina:</span>
+                          <span className="text-sm text-blue-200">{t("cashier.total_for_payroll")}:</span>
                           <span className="font-bold text-blue-400">
                             {formatPrice(generatedPayrollItems.reduce((s, p) => s + p.amount, 0))}
                           </span>
@@ -560,7 +562,7 @@ export function CashCloseWizard({
                             </div>
                             <div>
                               <div className="font-semibold text-white">{payout.waiter_name}</div>
-                              <div className="text-xs text-slate-400">Efectivo</div>
+                              <div className="text-xs text-slate-400">{t("cashier.cash")}</div>
                             </div>
                           </div>
                           <span className="font-bold text-orange-400 text-lg">
@@ -571,7 +573,7 @@ export function CashCloseWizard({
                     </div>
 
                     <div className="bg-slate-800 rounded-lg p-4 flex justify-between items-center">
-                      <span className="font-semibold text-slate-300">Total a entregar:</span>
+                      <span className="font-semibold text-slate-300">{t("cashier.total_to_deliver")}:</span>
                       <span className="font-bold text-orange-400 text-xl">
                         {formatPrice(generatedCashPayouts.reduce((s, p) => s + p.amount, 0))}
                       </span>
@@ -651,7 +653,7 @@ export function CashCloseWizard({
                     }`}
                   >
                     <Calculator size={14} className="inline mr-1" />
-                    Total manual
+                    {t("cashier.manual_total")}
                   </button>
                 </div>
 

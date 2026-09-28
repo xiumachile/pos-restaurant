@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState } from "react";
 import {
   Plus,
@@ -17,6 +18,8 @@ import type { Category } from "@/types/catalog";
 import { getTranslatedName } from "@/types/catalog";
 
 export function CategoriesTab() {
+  const { t } = useTranslation();
+
   const { data: categories = [], isLoading, error } = useAdminCategories();
   const deleteMutation = useDeleteCategory();
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -24,10 +27,10 @@ export function CategoriesTab() {
 
   const handleDelete = (category: Category) => {
     const categoryName = getTranslatedName(category.name_translations);
-    if (confirm(`¿Eliminar la categoría "${categoryName}"? Esta acción no se puede deshacer.`)) {
+    if (confirm(t("catalog_admin.confirm_delete_category", { name: categoryName }))) {
       deleteMutation.mutate(category.uuid, {
         onSuccess: () => {
-          console.log(`Categoría "${categoryName}" eliminada exitosamente`);
+          console.log(t("catalog_admin.category_deleted", { name: categoryName }));
         },
         onError: (error: any) => {
           console.error('Error al eliminar categoría:', error);
@@ -57,14 +60,12 @@ export function CategoriesTab() {
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">Categorías ({categories.length})</h2>
+        <h2 className="text-xl font-semibold">{t("catalog_admin.categories_tab")} ({categories.length})</h2>
         <button
           onClick={() => setShowCreateModal(true)}
           className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors"
         >
-          <Plus size={18} />
-          Nueva categoría
-        </button>
+          <Plus size={18} />{t("catalog_admin.new_category")}</button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -135,6 +136,7 @@ interface CategoryFormModalProps {
 }
 
 function CategoryFormModal({ category, onClose }: CategoryFormModalProps) {
+  const { t } = useTranslation();
   const [nameEs, setNameEs] = useState(
     category?.name_translations?.es ?? ""
   );
@@ -174,7 +176,7 @@ function CategoryFormModal({ category, onClose }: CategoryFormModalProps) {
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-w-md w-full p-6">
         <h2 className="text-xl font-bold text-white mb-4">
-          {category ? "Editar categoría" : "Nueva categoría"}
+          {category ? t("catalog_admin.edit_category") : t("catalog_admin.new_category")}
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -211,7 +213,7 @@ function CategoryFormModal({ category, onClose }: CategoryFormModalProps) {
               onChange={(e) => setIsActive(e.target.checked)}
               className="w-4 h-4 accent-orange-500"
             />
-            <span className="text-sm text-slate-300">Categoría activa</span>
+            <span className="text-sm text-slate-300">{t("catalog_admin.active_category")}</span>
           </label>
 
           <div className="flex gap-2 pt-2">
@@ -220,7 +222,7 @@ function CategoryFormModal({ category, onClose }: CategoryFormModalProps) {
               disabled={createMutation.isPending || updateMutation.isPending}
               className="flex-1 px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-700 text-white rounded-lg font-medium transition-colors"
             >
-              {category ? "Guardar cambios" : "Crear categoría"}
+              {category ? t("catalog_admin.save_changes") : t("catalog_admin.create_category")}
             </button>
             <button
               type="button"

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useMemo } from "react";
 import { useSyncQueueItems, useSyncQueueActions } from "@/hooks/useSyncQueue";
 import { SyncBadge } from "./SyncBadge";
@@ -13,6 +14,7 @@ import {
 type StatusFilter = "all" | "pending" | "syncing" | "synced" | "failed";
 
 export function SyncQueueTable() {
+  const { t } = useTranslation();
   const { data: items, isLoading } = useSyncQueueItems();
   const { retryItem, deleteItem } = useSyncQueueActions();
   const [selectedItem, setSelectedItem] = useState<SyncQueueItem | null>(null);
@@ -59,12 +61,12 @@ export function SyncQueueTable() {
     );
   }
 
-  const filterButtons: { value: StatusFilter; label: string; color: string }[] = [
-    { value: "all", label: "Todos", color: "bg-slate-700" },
-    { value: "pending", label: "Pendientes", color: "bg-yellow-500/20 text-yellow-400" },
-    { value: "syncing", label: "Sincronizando", color: "bg-blue-500/20 text-blue-400" },
-    { value: "synced", label: "Sincronizados", color: "bg-green-500/20 text-green-400" },
-    { value: "failed", label: "Fallidos", color: "bg-red-500/20 text-red-400" },
+  const filterButtons: { value: StatusFilter; labelKey: string; color: string }[] = [
+    { value: "all", labelKey: "sync.all", color: "bg-slate-700" },
+    { value: "pending", labelKey: "orders.pending", color: "bg-yellow-500/20 text-yellow-400" },
+    { value: "syncing", labelKey: "orders.syncing", color: "bg-blue-500/20 text-blue-400" },
+    { value: "synced", labelKey: "orders.synced", color: "bg-green-500/20 text-green-400" },
+    { value: "failed", labelKey: "orders.failed", color: "bg-red-500/20 text-red-400" },
   ];
 
   return (
@@ -84,7 +86,7 @@ export function SyncQueueTable() {
                   : "bg-slate-700 text-slate-300 hover:bg-slate-600"
               }`}
             >
-              {btn.label}
+              {t(btn.labelKey)}
             </button>
           ))}
           <span className="ml-auto text-xs text-slate-500">
@@ -99,7 +101,7 @@ export function SyncQueueTable() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar por ID, payment, terminal, error..."
+            placeholder={t("sync.search_placeholder")}
             className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none"
           />
         </div>
@@ -112,12 +114,12 @@ export function SyncQueueTable() {
             {items && items.length > 0 ? "🔍" : "🎉"}
           </div>
           <h3 className="text-xl font-bold text-white mb-2">
-            {items && items.length > 0 ? "Sin resultados" : "Cola vacía"}
+            {items && items.length > 0 ? t("sync.no_results") : t("sync.empty_queue")}
           </h3>
           <p className="text-slate-400">
             {items && items.length > 0
-              ? "Prueba ajustando los filtros o la búsqueda"
-              : "No hay items pendientes de sincronización"}
+              ? t("sync.adjust_filters")
+              : t("sync.no_pending_items")}
           </p>
         </div>
       ) : (
@@ -127,31 +129,31 @@ export function SyncQueueTable() {
               <thead className="bg-slate-900 border-b border-slate-700">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">
-                    Entidad
+                    {t("sync.entity")}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">
-                    Acción
+                    {t("sync.action")}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">
-                    Payment / Sesión
+                    {t("sync.payment_session")}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">
-                    Terminal
+                    {t("sync.terminal")}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">
-                    Estado
+                    {t("sync.status")}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">
-                    Intentos
+                    {t("sync.attempts")}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">
-                    Último Error
+                    {t("sync.last_error")}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">
-                    Creado
+                    {t("sync.created_at")}
                   </th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase">
-                    Acciones
+                    {t("sync.actions")}
                   </th>
                 </tr>
               </thead>
@@ -176,14 +178,14 @@ export function SyncQueueTable() {
                       <td className="px-4 py-3">
                         {enriched.payment_uuid ? (
                           <div>
-                            <div className="text-xs text-slate-400">Payment</div>
+                            <div className="text-xs text-slate-400">{t("sync.payment")}</div>
                             <div className="text-xs text-white font-mono">
                               {formatPaymentUuid(enriched.payment_uuid)}
                             </div>
                           </div>
                         ) : enriched.cash_session_uuid ? (
                           <div>
-                            <div className="text-xs text-slate-400">Cash Session</div>
+                            <div className="text-xs text-slate-400">{t("sync.cash_session")}</div>
                             <div className="text-xs text-white font-mono">
                               {formatCashSession(enriched.cash_session_uuid)}
                             </div>
@@ -193,7 +195,7 @@ export function SyncQueueTable() {
                         )}
                         {enriched.idempotency_key && (
                           <div className="mt-1">
-                            <div className="text-[10px] text-slate-500">Idempotency</div>
+                            <div className="text-[10px] text-slate-500">{t("sync.idempotency")}</div>
                             <div className="text-[10px] text-slate-400 font-mono">
                               {enriched.idempotency_key.substring(0, 8)}...
                             </div>
@@ -244,8 +246,8 @@ export function SyncQueueTable() {
                           <button
                             onClick={() => setSelectedItem(item)}
                             className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors"
-                            title="Ver detalles"
-                            aria-label="Ver detalles del item"
+                            title={t("sync.view_details")}
+                            aria-label={t("sync.view_details")}
                           >
                             <Eye className="w-4 h-4" />
                           </button>
@@ -255,8 +257,8 @@ export function SyncQueueTable() {
                                 onClick={() => retryItem.mutate(item.id)}
                                 disabled={retryItem.isPending}
                                 className="p-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded transition-colors disabled:opacity-50"
-                                title="Reintentar"
-                                aria-label="Reintentar sincronización"
+                                title={t("sync.retry")}
+                                aria-label={t("sync.retry_sync")}
                               >
                                 <RefreshCw className="w-4 h-4" />
                               </button>
@@ -264,8 +266,8 @@ export function SyncQueueTable() {
                                 onClick={() => deleteItem.mutate(item.id)}
                                 disabled={deleteItem.isPending}
                                 className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors disabled:opacity-50"
-                                title="Eliminar"
-                                aria-label="Eliminar item de la cola"
+                                title={t("sync.delete")}
+                                aria-label={t("sync.delete_item")}
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>

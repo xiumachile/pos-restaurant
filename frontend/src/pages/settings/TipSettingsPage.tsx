@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { tipService } from "@/services/tipService";
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 
 export function TipSettingsPage() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [policy, setPolicy] = useState<TipPolicy | null>(null);
   const [saved, setSaved] = useState(false);
@@ -57,19 +59,15 @@ export function TipSettingsPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-3">
-          <Settings size={28} className="text-orange-400" />
-          Configuración de Propinas
-        </h1>
-        <p className="text-slate-400 mt-1">
-          Define cómo se reparten las propinas en tu restaurante
-        </p>
+          <Settings size={28} className="text-orange-400" />{t("tips.title")}</h1>
+        <p className="text-slate-400 mt-1">{t("tips.subtitle")}</p>
       </div>
 
       {/* Mensaje de éxito */}
       {saved && (
         <div className="bg-green-900/30 border border-green-700 rounded-lg p-3 flex items-center gap-2 text-green-300">
           <CheckCircle2 size={18} />
-          <span>Política guardada correctamente</span>
+          <span>{t("tips.policy_saved")}</span>
         </div>
       )}
 
@@ -84,9 +82,7 @@ export function TipSettingsPage() {
       {/* Política de reparto */}
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
         <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-          <Users size={20} className="text-blue-400" />
-          Política de Reparto
-        </h2>
+          <Users size={20} className="text-blue-400" />{t("tips.distribution_policy")}</h2>
 
         <div className="space-y-3">
           {/* Opción 1: waiter_keeps */}
@@ -108,12 +104,8 @@ export function TipSettingsPage() {
             />
             <div className="flex-1">
               <div className="flex items-center gap-2 font-semibold">
-                <User size={16} className="text-orange-400" />
-                Propina íntegra al garzón que atendió
-              </div>
-              <p className="text-sm text-slate-400 mt-1">
-                Cada garzón se lleva el 100% de las propinas de las mesas que atendió.
-              </p>
+                <User size={16} className="text-orange-400" />{t("tips.waiter_keeps_title")}</div>
+              <p className="text-sm text-slate-400 mt-1">{t("tips.waiter_keeps_desc")}</p>
             </div>
           </label>
 
@@ -136,12 +128,8 @@ export function TipSettingsPage() {
             />
             <div className="flex-1">
               <div className="flex items-center gap-2 font-semibold">
-                <Users size={16} className="text-blue-400" />
-                Pozo común repartido
-              </div>
-              <p className="text-sm text-slate-400 mt-1">
-                Todas las propinas se juntan en un pozo y se reparten entre los garzones del turno.
-              </p>
+                <Users size={16} className="text-blue-400" />{t("tips.shared_pool_title")}</div>
+              <p className="text-sm text-slate-400 mt-1">{t("tips.shared_pool_desc")}</p>
 
               {policy.policy_type === "shared_pool" && (
                 <div className="mt-3 space-y-2">
@@ -189,12 +177,8 @@ export function TipSettingsPage() {
             />
             <div className="flex-1">
               <div className="flex items-center gap-2 font-semibold">
-                <Percent size={16} className="text-purple-400" />
-                Reparto porcentual
-              </div>
-              <p className="text-sm text-slate-400 mt-1">
-                Un porcentaje va al garzón y el resto a un pozo común.
-              </p>
+                <Percent size={16} className="text-purple-400" />{t("tips.percentage_split_title")}</div>
+              <p className="text-sm text-slate-400 mt-1">{t("tips.percentage_split_desc")}</p>
 
               {policy.policy_type === "percentage_split" && (
                 <div className="mt-3 grid grid-cols-2 gap-3">
@@ -238,12 +222,8 @@ export function TipSettingsPage() {
       {/* Propinas con tarjeta */}
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
         <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-          <CreditCard size={20} className="text-purple-400" />
-          Propinas con Tarjeta
-        </h2>
-        <p className="text-sm text-slate-400 mb-4">
-          Cuando un cliente paga la propina con tarjeta, ¿cómo se entrega al garzón?
-        </p>
+          <CreditCard size={20} className="text-purple-400" />{t("tips.card_tips_title")}</h2>
+        <p className="text-sm text-slate-400 mb-4">{t("tips.card_tips_question")}</p>
 
         <div className="space-y-3">
           <label className="flex items-center gap-3 p-3 rounded-lg border border-slate-700 bg-slate-800 cursor-pointer hover:border-slate-600">
@@ -255,7 +235,7 @@ export function TipSettingsPage() {
               }
             />
             <Banknote size={16} className="text-green-400" />
-            <span>Entregar en efectivo (sale de caja)</span>
+            <span>{t("tips.cash_payout")}</span>
           </label>
 
           <label className="flex items-center gap-3 p-3 rounded-lg border border-slate-700 bg-slate-800 cursor-pointer hover:border-slate-600">
@@ -267,7 +247,7 @@ export function TipSettingsPage() {
               }
             />
             <Wallet size={16} className="text-blue-400" />
-            <span>Acumular para nómina (no sale de caja)</span>
+            <span>{t("tips.payroll")}</span>
           </label>
 
           <label className="flex items-center gap-3 p-3 rounded-lg border border-slate-700 bg-slate-800 cursor-pointer hover:border-slate-600">
@@ -279,7 +259,7 @@ export function TipSettingsPage() {
               }
             />
             <CreditCard size={16} className="text-orange-400" />
-            <span>Mixto: efectivo inmediato, tarjeta a nómina</span>
+            <span>{t("tips.mixed")}</span>
           </label>
         </div>
       </div>

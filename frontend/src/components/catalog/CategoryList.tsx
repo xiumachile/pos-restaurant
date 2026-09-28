@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { Category } from "@/types/catalog";
 import { getTranslatedName } from "@/types/catalog";
 import { Utensils } from "lucide-react";
@@ -20,10 +21,12 @@ export function CategoryList({
   totalProducts,
   onSelect,
 }: CategoryListProps) {
+  const { t } = useTranslation();
+
   return (
     <aside className="w-64 bg-slate-800/50 border border-slate-700 rounded-xl p-4 h-fit">
       <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-3 px-2">
-        Categorías
+        {t("catalog.categories_title")}
       </h2>
 
       <nav className="space-y-1">
@@ -38,7 +41,7 @@ export function CategoryList({
         >
           <span className="flex items-center gap-2 font-medium">
             <Utensils size={16} />
-            Todas
+            {t("catalog.all_categories")}
           </span>
           <span
             className={`text-xs px-2 py-0.5 rounded-full ${

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from 'react-i18next';
 import { useCartStore } from "@/stores/useCartStore";
 import { useInvalidateTables } from "@/hooks/useTables";
 import { useInvalidateCashier } from "@/hooks/usePayments";
@@ -26,6 +27,7 @@ type FeedbackState =
   | { type: "error"; message: string };
 
 export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const cart = useCartStore((s) => s.carts[tableUuid]);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
@@ -48,22 +50,12 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
   const previousOrdersTotal = aggregated.total;
   const grandTotal = previousOrdersTotal + totals.total;
 
-  /**
-   * Flujo OFFLINE-FIRST:
-   * 1. Crear pedido en SQLite local (encola order/create automáticamente)
-   * 2. Agregar items locales (encola item/create con idempotency_key estable)
-   * 3. NO llamar confirm() — SyncEngine hace DRAFT → items → UPDATE confirmed
-   * 4. Limpiar carrito local + refrescar UI
-   * 5. Sync automático en background (worker cada 15s o trigger manual)
-   */
   const handleSendOrder = async () => {
     if (items.length === 0 || !user) return;
 
-    setFeedback({ type: "loading", message: `💾 Guardando pedido con ${items.length} items...` });
+    setFeedback({ type: "loading", message: `💾 ${t("orders.sending")} ${items.length} items...` });
 
     try {
-      // Crear pedido + items + encolar sync en UNA SOLA transacción atómica
-      // Esto previene colisiones con el SyncEngine y garantiza consistencia
       const order = await OrderRepository.createWithItems(
         mergeAuthContext({
           table_id: tableUuid,
@@ -78,11 +70,9 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
         }))
       );
 
-      // 3. Limpiar carrito local
       clearCart(tableUuid);
       refetchActiveOrders();
 
-      // 4. Disparar sync inmediatamente (no esperar al worker de 15s)
       setFeedback({
         type: "loading",
         message: syncStatus === "offline"
@@ -90,11 +80,6 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
           : "✓ Guardado. Sincronizando con cocina...",
       });
 
-      // P0: NO forzar sync inmediato. El worker de fondo (cada 15s) lo manejará 
-      // de forma segura sin competir con las escrituras locales recién terminadas.
-      // Esto elimina la causa raíz de "database is locked" durante la creación de pedidos.
-      
-      // Solo refrescamos la UI local inmediatamente
       refetchActiveOrders();
       
       if (syncStatus !== "offline") {
@@ -109,20 +94,9 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
         });
       }
       
-      // FIX: invalidateTables() SIEMPRE se ejecuta, sin importar:
-      // - Si estamos offline o online
-      // - Si el sync falló o tuvo éxito
-      // - Si el detector de conectividad tiene lag
-      // Esto garantiza que la UI refleje el markOccupied optimista
-      // de SQLite inmediatamente, incluso si la red falla.
       await invalidateTables();
-
-      // FIX OFFLINE: también invalidar queries de Caja para que
-      // CashierPage muestre las mesas con cuenta pendientes
-      // (localPaymentsService.listTablesWithBillsOffline())
       await invalidateCashier();
 
-      // 5. Feedback final
       setFeedback({
         type: "success",
         message: syncStatus === "offline"
@@ -130,7 +104,6 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
           : "✓ Pedido enviado a cocina",
       });
 
-      // 6. Navegar a Mesas
       setTimeout(() => {
         navigate("/");
       }, 1200);
@@ -152,13 +125,13 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
       <div className="p-4 border-b border-slate-700 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ShoppingCart size={20} className="text-orange-400" />
-          <h2 className="text-lg font-bold">Pedido · Mesa {tableNumber}</h2>
+          <h2 className="text-lg font-bold">{t("orders.cart_title")} {tableNumber}</h2>
         </div>
         <div className="flex items-center gap-2">
           {syncStatus === "offline" && (
             <div className="flex items-center gap-1 px-2 py-0.5 bg-yellow-500/20 border border-yellow-500/40 rounded-full">
               <WifiOff size={12} className="text-yellow-400" />
-              <span className="text-xs text-yellow-300">Offline</span>
+              <span className="text-xs text-yellow-300">{t("sync.offline")}</span>
             </div>
           )}
           {items.length > 0 && (
@@ -171,34 +144,31 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
 
       {/* Scroll container */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
-        {/* Sección azul: pedidos activos agrupados */}
         <ActiveOrderItems orders={activeOrders} />
 
-        {/* Separador si hay ambos */}
         {hasActiveOrders && items.length > 0 && (
           <div className="flex items-center gap-2 py-1">
             <div className="flex-1 h-px bg-slate-700" />
             <span className="text-xs text-orange-400 uppercase tracking-wide font-semibold">
-              Agregando ahora
+              {t("orders.adding_now")}
             </span>
             <div className="flex-1 h-px bg-slate-700" />
           </div>
         )}
 
-        {/* Sección naranja: items del carrito local */}
         {items.length === 0 && !hasActiveOrders ? (
           <div className="text-center py-12 text-slate-500">
             <ShoppingCart size={48} className="mx-auto mb-3 opacity-30" />
             <p className="text-sm">
-              Sin items aún.
+              {t("orders.no_items")}
               <br />
-              Toca un producto del catálogo para agregarlo.
+              {t("orders.no_items_desc")}
             </p>
           </div>
         ) : items.length === 0 && hasActiveOrders ? (
           <div className="text-center py-6 text-slate-500">
             <ShoppingCart size={32} className="mx-auto mb-2 opacity-30" />
-            <p className="text-xs">Agrega más productos al pedido actual.</p>
+            <p className="text-xs">{t("orders.add_more")}</p>
           </div>
         ) : (
           items.map((item) => (
@@ -276,24 +246,24 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
         {hasActiveOrders ? (
           <>
             <div className="flex justify-between text-xs text-blue-300">
-              <span>Consumo anterior</span>
+              <span>{t("orders.previous_consumption")}</span>
               <span>{formatPrice(previousOrdersTotal)}</span>
             </div>
             {items.length > 0 && (
               <div className="flex justify-between text-xs text-orange-300">
-                <span>Agregando ahora</span>
+                <span>{t("orders.adding_now")}</span>
                 <span>{formatPrice(totals.total)}</span>
               </div>
             )}
             <div className="flex justify-between text-base font-bold pt-1 border-t border-slate-700">
-              <span>Total mesa</span>
+              <span>{t("orders.table_total")}</span>
               <span className="text-orange-400">{formatPrice(grandTotal)}</span>
             </div>
           </>
         ) : (
           <>
             <div className="flex justify-between text-sm">
-              <span className="text-slate-400">Subtotal</span>
+              <span className="text-slate-400">{t("orders.subtotal")}</span>
               <span>{formatPrice(totals.subtotal)}</span>
             </div>
             <div className="flex justify-between text-sm">
@@ -301,7 +271,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
               <span>{formatPrice(totals.tax)}</span>
             </div>
             <div className="flex justify-between text-lg font-bold pt-2 border-t border-slate-700">
-              <span>Total</span>
+              <span>{t("orders.total")}</span>
               <span className="text-orange-400">{formatPrice(totals.total)}</span>
             </div>
           </>
@@ -313,7 +283,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
             disabled={items.length === 0 || isProcessing}
             className="px-3 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm disabled:opacity-40"
           >
-            Limpiar
+            {t("orders.clear")}
           </button>
           <button
             onClick={handleSendOrder}
@@ -323,12 +293,12 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
             {isProcessing ? (
               <>
                 <Loader2 size={16} className="animate-spin" />
-                Enviando...
+                {t("orders.sending")}
               </>
             ) : (
               <>
                 <Send size={16} />
-                Enviar a Cocina
+                {t("orders.send_to_kitchen")}
               </>
             )}
           </button>

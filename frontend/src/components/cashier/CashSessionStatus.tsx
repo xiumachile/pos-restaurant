@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState } from "react";
 import type { CashSession } from "@/types/payments";
 import type { DenominationCount } from "@/types/cashier";
@@ -35,6 +36,7 @@ interface CashSessionStatusProps {
 }
 
 export function CashSessionStatus({ session }: CashSessionStatusProps) {
+  const { t } = useTranslation();
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showCloseWizard, setShowCloseWizard] = useState(false);
   const [showXReport, setShowXReport] = useState(false);
@@ -105,7 +107,7 @@ export function CashSessionStatus({ session }: CashSessionStatusProps) {
             }`}
           />
           <span className="font-semibold">
-            {session ? "Caja abierta" : "Caja cerrada"}
+            {session ? t("cashier.session_open") : t("cashier.session_closed")}
           </span>
           {session ? (
             <>
@@ -115,7 +117,7 @@ export function CashSessionStatus({ session }: CashSessionStatusProps) {
                 title="Ver ventas cobradas"
               >
                 <List size={12} />
-                Ventas
+                {t("cashier.sales")}
               </button>
 
               <button
@@ -124,14 +126,14 @@ export function CashSessionStatus({ session }: CashSessionStatusProps) {
                 title="Reporte X (parcial)"
               >
                 <FileText size={12} />
-                Reporte X
+                {t("cashier.x_report")}
               </button>
               <button
                 onClick={() => setShowCloseWizard(true)}
                 className="flex items-center gap-1 px-2.5 py-1 bg-red-500/20 hover:bg-red-500/30 border border-red-700/50 rounded text-red-300 text-xs font-medium transition-colors"
               >
                 <StopCircle size={12} />
-                Cerrar
+                {t("cashier.close")}
               </button>
             </>
           ) : (
@@ -158,7 +160,7 @@ export function CashSessionStatus({ session }: CashSessionStatusProps) {
           <>
             <div className="h-6 w-px bg-slate-700" />
             <div className="text-sm">
-              <span className="text-slate-400">Inicial: </span>
+              <span className="text-slate-400">{t("cashier.initial")}: </span>
               <span className="font-semibold">
                 {formatPrice(session.opening_amount)}
               </span>
@@ -195,7 +197,7 @@ export function CashSessionStatus({ session }: CashSessionStatusProps) {
             </div>
             <div className="h-6 w-px bg-slate-700" />
             <div className="text-sm ml-auto">
-              <span className="text-slate-400">Esperado en caja: </span>
+              <span className="text-slate-400">{t("cashier.expected_in_cash")}: </span>
               <span className="font-bold text-green-400 text-base">
                 {formatPrice(totalCashExpected)}
               </span>

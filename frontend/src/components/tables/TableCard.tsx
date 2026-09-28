@@ -46,7 +46,7 @@ export function TableCard({ table, onClick, cartItems }: TableCardProps) {
 
       <div className="flex items-center gap-1 text-sm text-slate-300 mb-3">
         <Users size={14} />
-        <span>{table.capacity} personas</span>
+        <span>{table.capacity} {t("tables.capacity")}</span>
       </div>
 
       <TableStatusBadge status={table.status} />

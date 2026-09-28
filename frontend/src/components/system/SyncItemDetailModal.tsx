@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { X, Copy, Check } from "lucide-react";
 import { useState } from "react";
 import type { SyncQueueItem } from "@/db/repositories/SyncQueueRepository";
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function SyncItemDetailModal({ item, onClose }: Props) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -55,7 +57,7 @@ export function SyncItemDetailModal({ item, onClose }: Props) {
               </code>
             </div>
             <div>
-              <label className="text-xs text-slate-400 block mb-1">Entidad</label>
+              <label className="text-xs text-slate-400 block mb-1">{t("sync.entity")}</label>
               <div className="text-sm text-white">{item.entity_type}</div>
             </div>
             <div>
@@ -63,17 +65,17 @@ export function SyncItemDetailModal({ item, onClose }: Props) {
               <div className="text-sm text-white">{item.action}</div>
             </div>
             <div>
-              <label className="text-xs text-slate-400 block mb-1">Estado</label>
+              <label className="text-xs text-slate-400 block mb-1">{t("sync.status")}</label>
               <div className="text-sm text-white">{item.sync_status}</div>
             </div>
             <div>
-              <label className="text-xs text-slate-400 block mb-1">Intentos</label>
+              <label className="text-xs text-slate-400 block mb-1">{t("sync.attempts")}</label>
               <div className="text-sm text-white">
                 {item.attempts} / {item.max_attempts}
               </div>
             </div>
             <div>
-              <label className="text-xs text-slate-400 block mb-1">Creado</label>
+              <label className="text-xs text-slate-400 block mb-1">{t("sync.created_at")}</label>
               <div className="text-sm text-white">
                 {new Date(item.created_at).toLocaleString("es-CL")}
               </div>

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { memo, useMemo } from "react";
 import type { Order } from "@/types/orders";
 import { aggregateOrders } from "@/types/orders";
@@ -19,6 +20,7 @@ interface ActiveOrderItemsProps {
  * - Totales acumulados al pie
  */
 export const ActiveOrderItems = memo(function ActiveOrderItems({ orders }: ActiveOrderItemsProps) {
+  const { t } = useTranslation();
   // useMemo: solo recalcular cuando orders cambie realmente
   const aggregated = useMemo(() => aggregateOrders(orders), [orders]);
   
@@ -100,7 +102,7 @@ export const ActiveOrderItems = memo(function ActiveOrderItems({ orders }: Activ
           <span className="text-slate-200">{formatPrice(aggregated.tax)}</span>
         </div>
         <div className="flex justify-between text-base font-bold pt-1 border-t border-blue-700/30">
-          <span className="text-blue-300">Total consumido</span>
+          <span className="text-blue-300">{t("orders.total_consumed")}</span>
           <span className="text-blue-300">{formatPrice(aggregated.total)}</span>
         </div>
       </div>

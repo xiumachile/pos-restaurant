@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from 'react-i18next';
 import { kitchenService } from "@/services/kitchenService";
 import { X, Clock, CheckCircle2, ChefHat, UtensilsCrossed, DollarSign } from "lucide-react";
 import { formatPrice } from "@/types/catalog";
@@ -10,17 +11,18 @@ interface TableHistoryModalProps {
 }
 
 const STATUS_CONFIG = {
-  draft: { label: "Borrador", color: "text-slate-400", icon: Clock },
-  confirmed: { label: "Confirmado", color: "text-blue-400", icon: CheckCircle2 },
-  preparing: { label: "En preparación", color: "text-amber-400", icon: ChefHat },
-  ready: { label: "Listo", color: "text-green-400", icon: CheckCircle2 },
-  served: { label: "Servido", color: "text-green-500", icon: UtensilsCrossed },
-  paid: { label: "Pagado", color: "text-emerald-500", icon: DollarSign },
-  closed: { label: "Cerrado", color: "text-slate-500", icon: CheckCircle2 },
-  cancelled: { label: "Cancelado", color: "text-red-400", icon: X },
+  draft: { labelKey: "kitchen.draft", color: "text-slate-400", icon: Clock },
+  confirmed: { labelKey: "kitchen.confirmed", color: "text-blue-400", icon: CheckCircle2 },
+  preparing: { labelKey: "kitchen.preparing", color: "text-amber-400", icon: ChefHat },
+  ready: { labelKey: "kitchen.ready", color: "text-green-400", icon: CheckCircle2 },
+  served: { labelKey: "kitchen.served", color: "text-green-500", icon: UtensilsCrossed },
+  paid: { labelKey: "kitchen.paid", color: "text-emerald-500", icon: DollarSign },
+  closed: { labelKey: "kitchen.closed", color: "text-slate-500", icon: CheckCircle2 },
+  cancelled: { labelKey: "kitchen.cancelled", color: "text-red-400", icon: X },
 };
 
 export function TableHistoryModal({ tableUuid, isOpen, onClose }: TableHistoryModalProps) {
+  const { t } = useTranslation();
   const { data, isLoading, error } = useQuery({
     queryKey: ["table-history", tableUuid],
     queryFn: () => kitchenService.getTableHistory(tableUuid),
@@ -51,10 +53,10 @@ export function TableHistoryModal({ tableUuid, isOpen, onClose }: TableHistoryMo
           <div className="flex items-center justify-between p-6 border-b border-slate-700">
             <div>
               <h2 className="text-2xl font-bold text-white">
-                Historial · Mesa {data?.table.table_number}
+                {t("kitchen.history_table")} {data?.table.table_number}
               </h2>
               <p className="text-sm text-slate-400 mt-1">
-                {data?.table.area_code} · Capacidad: {data?.table.capacity} personas
+                {data?.table.area_code} · {t("tables.capacity_label")} {data?.table.capacity} {t("tables.capacity")}
               </p>
             </div>
             <button
@@ -70,34 +72,34 @@ export function TableHistoryModal({ tableUuid, isOpen, onClose }: TableHistoryMo
             {isLoading ? (
               <div className="text-center py-12">
                 <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
-                <p className="text-slate-400 mt-4">Cargando historial...</p>
+                <p className="text-slate-400 mt-4">{t("kitchen.loading_history")}</p>
               </div>
             ) : error ? (
               <div className="text-center py-12 text-red-400">
-                <p>Error al cargar el historial</p>
+                <p>{t("kitchen.error_loading_history")}</p>
               </div>
             ) : !data || data.orders.length === 0 ? (
               <div className="text-center py-12 text-slate-500">
-                <p>No hay pedidos para esta mesa hoy</p>
+                <p>{t("kitchen.no_orders_table_today")}</p>
               </div>
             ) : (
               <>
                 {/* Summary */}
                 <div className="grid grid-cols-3 gap-4 mb-6">
                   <div className="bg-slate-800 rounded-lg p-4">
-                    <div className="text-sm text-slate-400">Total Pedidos</div>
+                    <div className="text-sm text-slate-400">{t("kitchen.total_orders")}</div>
                     <div className="text-2xl font-bold text-white mt-1">
                       {data.summary.total_orders}
                     </div>
                   </div>
                   <div className="bg-slate-800 rounded-lg p-4">
-                    <div className="text-sm text-slate-400">Total Items</div>
+                    <div className="text-sm text-slate-400">{t("kitchen.total_items")}</div>
                     <div className="text-2xl font-bold text-white mt-1">
                       {data.summary.total_items}
                     </div>
                   </div>
                   <div className="bg-slate-800 rounded-lg p-4">
-                    <div className="text-sm text-slate-400">Total Monto</div>
+                    <div className="text-sm text-slate-400">{t("kitchen.total_amount")}</div>
                     <div className="text-2xl font-bold text-orange-400 mt-1">
                       {formatPrice(data.summary.total_amount)}
                     </div>
@@ -107,7 +109,7 @@ export function TableHistoryModal({ tableUuid, isOpen, onClose }: TableHistoryMo
                 {/* Timeline de pedidos */}
                 <div className="space-y-4">
                   {data.orders.map((order, index) => {
-                    const statusConfig = STATUS_CONFIG[order.status as keyof typeof STATUS_CONFIG];
+                    const statusConfig = STATUS_CONFIG[order.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.served;
                     const Icon = statusConfig.icon;
 
                     return (
@@ -128,7 +130,7 @@ export function TableHistoryModal({ tableUuid, isOpen, onClose }: TableHistoryMo
                                 </span>
                                 <span className={`flex items-center gap-1 text-sm ${statusConfig.color}`}>
                                   <Icon size={14} />
-                                  {statusConfig.label}
+                                  {t(statusConfig.labelKey)}
                                 </span>
                               </div>
                               <div className="text-xs text-slate-400 mt-1">

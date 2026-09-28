@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState } from "react";
 import {
   Printer,
@@ -26,10 +27,10 @@ import type {
 import { TauriNetworkPrinterAdapter } from "@/services/printing/adapters/TauriNetworkPrinterAdapter";
 import { useToastStore } from "@/store/useToastStore";
 
-const PRINTER_TYPES: { key: PrinterType; label: string; emoji: string }[] = [
-  { key: "receipt", label: "Boletas / Tickets", emoji: "🧾" },
-  { key: "kitchen", label: "Cocina", emoji: "🍳" },
-  { key: "bar", label: "Bar", emoji: "🍺" },
+const PRINTER_TYPES: { key: PrinterType; labelKey: string; emoji: string }[] = [
+  { key: "receipt", labelKey: "printers.receipt", emoji: "🧾" },
+  { key: "kitchen", labelKey: "printers.kitchen", emoji: "🍳" },
+  { key: "bar", labelKey: "printers.bar", emoji: "🍺" },
 ];
 
 function isValidIp(ip: string): boolean {
@@ -42,6 +43,7 @@ function isValidIp(ip: string): boolean {
 }
 
 export function PrinterSettingsPage() {
+  const { t } = useTranslation();
   const { data: printers = [], isLoading } = usePrinterConfigs();
   const createPrinter = useCreatePrinter();
   const updatePrinter = useUpdatePrinter();
@@ -86,16 +88,16 @@ export function PrinterSettingsPage() {
 
   const handleSave = async () => {
     if (!formData.name.trim() || !formData.ip.trim()) {
-      addToast("error", "Nombre e IP son obligatorios");
+      addToast("error", t("printers.error_name_ip_required"));
       return;
     }
     if (!isValidIp(formData.ip)) {
-      addToast("error", "IP inválida. Formato: 192.168.1.100");
+      addToast("error", t("printers.error_invalid_ip"));
       return;
     }
     const port = parseInt(formData.port, 10);
     if (isNaN(port) || port < 1 || port > 65535) {
-      addToast("error", "Puerto debe ser entre 1 y 65535");
+      addToast("error", t("printers.error_invalid_port"));
       return;
     }
 
@@ -110,7 +112,7 @@ export function PrinterSettingsPage() {
             is_default: formData.is_default,
           },
         });
-        addToast("success", `Impresora "${formData.name}" actualizada`);
+        addToast("success", t("printers.success_updated", { name: formData.name }));
       } else {
         await createPrinter.mutateAsync({
           printer_type: formData.printer_type,
@@ -119,21 +121,21 @@ export function PrinterSettingsPage() {
           port,
           is_default: formData.is_default,
         });
-        addToast("success", `Impresora "${formData.name}" agregada`);
+        addToast("success", t("printers.success_added", { name: formData.name }));
       }
       resetForm();
     } catch (err: any) {
-      addToast("error", err?.message || "Error al guardar");
+      addToast("error", err?.message || t("printers.error_save"));
     }
   };
 
   const handleDelete = async (printer: PrinterConfig) => {
-    if (!confirm(`¿Eliminar impresora "${printer.name}"?`)) return;
+    if (!confirm(t("printers.confirm_delete", { name: printer.name }))) return;
     try {
       await deletePrinter.mutateAsync(printer.local_uuid);
-      addToast("success", `Impresora "${printer.name}" eliminada`);
+      addToast("success", t("printers.success_deleted", { name: printer.name }));
     } catch (err: any) {
-      addToast("error", err?.message || "Error al eliminar");
+      addToast("error", err?.message || t("printers.error_delete"));
     }
   };
 
@@ -143,9 +145,9 @@ export function PrinterSettingsPage() {
         localUuid: printer.local_uuid,
         payload: { is_default: true },
       });
-      addToast("success", `"${printer.name}" es ahora la predeterminada`);
+      addToast("success", t("printers.success_set_default", { name: printer.name }));
     } catch (err: any) {
-      addToast("error", err?.message || "Error");
+      addToast("error", err?.message);
     }
   };
 
@@ -189,11 +191,8 @@ export function PrinterSettingsPage() {
         </a>
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Printer size={28} /> Impresoras
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Configura las impresoras térmicas de tu local
-          </p>
+            <Printer size={28} />{t("printers.title")}</h1>
+          <p className="text-sm text-slate-400 mt-1">{t("printers.subtitle")}</p>
         </div>
       </div>
 
@@ -201,36 +200,36 @@ export function PrinterSettingsPage() {
       {showForm && (
         <div className="bg-slate-800 border border-orange-500/50 rounded-lg p-6 mb-6">
           <h3 className="text-lg font-bold mb-4">
-            {editingPrinter ? "Editar impresora" : "Agregar impresora"}
+            {editingPrinter ? t("printers.edit_printer") : t("printers.add_printer")}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Nombre</label>
+              <label className="block text-sm text-slate-400 mb-1">{t("printers.name")}</label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Ej: Caja Principal"
+                placeholder={t("printers.name_placeholder")}
                 className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white placeholder-slate-500 focus:border-orange-500 focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Tipo</label>
+              <label className="block text-sm text-slate-400 mb-1">{t("printers.type")}</label>
               <select
                 value={formData.printer_type}
                 onChange={(e) => setFormData((f) => ({ ...f, printer_type: e.target.value as PrinterType }))}
                 disabled={!!editingPrinter}
                 className="w-full bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white focus:border-orange-500 focus:outline-none disabled:opacity-50"
               >
-                {PRINTER_TYPES.map((t) => (
-                  <option key={t.key} value={t.key}>
-                    {t.emoji} {t.label}
+                {PRINTER_TYPES.map((printerType) => (
+                  <option key={printerType.key} value={printerType.key}>
+                    {printerType.emoji} {t(printerType.labelKey)}
                   </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Dirección IP</label>
+              <label className="block text-sm text-slate-400 mb-1">{t("printers.ip_address")}</label>
               <input
                 type="text"
                 value={formData.ip}
@@ -240,7 +239,7 @@ export function PrinterSettingsPage() {
               />
             </div>
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Puerto</label>
+              <label className="block text-sm text-slate-400 mb-1">{t("printers.port")}</label>
               <input
                 type="number"
                 value={formData.port}
@@ -268,7 +267,7 @@ export function PrinterSettingsPage() {
               disabled={createPrinter.isPending || updatePrinter.isPending}
               className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded font-medium disabled:opacity-50"
             >
-              {editingPrinter ? "Guardar cambios" : "Agregar impresora"}
+              {editingPrinter ? t("printers.save_changes") : t("printers.add_printer")}
             </button>
             <button
               onClick={resetForm}
@@ -287,7 +286,7 @@ export function PrinterSettingsPage() {
           <div key={type.key} className="mb-6">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-xl font-bold flex items-center gap-2">
-                <span>{type.emoji}</span> {type.label}
+                <span>{type.emoji}</span> {t(type.labelKey)}
                 <span className="text-sm font-normal text-slate-500">({typePrinters.length})</span>
               </h2>
               {!showForm && (
@@ -295,7 +294,7 @@ export function PrinterSettingsPage() {
                   onClick={() => openAddForm(type.key)}
                   className="flex items-center gap-1 text-sm bg-slate-700 hover:bg-slate-600 text-orange-400 px-3 py-1.5 rounded transition-colors"
                 >
-                  <Plus size={16} /> Agregar
+                  <Plus size={16} /> {t("printers.add")}
                 </button>
               )}
             </div>
@@ -303,7 +302,7 @@ export function PrinterSettingsPage() {
             {typePrinters.length === 0 ? (
               <div className="bg-slate-800 rounded-lg p-8 text-center border border-slate-700">
                 <Printer className="mx-auto mb-2 text-slate-600" size={32} />
-                <p className="text-slate-500 text-sm">Sin impresoras configuradas</p>
+                <p className="text-slate-500 text-sm">{t("printers.no_printers")}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -345,7 +344,7 @@ export function PrinterSettingsPage() {
                         <button
                           onClick={() => handleTestConnection(printer)}
                           disabled={testing === printer.local_uuid}
-                          title="Probar conexión"
+                          title={t("printers.test_connection")}
                           className="p-2 text-slate-400 hover:text-green-400 hover:bg-slate-700 rounded transition-colors disabled:animate-spin"
                         >
                           <RefreshCw size={16} />
@@ -353,7 +352,7 @@ export function PrinterSettingsPage() {
                         {!printer.is_default && (
                           <button
                             onClick={() => handleSetDefault(printer)}
-                            title="Hacer predeterminada"
+                            title={t("printers.set_default")}
                             className="p-2 text-slate-400 hover:text-orange-400 hover:bg-slate-700 rounded transition-colors"
                           >
                             <Star size={16} />
@@ -361,14 +360,14 @@ export function PrinterSettingsPage() {
                         )}
                         <button
                           onClick={() => openEditForm(printer)}
-                          title="Editar"
+                          title={t("printers.edit")}
                           className="p-2 text-slate-400 hover:text-blue-400 hover:bg-slate-700 rounded transition-colors text-sm"
                         >
                           ✏️
                         </button>
                         <button
                           onClick={() => handleDelete(printer)}
-                          title="Eliminar"
+                          title={t("printers.delete")}
                           className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
                         >
                           <Trash2 size={16} />
@@ -385,12 +384,12 @@ export function PrinterSettingsPage() {
 
       {/* Nota informativa */}
       <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700 mt-8">
-        <h3 className="font-bold text-sm text-slate-300 mb-2">💡 ¿Cómo funciona?</h3>
+        <h3 className="font-bold text-sm text-slate-300 mb-2">{t("printers.how_it_works")}</h3>
         <ul className="text-sm text-slate-500 space-y-1">
-          <li>• Las impresoras se conectan por red (TCP puerto 9100)</li>
-          <li>• Compatible con Epson, Star, Bixolon, Xprinter y similares</li>
-          <li>• La impresora <strong>predeterminada</strong> de cada tipo se usa automáticamente</li>
-          <li>• Si no hay impresora configurada, los tickets se guardan para impresión posterior</li>
+          <li>• {t("printers.how_1")}</li>
+          <li>• {t("printers.how_2")}</li>
+          <li>• {t("printers.how_3")}</li>
+          <li>• {t("printers.how_4")}</li>
         </ul>
       </div>
     </div>

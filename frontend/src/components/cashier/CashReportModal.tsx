@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useXReport, useZReport } from "@/hooks/usePayments";
 import { formatPrice } from "@/types/catalog";
 import { X, Printer, Loader2, Banknote, CreditCard, Building2, Gift } from "lucide-react";
@@ -9,14 +10,18 @@ interface CashReportModalProps {
   sessionUuid?: string | null; // Si se pasa, es Z-Report; si no, es X-Report
 }
 
-const METHOD_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
-  cash: { label: "Efectivo", color: "text-green-400", icon: Banknote },
-  card: { label: "Tarjeta", color: "text-blue-400", icon: CreditCard },
-  transfer: { label: "Transferencia", color: "text-purple-400", icon: Building2 },
-  gift_card: { label: "Gift Card", color: "text-amber-400", icon: Gift },
-};
+
 
 export function CashReportModal({ isOpen, onClose, sessionUuid }: CashReportModalProps) {
+  const { t } = useTranslation();
+
+  const METHOD_CONFIG: Record<string, { labelKey: string; color: string; icon: any }> = {
+    cash: { labelKey: "cashier.cash", color: "text-green-400", icon: Banknote },
+    card: { labelKey: "cashier.card", color: "text-blue-400", icon: CreditCard },
+    transfer: { labelKey: "cashier.transfer", color: "text-purple-400", icon: Building2 },
+    gift_card: { labelKey: "cashier.gift_card", color: "text-amber-400", icon: Gift },
+  };
+
   const isZReport = !!sessionUuid;
 
   const { data: xReport, isLoading: loadingX } = useXReport(isOpen && !isZReport);
@@ -122,7 +127,7 @@ export function CashReportModal({ isOpen, onClose, sessionUuid }: CashReportModa
                         >
                           <div className="flex items-center gap-2">
                             <Icon size={16} className={cfg?.color} />
-                            <span className="text-sm">{cfg?.label || key}</span>
+                            <span className="text-sm">{cfg?.labelKey ? t(cfg.labelKey) : key}</span>
                             <span className="text-xs text-slate-500">({val.count})</span>
                           </div>
                           <div className="text-right">

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useSessionPayments } from "@/hooks/usePayments";
 import { formatPrice } from "@/types/catalog";
 import { X, Printer, Loader2, Banknote, CreditCard, Building2, Gift } from "lucide-react";
@@ -8,14 +9,18 @@ interface SessionSalesModalProps {
   onClose: () => void;
 }
 
-const METHOD_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
-  CASH: { label: "Efectivo", color: "text-green-400", icon: Banknote },
-  CARD: { label: "Tarjeta", color: "text-blue-400", icon: CreditCard },
-  TRANSFER: { label: "Transferencia", color: "text-purple-400", icon: Building2 },
-  GIFT_CARD: { label: "Gift Card", color: "text-amber-400", icon: Gift },
-};
+
 
 export function SessionSalesModal({ isOpen, onClose }: SessionSalesModalProps) {
+  const { t } = useTranslation();
+
+  const METHOD_CONFIG: Record<string, { labelKey: string; color: string; icon: any }> = {
+    CASH: { labelKey: "cashier.cash", color: "text-green-400", icon: Banknote },
+    CARD: { labelKey: "cashier.card", color: "text-blue-400", icon: CreditCard },
+    TRANSFER: { labelKey: "cashier.transfer", color: "text-purple-400", icon: Building2 },
+    GIFT_CARD: { labelKey: "cashier.gift_card", color: "text-amber-400", icon: Gift },
+  };
+
   const { data, isLoading } = useSessionPayments(isOpen);
 
   if (!isOpen) return null;
@@ -134,7 +139,7 @@ export function SessionSalesModal({ isOpen, onClose }: SessionSalesModalProps) {
                         <td className="py-2 px-2">
                           <span className={`flex items-center gap-1.5 ${config?.color}`}>
                             <Icon size={14} />
-                            {config?.label || p.method_code}
+                            {config?.labelKey ? t(config.labelKey) : p.method_code}
                           </span>
                         </td>
                         <td className="py-2 px-2 text-right text-slate-200">

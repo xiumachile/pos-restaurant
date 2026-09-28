@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useMemo, useEffect } from "react";
 import type { Bill } from "@/types/bills";
 import {
@@ -30,6 +31,7 @@ export function TableBillModal({
   onClose,
   onSuccess,
 }: TableBillModalProps) {
+  const { t } = useTranslation();
   const { data: tablesWithBills = [] } = useTablesWithBills();
   const tableBill = useMemo(
     () => tablesWithBills.find((t) => t.table_uuid === tableUuid),
@@ -190,10 +192,10 @@ export function TableBillModal({
             <div>
               <h2 className="text-xl font-bold flex items-center gap-2">
                 <Receipt size={20} />
-                Consumo de la Mesa
+                {t("cashier.table_consumption")}
               </h2>
               <p className="text-sm text-slate-400 mt-0.5">
-                Mesa {tableBill.table_number} · {tableBill.orders_count} pedido{tableBill.orders_count !== 1 ? "s" : ""} · {tableBill.total_items} ítem{tableBill.total_items !== 1 ? "s" : ""}
+                {t("cashier.table")} {tableBill.table_number} · {tableBill.orders_count} {t("cashier.orders")} · {tableBill.total_items} {t("cashier.items")}
               </p>
             </div>
             <button
@@ -244,7 +246,7 @@ export function TableBillModal({
                 <span className="text-white">{formatPrice(tableBill.tax_amount)}</span>
               </div>
               <div className="flex justify-between text-2xl font-bold pt-3 border-t border-slate-700">
-                <span className="text-slate-200">Total</span>
+                <span className="text-slate-200">{t("orders.total")}</span>
                 <span className="text-orange-400">{formatPrice(totalAmount)}</span>
               </div>
             </div>

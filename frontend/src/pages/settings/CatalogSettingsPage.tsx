@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState } from "react";
 import {
   FolderTree,
@@ -19,30 +20,38 @@ interface Tab {
   description: string;
 }
 
-const TABS: Tab[] = [
+const TABS: (Tab & { labelKey: string; descriptionKey: string })[] = [
   {
     id: "categories",
-    label: "Categorías",
+    labelKey: "catalog_admin.categories_tab",
+    descriptionKey: "catalog_admin.categories_desc",
     icon: FolderTree,
-    description: "Jerarquía de categorías y subcategorías",
+    label: "",
+    description: "",
   },
   {
     id: "products",
-    label: "Productos",
+    labelKey: "catalog_admin.products_tab",
+    descriptionKey: "catalog_admin.products_desc",
     icon: Package,
-    description: "CRUD de productos con SKU y precios",
+    label: "",
+    description: "",
   },
   {
     id: "price-lists",
-    label: "Listas de Precios",
+    labelKey: "catalog_admin.price_lists_tab",
+    descriptionKey: "catalog_admin.price_lists_desc",
     icon: Tags,
-    description: "Precios múltiples por canal de venta",
+    label: "",
+    description: "",
   },
   {
     id: "menus",
-    label: "Menús",
+    labelKey: "catalog_admin.menus_tab",
+    descriptionKey: "catalog_admin.menus_desc",
     icon: BookOpen,
-    description: "Cartas con resolución automática",
+    label: "",
+    description: "",
   },
 ];
 
@@ -51,18 +60,15 @@ const TABS: Tab[] = [
  * Permite gestionar categorías, productos, listas de precios y menús.
  */
 export function CatalogSettingsPage() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabId>("categories");
 
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-3xl font-bold flex items-center gap-3">
-          <Package size={28} className="text-orange-400" />
-          Administración de Catálogo
-        </h1>
-        <p className="text-slate-400 mt-1">
-          Gestiona categorías, productos, listas de precios y menús
-        </p>
+          <Package size={28} className="text-orange-400" />{t("catalog_admin.title")}</h1>
+        <p className="text-slate-400 mt-1">{t("catalog_admin.subtitle")}</p>
       </div>
 
       {/* Tabs */}
@@ -82,7 +88,7 @@ export function CatalogSettingsPage() {
                 }`}
               >
                 <Icon size={18} />
-                <span className="font-medium">{tab.label}</span>
+                <span className="font-medium">{t(tab.labelKey)}</span>
               </button>
             );
           })}

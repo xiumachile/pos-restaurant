@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from 'react-i18next';
 import { Package, AlertTriangle, CheckCircle, Clock, RefreshCw } from "lucide-react";
 import { useSyncStore } from "@/store/useSyncStore";
 import { OrderSyncCard } from "./OrderSyncCard";
@@ -18,6 +19,7 @@ interface LocalOrder {
 }
 
 export function OrdersSyncList() {
+  const { t } = useTranslation();
   const [orders, setOrders] = useState<LocalOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -55,23 +57,19 @@ export function OrdersSyncList() {
     await refreshPendingCount();
   };
 
-  // Reintentar un pedido específico
   const handleRetry = async (orderId: string) => {
     try {
       const db = await localDb.getConnection();
-
       await db.execute(
         "UPDATE local_orders SET sync_status = 'pending', sync_error = NULL WHERE local_uuid = ?",
         [orderId]
       );
-
       await db.execute(
         `UPDATE sync_queue 
          SET sync_status = 'pending', attempts = 0, last_error = NULL, next_retry_at = NULL
          WHERE entity_local_uuid = ? AND sync_status = 'failed'`,
         [orderId]
       );
-
       await refreshAll();
       await triggerFullSync();
     } catch (error) {
@@ -79,26 +77,20 @@ export function OrdersSyncList() {
     }
   };
 
-  // Sincronizar ahora: reintenta failed + procesa pending
   const handleSyncNow = async () => {
     try {
       setSyncing(true);
       const db = await localDb.getConnection();
-
-      // Resetear eventos failed para reintentarlos
       await db.execute(
         `UPDATE sync_queue 
          SET sync_status = 'pending', attempts = 0, last_error = NULL, next_retry_at = NULL
          WHERE sync_status = 'failed'`
       );
-
-      // Resetear pedidos failed a pending
       await db.execute(
         `UPDATE local_orders 
          SET sync_status = 'pending', sync_error = NULL
          WHERE sync_status = 'failed'`
       );
-
       await refreshAll();
       await triggerFullSync();
     } catch (error) {
@@ -122,7 +114,6 @@ export function OrdersSyncList() {
     failed: orders.filter((o) => o.sync_status === "failed").length,
   };
 
-  // Habilitar botón si hay trabajo por hacer
   const hasWork = pendingCount > 0 || stats.pending > 0 || stats.failed > 0;
   const buttonDisabled = status === "offline" || !hasWork || syncing;
 
@@ -131,7 +122,7 @@ export function OrdersSyncList() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center space-y-2">
           <RefreshCw className="w-8 h-8 animate-spin mx-auto text-gray-500" />
-          <p className="text-gray-500">Cargando pedidos...</p>
+          <p className="text-gray-500">{t("orders.loading")}</p>
         </div>
       </div>
     );
@@ -139,19 +130,16 @@ export function OrdersSyncList() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Pedidos</h1>
-          <p className="text-gray-500 mt-1">
-            Estado de pedidos y sincronización
-          </p>
+          <h1 className="text-3xl font-bold">{t("orders.title")}</h1>
+          <p className="text-gray-500 mt-1">{t("orders.sync_status")}</p>
         </div>
         <div className="flex items-center gap-2">
           {status === "offline" && (
             <div className="flex items-center gap-2 px-3 py-2 bg-yellow-900/30 border border-yellow-700 rounded-lg">
               <AlertTriangle className="h-4 w-4 text-yellow-400" />
-              <span className="text-sm text-yellow-400">Modo offline</span>
+              <span className="text-sm text-yellow-400">{t("sync.offline")}</span>
             </div>
           )}
           <button
@@ -160,69 +148,59 @@ export function OrdersSyncList() {
             className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-gray-700 disabled:cursor-not-allowed transition-colors"
           >
             <RefreshCw className={`w-4 h-4 ${syncing || stats.syncing > 0 ? "animate-spin" : ""}`} />
-            Sincronizar ahora
+            {t("orders.sync_now")}
           </button>
         </div>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
           <div className="flex items-center gap-2 text-gray-400 mb-1">
             <Package className="w-4 h-4" />
-            <span className="text-sm font-medium">Total</span>
+            <span className="text-sm font-medium">{t("orders.total")}</span>
           </div>
           <p className="text-2xl font-bold">{stats.total}</p>
         </div>
-
         <div className="bg-green-900/20 rounded-lg border border-green-800 p-4">
           <div className="flex items-center gap-2 text-green-400 mb-1">
             <CheckCircle className="w-4 h-4" />
-            <span className="text-sm font-medium">Sincronizados</span>
+            <span className="text-sm font-medium">{t("orders.synced")}</span>
           </div>
           <p className="text-2xl font-bold text-green-700">{stats.synced}</p>
         </div>
-
         <div className="bg-yellow-900/20 rounded-lg border border-yellow-800 p-4">
           <div className="flex items-center gap-2 text-yellow-400 mb-1">
             <Clock className="w-4 h-4" />
-            <span className="text-sm font-medium">Pendientes</span>
+            <span className="text-sm font-medium">{t("orders.pending")}</span>
           </div>
           <p className="text-2xl font-bold text-yellow-700">{stats.pending}</p>
         </div>
-
         <div className="bg-blue-900/20 rounded-lg border border-blue-800 p-4">
           <div className="flex items-center gap-2 text-blue-400 mb-1">
             <RefreshCw className="w-4 h-4" />
-            <span className="text-sm font-medium">Sincronizando</span>
+            <span className="text-sm font-medium">{t("orders.syncing")}</span>
           </div>
           <p className="text-2xl font-bold text-blue-700">{stats.syncing}</p>
         </div>
-
         <div className="bg-red-900/20 rounded-lg border border-red-800 p-4">
           <div className="flex items-center gap-2 text-red-400 mb-1">
             <AlertTriangle className="w-4 h-4" />
-            <span className="text-sm font-medium">Fallidos</span>
+            <span className="text-sm font-medium">{t("orders.failed")}</span>
           </div>
           <p className="text-2xl font-bold text-red-700">{stats.failed}</p>
         </div>
       </div>
 
-      {/* Orders List */}
       {orders.length === 0 ? (
         <div className="text-center py-12">
           <Package className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-1">No hay pedidos</h3>
-          <p className="text-gray-500">Los pedidos que crees aparecerán aquí</p>
+          <h3 className="text-lg font-medium text-gray-900 mb-1">{t("orders.no_orders")}</h3>
+          <p className="text-gray-500">{t("orders.no_orders_desc")}</p>
         </div>
       ) : (
         <div className="space-y-4">
           {orders.map((order) => (
-            <OrderSyncCard
-              key={order.local_uuid}
-              order={order}
-              onRetry={handleRetry}
-            />
+            <OrderSyncCard key={order.local_uuid} order={order} onRetry={handleRetry} />
           ))}
         </div>
       )}
