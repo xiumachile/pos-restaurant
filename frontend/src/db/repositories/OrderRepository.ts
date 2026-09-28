@@ -156,8 +156,8 @@ export class OrderRepository {
           [local_uuid, payload.table_id]
         );
         await db.execute(
-          "INSERT OR REPLACE INTO table_local_mutations (table_uuid, pending_status, pending_order_uuid, created_at) VALUES (?, 'occupied', ?, CURRENT_TIMESTAMP)",
-          [payload.table_id, local_uuid]
+          "INSERT OR REPLACE INTO table_local_mutations (table_uuid, pending_status, pending_order_uuid, company_id, branch_id, created_at) VALUES (?, 'occupied', ?, ?, ?, CURRENT_TIMESTAMP)",
+          [payload.table_id, local_uuid, payload.company_id, payload.branch_id]
         );
       }
     });
@@ -518,6 +518,8 @@ export class OrderRepository {
           [
             payload.table_id,
             local_uuid,
+            payload.company_id,
+            payload.branch_id,
             payload.company_id,
             payload.branch_id,
             JSON.stringify({

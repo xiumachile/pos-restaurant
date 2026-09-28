@@ -64,7 +64,7 @@ export function TablesPage() {
         <div>
           <h1 className="text-3xl font-bold">{t("tables.header")}</h1>
           <p className="text-slate-400 mt-1">
-            {allTables.length} mesas en {areas.length} áreas · {t("tables.tap_hint")}
+            {t("tables.count_info", { count: allTables.length, areas: areas.length })} · {t("tables.tap_hint")}
           </p>
         </div>
 
@@ -91,7 +91,7 @@ export function TablesPage() {
               : "bg-slate-800 text-slate-300 hover:bg-slate-700"
           }`}
         >
-          Todas ({allTables.length})
+          {t("tables.all")} ({allTables.length})
         </button>
         {(Object.keys(TABLE_STATUS_LABELS) as TableStatus[]).map((status) => {
           const count = allTables.filter((t) => t.status === status).length;
@@ -115,9 +115,9 @@ export function TablesPage() {
       {filteredAreas.length === 0 ? (
         <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-8 text-center">
           <p className="text-slate-400">
-            No hay mesas{" "}
+            {t("tables.no_tables")}{" "}
             {statusFilter !== "all"
-              ? `con estado "${TABLE_STATUS_LABELS[statusFilter]}"`
+              ? `{t("tables.with_status")} "${TABLE_STATUS_LABELS[statusFilter]}"`
               : ""}
           </p>
         </div>

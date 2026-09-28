@@ -27,14 +27,15 @@
     "header": "Mesas",
     "count_info": "{{count}} mesas en {{areas}} áreas",
     "tap_hint": "Toca una mesa para tomar pedido",
-    "no_tables": "No hay mesas disponibles",
+    "no_tables": "No hay mesas",
     "refresh": "Actualizar",
     "available_plural": "Disponibles",
     "occupied_plural": "Ocupadas",
     "pending_payment": "Por cobrar",
     "maintenance_plural": "Mantenimiento",
     "all": "Todas",
-    "filter_count": "{{label}} ({{count}})"
+    "filter_count": "{{label}} ({{count}})",
+    "with_status": "con estado"
   },
   "orders": {
     "new_order": "Nueva Cuenta",

@@ -1,13 +1,15 @@
 -- Migración 021: Recrear table_local_mutations con CHECK constraint
 -- Propósito: Prevenir físicamente que se inserten estados inválidos como 'pending'
--- Tolerante a esquemas incompletos (columnas action/payload pueden no existir)
+-- Tolerante a esquemas incompletos (columnas pueden no existir o ser NULL)
 
 -- 1. Asegurar que las columnas necesarias existan antes de migrar
--- Si ya existen, estos statements fallarán pero serán ignorados por applyMigration
+-- Usamos DEFAULT para evitar fallos si la tabla ya tiene filas (SQLite lo requiere)
+ALTER TABLE table_local_mutations ADD COLUMN company_id TEXT DEFAULT 'default_company';
+ALTER TABLE table_local_mutations ADD COLUMN branch_id TEXT DEFAULT 'default_branch';
 ALTER TABLE table_local_mutations ADD COLUMN action TEXT DEFAULT 'update';
 ALTER TABLE table_local_mutations ADD COLUMN payload TEXT DEFAULT NULL;
 
--- 2. Crear tabla temporal con el esquema correcto y CHECK constraint
+-- 2. Crear tabla temporal con el esquema correcto y CHECK constraint estricto
 CREATE TABLE IF NOT EXISTS table_local_mutations_new (
   table_uuid TEXT PRIMARY KEY,
   pending_status TEXT NOT NULL CHECK (pending_status IN ('available', 'occupied', 'reserved', 'maintenance')),
@@ -19,7 +21,8 @@ CREATE TABLE IF NOT EXISTS table_local_mutations_new (
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Migrar datos existentes
+-- 3. Migrar datos existentes de forma segura
+-- Usamos COALESCE para garantizar que no haya NULLs en company_id y branch_id
 INSERT OR IGNORE INTO table_local_mutations_new (table_uuid, pending_status, pending_order_uuid, company_id, branch_id, action, payload, created_at)
 SELECT 
   table_uuid,

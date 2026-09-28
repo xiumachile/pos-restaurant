@@ -34,7 +34,8 @@
     "pending_payment": "待结账",
     "maintenance_plural": "维护中",
     "all": "全部",
-    "filter_count": "{{label}} ({{count}})"
+    "filter_count": "{{label}} ({{count}})",
+    "with_status": "状态为"
   },
   "orders": {
     "new_order": "新账单",
