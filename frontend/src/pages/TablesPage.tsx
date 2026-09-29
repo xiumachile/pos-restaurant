@@ -116,7 +116,7 @@ export function TablesPage() {
           <p className="text-slate-400">
             {t("tables.no_tables")}{" "}
             {statusFilter !== "all"
-              ? `{t("tables.with_status")} "${TABLE_STATUS_LABELS[statusFilter]}"`
+              ? `${t("tables.with_status")} "${TABLE_STATUS_LABELS[statusFilter]}"`
               : ""}
           </p>
         </div>
