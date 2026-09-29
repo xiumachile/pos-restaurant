@@ -26,14 +26,21 @@ export const capabilitiesService = {
 
   /**
    * Actualiza una o más capabilities (bulk update).
+   * Transforma el Record<string, boolean> al formato array que espera el backend:
+   * [{ key: "can_split_bills", is_enabled: true }]
    */
   async update(
     companyUuid: string,
     capabilities: Record<string, boolean>
   ): Promise<CapabilityResponse[]> {
+    const payloadArray = Object.entries(capabilities).map(([key, is_enabled]) => ({
+      key,
+      is_enabled,
+    }));
+
     const response = await apiClient.put<{ data: CapabilityResponse[] }>(
       `/companies/${companyUuid}/capabilities`,
-      { capabilities }
+      { capabilities: payloadArray }
     );
     const payload = response.data as any;
     return Array.isArray(payload?.data) ? payload.data : [];
