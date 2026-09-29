@@ -16,9 +16,8 @@ export function TablesStats({ areas }: TablesStatsProps) {
     available: tables.filter((t) => t.status === "available").length,
     occupied: tables.filter((t) => t.status === "occupied").length,
     maintenance: tables.filter((t) => t.status === "maintenance").length,
-    // "billing" o "reserved" pueden no ser estados de mesa válidos en el tipo, 
-    // así que los manejamos de forma segura o los derivamos de occupied si es necesario
-    billing: tables.filter((t) => t.status === "occupied").length, // Ajustar según la lógica de negocio real
+    // "billing" es un estado explícito en el backend (TableStatus)
+    billing: tables.filter((t) => t.status === "billing").length,
   };
 
   const statCards = [
