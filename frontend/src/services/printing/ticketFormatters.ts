@@ -64,6 +64,26 @@ export interface CustomerTicketData {
   createdAt: Date;
 }
 
+export interface PrecuentaData {
+  companyName?: string;
+  branchName?: string;
+  tableNumber: string;
+  areaCode?: string;
+  ordersCount: number;
+  items: Array<{
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    subtotal: number;
+    notes?: string | null;
+  }>;
+  subtotal: number;
+  taxTotal: number;
+  grandTotal: number;
+  totalItems: number;
+  createdAt: Date;
+}
+
 export interface CashCopyData {
   companyName?: string;
   cashierName: string;
@@ -347,7 +367,66 @@ export function formatCashCopy(data: CashCopyData): EscPosBuilder {
  * Helper para generar base64 listo para persistir en SQLite.
  * Útil para encolar print jobs sin tener que construir manualmente.
  */
+
+// ═══════════════════════════════════════════════════════
+// 5. PRECUENTA (Ticket de cuenta pendiente de pago)
+// ═══════════════════════════════════════════════════════
+
+export function formatPrecuenta(data: PrecuentaData): EscPosBuilder {
+  const builder = new EscPosBuilder();
+
+  builder.center().bold();
+  builder.line(data.companyName || "WOK & MESA");
+  builder.normal();
+  if (data.branchName) {
+    builder.line(data.branchName);
+  }
+  builder.line(formatDateTime(data.createdAt));
+  builder.emptyLines();
+
+  builder.left();
+  builder.line("Mesa: " + data.tableNumber);
+  if (data.areaCode) builder.line("Area: " + data.areaCode);
+  builder.line("Pedidos: " + data.ordersCount);
+  builder.center().bold();
+  builder.line("*** PRECUENTA ***");
+  builder.normal().emptyLines();
+
+  builder.left().bold();
+  builder.line("CANT  DESCRIPCION          TOTAL");
+  builder.normal();
+  
+  for (const item of data.items) {
+    const qtyStr = item.quantity.toString().padEnd(4, ' ');
+    const nameStr = item.name.substring(0, 18).padEnd(18, ' ');
+    const totalStr = formatCLP(item.subtotal).padStart(8, ' ');
+    builder.line(qtyStr + nameStr + totalStr);
+    
+    if (item.notes) {
+      builder.line("  -> " + item.notes);
+    }
+  }
+  builder.emptyLines();
+
+  builder.right();
+  builder.line("Subtotal: " + formatCLP(data.subtotal));
+  builder.line("IVA (" + IVA_PERCENTAGE + "%): " + formatCLP(data.taxTotal));
+  builder.bold();
+  builder.line("TOTAL: " + formatCLP(data.grandTotal));
+  builder.normal().emptyLines();
+
+  builder.center();
+  builder.line("Items: " + data.totalItems);
+  builder.line("Gracias por su preferencia!");
+  builder.line("www.wokmesa.cl");
+  builder.emptyLines(2);
+  builder.cut();
+
+  return builder;
+}
+
 export const ticketToBase64 = {
+  precuenta: (data: PrecuentaData) => formatPrecuenta(data).buildBase64(),
   receipt: (data: ReceiptData) => formatReceipt(data).buildBase64(),
   kitchen: (data: KitchenTicketData) => formatKitchenTicket(data).buildBase64(),
   customer: (data: CustomerTicketData) => formatCustomerTicket(data).buildBase64(),

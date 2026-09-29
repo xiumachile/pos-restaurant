@@ -1,4 +1,6 @@
 import { useToastStore } from '@/store/useToastStore';
+import { useOfflinePrintJob } from '@/hooks/useOfflinePrintJob';
+import { formatPrecuenta, type PrecuentaData } from '@/services/printing/ticketFormatters';
 import { useTranslation } from 'react-i18next';
 import { useState, useMemo, useEffect } from "react";
 import type { Bill } from "@/types/bills";
@@ -46,6 +48,7 @@ export function TableBillModal({
   const [showUnservedWarning, setShowUnservedWarning] = useState(false);
 
   const prepareTableBills = usePrepareTableBills();
+  const { enqueueReceipt } = useOfflinePrintJob();
 
   // Estado de impresión (persistido en sessionStorage)
   const storageKey = `printed_${tableUuid}`;
@@ -99,21 +102,48 @@ export function TableBillModal({
     return Array.from(map.values());
   }, [tableBill]);
 
-  // Imprimir precuenta
-  const handlePrint = () => {
+  // Imprimir precuenta usando el motor ESC/POS unificado
+  const handlePrint = async () => {
+    if (!tableBill) return;
+
     try {
-      // Guardar estado y versión actual de los pedidos
+      const precuentaData: PrecuentaData = {
+        tableNumber: tableBill.table_number,
+        areaCode: tableBill.area_code,
+        ordersCount: tableBill.orders_count,
+        items: aggregatedItems.map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          subtotal: item.subtotal,
+        })),
+        subtotal: tableBill.subtotal,
+        taxTotal: tableBill.tax_amount,
+        grandTotal: tableBill.total_amount,
+        totalItems: tableBill.total_items,
+        createdAt: new Date(),
+      };
+
+      const builder = formatPrecuenta(precuentaData);
+      const escposBase64 = builder.buildBase64();
+
+      await enqueueReceipt.mutateAsync({
+        entity_uuid: tableBill.table_uuid,
+        entity_type: "table_bill",
+        payload: precuentaData,
+        escpos_base64: escposBase64,
+        printer_name: "receipt-printer",
+        reference_number: "Precuenta Mesa " + tableBill.table_number,
+      });
+
       sessionStorage.setItem(storageKey, "true");
       sessionStorage.setItem(versionKey, currentVersion);
       setIsPrinted(true);
       
-      // Pequeño delay para que React renderice el componente de impresión antes de llamar a window.print()
-      setTimeout(() => {
-        window.print();
-      }, 100);
-    } catch (e) {
-      console.error("Error al imprimir:", e);
-      window.print();
+      useToastStore.getState().addToast('success', 'Precuenta enviada a impresion');
+    } catch (e: any) {
+      console.error("Error al encolar impresion:", e);
+      useToastStore.getState().addToast('error', 'Error al enviar a impresion');
     }
   };
 
