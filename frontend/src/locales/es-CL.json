@@ -169,7 +169,8 @@
     "no_orders_table_today": "No hay pedidos para esta mesa hoy",
     "total_orders": "Total Pedidos",
     "total_items": "Total Items",
-    "total_amount": "Total Monto"
+    "total_amount": "Total Monto",
+    "deliver": "Entregar"
   },
   "reports": {
     "title": "Reportes"

@@ -77,13 +77,14 @@ export function OrderCard({
           </button>
         );
       case "ready":
+      case "ready_for_pickup":
         return (
           <button
             onClick={() => handleTransition(async () => onServe?.(order.uuid))}
             className="w-full py-2 bg-green-500 hover:bg-green-600 rounded-lg text-white font-medium flex items-center justify-center gap-2 transition-colors"
           >
             <UtensilsCrossed size={16} />
-            {t("kitchen.served")}
+            {order.status === "ready_for_pickup" ? t("kitchen.deliver") : t("kitchen.served")}
           </button>
         );
       default:

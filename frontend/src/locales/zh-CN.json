@@ -169,7 +169,8 @@
     "no_orders_table_today": "今日该桌台没有订单",
     "total_orders": "总订单数",
     "total_items": "总商品数",
-    "total_amount": "总金额"
+    "total_amount": "总金额",
+    "deliver": "交付"
   },
   "reports": {
     "title": "报告"
