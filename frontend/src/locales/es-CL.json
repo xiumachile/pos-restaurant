@@ -274,7 +274,8 @@
       "HAS_KITCHEN_DISPLAY": "Kitchen Display System (pantalla de cocina)",
       "CAN_PRINT_RECEIPTS": "Imprimir tickets y comandas",
       "SUPPORTS_LOYALTY_PROGRAM": "Programa de lealtad y puntos",
-      "CAN_MANAGE_RESERVATIONS": "Gestionar reservaciones de mesas"
+      "CAN_MANAGE_RESERVATIONS": "Gestionar reservaciones de mesas",
+      "RETURN_TO_LOGIN_AFTER_ORDER": "Volver a la pantalla de login después de enviar un pedido (ideal para terminales compartidos por varios garzones)"
     }
   },
   "catalog_admin": {

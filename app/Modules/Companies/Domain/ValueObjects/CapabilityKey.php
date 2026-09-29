@@ -34,6 +34,9 @@ enum CapabilityKey: string
     // Reservaciones
     case CAN_MANAGE_RESERVATIONS = 'can_manage_reservations';
     
+    // Flujo de trabajo
+    case RETURN_TO_LOGIN_AFTER_ORDER = 'return_to_login_after_order';
+    
     /**
      * Obtiene todos los capabilities disponibles.
      */
@@ -64,6 +67,7 @@ enum CapabilityKey: string
             self::CAN_PRINT_RECEIPTS => 'Imprimir recibos',
             self::SUPPORTS_LOYALTY_PROGRAM => 'Programa de lealtad',
             self::CAN_MANAGE_RESERVATIONS => 'Gestionar reservaciones',
+            self::RETURN_TO_LOGIN_AFTER_ORDER => 'Volver a login tras enviar pedido',
         };
     }
 }

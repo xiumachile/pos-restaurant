@@ -520,8 +520,6 @@ export class OrderRepository {
             local_uuid,
             payload.company_id,
             payload.branch_id,
-            payload.company_id,
-            payload.branch_id,
             JSON.stringify({
               status: 'occupied',
               current_order_uuid: local_uuid,

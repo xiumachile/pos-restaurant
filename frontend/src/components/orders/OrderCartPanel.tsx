@@ -9,6 +9,8 @@ import { aggregateOrders } from "@/types/orders";
 import { getTranslatedName, formatPrice, parsePrice } from "@/types/catalog";
 import { IVA_PERCENTAGE } from "@/config/tax";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useCapabilities } from "@/hooks/useCapabilities";
+import { CapabilityKey } from "@/types/capabilities";
 import { useSyncStore } from "@/store/useSyncStore";
 import { OrderRepository } from "@/db/repositories/OrderRepository";
 import { Plus, Minus, Trash2, Send, ShoppingCart, Loader2, CheckCircle2, AlertCircle, WifiOff } from "lucide-react";
@@ -30,6 +32,8 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
   const { t } = useTranslation();
   const navigate = useNavigate();
   const cart = useCartStore((s) => s.carts[tableUuid]);
+  const { capabilities } = useCapabilities();
+  const clearAuth = useAuthStore((s) => s.clearAuth);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const removeItem = useCartStore((s) => s.removeItem);
   const clearCart = useCartStore((s) => s.clearCart);
@@ -92,10 +96,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
         // No mostramos error al usuario porque el pedido ya se guardó exitosamente
       }
 
-      // 5. Navegar de vuelta a mesas
-      setTimeout(() => {
-        navigate("/");
-      }, 1200);
+      // 5. No redirigir forzosamente. El usuario decide si volver o agregar más.
     } catch (error: any) {
       console.error("[OrderCartPanel] Error creando pedido:", error);
       setFeedback({

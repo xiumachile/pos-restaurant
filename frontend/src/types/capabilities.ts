@@ -12,6 +12,7 @@ export enum CapabilityKey {
   CAN_PRINT_RECEIPTS = 'can_print_receipts',
   SUPPORTS_LOYALTY_PROGRAM = 'supports_loyalty_program',
   CAN_MANAGE_RESERVATIONS = 'can_manage_reservations',
+  RETURN_TO_LOGIN_AFTER_ORDER = 'return_to_login_after_order',
 }
 
 export interface CapabilityInfo {
@@ -80,6 +81,12 @@ export const CAPABILITY_META: Record<CapabilityKey, Omit<CapabilityInfo, 'is_ena
     key: CapabilityKey.CAN_MANAGE_RESERVATIONS,
     descriptionKey: 'capabilities.descriptions.CAN_MANAGE_RESERVATIONS',
     icon: '📅',
+    category: 'operations',
+  },
+  [CapabilityKey.RETURN_TO_LOGIN_AFTER_ORDER]: {
+    key: CapabilityKey.RETURN_TO_LOGIN_AFTER_ORDER,
+    descriptionKey: 'capabilities.descriptions.RETURN_TO_LOGIN_AFTER_ORDER',
+    icon: '🚪',
     category: 'operations',
   },
 };

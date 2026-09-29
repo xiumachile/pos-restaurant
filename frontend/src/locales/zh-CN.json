@@ -274,7 +274,8 @@
       "HAS_KITCHEN_DISPLAY": "厨房显示系统（厨房屏幕）",
       "CAN_PRINT_RECEIPTS": "打印收据和订单",
       "SUPPORTS_LOYALTY_PROGRAM": "忠诚度和积分计划",
-      "CAN_MANAGE_RESERVATIONS": "管理餐桌预订"
+      "CAN_MANAGE_RESERVATIONS": "管理餐桌预订",
+      "RETURN_TO_LOGIN_AFTER_ORDER": "发送订单后返回登录屏幕（适用于多名服务员共享的终端）"
     }
   },
   "catalog_admin": {
