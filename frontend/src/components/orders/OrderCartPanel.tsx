@@ -56,6 +56,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
     setFeedback({ type: "loading", message: `💾 ${t("orders.sending")} ${items.length} items...` });
 
     try {
+      // 1. Crear pedido (operación crítica)
       const order = await OrderRepository.createWithItems(
         mergeAuthContext({
           table_id: tableUuid,
@@ -70,40 +71,28 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
         }))
       );
 
+      // 2. Limpiar carrito y actualizar UI inmediatamente
       clearCart(tableUuid);
       refetchActiveOrders();
 
-      setFeedback({
-        type: "loading",
-        message: syncStatus === "offline"
-          ? "✓ Guardado offline. Sincronizará al reconectar."
-          : "✓ Guardado. Sincronizando con cocina...",
-      });
-
-      refetchActiveOrders();
-      
-      if (syncStatus !== "offline") {
-        setFeedback({
-          type: "success",
-          message: "✓ Pedido guardado. Sincronizando en segundo plano...",
-        });
-      } else {
-        setFeedback({
-          type: "success",
-          message: "✓ Pedido guardado offline.",
-        });
-      }
-      
-      await invalidateTables();
-      await invalidateCashier();
-
+      // 3. Mostrar feedback de éxito
       setFeedback({
         type: "success",
         message: syncStatus === "offline"
-          ? "✓ Pedido guardado (offline)"
+          ? "✓ Pedido guardado offline. Sincronizará al reconectar."
           : "✓ Pedido enviado a cocina",
       });
 
+      // 4. Invalidar cache (operación no crítica, no debe fallar el flujo)
+      try {
+        await invalidateTables();
+        await invalidateCashier();
+      } catch (cacheError) {
+        console.warn("[OrderCartPanel] Error invalidando cache (no crítico):", cacheError);
+        // No mostramos error al usuario porque el pedido ya se guardó exitosamente
+      }
+
+      // 5. Navegar de vuelta a mesas
       setTimeout(() => {
         navigate("/");
       }, 1200);
