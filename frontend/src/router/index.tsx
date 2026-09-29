@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuthStore } from "@/store/useAuthStore";
+import { RoleProtectedRoute, type UserRole } from "@/components/auth/RoleProtectedRoute";
 
 // Lazy load de páginas (code splitting)
 const LoginPage = lazy(() => import("@/pages/LoginPage").then(m => ({ default: m.LoginPage })));
@@ -27,10 +28,7 @@ function LoadingFallback() {
   );
 }
 
-function ProtectedRoute() {
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
-}
+
 
 function ReportsPage() {
   return (
@@ -94,6 +92,15 @@ function SettingsPage() {
   );
 }
 
+// Definición de roles permitidos por sección
+const ROLES = {
+  ALL: ['admin', 'manager', 'waiter', 'cashier', 'kitchen'] as UserRole[],
+  FRONT_OF_HOUSE: ['admin', 'manager', 'waiter', 'cashier'] as UserRole[],
+  BACK_OF_HOUSE: ['admin', 'manager', 'kitchen'] as UserRole[],
+  MANAGEMENT: ['admin', 'manager'] as UserRole[],
+  CASHIER_ONLY: ['admin', 'manager', 'cashier'] as UserRole[],
+};
+
 export const router = createBrowserRouter([
   {
     path: "/login",
@@ -105,63 +112,120 @@ export const router = createBrowserRouter([
   },
   {
     path: "/",
-    element: <ProtectedRoute />,
+    element: <AppLayout />,
     children: [
-      {
-        element: <AppLayout />,
+      // Mesas: todos los roles
+      { 
+        path: "",
+        element: <RoleProtectedRoute allowedRoles={ROLES.ALL} />,
         children: [
-          { 
-            index: true, 
+          {
+            index: true,
             element: (
               <Suspense fallback={<LoadingFallback />}>
                 <TablesPage />
               </Suspense>
             )
-          },
-          { 
-            path: "tables/:tableUuid", 
+          }
+        ]
+      },
+      // Toma de pedidos: Front of house
+      { 
+        path: "tables/:tableUuid", 
+        element: <RoleProtectedRoute allowedRoles={ROLES.FRONT_OF_HOUSE} />,
+        children: [
+          {
+            index: true,
             element: (
               <Suspense fallback={<LoadingFallback />}>
                 <OrderTakingPage />
               </Suspense>
             )
-          },
-          { 
-            path: "catalog", 
+          }
+        ]
+      },
+      // Catálogo: Front of house
+      { 
+        path: "catalog", 
+        element: <RoleProtectedRoute allowedRoles={ROLES.FRONT_OF_HOUSE} />,
+        children: [
+          {
+            index: true,
             element: (
               <Suspense fallback={<LoadingFallback />}>
                 <CatalogPage />
               </Suspense>
             )
-          },
-          { 
-            path: "kitchen", 
+          }
+        ]
+      },
+      // Cocina: Back of house + admin/manager
+      { 
+        path: "kitchen", 
+        element: <RoleProtectedRoute allowedRoles={ROLES.BACK_OF_HOUSE} />,
+        children: [
+          {
+            index: true,
             element: (
               <Suspense fallback={<LoadingFallback />}>
                 <KitchenPage />
               </Suspense>
             )
-          },
-          { 
-            path: "orders", 
+          }
+        ]
+      },
+      // Pedidos: Front y Back of house
+      { 
+        path: "orders", 
+        element: <RoleProtectedRoute allowedRoles={[...ROLES.FRONT_OF_HOUSE, ...ROLES.BACK_OF_HOUSE]} />,
+        children: [
+          {
+            index: true,
             element: (
               <Suspense fallback={<LoadingFallback />}>
                 <OrdersPage />
               </Suspense>
             )
-          },
-          { 
-            path: "cashier", 
+          }
+        ]
+      },
+      // Caja: Cashier y Management
+      { 
+        path: "cashier", 
+        element: <RoleProtectedRoute allowedRoles={ROLES.CASHIER_ONLY} />,
+        children: [
+          {
+            index: true,
             element: (
               <Suspense fallback={<LoadingFallback />}>
                 <CashierPage />
               </Suspense>
             )
+          }
+        ]
+      },
+      // Reportes: Solo Management
+      { 
+        path: "reports", 
+        element: <RoleProtectedRoute allowedRoles={ROLES.MANAGEMENT} />,
+        children: [
+          {
+            index: true,
+            element: <ReportsPage />
+          }
+        ]
+      },
+      // Ajustes: Solo Management
+      { 
+        path: "settings", 
+        element: <RoleProtectedRoute allowedRoles={ROLES.MANAGEMENT} />,
+        children: [
+          {
+            index: true,
+            element: <SettingsPage />
           },
-          { path: "reports", element: <ReportsPage /> },
-          { path: "settings", element: <SettingsPage /> },
           { 
-            path: "settings/tips", 
+            path: "tips", 
             element: (
               <Suspense fallback={<LoadingFallback />}>
                 <TipSettingsPage />
@@ -169,7 +233,7 @@ export const router = createBrowserRouter([
             )
           },
           { 
-            path: "settings/catalog", 
+            path: "catalog", 
             element: (
               <Suspense fallback={<LoadingFallback />}>
                 <CatalogSettingsPage />
@@ -177,7 +241,7 @@ export const router = createBrowserRouter([
             )
           },
           { 
-            path: "settings/capabilities", 
+            path: "capabilities", 
             element: (
               <Suspense fallback={<LoadingFallback />}>
                 <CapabilitiesPage />
@@ -185,22 +249,29 @@ export const router = createBrowserRouter([
             )
           },
           { 
-            path: "settings/printers", 
+            path: "printers", 
             element: (
               <Suspense fallback={<LoadingFallback />}>
                 <PrinterSettingsPage />
               </Suspense>
             )
-          },
-          { 
-            path: "sync-queue", 
+          }
+        ]
+      },
+      // Cola de Sync: Solo Management
+      { 
+        path: "sync-queue", 
+        element: <RoleProtectedRoute allowedRoles={ROLES.MANAGEMENT} />,
+        children: [
+          {
+            index: true,
             element: (
               <Suspense fallback={<LoadingFallback />}>
                 <SyncQueuePage />
               </Suspense>
             )
-          },
-        ],
+          }
+        ]
       },
     ],
   },

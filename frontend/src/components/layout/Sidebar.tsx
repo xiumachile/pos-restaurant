@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from "@/store/useAuthStore";
 import { useCapabilitiesStore } from "@/store/useCapabilitiesStore";
 import { CapabilityKey } from "@/types/capabilities";
+import type { UserRole } from "@/components/auth/RoleProtectedRoute";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 interface NavItem {
@@ -24,6 +25,7 @@ interface NavItem {
   icon: React.ElementType;
   end?: boolean;
   requiresCapability?: CapabilityKey;
+  allowedRoles?: UserRole[];
 }
 
 /**
@@ -37,30 +39,47 @@ export function Sidebar() {
   const isEnabled = useCapabilitiesStore((state) => state.isCapabilityEnabled);
   const { online: isOnline } = useOnlineStatus();
 
+  // Definición de roles para reutilizar
+  const ROLES = {
+    ALL: ['admin', 'manager', 'waiter', 'cashier', 'kitchen'] as UserRole[],
+    FRONT_OF_HOUSE: ['admin', 'manager', 'waiter', 'cashier'] as UserRole[],
+    BACK_OF_HOUSE: ['admin', 'manager', 'kitchen'] as UserRole[],
+    MANAGEMENT: ['admin', 'manager'] as UserRole[],
+    CASHIER_ONLY: ['admin', 'manager', 'cashier'] as UserRole[],
+  };
+
   // NAV_ITEMS dentro del componente para que t() esté disponible
   const NAV_ITEMS: NavItem[] = [
-    { to: "/", label: t("tables.title"), icon: LayoutGrid, end: true },
-    { to: "/catalog", label: t("catalog.title"), icon: UtensilsCrossed },
+    { to: "/", label: t("tables.title"), icon: LayoutGrid, end: true, allowedRoles: ROLES.ALL },
+    { to: "/catalog", label: t("catalog.title"), icon: UtensilsCrossed, allowedRoles: ROLES.FRONT_OF_HOUSE },
     { 
       to: "/kitchen", 
       label: t("kitchen.title"), 
       icon: ChefHat,
-      // requiresCapability: CapabilityKey.HAS_KITCHEN_DISPLAY, // Comentado para que sea visible en pruebas
+      allowedRoles: ROLES.BACK_OF_HOUSE,
     },
-    { to: "/orders", label: t("orders.title"), icon: ListOrdered },
-    { to: "/cashier", label: t("cashier.title"), icon: CreditCard },
-    { to: "/reports", label: t("reports.title"), icon: BarChart3 },
-    { to: "/settings", label: t("settings.title"), icon: Settings },
+    { to: "/orders", label: t("orders.title"), icon: ListOrdered, allowedRoles: [...ROLES.FRONT_OF_HOUSE, ...ROLES.BACK_OF_HOUSE] },
+    { to: "/cashier", label: t("cashier.title"), icon: CreditCard, allowedRoles: ROLES.CASHIER_ONLY },
+    { to: "/reports", label: t("reports.title"), icon: BarChart3, allowedRoles: ROLES.MANAGEMENT },
+    { to: "/settings", label: t("settings.title"), icon: Settings, allowedRoles: ROLES.MANAGEMENT },
     { 
       to: "/sync-queue", 
       label: t("sync.queue"), 
-      icon: Database 
+      icon: Database,
+      allowedRoles: ROLES.MANAGEMENT
     },
   ];
 
   const visibleItems = NAV_ITEMS.filter((item) => {
-    if (!item.requiresCapability) return true;
-    return isEnabled(item.requiresCapability);
+    // 1. Verificar rol del usuario
+    if (item.allowedRoles && user && !item.allowedRoles.includes(user.role as UserRole)) {
+      return false;
+    }
+    // 2. Verificar capability de la empresa (si aplica)
+    if (item.requiresCapability && !isEnabled(item.requiresCapability)) {
+      return false;
+    }
+    return true;
   });
 
   return (
