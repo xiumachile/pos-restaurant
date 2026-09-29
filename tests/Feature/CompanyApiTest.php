@@ -123,8 +123,8 @@ test('empresa nueva tiene todas las capabilities habilitadas', function () {
     $companyUuid = $response->json('data.uuid');
     $capabilities = $response->json('data.capabilities');
     
-    expect($capabilities)->toHaveCount(8); // 8 capabilities definidas
-    expect(collect($capabilities)->where('is_enabled', true)->count())->toBe(8);
+    expect($capabilities)->toHaveCount(9); // 8 capabilities definidas
+    expect(collect($capabilities)->where('is_enabled', true)->count())->toBe(9);
 });
 
 // ============================================
