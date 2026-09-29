@@ -75,11 +75,11 @@ export function BillPaymentModalV2({
   const paymentsSum = payments.reduce((sum, p) => sum + p.amount, 0);
   const tipsSum = payments.reduce((sum, p) => sum + p.tip_amount, 0);
   const remaining = Math.max(0, billPending - paymentsSum);
-  const canCharge = remaining < 0.01 && payments.length > 0 && !isProcessing;
+  const canCharge = remaining === 0 && payments.length > 0 && !isProcessing;
 
-  const currentAmount = parseFloat(amountInput) || 0;
-  const currentTip = parseFloat(tipInput) || 0;
-  const currentReceived = parseFloat(receivedInput) || 0;
+  const currentAmount = parseInt(amountInput, 10) || 0;
+  const currentTip = parseInt(tipInput, 10) || 0;
+  const currentReceived = parseInt(receivedInput, 10) || 0;
   const change = selectedMethod?.type === "cash"
     ? Math.max(0, currentReceived - (currentAmount + currentTip))
     : 0;
@@ -99,9 +99,6 @@ export function BillPaymentModalV2({
       return;
     } else if (key === "⌫") {
       setter(current.slice(0, -1));
-      return;
-    } else if (key === ".") {
-      if (!current.includes(".")) setter(current + ".");
       return;
     } else if (key === "000") {
       // Si el campo está en "0" o vacío, iniciar desde cero limpio
@@ -136,7 +133,7 @@ export function BillPaymentModalV2({
   };
 
   const handleAddPayment = () => {
-    if (!selectedMethod || currentAmount <= 0 || currentAmount > remaining + 0.01) return;
+    if (!selectedMethod || currentAmount <= 0 || currentAmount > remaining) return;
 
     const newPayment: PendingPayment = {
       id: crypto.randomUUID(),
@@ -184,8 +181,8 @@ export function BillPaymentModalV2({
         let tipLeft = payment.tip_amount;
         let paymentSuccess = true;
 
-        while (amountLeft > 0.01) {
-          const nextBill = billsRemaining.find(b => b.remaining > 0.01);
+        while (amountLeft > 0) {
+          const nextBill = billsRemaining.find(b => b.remaining > 0);
           if (!nextBill) {
             errorsList.push(`${payment.method_code}: No hay bills con saldo`);
             paymentSuccess = false;
@@ -198,9 +195,9 @@ export function BillPaymentModalV2({
           await payBill.mutateAsync({
             billUuid: nextBill.uuid,
             payload: {
-              amount: amountForBill,
+              amount: Math.round(amountForBill),
               payment_method_uuid: payment.payment_method_uuid,
-              tip_amount: tipForBill,
+              tip_amount: Math.round(tipForBill),
               idempotency_key: payment.idempotency_key, // USAR CLAVE ORIGINAL PARA IDEMPOTENCIA
             },
           });
@@ -211,7 +208,7 @@ export function BillPaymentModalV2({
         }
 
         // Si el pago se completó sin errores, marcarlo como procesado
-        if (paymentSuccess && amountLeft <= 0.01) {
+        if (paymentSuccess && amountLeft === 0) {
           setProcessedPaymentIds(prev => new Set(prev).add(payment.id));
         }
       } catch (e: any) {
@@ -517,7 +514,7 @@ export function BillPaymentModalV2({
             <div className="p-3 border-t border-slate-800 flex-shrink-0">
               <button
                 onClick={handleAddPayment}
-                disabled={currentAmount <= 0 || currentAmount > remaining + 0.01}
+                disabled={currentAmount <= 0 || currentAmount > remaining}
                 className="w-full py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-700 disabled:text-slate-500 rounded-lg font-bold text-white flex items-center justify-center gap-2"
               >
                 + Agregar Pago
