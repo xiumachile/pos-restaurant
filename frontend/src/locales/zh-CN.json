@@ -135,7 +135,9 @@
     "capabilities_title": "能力",
     "capabilities_desc": "启用或禁用特定功能",
     "printers_title": "打印机",
-    "printers_desc": "配置热敏打印机（收据、厨房、吧台）"
+    "printers_desc": "配置热敏打印机（收据、厨房、吧台）",
+    "users_title": "用户管理",
+    "users_desc": "管理系统用户及其访问权限。"
   },
   "kitchen": {
     "title": "厨房",
@@ -185,9 +187,11 @@
     "all_categories": "全部"
   },
   "roles": {
-    "admin": "主管理员",
+    "admin": "管理员",
+    "manager": "经理",
+    "waiter": "服务员",
     "cashier": "收银员",
-    "waiter": "服务员"
+    "kitchen": "厨房"
   },
   "printers": {
     "title": "打印机",
@@ -394,5 +398,25 @@
     "name_es": "名称 (西班牙语)",
     "display_order": "显示顺序",
     "cancel": "取消"
+  },
+  "users": {
+    "title": "用户管理",
+    "description": "管理系统用户及其访问权限。",
+    "add": "添加用户",
+    "edit": "编辑用户",
+    "name": "全名",
+    "email": "电子邮件",
+    "role": "访问角色",
+    "pin": "访问 PIN",
+    "pin_optional": "可选，用于 POS 快速登录",
+    "actions": "操作",
+    "empty": "暂无注册用户",
+    "created_success": "用户创建成功",
+    "create_error": "创建用户失败",
+    "updated_success": "用户更新成功",
+    "update_error": "更新用户失败",
+    "deleted_success": "用户删除成功",
+    "delete_error": "删除用户失败",
+    "delete_confirm": "确定要删除此用户吗？此操作无法撤销。"
   }
 }

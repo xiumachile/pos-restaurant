@@ -18,6 +18,7 @@ const CatalogSettingsPage = lazy(() => import("@/pages/settings/CatalogSettingsP
 const CapabilitiesPage = lazy(() => import("@/pages/settings/CapabilitiesPage").then(m => ({ default: m.CapabilitiesPage })));
 const SyncQueuePage = lazy(() => import("@/pages/SyncQueuePage").then(m => ({ default: m.SyncQueuePage })));
 const PrinterSettingsPage = lazy(() => import("@/pages/settings/PrinterSettingsPage").then(m => ({ default: m.PrinterSettingsPage })));
+const UsersPage = lazy(() => import("@/pages/settings/UsersPage").then(m => ({ default: m.UsersPage })));
 
 // Componente de carga
 function LoadingFallback() {
@@ -85,6 +86,16 @@ function SettingsPage() {
           <h2 className="font-bold text-lg mb-1">{t("settings.printers_title")}</h2>
           <p className="text-sm text-slate-400">
             {t("settings.printers_desc")}
+          </p>
+        </a>
+        <a
+          href="/settings/users"
+          className="bg-slate-800 hover:bg-slate-700 rounded-lg p-6 transition-colors border border-slate-700"
+        >
+          <div className="text-2xl mb-2">👥</div>
+          <h2 className="font-bold text-lg mb-1">{t("settings.users_title")}</h2>
+          <p className="text-sm text-slate-400">
+            {t("settings.users_desc")}
           </p>
         </a>
       </div>
@@ -253,6 +264,14 @@ export const router = createBrowserRouter([
             element: (
               <Suspense fallback={<LoadingFallback />}>
                 <PrinterSettingsPage />
+              </Suspense>
+            )
+          },
+          { 
+            path: "users", 
+            element: (
+              <Suspense fallback={<LoadingFallback />}>
+                <UsersPage />
               </Suspense>
             )
           }

@@ -135,7 +135,9 @@
     "capabilities_title": "Capacidades",
     "capabilities_desc": "Habilita o deshabilita funcionalidades",
     "printers_title": "Impresoras",
-    "printers_desc": "Configura impresoras térmicas (boletas, cocina, bar)"
+    "printers_desc": "Configura impresoras térmicas (boletas, cocina, bar)",
+    "users_title": "Gestión de Usuarios",
+    "users_desc": "Administra los usuarios del sistema y sus permisos de acceso."
   },
   "kitchen": {
     "title": "Cocina",
@@ -185,7 +187,11 @@
     "all_categories": "Todas"
   },
   "roles": {
-    "admin": "Admin"
+    "admin": "Administrador",
+    "manager": "Gerente",
+    "waiter": "Garzón",
+    "cashier": "Cajero",
+    "kitchen": "Cocina"
   },
   "printers": {
     "title": "Impresoras",
@@ -392,5 +398,25 @@
     "name_es": "Nombre (español)",
     "display_order": "Orden de aparición",
     "cancel": "Cancelar"
+  },
+  "users": {
+    "title": "Gestión de Usuarios",
+    "description": "Administra los usuarios del sistema y sus permisos de acceso.",
+    "add": "Agregar Usuario",
+    "edit": "Editar Usuario",
+    "name": "Nombre completo",
+    "email": "Correo electrónico",
+    "role": "Rol de acceso",
+    "pin": "PIN de acceso",
+    "pin_optional": "Opcional, para login rápido en POS",
+    "actions": "Acciones",
+    "empty": "No hay usuarios registrados",
+    "created_success": "Usuario creado exitosamente",
+    "create_error": "Error al crear el usuario",
+    "updated_success": "Usuario actualizado exitosamente",
+    "update_error": "Error al actualizar el usuario",
+    "deleted_success": "Usuario eliminado exitosamente",
+    "delete_error": "Error al eliminar el usuario",
+    "delete_confirm": "¿Estás seguro de eliminar este usuario? Esta acción no se puede deshacer."
   }
 }

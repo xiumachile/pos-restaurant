@@ -49,24 +49,30 @@ export function TableBillModal({
 
   // Estado de impresión (persistido en sessionStorage)
   const storageKey = `printed_${tableUuid}`;
+  const versionKey = `printed_version_${tableUuid}`;
+  
+  // Versión actual: string de UUIDs de items para detectar cambios en los pedidos
+  const currentVersion = tableBill 
+    ? JSON.stringify(tableBill.orders.flatMap((o: any) => o.items.map((item: any) => item.uuid)).sort())
+    : '';
   const [isPrinted, setIsPrinted] = useState(() => {
     try {
-      return sessionStorage.getItem(storageKey) === "true";
+      const savedVersion = sessionStorage.getItem(versionKey);
+      return sessionStorage.getItem(storageKey) === "true" && savedVersion === currentVersion;
     } catch {
       return false;
     }
   });
 
-  // Resetear estado de impresión cuando cambia la mesa o se abre
+  // Resetear estado de impresión si cambian los pedidos (nuevos items, modificaciones)
   useEffect(() => {
     if (isOpen && tableBill) {
-      // Si la mesa cambió o hay nuevos pedidos, resetear
-      const currentKey = `printed_${tableUuid}`;
-      if (currentKey !== storageKey) {
+      const savedVersion = sessionStorage.getItem(versionKey);
+      if (savedVersion !== currentVersion) {
         setIsPrinted(false);
       }
     }
-  }, [isOpen, tableUuid, tableBill]);
+  }, [isOpen, tableUuid, currentVersion]);
 
 
 
@@ -96,14 +102,17 @@ export function TableBillModal({
   // Imprimir precuenta
   const handlePrint = () => {
     try {
-      setIsPrinted(true);
+      // Guardar estado y versión actual de los pedidos
       sessionStorage.setItem(storageKey, "true");
-      // Pequeño delay para que React renderice antes de imprimir
+      sessionStorage.setItem(versionKey, currentVersion);
+      setIsPrinted(true);
+      
+      // Pequeño delay para que React renderice el componente de impresión antes de llamar a window.print()
       setTimeout(() => {
         window.print();
       }, 100);
     } catch (e) {
-      console.error("Error al marcar como impreso:", e);
+      console.error("Error al imprimir:", e);
       window.print();
     }
   };
