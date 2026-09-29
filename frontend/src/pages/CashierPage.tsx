@@ -18,6 +18,7 @@ import {
 import { formatPrice } from "@/types/catalog";
 import { CapabilityGate } from "@/components/CapabilityGate";
 import { CapabilityKey } from "@/types/capabilities";
+import { useCapabilities } from "@/hooks/useCapabilities";
 
 /**
  * Página de Caja.
@@ -42,6 +43,8 @@ export function CashierPage() {
   }, []);
 
   const isSessionOpen = !!dashboard?.current_session;
+  const { isFeatureEnabled } = useCapabilities();
+  const requiresCashierSession = isFeatureEnabled(CapabilityKey.REQUIRES_CASHIER_SESSION);
 
   const getElapsedMinutes = (isoString: string | null) => {
   
@@ -121,7 +124,7 @@ export function CashierPage() {
                   <button
                     key={table.table_uuid}
                     onClick={() => setSelectedTableUuid(table.table_uuid)}
-                    disabled={!isSessionOpen}
+                    disabled={requiresCashierSession && !isSessionOpen}
                     className={`bg-slate-800 rounded-lg p-3.5 border-2 text-left transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed ${
                       isUrgent
                         ? "border-red-500"
