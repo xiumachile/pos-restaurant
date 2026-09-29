@@ -273,7 +273,7 @@ export function BillPaymentModalV2({
             {effectiveBills.length === 1
               ? `Cuenta #${effectiveBills[0].bill_number}`
               : `${effectiveBills.length} sub-cuentas`}
-            {" · "}Total: <span className="text-orange-400 font-semibold">{formatPrice(billTotal)}</span>
+            {" · "}Pendiente: <span className="text-orange-400 font-semibold">{formatPrice(billPending)}</span>
           </p>
         </div>
         <button
@@ -293,7 +293,7 @@ export function BillPaymentModalV2({
           <div className="bg-slate-900 border-b border-slate-800 p-3 grid grid-cols-3 gap-2 flex-shrink-0">
             <div className="text-center">
               <div className="text-[10px] text-slate-500 uppercase">Total</div>
-              <div className="text-sm font-bold text-white">{formatPrice(billTotal)}</div>
+              <div className="text-sm font-bold text-white">{formatPrice(billPending)}</div>
             </div>
             <div className="text-center">
               <div className="text-[10px] text-slate-500 uppercase">Pagado</div>
@@ -553,7 +553,7 @@ export function BillPaymentModalV2({
           ) : (
             <>
               <CheckCircle2 size={18} />
-              Cobrar {formatPrice(billTotal + tipsSum)}
+              Cobrar {formatPrice(billPending + tipsSum)}
             </>
           )}
         </button>
