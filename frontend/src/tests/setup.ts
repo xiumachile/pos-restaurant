@@ -43,8 +43,6 @@ window.location = { reload: vi.fn(), href: "" } as any;
 
 
 // Mock de react-i18next para tests
-import { vi } from "vitest";
-
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => {
