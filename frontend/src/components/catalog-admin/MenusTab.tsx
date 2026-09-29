@@ -103,7 +103,7 @@ export function MenusTab() {
                 <button
                   onClick={() => setManagingActivationsMenu(menu)}
                   className="p-1.5 text-slate-400 hover:text-orange-400 hover:bg-slate-700 rounded transition-colors"
-                  title="Gestionar reglas de activación"
+                  title={t("menus.activation_rules")}
                 >
                   <Settings size={14} />
                 </button>
@@ -126,7 +126,7 @@ export function MenusTab() {
 
             {/* Lista de precios asociada */}
             <div className="bg-slate-900/50 rounded-lg p-3 mb-3">
-              <p className="text-xs text-slate-500 mb-1">📋 Lista de precios:</p>
+              <p className="text-xs text-slate-500 mb-1">{t("menus.price_list")}:</p>
               <p className="text-sm text-orange-400 font-semibold">
                 {menu.price_list?.display_name ?? "N/A"}
               </p>
@@ -135,7 +135,7 @@ export function MenusTab() {
             {/* Reglas de activación (resumen) */}
             {menu.activations && menu.activations.length > 0 && (
               <div className="bg-slate-900/50 rounded-lg p-3 mb-3">
-                <p className="text-xs text-slate-500 mb-2">⏰ Reglas de activación ({menu.activations.length}):</p>
+                <p className="text-xs text-slate-500 mb-2">{t("menus.activation_rules")} ({menu.activations.length}):</p>
                 <div className="space-y-1.5">
                   {menu.activations.slice(0, 2).map((act) => (
                     <div key={act.id} className="flex items-center gap-2 text-xs">
@@ -152,7 +152,7 @@ export function MenusTab() {
                   ))}
                   {menu.activations.length > 2 && (
                     <p className="text-xs text-slate-500 italic">
-                      +{menu.activations.length - 2} reglas más...
+                      +{menu.activations.length - 2} {t("menus.more_rules")}
                     </p>
                   )}
                 </div>
@@ -177,7 +177,7 @@ export function MenusTab() {
               )}
               {(menu.menu_products_count ?? 0) > 0 && (
                 <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs">
-                  🍽️ {menu.menu_products_count} productos
+                  🍽️ {menu.menu_products_count} {t("menus.products_count")}
                 </span>
               )}
             </div>

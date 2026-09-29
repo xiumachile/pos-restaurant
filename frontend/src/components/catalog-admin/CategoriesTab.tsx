@@ -94,7 +94,7 @@ export function CategoriesTab() {
               </div>
             </div>
             <p className="text-xs text-slate-500">
-              Orden: {category.sort_order} ·{" "}
+              {t("categories.order")}: {category.sort_order} ·{" "}
               {category.is_active ? (
                 <span className="text-green-400">Activa</span>
               ) : (
@@ -181,9 +181,7 @@ function CategoryFormModal({ category, onClose }: CategoryFormModalProps) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-slate-400 mb-1.5">
-              Nombre (español)
-            </label>
+            <label className="block text-sm text-slate-400 mb-1.5">{t("categories.name_es")}</label>
             <input
               type="text"
               value={nameEs}
@@ -194,9 +192,7 @@ function CategoryFormModal({ category, onClose }: CategoryFormModalProps) {
           </div>
 
           <div>
-            <label className="block text-sm text-slate-400 mb-1.5">
-              Orden de aparición
-            </label>
+            <label className="block text-sm text-slate-400 mb-1.5">{t("categories.display_order")}</label>
             <input
               type="number"
               min="0"

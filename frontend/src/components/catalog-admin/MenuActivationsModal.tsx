@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState } from "react";
 import { useUpdateMenuActivations } from "@/hooks/useMenus";
 import type { Menu, MenuActivation, MenuActivationPayload } from "@/services/menuAdminService";
@@ -27,6 +28,8 @@ export interface ActivationsModalProps {
 }
 
 export function ActivationsModal({ menu, onClose }: ActivationsModalProps) {
+  const { t } = useTranslation();
+
   const [activations, setActivations] = useState<MenuActivation[]>(menu.activations ?? []);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newActivation, setNewActivation] = useState<MenuActivationPayload>({
@@ -90,10 +93,10 @@ export function ActivationsModal({ menu, onClose }: ActivationsModalProps) {
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
         <h2 className="text-xl font-bold text-white mb-2">
-          Reglas de activación: {menu.name}
+          {t("menus.activation_rules")}: {menu.name}
         </h2>
         <p className="text-sm text-slate-400 mb-4">
-          Configura cuándo se usa automáticamente esta carta según canal, horario y día.
+          {t("menus.activation_rules_subtitle")}
         </p>
 
         {/* Lista de reglas existentes */}
@@ -101,7 +104,7 @@ export function ActivationsModal({ menu, onClose }: ActivationsModalProps) {
           {activations.length === 0 && !showAddForm && (
             <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 text-center">
               <Calendar className="mx-auto text-slate-500 mb-2" size={32} />
-              <p className="text-slate-400 text-sm">No hay reglas configuradas</p>
+              <p className="text-slate-400 text-sm">{t("menus.no_rules_configured")}</p>
               <p className="text-slate-500 text-xs mt-1">
                 Esta carta se usará solo si es la default de la sucursal
               </p>
@@ -133,13 +136,13 @@ export function ActivationsModal({ menu, onClose }: ActivationsModalProps) {
                       {act.days_of_week.map((d) => DAYS_OF_WEEK.find((dw) => dw.value === d)?.label).join(", ")}
                     </span>
                   )}
-                  {!act.days_of_week && <span>Todos los días</span>}
+                  {!act.days_of_week && <span>{t("menus.all_days")}</span>}
                 </div>
               </div>
               <button
                 onClick={() => handleRemoveActivation(act.id)}
                 className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
-                title="Eliminar regla"
+                title={t("menus.delete_rule")}
               >
                 <Trash2 size={14} />
               </button>
@@ -150,10 +153,10 @@ export function ActivationsModal({ menu, onClose }: ActivationsModalProps) {
         {/* Formulario para agregar nueva regla */}
         {showAddForm && (
           <div className="bg-slate-800/50 border border-orange-500/30 rounded-lg p-4 mb-4">
-            <h3 className="text-sm font-semibold text-white mb-3">Nueva regla</h3>
+            <h3 className="text-sm font-semibold text-white mb-3">{t("menus.new_rule")}</h3>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Canal</label>
+                <label className="block text-xs text-slate-400 mb-1">{t("menus.channel")}</label>
                 <select
                   value={newActivation.channel_type}
                   onChange={(e) => setNewActivation({ ...newActivation, channel_type: e.target.value })}
@@ -169,7 +172,7 @@ export function ActivationsModal({ menu, onClose }: ActivationsModalProps) {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Desde</label>
+                  <label className="block text-xs text-slate-400 mb-1">{t("menus.from")}</label>
                   <input
                     type="time"
                     value={newActivation.time_from ?? ""}
@@ -178,7 +181,7 @@ export function ActivationsModal({ menu, onClose }: ActivationsModalProps) {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Hasta</label>
+                  <label className="block text-xs text-slate-400 mb-1">{t("menus.to")}</label>
                   <input
                     type="time"
                     value={newActivation.time_to ?? ""}
@@ -189,7 +192,7 @@ export function ActivationsModal({ menu, onClose }: ActivationsModalProps) {
               </div>
 
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Días de la semana</label>
+                <label className="block text-xs text-slate-400 mb-1">{t("menus.days_of_week")}</label>
                 <div className="flex flex-wrap gap-1">
                   {DAYS_OF_WEEK.map((day) => (
                     <button
@@ -213,12 +216,12 @@ export function ActivationsModal({ menu, onClose }: ActivationsModalProps) {
                   ))}
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
-                  {(newActivation.days_of_week ?? []).length === 0 && "Todos los días"}
+                  {(newActivation.days_of_week ?? []).length === 0 && t("menus.all_days")}
                 </p>
               </div>
 
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Prioridad</label>
+                <label className="block text-xs text-slate-400 mb-1">{t("menus.priority")}</label>
                 <input
                   type="number"
                   min="1"
@@ -265,7 +268,7 @@ export function ActivationsModal({ menu, onClose }: ActivationsModalProps) {
             disabled={isSaving}
             className="flex-1 px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-700 text-white rounded-lg font-medium transition-colors"
           >
-            {isSaving ? "Guardando..." : "Guardar cambios"}
+            {isSaving ? t("menus.saving") : t("menus.save_changes")}
           </button>
           <button
             onClick={onClose}

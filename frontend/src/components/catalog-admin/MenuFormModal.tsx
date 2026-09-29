@@ -65,50 +65,44 @@ export function MenuFormModal({ menu, priceLists, onClose }: MenuFormModalProps)
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-slate-400 mb-1.5">
-              Nombre del menú *
-            </label>
+            <label className="block text-sm text-slate-400 mb-1.5">{t("menus.menu_name")}</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              placeholder="Ej: Carta Comedor, Happy Hour"
+              placeholder={t("menus.name_placeholder")}
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 [color-scheme:dark]"
             />
           </div>
 
           <div>
-            <label className="block text-sm text-slate-400 mb-1.5">Descripción</label>
+            <label className="block text-sm text-slate-400 mb-1.5">{t("menus.description")}</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              placeholder="Descripción opcional..."
+              placeholder={t("menus.description_placeholder")}
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none [color-scheme:dark]"
             />
           </div>
 
           <div>
-            <label className="block text-sm text-slate-400 mb-1.5">
-              📋 Lista de precios *
-            </label>
+            <label className="block text-sm text-slate-400 mb-1.5">{t("menus.price_list_required")}</label>
             <select
               value={priceListId}
               onChange={(e) => setPriceListId(e.target.value)}
               required
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 [color-scheme:dark]"
             >
-              <option value="">Selecciona una lista...</option>
+              <option value="">{t("menus.select_list")}</option>
               {priceLists.map((list) => (
                 <option key={list.uuid} value={list.uuid}>
                   {list.display_name} {list.is_default ? "⭐" : ""}
                 </option>
               ))}
             </select>
-            <p className="text-xs text-slate-500 mt-1">
-              Determina qué precios se muestran en esta carta
-            </p>
+            <p className="text-xs text-slate-500 mt-1">{t("menus.price_list_help")}</p>
           </div>
 
           <div className="flex gap-4">
@@ -119,7 +113,7 @@ export function MenuFormModal({ menu, priceLists, onClose }: MenuFormModalProps)
                 onChange={(e) => setIsDefault(e.target.checked)}
                 className="w-4 h-4 accent-orange-500"
               />
-              <span className="text-sm text-slate-300">⭐ Menú default</span>
+              <span className="text-sm text-slate-300">{t("menus.default_menu")}</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -128,7 +122,7 @@ export function MenuFormModal({ menu, priceLists, onClose }: MenuFormModalProps)
                 onChange={(e) => setIsActive(e.target.checked)}
                 className="w-4 h-4 accent-orange-500"
               />
-              <span className="text-sm text-slate-300">Menú activo</span>
+              <span className="text-sm text-slate-300">{t("menus.active_menu")}</span>
             </label>
           </div>
 
@@ -138,7 +132,7 @@ export function MenuFormModal({ menu, priceLists, onClose }: MenuFormModalProps)
               disabled={isSaving}
               className="flex-1 px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-700 text-white rounded-lg font-medium transition-colors"
             >
-              {isSaving ? "Guardando..." : menu ? "Guardar cambios" : "Crear menú"}
+              {isSaving ? t("menus.saving") : menu ? t("menus.save_changes") : t("menus.create_menu")}
             </button>
             <button
               type="button"

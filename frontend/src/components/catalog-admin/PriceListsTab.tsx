@@ -237,9 +237,7 @@ function PriceListFormModal({ list, onClose }: PriceListFormModalProps) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-slate-400 mb-1.5">
-              Nombre visible *
-            </label>
+            <label className="block text-sm text-slate-400 mb-1.5">{t("price_lists.visible_name")}</label>
             <input
               type="text"
               value={displayName}
@@ -251,9 +249,7 @@ function PriceListFormModal({ list, onClose }: PriceListFormModalProps) {
           </div>
 
           <div>
-            <label className="block text-sm text-slate-400 mb-1.5">
-              Identificador interno
-            </label>
+            <label className="block text-sm text-slate-400 mb-1.5">{t("price_lists.internal_id")}</label>
             <input
               type="text"
               value={name}
@@ -261,15 +257,11 @@ function PriceListFormModal({ list, onClose }: PriceListFormModalProps) {
               placeholder="Se genera automáticamente si se deja vacío"
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono [color-scheme:dark]"
             />
-            <p className="text-xs text-slate-500 mt-1">
-              Ej: precio_comedor, precio_delivery
-            </p>
+            <p className="text-xs text-slate-500 mt-1">{t("price_lists.id_placeholder")}</p>
           </div>
 
           <div>
-            <label className="block text-sm text-slate-400 mb-1.5">
-              Canal de venta
-            </label>
+            <label className="block text-sm text-slate-400 mb-1.5">{t("price_lists.sales_channel")}</label>
             <select
               value={channelType}
               onChange={(e) => setChannelType(e.target.value)}
@@ -291,7 +283,7 @@ function PriceListFormModal({ list, onClose }: PriceListFormModalProps) {
                 onChange={(e) => setIsDefault(e.target.checked)}
                 className="w-4 h-4 accent-orange-500"
               />
-              <span className="text-sm text-slate-300">⭐ Lista default</span>
+              <span className="text-sm text-slate-300">{t("price_lists.default_list")}</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -300,7 +292,7 @@ function PriceListFormModal({ list, onClose }: PriceListFormModalProps) {
                 onChange={(e) => setIsActive(e.target.checked)}
                 className="w-4 h-4 accent-orange-500"
               />
-              <span className="text-sm text-slate-300">Lista activa</span>
+              <span className="text-sm text-slate-300">{t("price_lists.active_list")}</span>
             </label>
           </div>
 

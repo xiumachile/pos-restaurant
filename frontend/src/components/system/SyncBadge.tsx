@@ -22,28 +22,28 @@ const SYNC_CONFIG: Record<SyncStatus, {
 }> = {
   pending: {
     icon: Clock,
-    labelKey: "Pendiente",
+    labelKey: "sync.pending",
     color: "text-yellow-400",
     bgColor: "bg-yellow-900/20",
     borderColor: "border-yellow-800",
   },
   syncing: {
     icon: RefreshCw,
-    labelKey: "Sincronizando",
+    labelKey: "sync.syncing",
     color: "text-blue-400",
     bgColor: "bg-blue-900/20",
     borderColor: "border-blue-800",
   },
   synced: {
     icon: CheckCircle,
-    labelKey: "Sincronizado",
+    labelKey: "sync.synced",
     color: "text-green-400",
     bgColor: "bg-green-900/20",
     borderColor: "border-green-800",
   },
   failed: {
     icon: AlertCircle,
-    labelKey: "Error",
+    labelKey: "sync.failed",
     color: "text-red-400",
     bgColor: "bg-red-900/20",
     borderColor: "border-red-800",
@@ -88,7 +88,7 @@ export function SyncBadge({
         aria-hidden="true"
       />
       <span className={`font-medium ${config.color}`}>
-        {config.labelKey}
+        {t(config.labelKey)}
       </span>
       {showCloudId && status === "synced" && cloudId && (
         <span className="text-xs text-gray-400 ml-auto" aria-label={`ID en la nube: ${cloudId}`}>

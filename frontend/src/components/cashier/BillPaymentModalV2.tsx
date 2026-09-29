@@ -63,6 +63,7 @@ export function BillPaymentModalV2({
   const [payments, setPayments] = useState<PendingPayment[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  const [processedPaymentIds, setProcessedPaymentIds] = useState<Set<string>>(new Set());
 
   const { data: methods = [] } = usePaymentMethods();
   const isOffline = useConnectionMode();
@@ -173,14 +174,21 @@ export function BillPaymentModalV2({
     const errorsList: string[] = [];
 
     for (const payment of payments) {
+      // Si este pago ya fue procesado exitosamente, saltarlo para evitar doble cobro en reintentos
+      if (processedPaymentIds.has(payment.id)) {
+        continue;
+      }
+
       try {
         let amountLeft = payment.amount;
         let tipLeft = payment.tip_amount;
+        let paymentSuccess = true;
 
         while (amountLeft > 0.01) {
           const nextBill = billsRemaining.find(b => b.remaining > 0.01);
           if (!nextBill) {
             errorsList.push(`${payment.method_code}: No hay bills con saldo`);
+            paymentSuccess = false;
             break;
           }
 
@@ -193,13 +201,18 @@ export function BillPaymentModalV2({
               amount: amountForBill,
               payment_method_uuid: payment.payment_method_uuid,
               tip_amount: tipForBill,
-              idempotency_key: crypto.randomUUID(),
+              idempotency_key: payment.idempotency_key, // USAR CLAVE ORIGINAL PARA IDEMPOTENCIA
             },
           });
 
           amountLeft -= amountForBill;
           tipLeft -= tipForBill;
           nextBill.remaining -= amountForBill;
+        }
+
+        // Si el pago se completó sin errores, marcarlo como procesado
+        if (paymentSuccess && amountLeft <= 0.01) {
+          setProcessedPaymentIds(prev => new Set(prev).add(payment.id));
         }
       } catch (e: any) {
         const msg = e?.response?.data?.message || e?.message || "Error";
@@ -218,6 +231,7 @@ export function BillPaymentModalV2({
     onSuccess();
     onClose();
     setPayments([]);
+    setProcessedPaymentIds(new Set());
     setErrors([]);
   };
 

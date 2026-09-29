@@ -40,3 +40,28 @@ Object.defineProperty(window, "localStorage", {
 // Mock de window.location
 delete (window as any).location;
 window.location = { reload: vi.fn(), href: "" } as any;
+
+
+// Mock de react-i18next para tests
+import { vi } from "vitest";
+
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string) => {
+      const translations: Record<string, string> = {
+        "sync.sync_status": "Estado de sincronización",
+        "sync.pending": "Pendiente",
+        "sync.syncing": "Sincronizando",
+        "sync.synced": "Sincronizado",
+        "sync.failed": "Error",
+        "settings.title": "Configuración",
+        "catalog_admin.cancel": "Cancelar",
+      };
+      return translations[key] || key;
+    },
+    i18n: {
+      changeLanguage: () => new Promise(() => {}),
+      language: "es-CL",
+    },
+  }),
+}));

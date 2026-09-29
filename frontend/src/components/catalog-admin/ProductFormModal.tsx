@@ -269,13 +269,13 @@ export function ProductFormModal({ product, categories, onClose }: ProductFormMo
           {/* Sección 1: Info básica */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm text-slate-400 mb-1.5">SKU *</label>
+              <label className="block text-sm text-slate-400 mb-1.5">{t("products.sku")}</label>
               <input
                 type="text"
                 value={sku}
                 onChange={(e) => setSku(e.target.value)}
                 required
-                placeholder="Ej: BEB-001"
+                placeholder={t("products.sku_placeholder")}
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>
@@ -287,7 +287,7 @@ export function ProductFormModal({ product, categories, onClose }: ProductFormMo
                 required
                 className={selectClass}
               >
-                <option value="">Selecciona...</option>
+                <option value="">{t("products.select")}</option>
                 {categories.map((cat) => (
                   <option key={cat.uuid} value={cat.uuid}>
                     {getTranslatedName(cat.name_translations)}
@@ -298,9 +298,7 @@ export function ProductFormModal({ product, categories, onClose }: ProductFormMo
           </div>
 
           <div>
-            <label className="block text-sm text-slate-400 mb-1.5">
-              Nombre (español) *
-            </label>
+            <label className="block text-sm text-slate-400 mb-1.5">{t("catalog_admin.name_es_required")}</label>
             <input
               type="text"
               value={nameEs}
@@ -313,9 +311,7 @@ export function ProductFormModal({ product, categories, onClose }: ProductFormMo
           {/* Sección 2: Precio base e IVA */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm text-slate-400 mb-1.5">
-                Precio base (CLP) *
-              </label>
+              <label className="block text-sm text-slate-400 mb-1.5">{t("products.base_price")}</label>
               <input
                 type="number"
                 min="0"
@@ -325,12 +321,10 @@ export function ProductFormModal({ product, categories, onClose }: ProductFormMo
                 required
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
-              <p className="text-xs text-slate-500 mt-1">Fallback si la lista no tiene precio</p>
+              <p className="text-xs text-slate-500 mt-1">{t("products.fallback_help")}</p>
             </div>
             <div>
-              <label className="block text-sm text-slate-400 mb-1.5">
-                Tasa de IVA (%)
-              </label>
+              <label className="block text-sm text-slate-400 mb-1.5">{t("products.iva_rate")}</label>
               <input
                 type="number"
                 min="0"
@@ -348,9 +342,7 @@ export function ProductFormModal({ product, categories, onClose }: ProductFormMo
             <div className="border border-slate-700 rounded-lg p-4 bg-slate-800/30">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-white">
-                    📋 Precios por lista
-                  </h3>
+                  <h3 className="text-sm font-semibold text-white">{t("products.prices_by_list_title")}</h3>
                   <p className="text-xs text-slate-500 mt-0.5">
                     Define el precio específico para cada canal de venta
                   </p>
