@@ -67,7 +67,11 @@ export function BillPaymentModalV2({
 
   const { data: methods = [] } = usePaymentMethods();
   const isOffline = useConnectionMode();
-  const payBill = isOffline ? useOfflinePayment() : usePayBill();
+  
+  // Reglas de Hooks: llamar ambos incondicionalmente para evitar corrupción de estado si isOffline cambia
+  const onlinePayBill = usePayBill();
+  const offlinePayBill = useOfflinePayment();
+  
   const invalidate = useInvalidateCashier();
 
   const billTotal = effectiveBills.reduce((sum, b) => sum + b.total, 0);
@@ -192,7 +196,10 @@ export function BillPaymentModalV2({
           const amountForBill = Math.min(amountLeft, nextBill.remaining);
           const tipForBill = amountLeft === payment.amount ? tipLeft : 0;
 
-          await payBill.mutateAsync({
+          // Elegir la mutación correcta en tiempo de ejecución (seguro, no viola reglas de hooks)
+          const activeMutation = isOffline ? offlinePayBill : onlinePayBill;
+          
+          await activeMutation.mutateAsync({
             billUuid: nextBill.uuid,
             payload: {
               amount: Math.round(amountForBill),
