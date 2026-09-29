@@ -6,7 +6,8 @@
     "save": "Guardar",
     "cancel": "Cancelar",
     "confirm": "Confirmar",
-    "back": "Volver"
+    "back": "Volver",
+    "clear": "Limpiar"
   },
   "auth": {
     "login": "Ingresar",
@@ -78,7 +79,13 @@
     "sending": "Enviando...",
     "send_to_kitchen": "Enviar a Cocina",
     "total_consumed": "Total consumido",
-    "transactions": "transacciones"
+    "transactions": "transacciones",
+    "notes": "Notas",
+    "add_note": "Agregar nota",
+    "custom_note": "Nota personalizada",
+    "no_spicy": "Sin picante",
+    "extra_sauce": "Salsa extra",
+    "well_done": "Bien cocido"
   },
   "sync": {
     "sync_status": "Estado de sincronización",
@@ -137,7 +144,9 @@
     "printers_title": "Impresoras",
     "printers_desc": "Configura impresoras térmicas (boletas, cocina, bar)",
     "users_title": "Gestión de Usuarios",
-    "users_desc": "Administra los usuarios del sistema y sus permisos de acceso."
+    "users_desc": "Administra los usuarios del sistema y sus permisos de acceso.",
+    "default_notes_title": "Notas Predefinidas",
+    "default_notes_desc": "Gestiona las notas rápidas para los pedidos"
   },
   "kitchen": {
     "title": "Cocina",

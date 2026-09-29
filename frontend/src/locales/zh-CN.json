@@ -6,7 +6,8 @@
     "save": "保存",
     "cancel": "取消",
     "confirm": "确认",
-    "back": "返回"
+    "back": "返回",
+    "clear": "清除"
   },
   "auth": {
     "login": "登录",
@@ -78,7 +79,13 @@
     "sending": "发送中...",
     "send_to_kitchen": "发送至厨房",
     "total_consumed": "总消费",
-    "transactions": "交易"
+    "transactions": "交易",
+    "notes": "备注",
+    "add_note": "添加备注",
+    "custom_note": "自定义备注",
+    "no_spicy": "不要辣",
+    "extra_sauce": "多加酱",
+    "well_done": "全熟"
   },
   "cashier": {
     "title": "收银台",
@@ -137,7 +144,9 @@
     "printers_title": "打印机",
     "printers_desc": "配置热敏打印机（收据、厨房、吧台）",
     "users_title": "用户管理",
-    "users_desc": "管理系统用户及其访问权限。"
+    "users_desc": "管理系统用户及其访问权限。",
+    "default_notes_title": "预设备注",
+    "default_notes_desc": "管理订单的快速备注"
   },
   "kitchen": {
     "title": "厨房",

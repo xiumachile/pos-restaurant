@@ -8,6 +8,7 @@ use Modules\Catalog\Interfaces\Controllers\ProductPriceController;
 use Modules\Catalog\Interfaces\Controllers\MenuController;
 use Modules\Catalog\Interfaces\Controllers\ComboSubstitutionController;
 use Modules\Catalog\Interfaces\Controllers\ComboReplacementRuleController;
+use Modules\Catalog\Interfaces\Controllers\DefaultNoteController;
 use App\Shared\Http\Middleware\TenantContextMiddleware;
 use App\Shared\Http\Middleware\CheckRole;
 
@@ -21,7 +22,17 @@ Route::prefix('v1/catalog')->middleware(['auth:api', TenantContextMiddleware::cl
         Route::post('/categories', [CategoryController::class, 'store'])->name('catalog.categories.store');
         Route::put('/categories/{uuid}', [CategoryController::class, 'update'])->name('catalog.categories.update');
         Route::delete('/categories/{uuid}', [CategoryController::class, 'destroy'])->name('catalog.categories.destroy');
+    
+    // Notas predefinidas (lectura para todos los usuarios autenticados)
+    Route::get('/default-notes', [DefaultNoteController::class, 'index'])->name('catalog.default-notes.index');
+
+    // Notas predefinidas (escritura solo admin/manager)
+    Route::middleware([CheckRole::class . ':admin,manager'])->group(function () {
+        Route::post('/default-notes', [DefaultNoteController::class, 'store'])->name('catalog.default-notes.store');
+        Route::put('/default-notes/{uuid}', [DefaultNoteController::class, 'update'])->name('catalog.default-notes.update');
+        Route::delete('/default-notes/{uuid}', [DefaultNoteController::class, 'destroy'])->name('catalog.default-notes.destroy');
     });
+});
 
     // Productos (lectura pública para usuarios autenticados)
     Route::get('/products', [ProductController::class, 'index'])->name('catalog.products.index');

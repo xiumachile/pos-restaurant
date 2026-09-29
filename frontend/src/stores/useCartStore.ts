@@ -30,6 +30,9 @@ interface CartState {
   /** Actualiza cantidad (si llega a 0, elimina el item) */
   updateQuantity: (tableUuid: string, itemId: string, quantity: number) => void;
 
+  /** Actualiza las notas de un item */
+  updateItemNotes: (tableUuid: string, itemId: string, notes: string) => void;
+
   /** Vacía el carrito de una mesa */
   clearCart: (tableUuid: string) => void;
 
@@ -97,6 +100,24 @@ export const useCartStore = create<CartState>()(
               [tableUuid]: {
                 ...cart,
                 items: cart.items.filter((i) => i.id !== itemId),
+              },
+            },
+          };
+        });
+      },
+
+      updateItemNotes: (tableUuid, itemId, notes) => {
+        set((state) => {
+          const cart = state.carts[tableUuid];
+          if (!cart) return state;
+          return {
+            carts: {
+              ...state.carts,
+              [tableUuid]: {
+                ...cart,
+                items: cart.items.map((item) =>
+                  item.id === itemId ? { ...item, notes: notes || undefined } : item
+                ),
               },
             },
           };

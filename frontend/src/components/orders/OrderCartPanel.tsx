@@ -11,6 +11,8 @@ import { IVA_PERCENTAGE } from "@/config/tax";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useCapabilities } from "@/hooks/useCapabilities";
 import { CapabilityKey } from "@/types/capabilities";
+import { useDefaultNotes } from "@/hooks/useDefaultNotes";
+import { getDefaultNoteText } from "@/types/defaultNotes";
 import { useSyncStore } from "@/store/useSyncStore";
 import { OrderRepository } from "@/db/repositories/OrderRepository";
 import { Plus, Minus, Trash2, Send, ShoppingCart, Loader2, CheckCircle2, AlertCircle, WifiOff } from "lucide-react";
@@ -29,12 +31,13 @@ type FeedbackState =
   | { type: "error"; message: string };
 
 export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const cart = useCartStore((s) => s.carts[tableUuid]);
   const { capabilities } = useCapabilities();
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
+  const updateItemNotes = useCartStore((s) => s.updateItemNotes);
   const removeItem = useCartStore((s) => s.removeItem);
   const clearCart = useCartStore((s) => s.clearCart);
   const getTotals = useCartStore((s) => s.getTotals);
@@ -46,6 +49,9 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
 
   const { data: activeOrders = [], refetch: refetchActiveOrders } = useTableOrders(tableUuid);
   const [feedback, setFeedback] = useState<FeedbackState>({ type: "idle" });
+  const [noteEditingId, setNoteEditingId] = useState<string | null>(null);
+  const [noteInput, setNoteInput] = useState("");
+  const { notes: defaultNotes, isLoading: isLoadingNotes } = useDefaultNotes();
 
   const totals = getTotals(tableUuid);
   const items = cart?.items ?? [];
@@ -193,7 +199,24 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
                 </button>
               </div>
 
-              <div className="flex items-center justify-between">
+              {/* Notas */}
+              {item.notes && (
+                <div className="mt-2 mb-2 p-2 bg-yellow-900/20 border border-yellow-700/50 rounded text-xs text-yellow-200 flex items-start gap-2">
+                  <span>📝</span>
+                  <span className="flex-1">{item.notes}</span>
+                  <button
+                    onClick={() => {
+                      setNoteEditingId(item.id);
+                      setNoteInput(item.notes || "");
+                    }}
+                    className="text-yellow-400 hover:text-yellow-300"
+                  >
+                    Editar
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between mt-2">
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => updateQuantity(tableUuid, item.id, item.quantity - 1)}
@@ -211,6 +234,17 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
                     className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded disabled:opacity-40"
                   >
                     <Plus size={13} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setNoteEditingId(item.id);
+                      setNoteInput(item.notes || "");
+                    }}
+                    disabled={isProcessing}
+                    className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded disabled:opacity-40 ml-2"
+                    title={t("orders.add_note")}
+                  >
+                    📝
                   </button>
                 </div>
                 <span className="font-bold text-orange-400">
@@ -303,6 +337,80 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
           </button>
         </div>
       </div>
+
+      {/* Modal de Notas */}
+      {noteEditingId && (
+        <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4" onClick={() => setNoteEditingId(null)}>
+          <div className="bg-slate-800 rounded-xl p-6 w-full max-w-sm border border-slate-700" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-white mb-4">{t("orders.add_note")}</h3>
+            
+            {/* Notas predefinidas dinámicas */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              {isLoadingNotes ? (
+                <span className="text-xs text-slate-500">Cargando notas...</span>
+              ) : defaultNotes.length === 0 ? (
+                <span className="text-xs text-slate-500">No hay notas predefinidas configuradas</span>
+              ) : (
+                defaultNotes.map((note) => {
+                  const noteText = getDefaultNoteText(note, i18n.language);
+                  return (
+                    <button
+                      key={note.uuid}
+                      onClick={() => setNoteInput((prev) => {
+                        return prev.includes(noteText) ? prev.replace(noteText, "").trim() : (prev ? prev + ", " + noteText : noteText);
+                      })}
+                      className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-full text-xs text-slate-200 border border-slate-600"
+                    >
+                      {noteText}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Input personalizado */}
+            <textarea
+              value={noteInput}
+              onChange={(e) => setNoteInput(e.target.value)}
+              placeholder={t("orders.custom_note")}
+              className="w-full p-3 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm mb-4 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
+              rows={3}
+            />
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  updateItemNotes(tableUuid, noteEditingId, noteInput.trim());
+                  setNoteEditingId(null);
+                  setNoteInput("");
+                }}
+                className="flex-1 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 rounded-lg font-semibold text-white"
+              >
+                {t("common.save")}
+              </button>
+              <button
+                onClick={() => {
+                  updateItemNotes(tableUuid, noteEditingId, "");
+                  setNoteEditingId(null);
+                  setNoteInput("");
+                }}
+                className="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-semibold text-slate-300"
+              >
+                {t("common.clear")}
+              </button>
+              <button
+                onClick={() => {
+                  setNoteEditingId(null);
+                  setNoteInput("");
+                }}
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg font-semibold text-slate-400"
+              >
+                {t("common.cancel")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }
