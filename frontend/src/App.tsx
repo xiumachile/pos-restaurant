@@ -1,3 +1,4 @@
+import { ToastContainer } from '@/components/system/ToastContainer';
 import { useState, useEffect } from "react";
 import { RouterProvider } from "react-router-dom";
 import { I18nextProvider } from "react-i18next";
@@ -84,3 +85,5 @@ function App() {
 }
 
 export default App;
+
+      <ToastContainer />

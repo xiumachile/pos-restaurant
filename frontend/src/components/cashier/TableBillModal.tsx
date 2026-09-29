@@ -1,3 +1,4 @@
+import { useToastStore } from '@/store/useToastStore';
 import { useTranslation } from 'react-i18next';
 import { useState, useMemo, useEffect } from "react";
 import type { Bill } from "@/types/bills";
@@ -39,8 +40,8 @@ export function TableBillModal({
   );
 
   const [payingBills, setPayingBills] = useState<Bill[] | null>(null);
-  const [showSuccessToast, setShowSuccessToast] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
+  
+  
   const [showPrintWarning, setShowPrintWarning] = useState(false);
   const [showUnservedWarning, setShowUnservedWarning] = useState(false);
 
@@ -67,12 +68,7 @@ export function TableBillModal({
     }
   }, [isOpen, tableUuid, tableBill]);
 
-  useEffect(() => {
-    if (showSuccessToast) {
-      const timer = setTimeout(() => setShowSuccessToast(false), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [showSuccessToast]);
+
 
   // Items agregados de todos los pedidos
   const aggregatedItems = useMemo(() => {
@@ -443,8 +439,7 @@ export function TableBillModal({
         onClose={() => setPayingBills(null)}
         onSuccess={() => {
           setPayingBills(null);
-          setSuccessMessage("✅ Mesa cobrada correctamente");
-          setShowSuccessToast(true);
+          useToastStore.getState().addToast('success', '✅ Mesa cobrada correctamente');
           // Limpiar estado de impresión al cobrar exitosamente
           try {
             sessionStorage.removeItem(storageKey);
@@ -456,13 +451,7 @@ export function TableBillModal({
       {/* Componente oculto para impresión */}
       <PrintablePrecuenta tableBill={tableBill} />
 
-      {/* Toast de éxito */}
-      {showSuccessToast && (
-        <div className="fixed bottom-6 right-6 bg-green-600 text-white px-5 py-3 rounded-lg shadow-xl z-[60] flex items-center gap-2">
-          <CheckCircle2 size={18} />
-          {successMessage}
-        </div>
-      )}
+
     </>
   );
 }
