@@ -96,7 +96,16 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
         // No mostramos error al usuario porque el pedido ya se guardó exitosamente
       }
 
-      // 5. No redirigir forzosamente. El usuario decide si volver o agregar más.
+      // 5. Redirección inteligente según configuración de la empresa
+      setTimeout(async () => {
+        const returnToLogin = capabilities[CapabilityKey.RETURN_TO_LOGIN_AFTER_ORDER]?.is_enabled;
+        if (returnToLogin) {
+          await clearAuth();
+          navigate("/login", { replace: true });
+        } else {
+          navigate("/");
+        }
+      }, 1200);
     } catch (error: any) {
       console.error("[OrderCartPanel] Error creando pedido:", error);
       setFeedback({
