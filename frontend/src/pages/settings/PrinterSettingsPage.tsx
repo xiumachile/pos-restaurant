@@ -188,7 +188,7 @@ export function PrinterSettingsPage() {
   return (
     <div>
       <div className="flex items-center gap-4 mb-6">
-        <Link to="" /settings>
+        <Link to="/settings" className="text-slate-400 hover:text-white transition-colors flex items-center gap-2">
           <ArrowLeft size={24} />
         </Link>
         <div>
