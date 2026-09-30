@@ -28,6 +28,7 @@ interface TipPayoutModalProps {
 }
 
 export function TipPayoutModal({ isOpen, onClose }: TipPayoutModalProps) {
+  const { t } = useTranslation();
   const [showForm, setShowForm] = useState(false);
   const [selectedWaiter, setSelectedWaiter] = useState<number | null>(null);
   const [amount, setAmount] = useState<string>("");

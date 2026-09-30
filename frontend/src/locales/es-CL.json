@@ -495,5 +495,28 @@
     "print_now": "Imprimir Ahora",
     "continue_without_printing": "Continuar sin Imprimir",
     "table_paid_success": "✅ Mesa cobrada correctamente"
+  },
+  "tip_payout": {
+    "title": "Pago de Propinas",
+    "waiter": "Garzón",
+    "total_tips": "Total Propinas",
+    "cash_tips": "Propinas en Efectivo",
+    "payroll_tips": "Propinas por Nómina",
+    "pending": "Pendiente",
+    "delivered": "Entregado",
+    "deliver": "Entregar",
+    "confirm_delivery": "Confirmar entrega",
+    "cancel": "Cancelar",
+    "mark_as_delivered": "Marcar como entregado",
+    "delivery_success": "Propina marcada como entregada",
+    "delivery_error": "Error al marcar propina",
+    "no_pending_tips": "No hay propinas pendientes",
+    "waiter_name": "Nombre del garzón",
+    "amount": "Monto",
+    "date": "Fecha",
+    "status": "Estado",
+    "actions": "Acciones",
+    "all_waiters": "Todos los garzones",
+    "filter_by_status": "Filtrar por estado"
   }
 }

@@ -495,5 +495,28 @@
     "print_now": "立即打印",
     "continue_without_printing": "继续不打印",
     "table_paid_success": "✅ 桌账收款成功"
+  },
+  "tip_payout": {
+    "title": "小费支付",
+    "waiter": "服务员",
+    "total_tips": "小费总计",
+    "cash_tips": "现金小费",
+    "payroll_tips": "工资小费",
+    "pending": "待支付",
+    "delivered": "已交付",
+    "deliver": "交付",
+    "confirm_delivery": "确认交付",
+    "cancel": "取消",
+    "mark_as_delivered": "标记为已交付",
+    "delivery_success": "小费已标记为已交付",
+    "delivery_error": "标记小费失败",
+    "no_pending_tips": "没有待支付的小费",
+    "waiter_name": "服务员姓名",
+    "amount": "金额",
+    "date": "日期",
+    "status": "状态",
+    "actions": "操作",
+    "all_waiters": "所有服务员",
+    "filter_by_status": "按状态筛选"
   }
 }
