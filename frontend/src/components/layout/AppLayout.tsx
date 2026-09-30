@@ -6,6 +6,7 @@ import { Header } from './Header';
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { ToastContainer } from '../system/ToastContainer';
 import { ConfirmDialog } from '../system/ConfirmDialog';
+import { PopupProvider } from "./PopupProvider";
 
 export function AppLayout() {
   const { t } = useTranslation();
