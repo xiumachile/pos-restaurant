@@ -102,13 +102,17 @@ export function BillPaymentModalV2({
   const change = isCash ? Math.max(0, receivedEffective - (amountToCharge + currentTip)) : 0;
   
   const cashShort = isCash && receivedEffective < amountToCharge + currentTip;
-  const canAdd = !!selectedMethod && amountToCharge > 0 && amountToCharge <= remaining && !cashShort;
+  // [FIX] En efectivo, permitir cobrar más del pendiente (el vuelto se calcula automáticamente)
+  // En otros métodos (tarjeta/transferencia), limitar al pendiente exacto
+  const maxAmountAllowed = isCash ? Number.MAX_SAFE_INTEGER : remaining;
+  const canAdd = !!selectedMethod && amountToCharge > 0 && amountToCharge <= maxAmountAllowed && !cashShort;
   
   // Determinar motivo de deshabilitado del botón
   const getDisabledReason = () => {
     if (!selectedMethod) return "Selecciona un método de pago";
     if (amountToCharge <= 0) return "Monto debe ser mayor a 0";
-    if (amountToCharge > remaining) return `Monto excede el pendiente (${formatPrice(remaining)})`;
+    // En efectivo no hay límite superior, en otros métodos sí
+    if (!isCash && amountToCharge > remaining) return `Monto excede el pendiente (${formatPrice(remaining)})`;
     if (cashShort) return `Falta ${formatPrice(amountToCharge + currentTip - receivedEffective)} de efectivo`;
     return null;
   };
@@ -183,8 +187,10 @@ export function BillPaymentModalV2({
       setErrors(["El monto a cobrar debe ser mayor a 0"]);
       return;
     }
-    if (currentAmount > remaining) {
-      setErrors([`El monto ($${formatPrice(currentAmount)}) excede el saldo pendiente ($${formatPrice(remaining)}).`]);
+    // [FIX] En efectivo, permitir pagos mayores al pendiente (con vuelto)
+    // En otros métodos, limitar al pendiente exacto
+    if (!isCash && currentAmount > remaining) {
+      setErrors([`El monto (${formatPrice(currentAmount)}) excede el saldo pendiente (${formatPrice(remaining)}).`]);
       return;
     }
     
