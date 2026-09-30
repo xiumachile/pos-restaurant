@@ -147,7 +147,26 @@ export function BillPaymentModalV2({
   };
 
   const handleAddPayment = () => {
-    if (!selectedMethod || currentAmount <= 0 || currentAmount > remaining) return;
+    setErrors([]); // Limpiar errores previos
+
+    if (!selectedMethod) {
+      setErrors(["Selecciona un método de pago"]);
+      return;
+    }
+    if (currentAmount <= 0) {
+      setErrors(["El monto debe ser mayor a 0"]);
+      return;
+    }
+    if (currentAmount > remaining) {
+      setErrors(["El monto excede el saldo pendiente"]);
+      return;
+    }
+    
+    // VALIDACIÓN CRÍTICA: En efectivo, lo recibido debe cubrir monto + propina
+    if (selectedMethod.type === "cash" && currentReceived < (currentAmount + currentTip)) {
+      setErrors(["El monto recibido debe ser igual o mayor al monto más la propina"]);
+      return;
+    }
 
     const newPayment: PendingPayment = {
       id: crypto.randomUUID(),
