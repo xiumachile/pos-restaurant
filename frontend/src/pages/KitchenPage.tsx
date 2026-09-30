@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useTranslation } from 'react-i18next';
 import { useToastStore } from '@/store/useToastStore';
 import { useKitchenQueue, useKitchenStats, useKitchenTransition } from "@/hooks/useKitchenOrders";
 import { KitchenColumn } from "@/components/kitchen/KitchenColumn";
 import { TableHistoryModal } from "@/components/kitchen/TableHistoryModal";
 import { TablesTodayView } from "@/components/kitchen/TablesTodayView";
-import { Loader2, RefreshCw, ChefHat, History } from "lucide-react";
+import { Loader2, RefreshCw, ChefHat, History, Maximize, Minimize } from "lucide-react";
 
 export function KitchenPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
