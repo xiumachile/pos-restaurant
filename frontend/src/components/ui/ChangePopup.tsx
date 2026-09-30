@@ -1,28 +1,23 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
 interface ChangePopupProps {
   amount: number;
-  duration?: number; // segundos
+  duration?: number;
   onClose: () => void;
 }
 
-/**
- * Popup grande y visible para mostrar el vuelto al cajero.
- * Se cierra automáticamente después de `duration` segundos.
- */
 export function ChangePopup({ amount, duration = 5, onClose }: ChangePopupProps) {
   const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
   const [countdown, setCountdown] = useState(duration);
 
-  console.log('[ChangePopup] Componente renderizado, amount:', amount);
+  console.log('[ChangePopup] 🎉 Componente MONTADO, amount:', amount);
 
   useEffect(() => {
-    // Animación de entrada
-    const enterTimeout = setTimeout(() => setIsVisible(true), 10);
+    setTimeout(() => setIsVisible(true), 10);
 
-    // Countdown
     const countdownInterval = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
@@ -33,21 +28,17 @@ export function ChangePopup({ amount, duration = 5, onClose }: ChangePopupProps)
       });
     }, 1000);
 
-    // Auto-cerrar
     const closeTimeout = setTimeout(() => {
       setIsVisible(false);
-      setTimeout(onClose, 300); // Esperar animación de salida
+      setTimeout(onClose, 300);
     }, duration * 1000);
 
-    // Cleanup
     return () => {
-      clearTimeout(enterTimeout);
       clearInterval(countdownInterval);
       clearTimeout(closeTimeout);
     };
   }, [duration, onClose]);
 
-  // Cerrar con tecla Escape
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -72,7 +63,8 @@ export function ChangePopup({ amount, duration = 5, onClose }: ChangePopupProps)
     }).format(value);
   };
 
-  return (
+  // Usar Portal para renderizar FUERA del árbol de React del modal
+  return createPortal(
     <div
       className={`fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm transition-opacity duration-300 ${
         isVisible ? 'opacity-100' : 'opacity-0'
@@ -80,7 +72,6 @@ export function ChangePopup({ amount, duration = 5, onClose }: ChangePopupProps)
       onClick={handleClose}
       role="dialog"
       aria-modal="true"
-      aria-label="Vuelto a entregar"
     >
       <div
         className={`bg-gradient-to-br from-green-500 to-green-600 rounded-3xl shadow-2xl p-12 max-w-lg w-full mx-4 transform transition-all duration-300 ${
@@ -89,18 +80,18 @@ export function ChangePopup({ amount, duration = 5, onClose }: ChangePopupProps)
         onClick={(e) => e.stopPropagation()}
       >
         <div className="text-center">
-          <div className="text-7xl mb-6" aria-hidden="true">💰</div>
+          <div className="text-7xl mb-6">💰</div>
           <h2 className="text-3xl font-bold text-white mb-8">
             {t("change_popup.title")}
           </h2>
           
           <div className="bg-white/20 backdrop-blur rounded-2xl p-10 mb-8">
-            <div className="text-7xl font-bold text-white" aria-live="polite">
+            <div className="text-7xl font-bold text-white">
               {formatPrice(amount)}
             </div>
           </div>
 
-          <div className="text-white/90 text-lg mb-6" aria-live="polite">
+          <div className="text-white/90 text-lg mb-6">
             {t("change_popup.closes_in", { 
               countdown: countdown, 
               unit: countdown === 1 ? t("change_popup.second") : t("change_popup.seconds") 
@@ -110,12 +101,12 @@ export function ChangePopup({ amount, duration = 5, onClose }: ChangePopupProps)
           <button
             onClick={handleClose}
             className="px-8 py-3 bg-white/20 hover:bg-white/30 text-white font-semibold rounded-xl transition-colors"
-            aria-label={t("change_popup.close_now")}
           >
             {t("change_popup.close_now")}
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

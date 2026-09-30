@@ -321,12 +321,8 @@ export function BillPaymentModalV2({
       setChangeAmountForPopup(totalChange);
       setShowChangePopupState(true);
       
-      // Cerrar modal después de un delay para que el cajero vea el popup
-      setTimeout(() => {
-        invalidate();
-        onSuccess();
-        onClose();
-      }, 500);
+      // NO cerrar el modal todavía. El popup se encarga de cerrar todo
+      // cuando termine (onClose del popup llamará invalidate + onSuccess + onClose)
     } else {
       // Cerrar inmediatamente si no hay popup
       invalidate();
