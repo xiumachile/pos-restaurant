@@ -25,7 +25,6 @@ export class SyncEngine {
     failed: number;
     skipped: number;
   }> {
-    if (!useAuthStore.getState().isAuthenticated) return { processed: 0, success: 0, failed: 0, skipped: 0 };
     if (this.isProcessing) {
       console.log("[SyncEngine] Ya procesando, saltando batch");
       return { processed: 0, success: 0, failed: 0, skipped: 1 };
