@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface ChangePopupProps {
   amount: number;
@@ -11,6 +12,7 @@ interface ChangePopupProps {
  * Se cierra automáticamente después de `duration` segundos.
  */
 export function ChangePopup({ amount, duration = 5, onClose }: ChangePopupProps) {
+  const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
   const [countdown, setCountdown] = useState(duration);
 
@@ -87,7 +89,7 @@ export function ChangePopup({ amount, duration = 5, onClose }: ChangePopupProps)
         <div className="text-center">
           <div className="text-7xl mb-6" aria-hidden="true">💰</div>
           <h2 className="text-3xl font-bold text-white mb-8">
-            VUELTO A ENTREGAR
+            {t("change_popup.title")}
           </h2>
           
           <div className="bg-white/20 backdrop-blur rounded-2xl p-10 mb-8">
@@ -97,7 +99,7 @@ export function ChangePopup({ amount, duration = 5, onClose }: ChangePopupProps)
           </div>
 
           <div className="text-white/90 text-lg mb-6" aria-live="polite">
-            Se cierra en {countdown} {countdown === 1 ? 'segundo' : 'segundos'}
+            {t("change_popup.closes_in", { countdown: countdown, unit: countdown === 1 ? t("change_popup.second") : t("change_popup.seconds") })}
           </div>
 
           <button
@@ -105,7 +107,7 @@ export function ChangePopup({ amount, duration = 5, onClose }: ChangePopupProps)
             className="px-8 py-3 bg-white/20 hover:bg-white/30 text-white font-semibold rounded-xl transition-colors"
             aria-label="Cerrar popup"
           >
-            Cerrar ahora
+            {t("change_popup.close_now")}
           </button>
         </div>
       </div>

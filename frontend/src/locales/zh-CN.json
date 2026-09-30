@@ -147,7 +147,19 @@
     "users_title": "用户管理",
     "users_desc": "管理系统用户及其访问权限。",
     "default_notes_title": "预设备注",
-    "default_notes_desc": "管理订单的快速备注"
+    "default_notes_desc": "管理订单的快速备注",
+    "general_title": "常规设置",
+    "general_desc": "找零弹窗和系统本地偏好设置",
+    "change_popup_title": "找零弹窗",
+    "show_change_popup": "收款时显示弹窗",
+    "show_change_popup_desc": "完成现金支付时显示大弹窗显示找零金额",
+    "change_popup_duration": "弹窗持续时间（秒）",
+    "change_popup_duration_desc": "弹窗将在 {seconds} 秒后自动关闭",
+    "seconds": "秒",
+    "preview_title": "预览",
+    "preview_enabled": "有找零时将显示弹窗",
+    "preview_auto_close": "将在 {seconds} 秒后自动关闭",
+    "preview_disabled": "收款时不显示弹窗"
   },
   "kitchen": {
     "title": "厨房",
@@ -429,5 +441,12 @@
     "deleted_success": "用户删除成功",
     "delete_error": "删除用户失败",
     "delete_confirm": "确定要删除此用户吗？此操作无法撤销。"
+  },
+  "change_popup": {
+    "title": "找零金额",
+    "close_now": "立即关闭",
+    "closes_in": "{countdown} {unit}后关闭",
+    "second": "秒",
+    "seconds": "秒"
   }
 }

@@ -20,18 +20,18 @@ export function GeneralSettingsPage() {
       <div>
         <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-3">
           <Settings className="w-8 h-8 text-orange-500" />
-          Configuración General
+          t("settings.title") + " - " + t("settings.general_title")
         </h1>
         <p className="text-slate-600 dark:text-slate-400">
-          Personaliza el comportamiento del sistema según tus necesidades
+          t("settings.general_desc")
         </p>
       </div>
 
-      {/* Sección: Popup de Vuelto */}
+      {/* Sección: t("settings.change_popup_title") */}
       <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
         <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
           <DollarSign className="w-5 h-5 text-green-500" />
-          Popup de Vuelto
+          t("settings.change_popup_title")
         </h2>
         
         <div className="space-y-4">
@@ -39,10 +39,10 @@ export function GeneralSettingsPage() {
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <label className="text-slate-900 dark:text-white font-medium block">
-                Mostrar popup al cobrar
+                t("settings.show_change_popup")
               </label>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                Muestra un popup grande con el monto del vuelto cuando se completa un pago en efectivo
+                t("settings.show_change_popup_desc")
               </p>
             </div>
             <button
@@ -67,7 +67,7 @@ export function GeneralSettingsPage() {
             <div className="ml-6 pl-6 border-l-2 border-slate-200 dark:border-slate-700 space-y-3">
               <label className="block text-slate-900 dark:text-white font-medium">
                 <Clock className="w-4 h-4 inline mr-1" />
-                Duración del popup (segundos)
+                t("settings.change_popup_duration")
               </label>
               <div className="flex items-center gap-3 flex-wrap">
                 <input
@@ -77,9 +77,9 @@ export function GeneralSettingsPage() {
                   value={changePopupDuration}
                   onChange={(e) => setChangePopupDuration(parseInt(e.target.value) || 5)}
                   className="w-24 px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                  aria-label="Duración en segundos"
+                  aria-label="Duración en t("settings.seconds")"
                 />
-                <span className="text-slate-600 dark:text-slate-400">segundos</span>
+                <span className="text-slate-600 dark:text-slate-400">t("settings.seconds")</span>
                 <div className="flex gap-2 ml-4">
                   {[3, 5, 10].map((seconds) => (
                     <button
@@ -97,7 +97,7 @@ export function GeneralSettingsPage() {
                 </div>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                El popup se cerrará automáticamente después de {changePopupDuration} segundos
+                t("settings.change_popup_duration_desc", { seconds: changePopupDuration })
               </p>
             </div>
           )}
@@ -108,24 +108,24 @@ export function GeneralSettingsPage() {
       <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
         <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
           <CheckCircle2 className="w-5 h-5 text-blue-500" />
-          Vista Previa
+          t("settings.preview_title")
         </h3>
         <div className="bg-white dark:bg-slate-900 rounded-lg p-4 text-slate-700 dark:text-slate-300 text-sm">
           {showChangePopup ? (
             <>
               <div className="flex items-start gap-2 mb-2">
                 <span className="text-green-500">✅</span>
-                <span>El popup <strong>se mostrará</strong> cuando haya vuelto al cobrar</span>
+                <span>t("settings.preview_enabled")</span>
               </div>
               <div className="flex items-start gap-2">
                 <span className="text-blue-500">⏱️</span>
-                <span>Se cerrará automáticamente en <strong>{changePopupDuration} segundos</strong></span>
+                <span>Se cerrará automáticamente en <strong>{changePopupDuration} t("settings.seconds")</strong></span>
               </div>
             </>
           ) : (
             <div className="flex items-start gap-2">
               <span className="text-slate-400">❌</span>
-              <span>El popup <strong>no se mostrará</strong> al cobrar</span>
+              <span>t("settings.preview_disabled")</span>
             </div>
           )}
         </div>

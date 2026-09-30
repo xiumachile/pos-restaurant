@@ -147,7 +147,19 @@
     "users_title": "Gestión de Usuarios",
     "users_desc": "Administra los usuarios del sistema y sus permisos de acceso.",
     "default_notes_title": "Notas Predefinidas",
-    "default_notes_desc": "Gestiona las notas rápidas para los pedidos"
+    "default_notes_desc": "Gestiona las notas rápidas para los pedidos",
+    "general_title": "General",
+    "general_desc": "Popup de vuelto y preferencias locales del sistema",
+    "change_popup_title": "Popup de Vuelto",
+    "show_change_popup": "Mostrar popup al cobrar",
+    "show_change_popup_desc": "Muestra un popup grande con el monto del vuelto cuando se completa un pago en efectivo",
+    "change_popup_duration": "Duración del popup (segundos)",
+    "change_popup_duration_desc": "El popup se cerrará automáticamente después de {seconds} segundos",
+    "seconds": "segundos",
+    "preview_title": "Vista Previa",
+    "preview_enabled": "El popup se mostrará cuando haya vuelto al cobrar",
+    "preview_auto_close": "Se cerrará automáticamente en {seconds} segundos",
+    "preview_disabled": "El popup no se mostrará al cobrar"
   },
   "kitchen": {
     "title": "Cocina",
@@ -429,5 +441,12 @@
     "deleted_success": "Usuario eliminado exitosamente",
     "delete_error": "Error al eliminar el usuario",
     "delete_confirm": "¿Estás seguro de eliminar este usuario? Esta acción no se puede deshacer."
+  },
+  "change_popup": {
+    "title": "VUELTO A ENTREGAR",
+    "close_now": "Cerrar ahora",
+    "closes_in": "Se cierra en {countdown} {unit}",
+    "second": "segundo",
+    "seconds": "segundos"
   }
 }
