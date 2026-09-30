@@ -567,6 +567,7 @@ export function BillPaymentModalV2({
                 )}
               </div>
               </div>
+              </div>
 
               {/* Cambio */}
               {selectedMethod.type === "cash" && change > 0 && (
