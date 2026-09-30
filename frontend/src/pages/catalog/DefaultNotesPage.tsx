@@ -9,7 +9,6 @@ import { useNavigate } from 'react-router-dom';
 import { useToastStore } from '@/store/useToastStore';
 
 export function DefaultNotesPage() {
-  const { t } = useTranslation();
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
