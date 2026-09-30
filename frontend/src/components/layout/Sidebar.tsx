@@ -116,7 +116,7 @@ export function Sidebar() {
                 }`
               }
             >
-              <Icon size={20} />
+              <Icon size={22} />
               <span className="font-medium">{item.label}</span>
             </NavLink>
           );

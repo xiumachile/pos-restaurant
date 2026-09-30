@@ -193,9 +193,9 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
                 <button
                   onClick={() => removeItem(tableUuid, item.id)}
                   disabled={isProcessing}
-                  className="p-1 hover:bg-red-500/20 rounded ml-2 disabled:opacity-40"
+                  className="min-w-[44px] min-h-[44px] p-2 hover:bg-red-500/20 rounded-lg ml-2 disabled:opacity-40 flex items-center justify-center"
                 >
-                  <Trash2 size={15} className="text-red-400" />
+                  <Trash2 size={20} className="text-red-400" />
                 </button>
               </div>
 
@@ -221,9 +221,9 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
                   <button
                     onClick={() => updateQuantity(tableUuid, item.id, item.quantity - 1)}
                     disabled={isProcessing}
-                    className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded disabled:opacity-40"
+                    className="min-w-[44px] min-h-[44px] p-2 bg-slate-700 hover:bg-slate-600 rounded-lg disabled:opacity-40 flex items-center justify-center"
                   >
-                    <Minus size={13} />
+                    <Minus size={20} />
                   </button>
                   <span className="text-base font-bold w-7 text-center">
                     {item.quantity}
@@ -231,9 +231,9 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
                   <button
                     onClick={() => updateQuantity(tableUuid, item.id, item.quantity + 1)}
                     disabled={isProcessing}
-                    className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded disabled:opacity-40"
+                    className="min-w-[44px] min-h-[44px] p-2 bg-slate-700 hover:bg-slate-600 rounded-lg disabled:opacity-40 flex items-center justify-center"
                   >
-                    <Plus size={13} />
+                    <Plus size={20} />
                   </button>
                   <button
                     onClick={() => {
