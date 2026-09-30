@@ -17,7 +17,7 @@ export function Header() {
   const { theme, toggleTheme } = useThemeStore();
 
   return (
-    <header className="bg-white dark:bg-slate-800/50 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 px-6 py-4 transition-colors duration-200">
+    <header className="bg-white dark:bg-slate-800/80 backdrop-blur-sm border-b border-gray-200 dark:border-slate-700 px-6 py-4 transition-colors duration-200">
       <div className="flex items-center justify-end gap-4">
         <SyncStatusIndicator />
         <LanguageSwitcher />

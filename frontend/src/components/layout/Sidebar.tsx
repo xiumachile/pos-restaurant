@@ -90,13 +90,13 @@ export function Sidebar() {
   });
 
   return (
-    <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col h-full">
+    <aside className="w-64 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-800 flex flex-col h-full transition-colors duration-200">
       {/* Logo */}
-      <div className="p-6 border-b border-slate-800">
+      <div className="p-6 border-b border-gray-200 dark:border-slate-800">
         <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">
           🍜 Wok & Mesa
         </h1>
-        <p className="text-xs text-slate-500 mt-1">{t("common.pos_system", "Sistema POS")}</p>
+        <p className="text-xs text-gray-500 dark:text-slate-500 mt-1">{t("common.pos_system", "Sistema POS")}</p>
       </div>
 
       {/* Navegación */}
@@ -112,7 +112,7 @@ export function Sidebar() {
                 `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                   isActive
                     ? "bg-orange-500 text-white"
-                    : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                    : "text-gray-600 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white"
                 }`
               }
             >
@@ -124,20 +124,20 @@ export function Sidebar() {
       </nav>
 
       {/* Footer: usuario + logout (fuente única) */}
-      <div className="p-4 border-t border-slate-800 space-y-3">
+      <div className="p-4 border-t border-gray-200 dark:border-slate-800 space-y-3">
         {user && (
           <div className="flex items-center justify-between px-2">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-slate-200 truncate">
+              <p className="text-sm font-medium text-gray-900 dark:text-slate-200 truncate">
                 {user.name}
               </p>
-              <p className="text-xs text-slate-500 truncate capitalize">
+              <p className="text-xs text-gray-500 dark:text-slate-500 truncate capitalize">
                 {t(`roles.${user.role.toLowerCase()}`, user.role)}
               </p>
             </div>
             <button
               onClick={() => void logout()}
-              className="p-2 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors"
+              className="p-2 text-gray-500 dark:text-slate-500 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
               title={t("auth.logout")}
               aria-label={t("auth.logout")}
             >
@@ -146,7 +146,7 @@ export function Sidebar() {
           </div>
         )}
 
-        <p className="text-[10px] text-slate-600 text-center">
+        <p className="text-[10px] text-gray-400 dark:text-slate-600 text-center">
           v0.1.0 · Wok & Mesa POS
         </p>
       </div>
