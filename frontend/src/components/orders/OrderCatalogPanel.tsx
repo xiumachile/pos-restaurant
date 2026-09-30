@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useCategories, useProducts } from "@/hooks/useCatalog";
 import { getTranslatedName, formatPrice } from "@/types/catalog";
 import type { Product } from "@/types/catalog";
-import { Search, Plus, Package, Loader2 } from "lucide-react";
+import { Search, Plus, Package, Loader2, Check } from "lucide-react";
+import { useToastStore } from "@/store/useToastStore";
 
 interface OrderCatalogPanelProps {
   onAddProduct: (product: Product) => void;
@@ -13,6 +14,7 @@ interface OrderCatalogPanelProps {
  * búsqueda + tabs horizontales de categorías + grid de productos.
  */
 export function OrderCatalogPanel({ onAddProduct }: OrderCatalogPanelProps) {
+  const addToast = useToastStore((s) => s.addToast);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -83,15 +85,19 @@ export function OrderCatalogPanel({ onAddProduct }: OrderCatalogPanelProps) {
             {products.map((product) => (
               <button
                 key={product.id}
-                onClick={() => onAddProduct(product)}
-                className="bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-left hover:border-orange-500/60 hover:bg-slate-800 active:scale-95 transition-all group"
+                onClick={() => {
+                  onAddProduct(product);
+                  addToast("success", `${getTranslatedName(product.name_translations)} agregado`);
+                }}
+                className="bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-left hover:border-orange-500/60 hover:bg-slate-800 active:scale-95 active:border-orange-500 transition-all"
               >
                 <div className="flex items-start justify-between gap-1 mb-1">
-                  <h3 className="font-semibold text-white text-sm leading-tight">
+                  <h3 className="font-semibold text-white text-sm leading-tight flex-1">
                     {getTranslatedName(product.name_translations)}
                   </h3>
-                  <span className="opacity-0 group-hover:opacity-100 transition-opacity text-orange-400 flex-shrink-0">
-                    <Plus size={16} />
+                  {/* Ícono siempre visible para táctil, sin group-hover */}
+                  <span className="text-orange-400 flex-shrink-0 bg-orange-500/10 p-1.5 rounded-lg">
+                    <Plus size={18} />
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mb-2">{product.sku}</p>
