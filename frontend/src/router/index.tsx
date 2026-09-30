@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
+import { createBrowserRouter, Navigate, Outlet, Link } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -46,70 +46,67 @@ function ReportsPage() {
 
 function SettingsPage() {
   const { t } = useTranslation();
+  
+  const settingsItems = [
+    {
+      to: "/settings/general",
+      icon: "⚙️",
+      title: "General",
+      description: "Popup de vuelto y preferencias locales del sistema",
+    },
+    {
+      to: "/settings/catalog",
+      icon: "📦",
+      title: t("settings.catalog_title"),
+      description: t("settings.catalog_desc"),
+    },
+    {
+      to: "/settings/tips",
+      icon: "💰",
+      title: t("settings.tips_title"),
+      description: t("settings.tips_desc"),
+    },
+    {
+      to: "/settings/capabilities",
+      icon: "🎛️",
+      title: t("settings.capabilities_title"),
+      description: t("settings.capabilities_desc"),
+    },
+    {
+      to: "/settings/printers",
+      icon: "🖨️",
+      title: t("settings.printers_title"),
+      description: t("settings.printers_desc"),
+    },
+    {
+      to: "/settings/users",
+      icon: "👥",
+      title: t("settings.users_title"),
+      description: t("settings.users_desc"),
+    },
+    {
+      to: "/settings/default-notes",
+      icon: "📝",
+      title: t("settings.default_notes_title"),
+      description: t("settings.default_notes_desc"),
+    },
+  ];
+
   return (
     <div>
       <h1 className="text-3xl font-bold mb-6">{t("settings.title")}</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <a
-          href="/settings/catalog"
-          className="bg-slate-800 hover:bg-slate-700 rounded-lg p-6 transition-colors border border-slate-700"
-        >
-          <div className="text-2xl mb-2">📦</div>
-          <h2 className="font-bold text-lg mb-1">{t("settings.catalog_title")}</h2>
-          <p className="text-sm text-slate-400">
-            {t("settings.catalog_desc")}
-          </p>
-        </a>
-        <a
-          href="/settings/tips"
-          className="bg-slate-800 hover:bg-slate-700 rounded-lg p-6 transition-colors border border-slate-700"
-        >
-          <div className="text-2xl mb-2">💰</div>
-          <h2 className="font-bold text-lg mb-1">{t("settings.tips_title")}</h2>
-          <p className="text-sm text-slate-400">
-            {t("settings.tips_desc")}
-          </p>
-        </a>
-        <a
-          href="/settings/capabilities"
-          className="bg-slate-800 hover:bg-slate-700 rounded-lg p-6 transition-colors border border-slate-700"
-        >
-          <div className="text-2xl mb-2">🎛️</div>
-          <h2 className="font-bold text-lg mb-1">{t("settings.capabilities_title")}</h2>
-          <p className="text-sm text-slate-400">
-            {t("settings.capabilities_desc")}
-          </p>
-        </a>
-        <a
-          href="/settings/printers"
-          className="bg-slate-800 hover:bg-slate-700 rounded-lg p-6 transition-colors border border-slate-700"
-        >
-          <div className="text-2xl mb-2">🖨️</div>
-          <h2 className="font-bold text-lg mb-1">{t("settings.printers_title")}</h2>
-          <p className="text-sm text-slate-400">
-            {t("settings.printers_desc")}
-          </p>
-        </a>
-        <a
-          href="/settings/users"
-          className="bg-slate-800 hover:bg-slate-700 rounded-lg p-6 transition-colors border border-slate-700"
-        >
-          <div className="text-2xl mb-2">👥</div>
-          <h2 className="font-bold text-lg mb-1">{t("settings.users_title")}</h2>
-          <p className="text-sm text-slate-400">
-            {t("settings.users_desc")}
-          </p>
-        </a>
-        <a
-          href="/settings/default-notes"
-          className="bg-slate-800 hover:bg-slate-700 rounded-lg p-6 transition-colors border border-slate-700"
-        >
-          <div className="text-2xl mb-2">📝</div>
-          <h2 className="font-bold text-lg mb-1">{t("settings.default_notes_title")}</h2>
-          <p className="text-sm text-slate-400">
-            {t("settings.default_notes_desc")}
-          </p>
-        </a>
+        {settingsItems.map((item) => (
+          <Link
+            key={item.to}
+            to={item.to}
+            className="bg-slate-800 hover:bg-slate-700 rounded-lg p-6 transition-colors border border-slate-700 hover:border-slate-600"
+          >
+            <div className="text-2xl mb-2">{item.icon}</div>
+            <h2 className="font-bold text-lg mb-1">{item.title}</h2>
+            <p className="text-sm text-slate-400">{item.description}</p>
+          </Link>
+        ))}
       </div>
     </div>
   );
