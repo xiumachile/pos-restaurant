@@ -84,6 +84,11 @@ export function BillPaymentModalV2({
   const currentAmount = parseInt(amountInput, 10) || 0;
   const currentTip = parseInt(tipInput, 10) || 0;
   const currentReceived = parseInt(receivedInput, 10) || 0;
+  
+  // Base para calcular propina sugerida
+  const tipBase = currentAmount > 0 ? currentAmount : remaining;
+  const suggestedTipPercentages: number[] = [10, 15, 20];
+  
   const change = selectedMethod?.type === "cash"
     ? Math.max(0, currentReceived - (currentAmount + currentTip))
     : 0;
@@ -467,7 +472,7 @@ export function BillPaymentModalV2({
               {/* Propina: Porcentajes sugeridos + Input */}
               <div className="space-y-2">
                 <div className="flex gap-2">
-                  {suggestedTipPercentages.map((pct) => {
+                  {suggestedTipPercentages.map((pct: number) => {
                     const calcTip = Math.round(tipBase * (pct / 100));
                     const isActive = currentTip === calcTip && currentTip > 0;
                     return (
