@@ -518,5 +518,53 @@
     "actions": "操作",
     "all_waiters": "所有服务员",
     "filter_by_status": "按状态筛选"
+  },
+  "session_sales": {
+    "title": "会话销售",
+    "total_sales": "总销售额",
+    "cash_sales": "现金销售",
+    "card_sales": "刷卡销售",
+    "transfer_sales": "转账销售",
+    "session_start": "会话开始",
+    "session_end": "会话结束"
+  },
+  "cash_session": {
+    "status": "收银状态",
+    "open": "已开",
+    "closed": "已关",
+    "open_session": "开收银",
+    "close_session": "关收银",
+    "current_session": "当前会话"
+  },
+  "cash_report": {
+    "title": "收银报告",
+    "total_income": "总收入",
+    "total_expenses": "总支出",
+    "net_total": "净额",
+    "print_report": "打印报告",
+    "close": "关闭"
+  },
+  "order_taking": {
+    "take_order": "接单",
+    "menu": "菜单",
+    "cart": "购物车",
+    "send_to_kitchen": "发送到厨房"
+  },
+  "default_notes": {
+    "title": "默认备注",
+    "add_note": "添加备注",
+    "edit": "编辑",
+    "delete": "删除",
+    "save": "保存",
+    "cancel": "取消"
+  },
+  "product_form": {
+    "new_product": "新产品",
+    "edit_product": "编辑产品",
+    "name": "名称",
+    "price": "价格",
+    "category": "类别",
+    "save": "保存",
+    "cancel": "取消"
   }
 }

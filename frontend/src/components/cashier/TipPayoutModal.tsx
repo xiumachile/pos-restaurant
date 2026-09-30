@@ -21,6 +21,7 @@ import {
   Banknote,
   CreditCard,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface TipPayoutModalProps {
   isOpen: boolean;

@@ -518,5 +518,53 @@
     "actions": "Acciones",
     "all_waiters": "Todos los garzones",
     "filter_by_status": "Filtrar por estado"
+  },
+  "session_sales": {
+    "title": "Ventas de Sesión",
+    "total_sales": "Total de Ventas",
+    "cash_sales": "Ventas en Efectivo",
+    "card_sales": "Ventas con Tarjeta",
+    "transfer_sales": "Ventas por Transferencia",
+    "session_start": "Inicio de Sesión",
+    "session_end": "Fin de Sesión"
+  },
+  "cash_session": {
+    "status": "Estado de Caja",
+    "open": "Abierta",
+    "closed": "Cerrada",
+    "open_session": "Abrir Caja",
+    "close_session": "Cerrar Caja",
+    "current_session": "Sesión Actual"
+  },
+  "cash_report": {
+    "title": "Reporte de Caja",
+    "total_income": "Ingresos Totales",
+    "total_expenses": "Gastos Totales",
+    "net_total": "Total Neto",
+    "print_report": "Imprimir Reporte",
+    "close": "Cerrar"
+  },
+  "order_taking": {
+    "take_order": "Tomar Pedido",
+    "menu": "Menú",
+    "cart": "Carrito",
+    "send_to_kitchen": "Enviar a Cocina"
+  },
+  "default_notes": {
+    "title": "Notas por Defecto",
+    "add_note": "Agregar Nota",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "save": "Guardar",
+    "cancel": "Cancelar"
+  },
+  "product_form": {
+    "new_product": "Nuevo Producto",
+    "edit_product": "Editar Producto",
+    "name": "Nombre",
+    "price": "Precio",
+    "category": "Categoría",
+    "save": "Guardar",
+    "cancel": "Cancelar"
   }
 }
