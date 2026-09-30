@@ -7,7 +7,13 @@
     "cancel": "Cancelar",
     "confirm": "Confirmar",
     "back": "Volver",
-    "clear": "Limpiar"
+    "clear": "Limpiar",
+    "activate": "Activar",
+    "deactivate": "Desactivar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "inactive": "Inactivo",
+    "pos_system": "Sistema POS"
   },
   "auth": {
     "login": "Ingresar",
@@ -93,7 +99,37 @@
     "pending": "Pendiente",
     "syncing": "Sincronizando",
     "synced": "Sincronizado",
-    "failed": "Error"
+    "failed": "Error",
+    "action": "Acción",
+    "actions": "Acciones",
+    "adjust_filters": "Ajustar filtros",
+    "attempts": "Intentos",
+    "cash_session": "Sesión de caja",
+    "confirm_delete_failed": "¿Eliminar item fallido de la cola?",
+    "created_at": "Creado",
+    "delete": "Eliminar",
+    "delete_item": "Eliminar item",
+    "diagnostic": "Diagnóstico",
+    "empty_queue": "La cola de sincronización está vacía",
+    "entity": "Entidad",
+    "force_tooltip": "Forzar reintentar este item",
+    "idempotency": "Clave de idempotencia",
+    "in_progress": "En progreso",
+    "last": "Último",
+    "last_error": "Último error",
+    "no_pending_items": "No hay items pendientes de sincronizar",
+    "no_results": "Sin resultados para los filtros aplicados",
+    "offline": "Offline",
+    "payment": "Pago",
+    "payment_session": "Sesión de pago",
+    "queue": "Cola de sincronización",
+    "retry": "Reintentar",
+    "retry_sync": "Reintentar sincronización",
+    "search_placeholder": "Buscar por entidad o ID...",
+    "status": "Estado",
+    "sync_now": "Sincronizar ahora",
+    "terminal": "Terminal",
+    "view_details": "Ver detalles"
   },
   "cashier": {
     "title": "Caja",
@@ -194,7 +230,11 @@
     "total_orders": "Total Pedidos",
     "total_items": "Total Items",
     "total_amount": "Total Monto",
-    "deliver": "Entregar"
+    "deliver": "Entregar",
+    "mark_ready": "Marcar listo",
+    "mark_served": "Marcar servido",
+    "to_serve": "Por servir",
+    "view_table_history": "Ver historial de mesa"
   },
   "reports": {
     "title": "Reportes"
@@ -206,7 +246,13 @@
     "all": "Todas",
     "products": "productos",
     "categories_title": "CATEGORÍAS",
-    "all_categories": "Todas"
+    "all_categories": "Todas",
+    "create_note": "Crear nota",
+    "default_notes_subtitle": "Notas predefinidas para agregar rápidamente a pedidos",
+    "default_notes_title": "Notas por defecto",
+    "edit_note": "Editar nota",
+    "new_note": "Nueva nota",
+    "no_notes": "No hay notas creadas"
   },
   "roles": {
     "admin": "Administrador",
@@ -452,7 +498,16 @@
   "bill_payment": {
     "payment_method_gift_card": "Tarjeta de Regalo",
     "payment_method_debit_card": "Débito",
-    "payment_method_transfer": "Transferencia"
+    "payment_method_transfer": "Transferencia",
+    "amount_to_charge": "A cobrar",
+    "error_amount_exceeds_pending": "Monto excede el pendiente",
+    "error_amount_must_be_positive": "Monto debe ser mayor a 0",
+    "error_select_method": "Selecciona un método de pago",
+    "payment_method_card": "Tarjeta",
+    "payment_method_cash": "Efectivo",
+    "pending_amount": "Pendiente",
+    "received": "Recibido",
+    "total": "Total"
   },
   "cash_close": {
     "title": "Cierre de Caja",

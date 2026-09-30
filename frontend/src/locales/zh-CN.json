@@ -7,7 +7,13 @@
     "cancel": "取消",
     "confirm": "确认",
     "back": "返回",
-    "clear": "清除"
+    "clear": "清除",
+    "activate": "激活",
+    "deactivate": "停用",
+    "delete": "删除",
+    "edit": "编辑",
+    "inactive": "未激活",
+    "pos_system": "POS系统"
   },
   "auth": {
     "login": "登录",
@@ -132,7 +138,37 @@
     "pending": "待处理",
     "syncing": "同步中",
     "synced": "已同步",
-    "failed": "错误"
+    "failed": "错误",
+    "action": "操作",
+    "actions": "操作",
+    "adjust_filters": "调整筛选",
+    "attempts": "尝试次数",
+    "cash_session": "收银会话",
+    "confirm_delete_failed": "是否从队列中删除失败项？",
+    "created_at": "创建时间",
+    "delete": "删除",
+    "delete_item": "删除项目",
+    "diagnostic": "诊断",
+    "empty_queue": "同步队列为空",
+    "entity": "实体",
+    "force_tooltip": "强制重试此项",
+    "idempotency": "幂等键",
+    "in_progress": "进行中",
+    "last": "最后",
+    "last_error": "最后错误",
+    "no_pending_items": "没有待同步的项目",
+    "no_results": "应用筛选后无结果",
+    "offline": "离线",
+    "payment": "支付",
+    "payment_session": "支付会话",
+    "queue": "同步队列",
+    "retry": "重试",
+    "retry_sync": "重新同步",
+    "search_placeholder": "按实体或ID搜索...",
+    "status": "状态",
+    "sync_now": "立即同步",
+    "terminal": "终端",
+    "view_details": "查看详情"
   },
   "settings": {
     "title": "设置",
@@ -194,7 +230,11 @@
     "total_orders": "总订单数",
     "total_items": "总商品数",
     "total_amount": "总金额",
-    "deliver": "交付"
+    "deliver": "交付",
+    "mark_ready": "标记完成",
+    "mark_served": "标记已上菜",
+    "to_serve": "待上菜",
+    "view_table_history": "查看餐桌历史"
   },
   "reports": {
     "title": "报告"
@@ -206,7 +246,13 @@
     "all": "全部",
     "products": "个产品",
     "categories_title": "类别",
-    "all_categories": "全部"
+    "all_categories": "全部",
+    "create_note": "创建备注",
+    "default_notes_subtitle": "预定义备注，可快速添加到订单",
+    "default_notes_title": "默认备注",
+    "edit_note": "编辑备注",
+    "new_note": "新备注",
+    "no_notes": "暂无备注"
   },
   "roles": {
     "admin": "管理员",
@@ -452,7 +498,16 @@
   "bill_payment": {
     "payment_method_gift_card": "礼品卡",
     "payment_method_debit_card": "借记卡",
-    "payment_method_transfer": "转账"
+    "payment_method_transfer": "转账",
+    "amount_to_charge": "收款金额",
+    "error_amount_exceeds_pending": "金额超过待付金额",
+    "error_amount_must_be_positive": "金额必须大于0",
+    "error_select_method": "请选择支付方式",
+    "payment_method_card": "银行卡",
+    "payment_method_cash": "现金",
+    "pending_amount": "待付金额",
+    "received": "已收",
+    "total": "总计"
   },
   "cash_close": {
     "title": "收银关账",
