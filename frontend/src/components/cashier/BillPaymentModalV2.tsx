@@ -136,6 +136,11 @@ export function BillPaymentModalV2({
     // Si ya había monto en el campo, no resetear
   };
 
+  const handleApplyTipPercentage = (percentage: number) => {
+    const calculatedTip = Math.round(tipBase * (percentage / 100));
+    setTipInput(calculatedTip.toString());
+  };
+
   const handleAddPayment = () => {
     if (!selectedMethod || currentAmount <= 0 || currentAmount > remaining) return;
 
@@ -459,17 +464,55 @@ export function BillPaymentModalV2({
                 </div>
               </div>
 
-              {/* Propina + Recibido en fila */}
-              <div className="grid grid-cols-2 gap-2">
-                <div
-                  onClick={() => setActiveField("tip")}
-                  className={fieldClass("tip", "orange")}
-                >
-                  <div className="text-xs text-slate-400 uppercase">Propina</div>
-                  <div className="text-lg font-bold text-orange-400 text-right tabular-nums">
-                    ${tipInput || "0"}
-                  </div>
+              {/* Propina: Porcentajes sugeridos + Input */}
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  {suggestedTipPercentages.map((pct) => {
+                    const calcTip = Math.round(tipBase * (pct / 100));
+                    const isActive = currentTip === calcTip && currentTip > 0;
+                    return (
+                      <button
+                        key={pct}
+                        type="button"
+                        onClick={() => handleApplyTipPercentage(pct)}
+                        className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                          isActive
+                            ? "bg-orange-500 text-white shadow-lg shadow-orange-500/20"
+                            : "bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700"
+                        }`}
+                      >
+                        {pct}%
+                        <span className="block text-[10px] font-normal opacity-80">
+                          ${calcTip}
+                        </span>
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => setTipInput("0")}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                      currentTip === 0
+                        ? "bg-slate-600 text-white"
+                        : "bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700"
+                    }`}
+                  >
+                    Ninguna
+                    <span className="block text-[10px] font-normal opacity-80">$0</span>
+                  </button>
                 </div>
+                
+                {/* Input de Propina + Recibido en fila */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div
+                    onClick={() => setActiveField("tip")}
+                    className={fieldClass("tip", "orange")}
+                  >
+                    <div className="text-xs text-slate-400 uppercase">Propina (Manual)</div>
+                    <div className="text-lg font-bold text-orange-400 text-right tabular-nums">
+                      ${tipInput || "0"}
+                    </div>
+                  </div>
                 {selectedMethod.type === "cash" ? (
                   <div
                     onClick={() => setActiveField("received")}
@@ -485,6 +528,7 @@ export function BillPaymentModalV2({
                     <span className="text-xs text-slate-400">Sin cambio</span>
                   </div>
                 )}
+              </div>
               </div>
 
               {/* Cambio */}
