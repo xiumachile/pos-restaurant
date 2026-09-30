@@ -1,10 +1,12 @@
 import { useState, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
-export const getPaymentConfig = (t: (key: string) => string) => ({
+export const getPaymentConfig = (t: (key: string) => string): Record<string, { label: string; icon: any; color: string }> => ({
   CASH: { label: t("bill_payment.payment_method_cash"), icon: Banknote, color: "bg-green-600" },
   CARD: { label: t("bill_payment.payment_method_card"), icon: CreditCard, color: "bg-blue-600" },
   TRANSFER: { label: t("bill_payment.payment_method_transfer"), icon: Building2, color: "bg-purple-600" },
+  GIFT_CARD: { label: t("bill_payment.payment_method_gift_card"), icon: Gift, color: "bg-amber-600" },
+  DEBIT_CARD: { label: t("bill_payment.payment_method_debit_card"), icon: CreditCard, color: "bg-blue-600" },
 });
 
 import { useSettingsStore } from "../../store/useSettingsStore";
@@ -50,14 +52,7 @@ interface PendingPayment {
 
 type ActiveField = "amount" | "tip" | "received";
 
-const PAYMENT_CONFIG: Record<string, { label: string; icon: any; color: string }> = {
-  CASH: { label: "Efectivo", icon: Banknote, color: "bg-green-600" },
-  CARD: { label: "Tarjeta", icon: CreditCard, color: "bg-blue-600" },
-  TRANSFER: { label: "Transfer", icon: Building2, color: "bg-purple-600" },
-  GIFT_CARD: { label: "Gift Card", icon: Gift, color: "bg-amber-600" },
-  DEBIT_CARD: { label: "Débito", icon: CreditCard, color: "bg-blue-600" },
-  CREDIT_CARD: { label: "Crédito", icon: CreditCard, color: "bg-blue-600" },
-};
+
 
 export function BillPaymentModalV2({
   bill,

@@ -448,5 +448,10 @@
     "closes_in": "Se cierra en {countdown} {unit}",
     "second": "segundo",
     "seconds": "segundos"
+  },
+  "bill_payment": {
+    "payment_method_gift_card": "Tarjeta de Regalo",
+    "payment_method_debit_card": "Débito",
+    "payment_method_transfer": "Transferencia"
   }
 }

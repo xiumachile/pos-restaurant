@@ -448,5 +448,10 @@
     "closes_in": "{countdown} {unit}后关闭",
     "second": "秒",
     "seconds": "秒"
+  },
+  "bill_payment": {
+    "payment_method_gift_card": "礼品卡",
+    "payment_method_debit_card": "借记卡",
+    "payment_method_transfer": "转账"
   }
 }
