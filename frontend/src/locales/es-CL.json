@@ -482,5 +482,18 @@
     "denomination": "Denominación",
     "quantity": "Cantidad",
     "subtotal": "Subtotal"
+  },
+  "table_bill": {
+    "precuenta_reference": "Precuenta Mesa",
+    "subtotal": "Subtotal",
+    "bill_printed": "Cuenta impresa",
+    "bill_pending_print": "Cuenta pendiente de impresión",
+    "reprint_bill": "Reimprimir Cuenta",
+    "print_bill": "Imprimir Cuenta",
+    "products_not_served": "Productos sin servir",
+    "bill_not_printed": "Cuenta no impresa",
+    "print_now": "Imprimir Ahora",
+    "continue_without_printing": "Continuar sin Imprimir",
+    "table_paid_success": "✅ Mesa cobrada correctamente"
   }
 }

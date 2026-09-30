@@ -133,7 +133,7 @@ export function TableBillModal({
         payload: precuentaData,
         escpos_base64: escposBase64,
         printer_name: "receipt-printer",
-        reference_number: "Precuenta Mesa " + tableBill.table_number,
+        reference_number: t("table_bill.precuenta_reference") + " " + tableBill.table_number,
       });
 
       sessionStorage.setItem(storageKey, "true");
@@ -273,7 +273,7 @@ export function TableBillModal({
             {/* Totales */}
             <div className="bg-slate-800/50 rounded-lg p-4 space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-slate-400">Subtotal</span>
+                <span className="text-slate-400">{t("table_bill.subtotal")}</span>
                 <span className="text-white">{formatPrice(tableBill.subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
@@ -324,7 +324,7 @@ export function TableBillModal({
               className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium text-white flex items-center justify-center gap-2"
             >
               <Printer size={16} />
-              {isPrinted ? "Reimprimir Cuenta" : "Imprimir Cuenta"}
+              {isPrinted ? t("table_bill.reprint_bill") : t("table_bill.print_bill")}
             </button>
             <div className="flex gap-2">
               <button
@@ -368,7 +368,7 @@ export function TableBillModal({
                     <AlertTriangle size={24} className="text-red-400" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-white">Productos sin servir</h3>
+                    <h3 className="text-lg font-bold text-white">{t("table_bill.products_not_served")}</h3>
                     <p className="text-sm text-slate-400">
                       Hay {tableBill.unserved_items_count} producto{tableBill.unserved_items_count !== 1 ? "s" : ""} que aún {tableBill.unserved_items_count !== 1 ? "están" : "está"} en preparación.
                     </p>
@@ -434,7 +434,7 @@ export function TableBillModal({
                     <AlertTriangle size={24} className="text-amber-400" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-white">Cuenta no impresa</h3>
+                    <h3 className="text-lg font-bold text-white">{t("table_bill.bill_not_printed")}</h3>
                     <p className="text-sm text-slate-400">
                       La cuenta no ha sido impresa todavía.
                     </p>
@@ -478,7 +478,7 @@ export function TableBillModal({
         onClose={() => setPayingBills(null)}
         onSuccess={() => {
           setPayingBills(null);
-          useToastStore.getState().addToast('success', '✅ Mesa cobrada correctamente');
+          useToastStore.getState().addToast('success', t("table_bill.table_paid_success"));
           // Limpiar estado de impresión al cobrar exitosamente
           try {
             sessionStorage.removeItem(storageKey);

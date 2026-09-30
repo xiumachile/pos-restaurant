@@ -482,5 +482,18 @@
     "denomination": "面额",
     "quantity": "数量",
     "subtotal": "小计"
+  },
+  "table_bill": {
+    "precuenta_reference": "预账单 桌号",
+    "subtotal": "小计",
+    "bill_printed": "账单已打印",
+    "bill_pending_print": "账单待打印",
+    "reprint_bill": "重新打印账单",
+    "print_bill": "打印账单",
+    "products_not_served": "未上菜品",
+    "bill_not_printed": "账单未打印",
+    "print_now": "立即打印",
+    "continue_without_printing": "继续不打印",
+    "table_paid_success": "✅ 桌账收款成功"
   }
 }
