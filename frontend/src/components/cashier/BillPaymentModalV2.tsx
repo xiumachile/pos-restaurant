@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { parseCLPAmount } from '@/utils/money';
 import type { Bill } from "@/types/bills";
 import type { PaymentMethod } from "@/types/payments";
 import { usePaymentMethods, usePayBill, useInvalidateCashier } from "@/hooks/usePayments";
@@ -82,7 +83,7 @@ export function BillPaymentModalV2({
   const remaining = Math.max(0, billPending - paymentsSum);
   const canCharge = remaining === 0 && payments.length > 0 && !isProcessing;
 
-  const currentAmount = parseInt(amountInput, 10) || 0;
+  const currentAmount = parseCLPAmount(amountInput);
   
   // Lógica de propina sugerida (única declaración)
   const tipBase = currentAmount > 0 ? currentAmount : remaining;
@@ -91,8 +92,8 @@ export function BillPaymentModalV2({
   // [AUDIT FIX] Derivar propina del porcentaje o del input manual
   const currentTip = tipPct !== null
     ? Math.round(tipBase * tipPct / 100)
-    : (parseInt(tipInput, 10) || 0);
-  const currentReceived = parseInt(receivedInput, 10) || 0;
+    : parseCLPAmount(tipInput);
+  const currentReceived = parseCLPAmount(receivedInput);
   
   // [AUDIT FIX] Derivar "Recibido" automáticamente en lugar de useEffect duplicado
   const isCash = selectedMethod?.type === "cash";
@@ -189,17 +190,7 @@ export function BillPaymentModalV2({
     
     
 
-    // VALIDACIÓN DE EFECTIVO
-    if (selectedMethod.type === "cash") {
-      const requiredTotal = currentAmount + currentTip;
-      if (currentReceived < requiredTotal) {
-        setErrors([
-          "Efectivo recibido insuficiente.",
-          `Para cobrar $${formatPrice(currentAmount)} + $${formatPrice(currentTip)} de propina, el campo "Recibido" debe ser al menos $${formatPrice(requiredTotal)}.`
-        ]);
-        return;
-      }
-    }
+
 
     // [AUDIT FIX] Generar ID única del pago, luego derivar idempotency_key
     const paymentId = crypto.randomUUID();
@@ -210,7 +201,7 @@ export function BillPaymentModalV2({
       amount: currentAmount,
       tip_amount: currentTip,
       received_amount: selectedMethod.type === "cash" ? currentReceived : 0,
-      idempotency_key: `${paymentId}-${effectiveBills.map(b => b.uuid).sort().join('-')}`, // [AUDIT FIX] UUID derivado por (pago, bills)
+      idempotency_key: paymentId, // Usar paymentId directamente (UUID v4 válido)
     };
 
     setPayments([...payments, newPayment]);
