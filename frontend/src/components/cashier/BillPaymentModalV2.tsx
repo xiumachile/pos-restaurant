@@ -200,7 +200,6 @@ export function BillPaymentModalV2({
 
 
     // [FIX] En efectivo, limitar monto al pendiente y calcular vuelto
-    const isCash = selectedMethod.type === "cash";
     const actualAmount = isCash ? Math.min(currentAmount, remaining) : currentAmount;
     const actualReceived = isCash ? receivedEffective : 0;
     const changeAmount = isCash ? Math.max(0, actualReceived - actualAmount - currentTip) : 0;
