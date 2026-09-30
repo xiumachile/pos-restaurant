@@ -1,61 +1,36 @@
-import { useNavigate } from "react-router-dom";
-import { LogOut } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
-import { SyncStatusIndicator } from "@/components/system/SyncStatusIndicator";
-import { useThemeStore } from "@/store/useThemeStore";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { useTranslation } from 'react-i18next';
 import { Sun, Moon } from "lucide-react";
+import { SyncStatusIndicator } from "@/components/system/SyncStatusIndicator";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useThemeStore } from "@/store/useThemeStore";
 
 /**
- * Header con información del usuario, indicador de sincronización y logout.
- * 
+ * Header con indicadores del sistema.
+ *
  * UI/UX OFFLINE-FIRST:
  * - SyncStatusIndicator muestra estado de conexión + pendientes + progreso
  * - 4 estados visuales: 🟢 Online | 🟠 Offline | ↻ Syncing | ⚠ Error
  * - Botón de sync manual siempre disponible
+ *
+ * NOTA: El bloque de usuario y logout vive en el Sidebar (fuente única).
  */
 export function Header() {
-  const { user, logout } = useAuth();
-  const { t } = useTranslation();
   const { theme, toggleTheme } = useThemeStore();
-  const navigate = useNavigate();
-
-  const handleLogout = async () => {
-    await logout();
-    navigate("/login");
-  };
 
   return (
     <header className="bg-white dark:bg-slate-800/50 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 px-6 py-4 transition-colors duration-200">
-      <div className="flex items-center justify-between">
-        {/* Info del usuario */}
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center text-white font-bold">
-            {user?.name?.charAt(0).toUpperCase() || "U"}
-          </div>
-          <div>
-            <p className="text-gray-900 dark:text-white font-medium">{user?.name}</p>
-            <p className="text-xs text-gray-500 dark:text-slate-400 capitalize">{user?.role}</p>
-          </div>
-        </div>
+      <div className="flex items-center justify-end gap-4">
+        <SyncStatusIndicator />
+        <LanguageSwitcher />
 
-        {/* SyncStatusIndicator + Logout */}
-        <div className="flex items-center gap-4">
-          <SyncStatusIndicator />
-
-          {/* Selector de idioma */}
-          <LanguageSwitcher />
-
-          {/* Botón de logout */}
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors"
-          >
-            <LogOut size={16} />
-            <span className="text-sm font-medium">{t('auth.logout')}</span>
-          </button>
-        </div>
+        {/* Toggle de tema */}
+        <button
+          onClick={toggleTheme}
+          className="p-2 rounded-lg text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 dark:text-slate-300 transition-colors"
+          aria-label={theme === "dark" ? "Modo claro" : "Modo oscuro"}
+          title={theme === "dark" ? "Modo claro" : "Modo oscuro"}
+        >
+          {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+        </button>
       </div>
     </header>
   );

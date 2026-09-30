@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { NavLink } from "react-router-dom";
 import {
   LayoutGrid,
@@ -8,16 +9,14 @@ import {
   BarChart3,
   Settings,
   LogOut,
-  Wifi,
   Database,
-  WifiOff,
 } from "lucide-react";
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from "react-i18next";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useAuth } from "@/hooks/useAuth";
 import { useCapabilitiesStore } from "@/store/useCapabilitiesStore";
 import { CapabilityKey } from "@/types/capabilities";
 import type { UserRole } from "@/components/auth/RoleProtectedRoute";
-import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 interface NavItem {
   to: string;
@@ -28,47 +27,55 @@ interface NavItem {
   allowedRoles?: UserRole[];
 }
 
+// Definición de roles (estático, no depende de traducciones)
+const ROLES = {
+  ALL: ["admin", "manager", "waiter", "cashier", "kitchen"] as UserRole[],
+  FRONT_OF_HOUSE: ["admin", "manager", "waiter", "cashier"] as UserRole[],
+  BACK_OF_HOUSE: ["admin", "manager", "kitchen"] as UserRole[],
+  MANAGEMENT: ["admin", "manager"] as UserRole[],
+  CASHIER_ONLY: ["admin", "manager", "cashier"] as UserRole[],
+};
+
 /**
  * Sidebar principal de navegación.
- * Muestra las secciones del POS según capabilities de la empresa.
+ * - Navegación filtrada por rol + capabilities de la empresa.
+ * - Footer: bloque de usuario + logout (fuente única de logout, revoca en servidor).
+ * - Estado online: lo muestra SyncStatusIndicator en el Header (sin polling duplicado).
  */
 export function Sidebar() {
   const { t } = useTranslation();
   const user = useAuthStore((state) => state.user);
-  const clearAuth = useAuthStore((state) => state.clearAuth);
+  const { logout } = useAuth();
   const isEnabled = useCapabilitiesStore((state) => state.isCapabilityEnabled);
-  const { online: isOnline } = useOnlineStatus();
 
-  // Definición de roles para reutilizar
-  const ROLES = {
-    ALL: ['admin', 'manager', 'waiter', 'cashier', 'kitchen'] as UserRole[],
-    FRONT_OF_HOUSE: ['admin', 'manager', 'waiter', 'cashier'] as UserRole[],
-    BACK_OF_HOUSE: ['admin', 'manager', 'kitchen'] as UserRole[],
-    MANAGEMENT: ['admin', 'manager'] as UserRole[],
-    CASHIER_ONLY: ['admin', 'manager', 'cashier'] as UserRole[],
-  };
-
-  // NAV_ITEMS dentro del componente para que t() esté disponible
-  const NAV_ITEMS: NavItem[] = [
-    { to: "/", label: t("tables.title"), icon: LayoutGrid, end: true, allowedRoles: ROLES.ALL },
-    { to: "/catalog", label: t("catalog.title"), icon: UtensilsCrossed, allowedRoles: ROLES.FRONT_OF_HOUSE },
-    { 
-      to: "/kitchen", 
-      label: t("kitchen.title"), 
-      icon: ChefHat,
-      allowedRoles: ROLES.BACK_OF_HOUSE,
-    },
-    { to: "/orders", label: t("orders.title"), icon: ListOrdered, allowedRoles: [...ROLES.FRONT_OF_HOUSE, ...ROLES.BACK_OF_HOUSE] },
-    { to: "/cashier", label: t("cashier.title"), icon: CreditCard, allowedRoles: ROLES.CASHIER_ONLY },
-    { to: "/reports", label: t("reports.title"), icon: BarChart3, allowedRoles: ROLES.MANAGEMENT },
-    { to: "/settings", label: t("settings.title"), icon: Settings, allowedRoles: ROLES.MANAGEMENT },
-    { 
-      to: "/sync-queue", 
-      label: t("sync.queue"), 
-      icon: Database,
-      allowedRoles: ROLES.MANAGEMENT
-    },
-  ];
+  const NAV_ITEMS: NavItem[] = useMemo(
+    () => [
+      { to: "/", label: t("tables.title"), icon: LayoutGrid, end: true, allowedRoles: ROLES.ALL },
+      { to: "/catalog", label: t("catalog.title"), icon: UtensilsCrossed, allowedRoles: ROLES.FRONT_OF_HOUSE },
+      {
+        to: "/kitchen",
+        label: t("kitchen.title"),
+        icon: ChefHat,
+        allowedRoles: ROLES.BACK_OF_HOUSE,
+      },
+      {
+        to: "/orders",
+        label: t("orders.title"),
+        icon: ListOrdered,
+        allowedRoles: [...ROLES.FRONT_OF_HOUSE, ...ROLES.BACK_OF_HOUSE],
+      },
+      { to: "/cashier", label: t("cashier.title"), icon: CreditCard, allowedRoles: ROLES.CASHIER_ONLY },
+      { to: "/reports", label: t("reports.title"), icon: BarChart3, allowedRoles: ROLES.MANAGEMENT },
+      { to: "/settings", label: t("settings.title"), icon: Settings, allowedRoles: ROLES.MANAGEMENT },
+      {
+        to: "/sync-queue",
+        label: t("sync.queue"),
+        icon: Database,
+        allowedRoles: ROLES.MANAGEMENT,
+      },
+    ],
+    [t]
+  );
 
   const visibleItems = NAV_ITEMS.filter((item) => {
     // 1. Verificar rol del usuario
@@ -116,24 +123,8 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Footer: User + Status */}
+      {/* Footer: usuario + logout (fuente única) */}
       <div className="p-4 border-t border-slate-800 space-y-3">
-        {/* Estado de conexión */}
-        <div className="flex items-center gap-2 px-2">
-          {isOnline ? (
-            <>
-              <Wifi size={14} className="text-green-400" />
-              <span className="text-xs text-green-400">{t("sync.online")}</span>
-            </>
-          ) : (
-            <>
-              <WifiOff size={14} className="text-amber-400" />
-              <span className="text-xs text-amber-400">{t("sync.offline")}</span>
-            </>
-          )}
-        </div>
-
-        {/* Usuario y logout */}
         {user && (
           <div className="flex items-center justify-between px-2">
             <div className="min-w-0">
@@ -145,7 +136,7 @@ export function Sidebar() {
               </p>
             </div>
             <button
-              onClick={clearAuth}
+              onClick={() => void logout()}
               className="p-2 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors"
               title={t("auth.logout")}
               aria-label={t("auth.logout")}
