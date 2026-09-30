@@ -1,4 +1,12 @@
 import { useState, useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
+
+export const getPaymentConfig = (t: (key: string) => string) => ({
+  CASH: { label: t("bill_payment.payment_method_cash"), icon: Banknote, color: "bg-green-600" },
+  CARD: { label: t("bill_payment.payment_method_card"), icon: CreditCard, color: "bg-blue-600" },
+  TRANSFER: { label: t("bill_payment.payment_method_transfer"), icon: Building2, color: "bg-purple-600" },
+});
+
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { usePopupStore } from "../../store/usePopupStore";
 
@@ -68,6 +76,7 @@ export function BillPaymentModalV2({
   const [activeField, setActiveField] = useState<ActiveField>("amount");
   const [payments, setPayments] = useState<PendingPayment[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const { t } = useTranslation();
   const [errors, setErrors] = useState<string[]>([]);
   
   // Configuración de popup de vuelto
@@ -119,10 +128,10 @@ export function BillPaymentModalV2({
   
   // Determinar motivo de deshabilitado del botón
   const getDisabledReason = () => {
-    if (!selectedMethod) return "Selecciona un método de pago";
-    if (amountToCharge <= 0) return "Monto debe ser mayor a 0";
+    if (!selectedMethod) return t("bill_payment.error_select_method");
+    if (amountToCharge <= 0) return t("bill_payment.error_amount_must_be_positive");
     // En efectivo no hay límite superior, en otros métodos sí
-    if (!isCash && amountToCharge > remaining) return `Monto excede el pendiente (${formatPrice(remaining)})`;
+    if (!isCash && amountToCharge > remaining) return `${t("bill_payment.error_amount_exceeds_pending").split("{amount}")[0]}${formatPrice(remaining)}${t("bill_payment.error_amount_exceeds_pending").split("{pending}")[1] || ""}`;
     if (cashShort) return `Falta ${formatPrice(amountToCharge + currentTip - receivedEffective)} de efectivo`;
     return null;
   };
@@ -190,7 +199,7 @@ export function BillPaymentModalV2({
     setErrors([]);
 
     if (!selectedMethod) {
-      setErrors(["Selecciona un método de pago"]);
+      setErrors([t("bill_payment.error_select_method")]);
       return;
     }
     if (currentAmount <= 0) {
@@ -382,7 +391,7 @@ export function BillPaymentModalV2({
           {/* Resumen */}
           <div className="bg-slate-900 border-b border-slate-800 p-3 grid grid-cols-3 gap-2 flex-shrink-0">
             <div className="text-center">
-              <div className="text-xs text-slate-400 uppercase">Total</div>
+              <div className="text-xs text-slate-400 uppercase">{t("bill_payment.total")}</div>
               <div className="text-sm font-bold text-white">{formatPrice(billPending)}</div>
             </div>
             <div className="text-center">
@@ -390,7 +399,7 @@ export function BillPaymentModalV2({
               <div className="text-sm font-bold text-blue-400">{formatPrice(paymentsSum)}</div>
             </div>
             <div className="text-center">
-              <div className="text-xs text-slate-400 uppercase">Pendiente</div>
+              <div className="text-xs text-slate-400 uppercase">{t("bill_payment.pending_amount")}</div>
               <div className={`text-sm font-bold ${remaining > 0 ? "text-orange-400" : "text-green-400"}`}>
                 {formatPrice(remaining)}
               </div>
@@ -410,7 +419,7 @@ export function BillPaymentModalV2({
             ) : (
               <>
                 {payments.map((p) => {
-                  const config = PAYMENT_CONFIG[p.method_code.toUpperCase()] || {
+                  const config = getPaymentConfig(t)[p.method_code.toUpperCase()] || {
                     label: p.method_code,
                     icon: CreditCard,
                     color: "bg-slate-600",
@@ -501,7 +510,7 @@ export function BillPaymentModalV2({
             <div className="text-xs text-slate-400 uppercase mb-2">Método de pago</div>
             <div className="grid grid-cols-4 gap-2">
               {methods.map((method) => {
-                const config = PAYMENT_CONFIG[method.code.toUpperCase()] || {
+                const config = getPaymentConfig(t)[method.code.toUpperCase()] || {
                   label: method.code,
                   icon: CreditCard,
                   color: "bg-slate-600",
@@ -539,7 +548,7 @@ export function BillPaymentModalV2({
                 className={fieldClass("amount", "orange")}
               >
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-slate-400 uppercase">Monto</span>
+                  <span className="text-xs text-slate-400 uppercase">{t("bill_payment.amount_to_charge")}</span>
                   {remaining > 0 && activeField === "amount" && (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleFillRemaining(); }}
@@ -608,7 +617,7 @@ export function BillPaymentModalV2({
                     onClick={() => setActiveField("received")}
                     className={fieldClass("received", "green")}
                   >
-                    <div className="text-xs text-slate-400 uppercase">Recibido</div>
+                    <div className="text-xs text-slate-400 uppercase">{t("bill_payment.received")}</div>
                     <div className="text-lg font-bold text-green-400 text-right tabular-nums">
                       ${receivedInput || "0"}
                     </div>
