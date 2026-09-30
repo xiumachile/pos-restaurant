@@ -93,6 +93,13 @@ export function BillPaymentModalV2({
     ? Math.max(0, currentReceived - (currentAmount + currentTip))
     : 0;
 
+  // Auto-sugerir "Recibido" = "Monto" + "Propina" al seleccionar efectivo, para evitar errores
+  useEffect(() => {
+    if (selectedMethod?.type === "cash" && activeField !== "received" && !receivedInput) {
+      setReceivedInput((currentAmount + currentTip).toString());
+    }
+  }, [selectedMethod, currentAmount, currentTip, activeField, receivedInput]);
+
   // Teclado escribe en el campo activo
   const handleKeyPress = useCallback((key: string) => {
     const setters: Record<ActiveField, React.Dispatch<React.SetStateAction<string>>> = {
@@ -147,25 +154,31 @@ export function BillPaymentModalV2({
   };
 
   const handleAddPayment = () => {
-    setErrors([]); // Limpiar errores previos
+    setErrors([]);
 
     if (!selectedMethod) {
       setErrors(["Selecciona un método de pago"]);
       return;
     }
     if (currentAmount <= 0) {
-      setErrors(["El monto debe ser mayor a 0"]);
+      setErrors(["El monto a cobrar debe ser mayor a 0"]);
       return;
     }
     if (currentAmount > remaining) {
-      setErrors(["El monto excede el saldo pendiente"]);
+      setErrors([`El monto a cobrar ($${formatPrice(currentAmount)}) no puede ser mayor al saldo pendiente ($${formatPrice(remaining)}).`]);
       return;
     }
     
-    // VALIDACIÓN CRÍTICA: En efectivo, lo recibido debe cubrir monto + propina
-    if (selectedMethod.type === "cash" && currentReceived < (currentAmount + currentTip)) {
-      setErrors(["El monto recibido debe ser igual o mayor al monto más la propina"]);
-      return;
+    // VALIDACIÓN DE EFECTIVO: Distinguir claramente entre "Monto a cobrar" y "Efectivo recibido"
+    if (selectedMethod.type === "cash") {
+      const requiredTotal = currentAmount + currentTip;
+      if (currentReceived < requiredTotal) {
+        setErrors([
+          "Efectivo recibido insuficiente.",
+          `Para cobrar $${formatPrice(currentAmount)} + $${formatPrice(currentTip)} de propina, el campo "Recibido" debe ser al menos $${formatPrice(requiredTotal)}.`
+        ]);
+        return;
+      }
     }
 
     const newPayment: PendingPayment = {
