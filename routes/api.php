@@ -14,8 +14,11 @@ use Illuminate\Support\Facades\Route;
 // Rutas públicas para setup inicial (Login POS)
 // ============================================================================
 Route::get('/v1/public/branches', function () {
+    // Desactivamos los scopes globales de tenant porque esta es una ruta pública pre-login.
+    // Solo devolvemos id, name y code de sucursales activas, sin datos sensibles.
     return response()->json([
-        'data' => \Modules\Branches\Domain\Entities\Branch::where('is_active', true)
+        'data' => \Modules\Branches\Domain\Entities\Branch::withoutGlobalScopes()
+            ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'code'])
     ]);
