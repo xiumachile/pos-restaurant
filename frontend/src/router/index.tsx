@@ -51,8 +51,8 @@ function SettingsPage() {
     {
       to: "/settings/general",
       icon: "⚙️",
-      title: "General",
-      description: "Popup de vuelto y preferencias locales del sistema",
+      title: t("settings.general_title"),
+      description: t("settings.general_desc"),
     },
     {
       to: "/settings/catalog",
