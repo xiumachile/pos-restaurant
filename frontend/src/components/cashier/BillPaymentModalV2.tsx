@@ -1,4 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
+import { ChangePopup } from "../ui/ChangePopup";
+import { useSettingsStore } from "../../store/useSettingsStore";
+
 import { parseCLPAmount } from '@/utils/money';
 import type { Bill } from "@/types/bills";
 import type { PaymentMethod } from "@/types/payments";
@@ -66,6 +69,12 @@ export function BillPaymentModalV2({
   const [payments, setPayments] = useState<PendingPayment[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  const [showChangePopupState, setShowChangePopupState] = useState(false);
+  const [changeAmountForPopup, setChangeAmountForPopup] = useState(0);
+  
+  // Configuración de popup de vuelto
+  const { showChangePopup: changePopupEnabled, changePopupDuration } = useSettingsStore();
+
   const [processedPaymentIds, setProcessedPaymentIds] = useState<Set<string>>(new Set());
 
   const { data: methods = [] } = usePaymentMethods();
@@ -236,6 +245,9 @@ export function BillPaymentModalV2({
 
     setIsProcessing(true);
     setErrors([]);
+    
+    // Calcular vuelto total de todos los pagos
+    const totalChange = payments.reduce((sum, p) => sum + (p.change_amount || 0), 0);
 
     const billsRemaining = effectiveBills.map(b => ({
       uuid: b.uuid,

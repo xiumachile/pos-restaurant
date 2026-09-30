@@ -19,6 +19,7 @@ const CapabilitiesPage = lazy(() => import("@/pages/settings/CapabilitiesPage").
 const SyncQueuePage = lazy(() => import("@/pages/SyncQueuePage").then(m => ({ default: m.SyncQueuePage })));
 const PrinterSettingsPage = lazy(() => import("@/pages/settings/PrinterSettingsPage").then(m => ({ default: m.PrinterSettingsPage })));
 const UsersPage = lazy(() => import("@/pages/settings/UsersPage").then(m => ({ default: m.UsersPage })));
+const GeneralSettingsPage = lazy(() => import("@/pages/settings/GeneralSettingsPage").then(m => ({ default: m.GeneralSettingsPage })));
 const DefaultNotesPage = lazy(() => import("@/pages/catalog/DefaultNotesPage").then(m => ({ default: m.DefaultNotesPage })));
 
 // Componente de carga
@@ -242,6 +243,14 @@ export const router = createBrowserRouter([
         path: "settings", 
         element: <RoleProtectedRoute allowedRoles={ROLES.MANAGEMENT} />,
         children: [
+          { 
+            path: "general", 
+            element: (
+              <Suspense fallback={<LoadingFallback />}>
+                <GeneralSettingsPage />
+              </Suspense>
+            )
+          },
           {
             index: true,
             element: <SettingsPage />
