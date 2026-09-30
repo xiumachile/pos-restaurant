@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { EmailPasswordForm } from "@/components/auth/EmailPasswordForm";
 import { PinKeypad } from "@/components/auth/PinKeypad";
 import { authService } from "@/services/authService";
+import { apiClient } from "@/services/apiClient";
 
 type LoginMode = "email" | "pin";
 
@@ -23,10 +24,22 @@ export function LoginPage() {
     setMode(newMode);
     setPin("");
     if (newMode === "pin" && branches.length === 0) {
-      // TODO: Cargar sucursales desde API
-      // Por ahora, usar sucursal 1 como default
-      setBranches([{ id: 1, name: "Sucursal Principal", code: "MAIN" }]);
-      setSelectedBranchId(1);
+      try {
+        const response = await apiClient.get("/public/branches");
+        const fetchedBranches = response.data.data || [];
+        if (fetchedBranches.length > 0) {
+          setBranches(fetchedBranches);
+          setSelectedBranchId(fetchedBranches[0].id);
+        } else {
+          // Fallback si no hay sucursales
+          setBranches([{ id: 1, name: "Sucursal Principal", code: "MAIN" }]);
+          setSelectedBranchId(1);
+        }
+      } catch (err) {
+        console.error("Error cargando sucursales:", err);
+        setBranches([{ id: 1, name: "Sucursal Principal", code: "MAIN" }]);
+        setSelectedBranchId(1);
+      }
     }
   };
 
@@ -35,10 +48,12 @@ export function LoginPage() {
     try {
       await loginWithPin({ branch_id: selectedBranchId, pin });
     } catch (err: any) {
-      // Solo limpiar PIN en error de credenciales (401)
-      // En errores de servidor/red, mantener PIN para reintento fácil
       const status = err.response?.status;
-      if (status === 401) {
+      if (status === 429) {
+        // Rate limiting: el backend bloquea tras 3 intentos por minuto
+        // No limpiamos el PIN para que el usuario vea qué ingresó, pero mostramos el error
+      } else if (status === 401) {
+        // Credenciales inválidas: limpiar PIN para reintento
         setPin("");
       }
     }
@@ -112,10 +127,14 @@ export function LoginPage() {
               )}
 
               {/* Teclado PIN */}
-              <PinKeypad pin={pin} onPinChange={setPin} maxLength={6} disabled={loading} />
+              <PinKeypad pin={pin} onPinChange={setPin} onSubmit={handlePinSubmit} maxLength={6} disabled={loading} />
 
               {error && (
-                <div className="p-3 rounded-lg bg-red-900/30 border border-red-800 text-red-300 text-sm">
+                <div className={`p-3 rounded-lg border text-sm ${
+                  error.includes("demasiados intentos") || error.includes("Too Many Attempts")
+                    ? "bg-yellow-900/30 border-yellow-800 text-yellow-300"
+                    : "bg-red-900/30 border-red-800 text-red-300"
+                }`}>
                   {error}
                 </div>
               )}

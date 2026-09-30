@@ -1,8 +1,9 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 interface PinKeypadProps {
   pin: string;
   onPinChange: (pin: string) => void;
+  onSubmit?: () => void;
   maxLength?: number;
   disabled?: boolean;
 }
@@ -14,6 +15,7 @@ interface PinKeypadProps {
 export function PinKeypad({
   pin,
   onPinChange,
+  onSubmit,
   maxLength = 6,
   disabled = false,
 }: PinKeypadProps) {
@@ -36,6 +38,46 @@ export function PinKeypad({
     if (disabled) return;
     onPinChange(pin.slice(0, -1));
   }, [pin, onPinChange, disabled]);
+
+
+  // Soporte para teclado físico
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (disabled) return;
+      
+      // Números 0-9
+      if (/^[0-9]$/.test(e.key)) {
+        e.preventDefault();
+        handleDigit(e.key);
+      }
+      // Backspace
+      else if (e.key === 'Backspace') {
+        e.preventDefault();
+        handleBackspace();
+      }
+      // Escape (Limpiar)
+      else if (e.key === 'Escape') {
+        e.preventDefault();
+        handleClear();
+      }
+      // Enter (Enviar)
+      else if (e.key === 'Enter' && pin.length >= 4) {
+        e.preventDefault();
+        onSubmit?.();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [pin, disabled, handleDigit, handleBackspace, handleClear, onSubmit]);
+
+  // Input invisible para mantener el foco y abrir teclado en móviles
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!disabled) {
+      inputRef.current?.focus();
+    }
+  }, [disabled]);
 
   const digits = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
@@ -107,6 +149,30 @@ export function PinKeypad({
           ⌫
         </button>
       </div>
+      
+      {/* Input invisible para capturar teclado en móviles y mantener foco */}
+      <input
+        ref={inputRef}
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        maxLength={maxLength}
+        value={pin}
+        onChange={(e) => {
+          const val = e.target.value.replace(/\D/g, '');
+          if (val.length <= maxLength) {
+            onPinChange(val);
+          }
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && pin.length >= 4) {
+            e.preventDefault();
+            onSubmit?.();
+          }
+        }}
+        className="absolute opacity-0 top-0 left-0 h-0 w-0"
+        aria-hidden="true"
+      />
     </div>
   );
 }
