@@ -126,7 +126,7 @@ export function OrderCard({
           </button>
         )}
         {order.area_code && (
-          <span className="text-slate-500 ml-2">({order.area_code})</span>
+          <span className="text-slate-400 ml-2">({order.area_code})</span>
         )}
       </div>
 
@@ -167,7 +167,7 @@ export function OrderCard({
 
       {/* Garzón */}
       {order.waiter_name && (
-        <div className="text-xs text-slate-500">👤 {order.waiter_name}</div>
+        <div className="text-xs text-slate-400">👤 {order.waiter_name}</div>
       )}
 
       {/* Botón de acción */}

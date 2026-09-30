@@ -95,7 +95,7 @@ export function CategoriesTab() {
                 </button>
               </div>
             </div>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-400">
               {t("categories.order")}: {category.sort_order} ·{" "}
               {category.is_active ? (
                 <span className="text-green-400">Activa</span>
@@ -109,7 +109,7 @@ export function CategoriesTab() {
 
       {categories.length === 0 && (
         <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-12 text-center">
-          <FolderTree className="mx-auto text-slate-500 mb-3" size={48} />
+          <FolderTree className="mx-auto text-slate-400 mb-3" size={48} />
           <p className="text-slate-400">No hay categorías creadas</p>
         </div>
       )}

@@ -107,7 +107,7 @@ export function SessionSalesModal({ isOpen, onClose }: SessionSalesModalProps) {
                 <Loader2 className="animate-spin text-orange-500" size={32} />
               </div>
             ) : !data || data.payments.length === 0 ? (
-              <div className="text-center py-12 text-slate-500">
+              <div className="text-center py-12 text-slate-400">
                 <p>Aún no hay ventas cobradas en esta sesión</p>
               </div>
             ) : (

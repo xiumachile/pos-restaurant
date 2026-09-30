@@ -102,7 +102,7 @@ export function CashierPage() {
             <Loader2 className="animate-spin text-orange-500" size={32} />
           </div>
         ) : tablesWithBills.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center text-slate-500 bg-slate-800/30 rounded-xl border border-slate-700/50">
+          <div className="flex-1 flex items-center justify-center text-slate-400 bg-slate-800/30 rounded-xl border border-slate-700/50">
             <div className="text-center py-12">
               <Receipt size={48} className="mx-auto mb-3 opacity-30" />
               <p>No hay mesas con cuenta pendiente</p>

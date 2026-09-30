@@ -78,13 +78,13 @@ export const ActiveOrderItems = memo(function ActiveOrderItems({ orders }: Activ
 
             {/* Notas (si existen) */}
             {item.notes.length > 0 && (
-              <div className="ml-5 text-xs text-slate-500 italic truncate">
+              <div className="ml-5 text-xs text-slate-400 italic truncate">
                 📝 {item.notes.join(" · ")}
               </div>
             )}
 
             {/* Precio unitario */}
-            <div className="ml-5 text-xs text-slate-500">
+            <div className="ml-5 text-xs text-slate-400">
               {formatPrice(item.unitPrice)} c/u
             </div>
           </div>

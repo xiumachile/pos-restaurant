@@ -292,15 +292,15 @@ export function BillPaymentModalV2({
           {/* Resumen */}
           <div className="bg-slate-900 border-b border-slate-800 p-3 grid grid-cols-3 gap-2 flex-shrink-0">
             <div className="text-center">
-              <div className="text-xs text-slate-500 uppercase">Total</div>
+              <div className="text-xs text-slate-400 uppercase">Total</div>
               <div className="text-sm font-bold text-white">{formatPrice(billPending)}</div>
             </div>
             <div className="text-center">
-              <div className="text-xs text-slate-500 uppercase">Pagado</div>
+              <div className="text-xs text-slate-400 uppercase">Pagado</div>
               <div className="text-sm font-bold text-blue-400">{formatPrice(paymentsSum)}</div>
             </div>
             <div className="text-center">
-              <div className="text-xs text-slate-500 uppercase">Pendiente</div>
+              <div className="text-xs text-slate-400 uppercase">Pendiente</div>
               <div className={`text-sm font-bold ${remaining > 0 ? "text-orange-400" : "text-green-400"}`}>
                 {formatPrice(remaining)}
               </div>
@@ -313,7 +313,7 @@ export function BillPaymentModalV2({
               <div className="text-center py-12 text-slate-600">
                 <div className="text-5xl mb-3">💰</div>
                 <p className="text-sm">Sin pagos agregados</p>
-                <p className="text-xs mt-1 text-slate-500">
+                <p className="text-xs mt-1 text-slate-400">
                   Usa el teclado para agregar pagos
                 </p>
               </div>
@@ -482,7 +482,7 @@ export function BillPaymentModalV2({
                   </div>
                 ) : (
                   <div className="bg-slate-800/50 border-2 border-slate-800 rounded-lg px-3 py-2 flex items-center justify-center">
-                    <span className="text-xs text-slate-500">Sin cambio</span>
+                    <span className="text-xs text-slate-400">Sin cambio</span>
                   </div>
                 )}
               </div>
@@ -522,7 +522,7 @@ export function BillPaymentModalV2({
               <button
                 onClick={handleAddPayment}
                 disabled={currentAmount <= 0 || currentAmount > remaining}
-                className="w-full py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-700 disabled:text-slate-500 rounded-lg font-bold text-white flex items-center justify-center gap-2"
+                className="w-full py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-700 disabled:text-slate-400 rounded-lg font-bold text-white flex items-center justify-center gap-2"
               >
                 + Agregar Pago
               </button>
@@ -543,7 +543,7 @@ export function BillPaymentModalV2({
         <button
           onClick={handleCharge}
           disabled={!canCharge}
-          className="flex-[2] px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-slate-700 disabled:text-slate-500 rounded-lg font-bold text-white flex items-center justify-center gap-2"
+          className="flex-[2] px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-slate-700 disabled:text-slate-400 rounded-lg font-bold text-white flex items-center justify-center gap-2"
         >
           {isProcessing ? (
             <>

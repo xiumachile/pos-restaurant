@@ -51,7 +51,7 @@ export function SessionsHistoryPanel({ isOpen, onClose }: SessionsHistoryPanelPr
                 <Loader2 className="animate-spin text-orange-500" size={32} />
               </div>
             ) : sessions.length === 0 ? (
-              <div className="text-center py-12 text-slate-500">
+              <div className="text-center py-12 text-slate-400">
                 <FileText size={48} className="mx-auto mb-3 opacity-30" />
                 <p>No hay sesiones cerradas aún</p>
               </div>

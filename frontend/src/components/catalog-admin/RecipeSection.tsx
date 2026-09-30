@@ -243,7 +243,7 @@ export function RecipeSection({ product, enabled, onSave }: RecipeSectionProps) 
           <h3 className="text-sm font-semibold text-white flex items-center gap-2">
             🧾 Receta (Ficha técnica)
           </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-400 mt-0.5">
             Ingredientes necesarios y su costo
           </p>
         </div>
@@ -364,7 +364,7 @@ export function RecipeSection({ product, enabled, onSave }: RecipeSectionProps) 
 
             {/* Info adicional del ingrediente */}
             {item.ingredient && (
-              <div className="mt-1.5 flex items-center gap-3 text-xs text-slate-500">
+              <div className="mt-1.5 flex items-center gap-3 text-xs text-slate-400">
                 <span>
                   Stock: {item.ingredient.current_stock_base.toFixed(2)}{" "}
                   {formatUnit(item.ingredient.base_unit)}
@@ -391,7 +391,7 @@ export function RecipeSection({ product, enabled, onSave }: RecipeSectionProps) 
         ))}
 
         {items.length === 0 && (
-          <p className="text-xs text-slate-500 text-center py-3">
+          <p className="text-xs text-slate-400 text-center py-3">
             No hay ingredientes agregados
           </p>
         )}

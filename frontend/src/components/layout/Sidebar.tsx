@@ -101,7 +101,7 @@ export function Sidebar() {
         <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">
           🍜 Wok & Mesa
         </h1>
-        <p className="text-xs text-gray-500 dark:text-slate-500 mt-1">{t("common.pos_system", "Sistema POS")}</p>
+        <p className="text-xs text-gray-600 dark:text-slate-400 mt-1">{t("common.pos_system", "Sistema POS")}</p>
       </div>
 
       {/* Navegación */}
@@ -136,13 +136,13 @@ export function Sidebar() {
               <p className="text-sm font-medium text-gray-900 dark:text-slate-200 truncate">
                 {user.name}
               </p>
-              <p className="text-xs text-gray-500 dark:text-slate-500 truncate capitalize">
+              <p className="text-xs text-gray-600 dark:text-slate-400 truncate capitalize">
                 {t(`roles.${user.role.toLowerCase()}`, user.role)}
               </p>
             </div>
             <button
               onClick={() => void logout()}
-              className="p-2 text-gray-500 dark:text-slate-500 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+              className="p-2 text-gray-600 dark:text-slate-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
               title={t("auth.logout")}
               aria-label={t("auth.logout")}
             >

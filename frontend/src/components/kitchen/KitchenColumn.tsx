@@ -67,7 +67,7 @@ export function KitchenColumn({
       {/* Lista de órdenes */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-900/50">
         {orders.length === 0 ? (
-          <div className="text-center py-12 text-slate-500">
+          <div className="text-center py-12 text-slate-400">
             <Icon size={48} className="mx-auto mb-3 opacity-30" />
             <p className="text-sm">Sin pedidos</p>
           </div>

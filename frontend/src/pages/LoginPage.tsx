@@ -152,7 +152,7 @@ export function LoginPage() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-xs text-slate-500 mt-6">
+        <p className="text-center text-xs text-slate-400 mt-6">
           v0.1.0 · Wok & Mesa POS · Tauri + React
         </p>
       </div>

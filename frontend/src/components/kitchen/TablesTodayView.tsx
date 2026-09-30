@@ -138,7 +138,7 @@ export function TablesTodayView() {
                   </div>
 
                   {/* Timestamps */}
-                  <div className="mt-3 pt-3 border-t border-slate-700 text-xs text-slate-500">
+                  <div className="mt-3 pt-3 border-t border-slate-700 text-xs text-slate-400">
                     {formatTime(table.first_order_at)} → {formatTime(table.last_order_at)}
                   </div>
                 </button>
@@ -150,7 +150,7 @@ export function TablesTodayView() {
 
       {/* Empty state */}
       {filteredTables.length === 0 && (
-        <div className="text-center py-12 text-slate-500">
+        <div className="text-center py-12 text-slate-400">
           <p>{t("kitchen.no_tables_activity_today")}</p>
         </div>
       )}

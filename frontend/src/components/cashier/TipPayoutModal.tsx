@@ -124,12 +124,10 @@ export function TipPayoutModal({ isOpen, onClose }: TipPayoutModalProps) {
               <button
                 onClick={() => setShowForm(!showForm)}
                 className="flex items-center gap-1.5 px-3 py-2 bg-orange-500 hover:bg-orange-600 rounded-lg text-white text-sm font-medium"
-              >
-                <Plus size={15} />
+              > aria-label="Aumentar cantidad"<Plus size={15} />
                 Nueva Entrega
               </button>
-              <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-lg">
-                <X size={20} />
+              <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-lg"> aria-label="Cerrar"<X size={20} />
               </button>
             </div>
           </div>
@@ -151,7 +149,7 @@ export function TipPayoutModal({ isOpen, onClose }: TipPayoutModalProps) {
               </div>
               <div className="text-center">
                 <div className="text-xs text-slate-400">Pendientes</div>
-                <div className={`font-bold ${summary.pending > 0 ? "text-orange-400" : "text-slate-500"}`}>
+                <div className={`font-bold ${summary.pending > 0 ? "text-orange-400" : "text-slate-400"}`}>
                   {formatPrice(summary.pending)}
                 </div>
               </div>
@@ -289,7 +287,7 @@ export function TipPayoutModal({ isOpen, onClose }: TipPayoutModalProps) {
 
             {/* Lista de entregas */}
             {payouts.length === 0 && !showForm ? (
-              <div className="text-center py-8 text-slate-500">
+              <div className="text-center py-8 text-slate-400">
                 <Users size={48} className="mx-auto mb-3 opacity-30" />
                 <p>No hay entregas registradas en esta sesión</p>
               </div>
@@ -328,8 +326,7 @@ export function TipPayoutModal({ isOpen, onClose }: TipPayoutModalProps) {
                         disabled={voidPayout.isPending}
                         className="p-1.5 text-red-400 hover:bg-red-900/30 rounded"
                         title="Anular entrega"
-                      >
-                        <Trash2 size={14} />
+                      > aria-label="Eliminar"<Trash2 size={14} />
                       </button>
                     </div>
                   </div>

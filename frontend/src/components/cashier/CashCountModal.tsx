@@ -111,7 +111,7 @@ export function CashCountModal({
                     className="flex items-center gap-3 bg-slate-800/60 rounded-lg p-2.5"
                   >
                     <span className="font-bold text-green-400 w-20">{d.label}</span>
-                    <span className="text-slate-500 text-sm">×</span>
+                    <span className="text-slate-400 text-sm">×</span>
                     <input
                       type="number"
                       value={counts[d.value] || ""}
@@ -119,7 +119,7 @@ export function CashCountModal({
                       min="0"
                       className="w-20 px-2 py-1 bg-slate-900 border border-slate-700 rounded text-white text-center font-bold focus:outline-none focus:ring-2 focus:ring-orange-500"
                     />
-                    <span className="text-slate-500 text-sm">=</span>
+                    <span className="text-slate-400 text-sm">=</span>
                     <span className="font-semibold text-white ml-auto">
                       {formatPrice(d.subtotal)}
                     </span>
@@ -141,7 +141,7 @@ export function CashCountModal({
                     className="flex items-center gap-3 bg-slate-800/60 rounded-lg p-2.5"
                   >
                     <span className="font-bold text-amber-400 w-20">{d.label}</span>
-                    <span className="text-slate-500 text-sm">×</span>
+                    <span className="text-slate-400 text-sm">×</span>
                     <input
                       type="number"
                       value={counts[d.value] || ""}
@@ -149,7 +149,7 @@ export function CashCountModal({
                       min="0"
                       className="w-20 px-2 py-1 bg-slate-900 border border-slate-700 rounded text-white text-center font-bold focus:outline-none focus:ring-2 focus:ring-orange-500"
                     />
-                    <span className="text-slate-500 text-sm">=</span>
+                    <span className="text-slate-400 text-sm">=</span>
                     <span className="font-semibold text-white ml-auto">
                       {formatPrice(d.subtotal)}
                     </span>

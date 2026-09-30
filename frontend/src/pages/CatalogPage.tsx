@@ -72,7 +72,7 @@ export function CatalogPage() {
             </div>
           ) : products.length === 0 ? (
             <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-12 text-center">
-              <Package className="mx-auto text-slate-500 mb-3" size={48} />
+              <Package className="mx-auto text-slate-400 mb-3" size={48} />
               <p className="text-slate-400">
                 {searchQuery ? `Sin resultados para "${searchQuery}"` : "No hay productos"}
               </p>

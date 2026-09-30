@@ -97,7 +97,7 @@ export function PriceListsTab() {
                     <Star size={14} className="text-amber-400" fill="currentColor" />
                   )}
                 </div>
-                <p className="text-xs text-slate-500 font-mono mt-0.5">{list.name}</p>
+                <p className="text-xs text-slate-400 font-mono mt-0.5">{list.name}</p>
               </div>
               <div className="flex gap-1">
                 <button
@@ -148,7 +148,7 @@ export function PriceListsTab() {
 
       {priceLists.length === 0 && (
         <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-12 text-center">
-          <Tags className="mx-auto text-slate-500 mb-3" size={48} />
+          <Tags className="mx-auto text-slate-400 mb-3" size={48} />
           <p className="text-slate-400">{t("catalog_admin.no_lists_created")}</p>
         </div>
       )}
@@ -259,7 +259,7 @@ function PriceListFormModal({ list, onClose }: PriceListFormModalProps) {
               placeholder="Se genera automáticamente si se deja vacío"
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono [color-scheme:dark]"
             />
-            <p className="text-xs text-slate-500 mt-1">{t("price_lists.id_placeholder")}</p>
+            <p className="text-xs text-slate-400 mt-1">{t("price_lists.id_placeholder")}</p>
           </div>
 
           <div>

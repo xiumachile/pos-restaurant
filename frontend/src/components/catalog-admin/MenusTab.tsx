@@ -127,7 +127,7 @@ export function MenusTab() {
 
             {/* Lista de precios asociada */}
             <div className="bg-slate-900/50 rounded-lg p-3 mb-3">
-              <p className="text-xs text-slate-500 mb-1">{t("menus.price_list")}:</p>
+              <p className="text-xs text-slate-400 mb-1">{t("menus.price_list")}:</p>
               <p className="text-sm text-orange-400 font-semibold">
                 {menu.price_list?.display_name ?? "N/A"}
               </p>
@@ -136,7 +136,7 @@ export function MenusTab() {
             {/* Reglas de activación (resumen) */}
             {menu.activations && menu.activations.length > 0 && (
               <div className="bg-slate-900/50 rounded-lg p-3 mb-3">
-                <p className="text-xs text-slate-500 mb-2">{t("menus.activation_rules")} ({menu.activations.length}):</p>
+                <p className="text-xs text-slate-400 mb-2">{t("menus.activation_rules")} ({menu.activations.length}):</p>
                 <div className="space-y-1.5">
                   {menu.activations.slice(0, 2).map((act) => (
                     <div key={act.id} className="flex items-center gap-2 text-xs">
@@ -144,7 +144,7 @@ export function MenusTab() {
                         {CHANNEL_TYPES.find((c) => c.value === act.channel_type)?.label ?? act.channel_type}
                       </span>
                       {act.time_from && act.time_to && (
-                        <span className="text-slate-500">
+                        <span className="text-slate-400">
                           {act.time_from.slice(0, 5)} - {act.time_to.slice(0, 5)}
                         </span>
                       )}
@@ -152,7 +152,7 @@ export function MenusTab() {
                     </div>
                   ))}
                   {menu.activations.length > 2 && (
-                    <p className="text-xs text-slate-500 italic">
+                    <p className="text-xs text-slate-400 italic">
                       +{menu.activations.length - 2} {t("menus.more_rules")}
                     </p>
                   )}
@@ -188,7 +188,7 @@ export function MenusTab() {
 
       {menus.length === 0 && (
         <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-12 text-center">
-          <BookOpen className="mx-auto text-slate-500 mb-3" size={48} />
+          <BookOpen className="mx-auto text-slate-400 mb-3" size={48} />
           <p className="text-slate-400">{t("catalog_admin.no_menus_created")}</p>
         </div>
       )}

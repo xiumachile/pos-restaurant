@@ -89,7 +89,7 @@ export function SyncQueueTable() {
               {t(btn.labelKey)}
             </button>
           ))}
-          <span className="ml-auto text-xs text-slate-500">
+          <span className="ml-auto text-xs text-slate-400">
             {filteredItems.length} de {items?.length || 0} items
           </span>
         </div>
@@ -191,11 +191,11 @@ export function SyncQueueTable() {
                             </div>
                           </div>
                         ) : (
-                          <span className="text-xs text-slate-500">-</span>
+                          <span className="text-xs text-slate-400">-</span>
                         )}
                         {enriched.idempotency_key && (
                           <div className="mt-1">
-                            <div className="text-xs text-slate-500">{t("sync.idempotency")}</div>
+                            <div className="text-xs text-slate-400">{t("sync.idempotency")}</div>
                             <div className="text-xs text-slate-400 font-mono">
                               {enriched.idempotency_key.substring(0, 8)}...
                             </div>
@@ -208,7 +208,7 @@ export function SyncQueueTable() {
                             {enriched.terminal_id}
                           </div>
                         ) : (
-                          <span className="text-xs text-slate-500">-</span>
+                          <span className="text-xs text-slate-400">-</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
@@ -228,7 +228,7 @@ export function SyncQueueTable() {
                             {item.last_error}
                           </div>
                         ) : (
-                          <span className="text-xs text-slate-500">-</span>
+                          <span className="text-xs text-slate-400">-</span>
                         )}
                       </td>
                       <td className="px-4 py-3">

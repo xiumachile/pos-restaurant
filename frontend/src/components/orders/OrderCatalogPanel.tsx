@@ -76,7 +76,7 @@ export function OrderCatalogPanel({ onAddProduct }: OrderCatalogPanelProps) {
             <Loader2 className="animate-spin text-orange-500" size={40} />
           </div>
         ) : products.length === 0 ? (
-          <div className="text-center py-12 text-slate-500">
+          <div className="text-center py-12 text-slate-400">
             <Package size={40} className="mx-auto mb-3 opacity-30" />
             <p>No se encontraron productos</p>
           </div>
@@ -100,7 +100,7 @@ export function OrderCatalogPanel({ onAddProduct }: OrderCatalogPanelProps) {
                     <Plus size={18} />
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 mb-2">{product.sku}</p>
+                <p className="text-xs text-slate-400 mb-2">{product.sku}</p>
                 <p className="text-base font-bold text-orange-400">
                   {formatPrice(product.base_price)}
                 </p>

@@ -171,28 +171,28 @@ export function CashSessionStatus({ session }: CashSessionStatusProps) {
                 <span className="font-semibold text-green-400">
                   {formatPrice(b?.cash.amount ?? 0)}
                 </span>
-                <span className="text-xs text-slate-500">({b?.cash.count ?? 0})</span>
+                <span className="text-xs text-slate-400">({b?.cash.count ?? 0})</span>
               </span>
               <span className="flex items-center gap-1" title="Tarjeta">
                 <CreditCard size={14} className="text-blue-400" />
                 <span className="font-semibold text-blue-400">
                   {formatPrice(b?.card.amount ?? 0)}
                 </span>
-                <span className="text-xs text-slate-500">({b?.card.count ?? 0})</span>
+                <span className="text-xs text-slate-400">({b?.card.count ?? 0})</span>
               </span>
               <span className="flex items-center gap-1" title="Transferencia">
                 <Building2 size={14} className="text-purple-400" />
                 <span className="font-semibold text-purple-400">
                   {formatPrice(b?.transfer.amount ?? 0)}
                 </span>
-                <span className="text-xs text-slate-500">({b?.transfer.count ?? 0})</span>
+                <span className="text-xs text-slate-400">({b?.transfer.count ?? 0})</span>
               </span>
               <span className="flex items-center gap-1" title="Gift Card">
                 <Gift size={14} className="text-amber-400" />
                 <span className="font-semibold text-amber-400">
                   {formatPrice(b?.gift_card.amount ?? 0)}
                 </span>
-                <span className="text-xs text-slate-500">({b?.gift_card.count ?? 0})</span>
+                <span className="text-xs text-slate-400">({b?.gift_card.count ?? 0})</span>
               </span>
             </div>
             <div className="h-6 w-px bg-slate-700" />

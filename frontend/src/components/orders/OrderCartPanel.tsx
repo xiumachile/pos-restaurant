@@ -162,7 +162,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
         )}
 
         {items.length === 0 && !hasActiveOrders ? (
-          <div className="text-center py-12 text-slate-500">
+          <div className="text-center py-12 text-slate-400">
             <ShoppingCart size={48} className="mx-auto mb-3 opacity-30" />
             <p className="text-sm">
               {t("orders.no_items")}
@@ -171,7 +171,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
             </p>
           </div>
         ) : items.length === 0 && hasActiveOrders ? (
-          <div className="text-center py-6 text-slate-500">
+          <div className="text-center py-6 text-slate-400">
             <ShoppingCart size={32} className="mx-auto mb-2 opacity-30" />
             <p className="text-xs">{t("orders.add_more")}</p>
           </div>
@@ -186,7 +186,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
                   <h3 className="font-semibold text-white truncate">
                     {getTranslatedName(item.product.name_translations)}
                   </h3>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-400">
                     {formatPrice(item.product.base_price)} c/u
                   </p>
                 </div>
@@ -194,8 +194,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
                   onClick={() => removeItem(tableUuid, item.id)}
                   disabled={isProcessing}
                   className="min-w-[44px] min-h-[44px] p-2 hover:bg-red-500/20 rounded-lg ml-2 disabled:opacity-40 flex items-center justify-center"
-                >
-                  <Trash2 size={20} className="text-red-400" />
+                > aria-label="Eliminar"<Trash2 size={20} className="text-red-400" />
                 </button>
               </div>
 
@@ -222,8 +221,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
                     onClick={() => updateQuantity(tableUuid, item.id, item.quantity - 1)}
                     disabled={isProcessing}
                     className="min-w-[44px] min-h-[44px] p-2 bg-slate-700 hover:bg-slate-600 rounded-lg disabled:opacity-40 flex items-center justify-center"
-                  >
-                    <Minus size={20} />
+                  > aria-label="Disminuir cantidad"<Minus size={20} />
                   </button>
                   <span className="text-base font-bold w-7 text-center">
                     {item.quantity}
@@ -232,8 +230,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
                     onClick={() => updateQuantity(tableUuid, item.id, item.quantity + 1)}
                     disabled={isProcessing}
                     className="min-w-[44px] min-h-[44px] p-2 bg-slate-700 hover:bg-slate-600 rounded-lg disabled:opacity-40 flex items-center justify-center"
-                  >
-                    <Plus size={20} />
+                  > aria-label="Aumentar cantidad"<Plus size={20} />
                   </button>
                   <button
                     onClick={() => {
@@ -347,9 +344,9 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
             {/* Notas predefinidas dinámicas */}
             <div className="flex flex-wrap gap-2 mb-4">
               {isLoadingNotes ? (
-                <span className="text-xs text-slate-500">Cargando notas...</span>
+                <span className="text-xs text-slate-400">Cargando notas...</span>
               ) : defaultNotes.length === 0 ? (
-                <span className="text-xs text-slate-500">No hay notas predefinidas configuradas</span>
+                <span className="text-xs text-slate-400">No hay notas predefinidas configuradas</span>
               ) : (
                 defaultNotes.map((note) => {
                   const noteText = getDefaultNoteText(note, i18n.language);

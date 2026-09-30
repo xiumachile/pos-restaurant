@@ -121,8 +121,8 @@ export function OrdersSyncList() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center space-y-2">
-          <RefreshCw className="w-8 h-8 animate-spin mx-auto text-gray-500" />
-          <p className="text-gray-500">{t("orders.loading")}</p>
+          <RefreshCw className="w-8 h-8 animate-spin mx-auto text-gray-600" />
+          <p className="text-gray-600">{t("orders.loading")}</p>
         </div>
       </div>
     );
@@ -133,7 +133,7 @@ export function OrdersSyncList() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">{t("orders.title")}</h1>
-          <p className="text-gray-500 mt-1">{t("orders.sync_status")}</p>
+          <p className="text-gray-600 mt-1">{t("orders.sync_status")}</p>
         </div>
         <div className="flex items-center gap-2">
           {status === "offline" && (
@@ -195,7 +195,7 @@ export function OrdersSyncList() {
         <div className="text-center py-12">
           <Package className="w-16 h-16 mx-auto text-gray-300 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-1">{t("orders.no_orders")}</h3>
-          <p className="text-gray-500">{t("orders.no_orders_desc")}</p>
+          <p className="text-gray-600">{t("orders.no_orders_desc")}</p>
         </div>
       ) : (
         <div className="space-y-4">

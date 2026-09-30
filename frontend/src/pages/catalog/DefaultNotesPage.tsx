@@ -201,7 +201,7 @@ export function DefaultNotesPage() {
                     </span>
                   )}
                 </div>
-                <div className="text-xs text-slate-500 mt-1">
+                <div className="text-xs text-slate-400 mt-1">
                   🇪🇸 {note.text_translations['es'] || note.text_translations['es-CL'] || '—'}
                   {' · '}
                   🇨🇳 {note.text_translations['zh'] || note.text_translations['zh-CN'] || '—'}
@@ -218,7 +218,7 @@ export function DefaultNotesPage() {
                     {note.is_active ? (
                       <CheckCircle2 size={16} className="text-green-400" />
                     ) : (
-                      <XCircle size={16} className="text-slate-500" />
+                      <XCircle size={16} className="text-slate-400" />
                     )}
                   </button>
                   <button

@@ -103,9 +103,9 @@ export function ActivationsModal({ menu, onClose }: ActivationsModalProps) {
         <div className="space-y-2 mb-4">
           {activations.length === 0 && !showAddForm && (
             <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6 text-center">
-              <Calendar className="mx-auto text-slate-500 mb-2" size={32} />
+              <Calendar className="mx-auto text-slate-400 mb-2" size={32} />
               <p className="text-slate-400 text-sm">{t("menus.no_rules_configured")}</p>
-              <p className="text-slate-500 text-xs mt-1">
+              <p className="text-slate-400 text-xs mt-1">
                 Esta carta se usará solo si es la default de la sucursal
               </p>
             </div>
@@ -121,7 +121,7 @@ export function ActivationsModal({ menu, onClose }: ActivationsModalProps) {
                   <span className="text-sm text-white font-medium">
                     {CHANNEL_TYPES.find((c) => c.value === act.channel_type)?.label ?? act.channel_type}
                   </span>
-                  <span className="text-xs text-slate-500">Prioridad: {act.priority}</span>
+                  <span className="text-xs text-slate-400">Prioridad: {act.priority}</span>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-slate-400">
                   {act.time_from && act.time_to && (
@@ -215,7 +215,7 @@ export function ActivationsModal({ menu, onClose }: ActivationsModalProps) {
                     </button>
                   ))}
                 </div>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-slate-400 mt-1">
                   {(newActivation.days_of_week ?? []).length === 0 && t("menus.all_days")}
                 </p>
               </div>
@@ -229,7 +229,7 @@ export function ActivationsModal({ menu, onClose }: ActivationsModalProps) {
                   onChange={(e) => setNewActivation({ ...newActivation, priority: parseInt(e.target.value) })}
                   className="w-full px-2 py-1.5 bg-slate-900 border border-slate-700 rounded text-sm text-white [color-scheme:dark]"
                 />
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-slate-400 mt-1">
                   Reglas con mayor prioridad se usan primero
                 </p>
               </div>

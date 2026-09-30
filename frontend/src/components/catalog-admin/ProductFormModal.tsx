@@ -321,7 +321,7 @@ export function ProductFormModal({ product, categories, onClose }: ProductFormMo
                 required
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
-              <p className="text-xs text-slate-500 mt-1">{t("products.fallback_help")}</p>
+              <p className="text-xs text-slate-400 mt-1">{t("products.fallback_help")}</p>
             </div>
             <div>
               <label className="block text-sm text-slate-400 mb-1.5">{t("products.iva_rate")}</label>
@@ -343,7 +343,7 @@ export function ProductFormModal({ product, categories, onClose }: ProductFormMo
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <h3 className="text-sm font-semibold text-white">{t("products.prices_by_list_title")}</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-400 mt-0.5">
                     Define el precio específico para cada canal de venta
                   </p>
                 </div>
@@ -379,7 +379,7 @@ export function ProductFormModal({ product, categories, onClose }: ProductFormMo
                             )}
                           </div>
                           {state?.updatedAt && (
-                            <p className="text-xs text-slate-500 mt-0.5">
+                            <p className="text-xs text-slate-400 mt-0.5">
                               Actualizado: {formatDateTime(state.updatedAt)}
                             </p>
                           )}
@@ -404,7 +404,7 @@ export function ProductFormModal({ product, categories, onClose }: ProductFormMo
                   })}
 
                 {priceLists.filter((l) => l.is_active).length === 0 && (
-                  <p className="text-xs text-slate-500 text-center py-2">
+                  <p className="text-xs text-slate-400 text-center py-2">
                     No hay listas de precios activas. Crea una desde la pestaña "Listas de Precios".
                   </p>
                 )}
@@ -419,7 +419,7 @@ export function ProductFormModal({ product, categories, onClose }: ProductFormMo
           )}
 
           {!product && priceLists.length > 0 && (
-            <p className="text-xs text-slate-500 bg-slate-800/50 border border-slate-700 rounded-lg p-3">
+            <p className="text-xs text-slate-400 bg-slate-800/50 border border-slate-700 rounded-lg p-3">
               💡 Los precios por lista se configuran después de crear el producto.
             </p>
           )}

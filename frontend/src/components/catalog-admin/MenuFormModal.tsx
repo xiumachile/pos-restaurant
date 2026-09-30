@@ -102,7 +102,7 @@ export function MenuFormModal({ menu, priceLists, onClose }: MenuFormModalProps)
                 </option>
               ))}
             </select>
-            <p className="text-xs text-slate-500 mt-1">{t("menus.price_list_help")}</p>
+            <p className="text-xs text-slate-400 mt-1">{t("menus.price_list_help")}</p>
           </div>
 
           <div className="flex gap-4">

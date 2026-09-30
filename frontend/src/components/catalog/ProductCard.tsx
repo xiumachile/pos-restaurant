@@ -25,7 +25,7 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
         )}
       </div>
 
-      <p className="text-xs text-slate-500 mb-3">{product.sku}</p>
+      <p className="text-xs text-slate-400 mb-3">{product.sku}</p>
 
       <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-700 mt-auto">
         <span className="text-lg font-bold text-orange-400">{price}</span>

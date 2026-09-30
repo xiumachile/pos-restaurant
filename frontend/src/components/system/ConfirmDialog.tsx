@@ -1,10 +1,20 @@
 import { useConfirmStore } from '@/store/useConfirmStore';
+import { useEffect, useRef } from 'react';
 import { AlertTriangle, Info, Trash2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 export function ConfirmDialog() {
   const { t } = useTranslation();
   const { isOpen, title, message, confirmText, cancelText, variant, onConfirm, onCancel, close } = useConfirmStore();
+
+    // Cerrar con tecla Escape
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel();
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [onCancel]);
 
   if (!isOpen) return null;
 
@@ -43,7 +53,7 @@ export function ConfirmDialog() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title">
       <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         <div className="p-6">
           <div className="flex items-start gap-4">
@@ -51,19 +61,19 @@ export function ConfirmDialog() {
               {getIcon()}
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
+              <h3 id="confirm-dialog-title" className="text-lg font-semibold text-white mb-2">{title}</h3>
               <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-line">{message}</p>
             </div>
             <button
               onClick={handleCancel}
               className="text-slate-400 hover:text-white transition-colors"
-            >
-              <X size={20} />
+            > aria-label="Cerrar"<X size={20} />
             </button>
           </div>
         </div>
         <div className="px-6 py-4 bg-slate-900/50 border-t border-slate-700 flex justify-end gap-3">
           <button
+            autoFocus
             onClick={handleCancel}
             className="px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors"
           >

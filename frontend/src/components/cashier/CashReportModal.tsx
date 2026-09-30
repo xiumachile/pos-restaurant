@@ -86,7 +86,7 @@ export function CashReportModal({ isOpen, onClose, sessionUuid }: CashReportModa
                 <Loader2 className="animate-spin text-orange-500" size={32} />
               </div>
             ) : !report ? (
-              <div className="text-center py-12 text-slate-500">
+              <div className="text-center py-12 text-slate-400">
                 No hay sesión abierta para reportar
               </div>
             ) : (
@@ -128,7 +128,7 @@ export function CashReportModal({ isOpen, onClose, sessionUuid }: CashReportModa
                           <div className="flex items-center gap-2">
                             <Icon size={16} className={cfg?.color} />
                             <span className="text-sm">{cfg?.labelKey ? t(cfg.labelKey) : key}</span>
-                            <span className="text-xs text-slate-500">({val.count})</span>
+                            <span className="text-xs text-slate-400">({val.count})</span>
                           </div>
                           <div className="text-right">
                             <div className="font-bold text-white">

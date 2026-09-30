@@ -611,7 +611,7 @@ export function CashCloseWizard({
                     <div className="text-lg font-bold text-orange-400">
                       {formatPrice(finalExpected)}
                     </div>
-                    <div className="text-xs text-slate-500 mt-1">
+                    <div className="text-xs text-slate-400 mt-1">
                       Inicial + Ventas efectivo
                       {totalTipsReceived > 0 && (
                         <> · -{formatPrice(totalTipsReceived)} propinas</>
@@ -670,7 +670,7 @@ export function CashCloseWizard({
                         {denominations.filter(d => d.type === "bill").map((d) => (
                           <div key={d.value} className="flex items-center gap-2 bg-slate-800/60 rounded p-2">
                             <span className="font-bold text-green-400 w-20 text-sm">{d.label}</span>
-                            <span className="text-slate-500 text-xs">×</span>
+                            <span className="text-slate-400 text-xs">×</span>
                             <input
                               type="number"
                               value={counts[d.value] || ""}
@@ -678,7 +678,7 @@ export function CashCloseWizard({
                               min="0"
                               className="w-16 px-2 py-1 bg-slate-900 border border-slate-700 rounded text-white text-center text-sm font-bold"
                             />
-                            <span className="text-slate-500 text-xs">=</span>
+                            <span className="text-slate-400 text-xs">=</span>
                             <span className="font-semibold text-white ml-auto text-sm">
                               {formatPrice(d.subtotal)}
                             </span>
@@ -697,7 +697,7 @@ export function CashCloseWizard({
                         {denominations.filter(d => d.type === "coin").map((d) => (
                           <div key={d.value} className="flex items-center gap-2 bg-slate-800/60 rounded p-2">
                             <span className="font-bold text-amber-400 w-20 text-sm">{d.label}</span>
-                            <span className="text-slate-500 text-xs">×</span>
+                            <span className="text-slate-400 text-xs">×</span>
                             <input
                               type="number"
                               value={counts[d.value] || ""}
@@ -705,7 +705,7 @@ export function CashCloseWizard({
                               min="0"
                               className="w-16 px-2 py-1 bg-slate-900 border border-slate-700 rounded text-white text-center text-sm font-bold"
                             />
-                            <span className="text-slate-500 text-xs">=</span>
+                            <span className="text-slate-400 text-xs">=</span>
                             <span className="font-semibold text-white ml-auto text-sm">
                               {formatPrice(d.subtotal)}
                             </span>

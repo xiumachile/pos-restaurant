@@ -289,14 +289,13 @@ export function PrinterSettingsPage() {
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-xl font-bold flex items-center gap-2">
                 <span>{type.emoji}</span> {t(type.labelKey)}
-                <span className="text-sm font-normal text-slate-500">({typePrinters.length})</span>
+                <span className="text-sm font-normal text-slate-400">({typePrinters.length})</span>
               </h2>
               {!showForm && (
                 <button
                   onClick={() => openAddForm(type.key)}
                   className="flex items-center gap-1 text-sm bg-slate-700 hover:bg-slate-600 text-orange-400 px-3 py-1.5 rounded transition-colors"
-                >
-                  <Plus size={16} /> {t("printers.add")}
+                > aria-label="Aumentar cantidad"<Plus size={16} /> {t("printers.add")}
                 </button>
               )}
             </div>
@@ -304,7 +303,7 @@ export function PrinterSettingsPage() {
             {typePrinters.length === 0 ? (
               <div className="bg-slate-800 rounded-lg p-8 text-center border border-slate-700">
                 <Printer className="mx-auto mb-2 text-slate-600" size={32} />
-                <p className="text-slate-500 text-sm">{t("printers.no_printers")}</p>
+                <p className="text-slate-400 text-sm">{t("printers.no_printers")}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -371,8 +370,7 @@ export function PrinterSettingsPage() {
                           onClick={() => handleDelete(printer)}
                           title={t("printers.delete")}
                           className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
-                        >
-                          <Trash2 size={16} />
+                        > aria-label="Eliminar"<Trash2 size={16} />
                         </button>
                       </div>
                     </div>
@@ -387,7 +385,7 @@ export function PrinterSettingsPage() {
       {/* Nota informativa */}
       <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700 mt-8">
         <h3 className="font-bold text-sm text-slate-300 mb-2">{t("printers.how_it_works")}</h3>
-        <ul className="text-sm text-slate-500 space-y-1">
+        <ul className="text-sm text-slate-400 space-y-1">
           <li>• {t("printers.how_1")}</li>
           <li>• {t("printers.how_2")}</li>
           <li>• {t("printers.how_3")}</li>

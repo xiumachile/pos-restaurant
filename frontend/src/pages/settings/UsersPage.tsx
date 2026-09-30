@@ -118,7 +118,7 @@ export function UsersPage() {
             <Loader2 className="animate-spin text-orange-500" size={32} />
           </div>
         ) : users.length === 0 ? (
-          <div className="text-center py-12 text-slate-500">
+          <div className="text-center py-12 text-slate-400">
             <UserIcon size={48} className="mx-auto mb-3 opacity-50" />
             <p>{t("users.empty")}</p>
           </div>
@@ -245,7 +245,7 @@ export function UsersPage() {
                 <button
                   type="submit"
                   disabled={createMutation.isPending || updateMutation.isPending}
-                  className="flex-1 px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-2 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-700 disabled:text-slate-400 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
                 >
                   {(createMutation.isPending || updateMutation.isPending) && <Loader2 size={16} className="animate-spin" />}
                   {t("common.save")}

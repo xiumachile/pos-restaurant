@@ -17,7 +17,7 @@ const STATUS_CONFIG = {
   ready: { labelKey: "kitchen.ready", color: "text-green-400", icon: CheckCircle2 },
   served: { labelKey: "kitchen.served", color: "text-green-500", icon: UtensilsCrossed },
   paid: { labelKey: "kitchen.paid", color: "text-emerald-500", icon: DollarSign },
-  closed: { labelKey: "kitchen.closed", color: "text-slate-500", icon: CheckCircle2 },
+  closed: { labelKey: "kitchen.closed", color: "text-slate-400", icon: CheckCircle2 },
   cancelled: { labelKey: "kitchen.cancelled", color: "text-red-400", icon: X },
 };
 
@@ -79,7 +79,7 @@ export function TableHistoryModal({ tableUuid, isOpen, onClose }: TableHistoryMo
                 <p>{t("kitchen.error_loading_history")}</p>
               </div>
             ) : !data || data.orders.length === 0 ? (
-              <div className="text-center py-12 text-slate-500">
+              <div className="text-center py-12 text-slate-400">
                 <p>{t("kitchen.no_orders_table_today")}</p>
               </div>
             ) : (
@@ -153,7 +153,7 @@ export function TableHistoryModal({ tableUuid, isOpen, onClose }: TableHistoryMo
                               </span>
                               <span className="text-slate-200 flex-1">{item.name}</span>
                               {item.notes && (
-                                <span className="text-xs text-slate-500 italic">
+                                <span className="text-xs text-slate-400 italic">
                                   ({item.notes})
                                 </span>
                               )}

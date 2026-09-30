@@ -25,7 +25,7 @@ export function Header() {
         {/* Toggle de tema */}
         <button
           onClick={toggleTheme}
-          className="p-2 rounded-lg text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 dark:text-slate-300 transition-colors"
+          className="p-2 rounded-lg text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 dark:text-slate-300 transition-colors"
           aria-label={theme === "dark" ? "Modo claro" : "Modo oscuro"}
           title={theme === "dark" ? "Modo claro" : "Modo oscuro"}
         >

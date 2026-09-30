@@ -124,7 +124,7 @@ export function ProductsTab() {
                 <h3 className="font-semibold text-white leading-tight">
                   {getTranslatedName(product.name_translations)}
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">{product.sku}</p>
+                <p className="text-xs text-slate-400 mt-0.5">{product.sku}</p>
               </div>
               <div className="flex gap-1">
                 <button
@@ -175,7 +175,7 @@ export function ProductsTab() {
 
       {products.length === 0 && (
         <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-12 text-center">
-          <Package className="mx-auto text-slate-500 mb-3" size={48} />
+          <Package className="mx-auto text-slate-400 mb-3" size={48} />
           <p className="text-slate-400">
             {searchQuery || selectedCategoryId
               ? "No hay productos con los filtros aplicados"
