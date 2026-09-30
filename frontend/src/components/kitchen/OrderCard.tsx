@@ -73,7 +73,7 @@ export function OrderCard({
             className="w-full py-2 bg-amber-500 hover:bg-amber-600 rounded-lg text-white font-medium flex items-center justify-center gap-2 transition-colors"
           >
             <CheckCircle2 size={16} />
-            {t("kitchen.ready")}
+            {t("kitchen.mark_ready", "Marcar Listo")}
           </button>
         );
       case "ready":
@@ -84,7 +84,7 @@ export function OrderCard({
             className="w-full py-2 bg-green-500 hover:bg-green-600 rounded-lg text-white font-medium flex items-center justify-center gap-2 transition-colors"
           >
             <UtensilsCrossed size={16} />
-            {order.status === "ready_for_pickup" ? t("kitchen.deliver") : t("kitchen.served")}
+            {order.status === "ready_for_pickup" ? t("kitchen.deliver", "Despachar") : t("kitchen.mark_served", "Entregado")}
           </button>
         );
       default:
@@ -94,14 +94,12 @@ export function OrderCard({
 
   return (
     <div
-      className={`rounded-xl border-2 ${urgency.border} ${urgency.bg} p-4 space-y-3 transition-all ${
-        urgency.pulse ? "animate-pulse" : ""
-      }`}
+      className={`rounded-xl border-2 ${urgency.border} ${urgency.bg} p-4 space-y-3 transition-all`}
     >
       {/* Header: tiempo + mesa + prioridad */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <Clock size={16} className={urgency.text} />
+          <Clock size={16} className={`${urgency.text} ${urgency.pulse ? "animate-pulse" : ""}`} />
           <span className={`font-bold ${urgency.text}`}>
             {formatWaitingTime(order.waiting_minutes)}
           </span>

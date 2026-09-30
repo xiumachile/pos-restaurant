@@ -8,6 +8,9 @@ import { TablesTodayView } from "@/components/kitchen/TablesTodayView";
 import { Loader2, RefreshCw, ChefHat, History } from "lucide-react";
 
 export function KitchenPage() {
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const prevConfirmedCount = useRef(0);
+  const addToast = useToastStore((s) => s.addToast);
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<"queue" | "history">("queue");
   
@@ -53,6 +56,16 @@ export function KitchenPage() {
       </div>
     );
   }
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen().catch(() => {});
+      setIsFullscreen(false);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full p-4 md:p-6">
@@ -108,14 +121,24 @@ export function KitchenPage() {
         </div>
 
         {activeTab === "queue" && (
-          <button
-            onClick={() => refetch()}
-            disabled={isRefetching}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-white transition-colors disabled:opacity-50"
-          >
-            <RefreshCw size={16} className={isRefetching ? "animate-spin" : ""} />
-            {t("kitchen.refresh")}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleFullscreen}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-white transition-colors"
+              title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+            >
+              {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+              <span className="hidden md:inline">{isFullscreen ? "Salir" : "Pantalla Completa"}</span>
+            </button>
+            <button
+              onClick={() => refetch()}
+              disabled={isRefetching}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-white transition-colors disabled:opacity-50"
+            >
+              <RefreshCw size={16} className={isRefetching ? "animate-spin" : ""} />
+              <span className="hidden md:inline">{t("kitchen.refresh")}</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -141,7 +164,7 @@ export function KitchenPage() {
           />
 
           <KitchenColumn
-            title={t("kitchen.ready")}
+            title={t("kitchen.to_serve", "Para Entregar")}
             icon="ready"
             orders={readyOrders}
             onServe={(uuid) => handleTransition(uuid, serve.mutateAsync)}
