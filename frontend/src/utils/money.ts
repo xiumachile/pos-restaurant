@@ -119,3 +119,25 @@ export function sumMoney(amounts: number[]): number {
 export function subtractMoney(a: number, b: number): number {
   return roundToCents(a - b);
 }
+
+/**
+ * Parsea string CLP a número entero
+ * Maneja separadores de miles (puntos) y símbolos de moneda
+ * 
+ * @example
+ * parseCLPAmount("23.500")     // 23500
+ * parseCLPAmount("$23.500")    // 23500
+ * parseCLPAmount("23500")      // 23500
+ * parseCLPAmount("")           // 0
+ */
+export function parseCLPAmount(value: string): number {
+  if (!value || value.trim() === '') return 0;
+  
+  // Remover símbolo de moneda, espacios y separadores de miles (puntos)
+  const cleaned = value
+    .replace(/[$\s]/g, '')           // Remover $ y espacios
+    .replace(/\.(?=\d{3}(?:\D|$))/g, ''); // Remover puntos como separadores de miles
+  
+  const parsed = parseInt(cleaned, 10);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
