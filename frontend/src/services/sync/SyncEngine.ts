@@ -80,14 +80,24 @@ export class SyncEngine {
         } catch (error: any) {
           console.error(`[SyncEngine] Error procesando ${item.id}:`, error);
           
-          // Logging detallado para errores 422 (validación)
-          if (error?.response?.status === 422) {
-            console.error("[SyncEngine] ❌ Error de validación (422):");
-            console.error("[SyncEngine] Response data:", error.response.data);
-            console.error("[SyncEngine] Request payload:", item.payload);
+          // [AUDIT FIX] ADR-014: Fail-secure en errores 4xx para evitar cola infinita
+          const status = error?.response?.status;
+          const isPermanentError = status >= 400 && status < 500 && status !== 408 && status !== 429;
+          
+          if (isPermanentError) {
+            console.warn(`[SyncEngine] ⚠️ Error permanente ${status}, marcando como failed`);
+            await SyncQueueRepository.markAsPermanentlyFailed(item.id, error?.message || `Error ${status}`);
+          } else {
+            // Logging detallado para errores 422 (validación)
+            if (status === 422) {
+              console.error("[SyncEngine] ❌ Error de validación (422):");
+              console.error("[SyncEngine] Response data:", error.response.data);
+              console.error("[SyncEngine] Request payload:", item.payload);
+            }
+            
+            await SyncStrategies.handleFailure(item, error?.message || "Unknown error");
           }
           
-          await SyncStrategies.handleFailure(item, error?.message || "Unknown error");
           stats.processed++;
           stats.failed++;
         }
