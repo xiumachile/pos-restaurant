@@ -241,6 +241,7 @@ export function BillPaymentModalV2({
   };
 
   const handleCharge = async () => {
+    console.log('[DEBUG handleCharge] Iniciando, canCharge:', canCharge, 'payments:', payments.length);
     if (!canCharge || effectiveBills.length === 0) return;
 
     setIsProcessing(true);
@@ -248,6 +249,7 @@ export function BillPaymentModalV2({
     
     // Calcular vuelto total de todos los pagos
     const totalChange = payments.reduce((sum, p) => sum + (p.change_amount || 0), 0);
+    console.log('[DEBUG handleCharge] totalChange:', totalChange, 'changePopupEnabled:', changePopupEnabled);
 
     const billsRemaining = effectiveBills.map(b => ({
       uuid: b.uuid,
@@ -313,9 +315,24 @@ export function BillPaymentModalV2({
       return;
     }
 
-    invalidate();
-    onSuccess();
-    onClose();
+    // Mostrar popup de vuelto si está habilitado y hay vuelto
+    if (changePopupEnabled && totalChange > 0) {
+      console.log('[DEBUG handleCharge] Mostrando popup con monto:', totalChange);
+      setChangeAmountForPopup(totalChange);
+      setShowChangePopupState(true);
+      
+      // Cerrar modal después de un delay para que el cajero vea el popup
+      setTimeout(() => {
+        invalidate();
+        onSuccess();
+        onClose();
+      }, 500);
+    } else {
+      // Cerrar inmediatamente si no hay popup
+      invalidate();
+      onSuccess();
+      onClose();
+    }
     setPayments([]);
     setProcessedPaymentIds(new Set());
     setErrors([]);
