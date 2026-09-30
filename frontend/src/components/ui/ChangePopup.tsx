@@ -11,19 +11,12 @@ interface ChangePopupProps {
  * Popup grande y visible para mostrar el vuelto al cajero.
  * Se cierra automáticamente después de `duration` segundos.
  */
-export function ChangePopup({
-  amount,
-  duration = 5,
-  onClose,
-}: {
-  amount: number;
-  duration?: number;
-  onClose: () => void;
-}) {
-  console.log('[ChangePopup] Componente renderizado, amount:', amount); amount, duration = 5, onClose }: ChangePopupProps) {
+export function ChangePopup({ amount, duration = 5, onClose }: ChangePopupProps) {
   const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
   const [countdown, setCountdown] = useState(duration);
+
+  console.log('[ChangePopup] Componente renderizado, amount:', amount);
 
   useEffect(() => {
     // Animación de entrada
@@ -81,7 +74,7 @@ export function ChangePopup({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm transition-opacity duration-300 ${
+      className={`fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm transition-opacity duration-300 ${
         isVisible ? 'opacity-100' : 'opacity-0'
       }`}
       onClick={handleClose}
@@ -108,13 +101,16 @@ export function ChangePopup({
           </div>
 
           <div className="text-white/90 text-lg mb-6" aria-live="polite">
-            {t("change_popup.closes_in", { countdown: countdown, unit: countdown === 1 ? t("change_popup.second") : t("change_popup.seconds") })}
+            {t("change_popup.closes_in", { 
+              countdown: countdown, 
+              unit: countdown === 1 ? t("change_popup.second") : t("change_popup.seconds") 
+            })}
           </div>
 
           <button
             onClick={handleClose}
             className="px-8 py-3 bg-white/20 hover:bg-white/30 text-white font-semibold rounded-xl transition-colors"
-            aria-label="Cerrar popup"
+            aria-label={t("change_popup.close_now")}
           >
             {t("change_popup.close_now")}
           </button>
