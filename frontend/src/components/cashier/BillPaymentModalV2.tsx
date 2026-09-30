@@ -33,6 +33,7 @@ interface PendingPayment {
   amount: number;
   tip_amount: number;
   received_amount: number;
+  change_amount: number; // [FIX] Vuelto para pagos en efectivo mayores al pendiente
   idempotency_key: string;
 }
 
@@ -198,15 +199,22 @@ export function BillPaymentModalV2({
 
 
 
+    // [FIX] En efectivo, limitar monto al pendiente y calcular vuelto
+    const isCash = selectedMethod.type === "cash";
+    const actualAmount = isCash ? Math.min(currentAmount, remaining) : currentAmount;
+    const actualReceived = isCash ? receivedEffective : 0;
+    const changeAmount = isCash ? Math.max(0, actualReceived - actualAmount - currentTip) : 0;
+
     // [AUDIT FIX] Generar ID única del pago, luego derivar idempotency_key
     const paymentId = crypto.randomUUID();
     const newPayment: PendingPayment = {
       id: paymentId,
       payment_method_uuid: selectedMethod.uuid,
       method_code: selectedMethod.code,
-      amount: currentAmount,
+      amount: actualAmount, // [FIX] Usar monto real a cobrar (limitado al pendiente)
       tip_amount: currentTip,
-      received_amount: selectedMethod.type === "cash" ? currentReceived : 0,
+      received_amount: actualReceived,
+      change_amount: changeAmount, // [FIX] Vuelto calculado
       idempotency_key: paymentId, // Usar paymentId directamente (UUID v4 válido)
     };
 
@@ -401,6 +409,11 @@ export function BillPaymentModalV2({
                         <div className="font-semibold text-white text-sm">{config.label}</div>
                         <div className="text-xs text-slate-400">
                           {formatPrice(p.amount)}
+                          {p.change_amount > 0 && (
+                            <span className="ml-2 text-green-400 font-semibold">
+                              (Vuelto: {formatPrice(p.change_amount)})
+                            </span>
+                          )}
                           {p.tip_amount > 0 && (
                             <span className="ml-2 text-orange-400">+ {formatPrice(p.tip_amount)} propina</span>
                           )}
