@@ -32,7 +32,7 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
         {onAdd && (
           <button
             onClick={() => onAdd(product)}
-            className="flex items-center gap-1 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium transition-colors" min-w-[44px] min-h-[44px] flex items-center justify-center
+            className="flex items-center gap-1 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             <Plus size={20} />
             Agregar
