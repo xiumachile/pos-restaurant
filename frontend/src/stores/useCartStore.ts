@@ -161,14 +161,20 @@ export const useCartStore = create<CartState>()(
         const cart = get().carts[tableUuid];
         if (!cart) return { subtotal: 0, tax: 0, total: 0, itemCount: 0 };
 
-        const subtotal = cart.items.reduce(
+        // ADR-011: En Chile, los precios de carta (base_price) YA INCLUYEN IVA.
+        // Por lo tanto, el total es la suma directa de (base_price * cantidad).
+        const total = cart.items.reduce(
           (sum, item) => sum + parsePrice(item.product.base_price) * item.quantity,
           0
         );
-        const tax = calculateTax(subtotal, IVA_RATE);
+        
+        // Desglose tributario: Neto = Total / 1.19, IVA = Total - Neto
+        const netAmount = Math.round(total / 1.19);
+        const tax = total - netAmount;
         const itemCount = cart.items.reduce((sum, i) => sum + i.quantity, 0);
 
-        return { subtotal, tax, total: subtotal + tax, itemCount };
+        // Mantenemos la interfaz: subtotal (neto) + tax = total (bruto/con IVA)
+        return { subtotal: netAmount, tax, total, itemCount };
       },
     }),
     {
