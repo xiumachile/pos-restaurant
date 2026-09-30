@@ -11,7 +11,16 @@ interface ChangePopupProps {
  * Popup grande y visible para mostrar el vuelto al cajero.
  * Se cierra automáticamente después de `duration` segundos.
  */
-export function ChangePopup({ amount, duration = 5, onClose }: ChangePopupProps) {
+export function ChangePopup({
+  amount,
+  duration = 5,
+  onClose,
+}: {
+  amount: number;
+  duration?: number;
+  onClose: () => void;
+}) {
+  console.log('[ChangePopup] Componente renderizado, amount:', amount); amount, duration = 5, onClose }: ChangePopupProps) {
   const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
   const [countdown, setCountdown] = useState(duration);
