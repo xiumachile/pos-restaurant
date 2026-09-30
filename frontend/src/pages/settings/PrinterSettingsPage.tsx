@@ -295,7 +295,7 @@ export function PrinterSettingsPage() {
                 <button
                   onClick={() => openAddForm(type.key)}
                   className="flex items-center gap-1 text-sm bg-slate-700 hover:bg-slate-600 text-orange-400 px-3 py-1.5 rounded transition-colors"
-                > aria-label="Aumentar cantidad"<Plus size={16} /> {t("printers.add")}
+                 aria-label="Aumentar cantidad"><Plus size={16} /> {t("printers.add")}
                 </button>
               )}
             </div>
@@ -370,7 +370,7 @@ export function PrinterSettingsPage() {
                           onClick={() => handleDelete(printer)}
                           title={t("printers.delete")}
                           className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
-                        > aria-label="Eliminar"<Trash2 size={16} />
+                         aria-label="Eliminar"><Trash2 size={16} />
                         </button>
                       </div>
                     </div>

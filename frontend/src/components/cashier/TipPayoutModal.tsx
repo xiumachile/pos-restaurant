@@ -126,10 +126,10 @@ export function TipPayoutModal({ isOpen, onClose }: TipPayoutModalProps) {
               <button
                 onClick={() => setShowForm(!showForm)}
                 className="flex items-center gap-1.5 px-3 py-2 bg-orange-500 hover:bg-orange-600 rounded-lg text-white text-sm font-medium"
-              > aria-label="Aumentar cantidad"<Plus size={15} />
+               aria-label="Aumentar cantidad"><Plus size={15} />
                 Nueva Entrega
               </button>
-              <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-lg"> aria-label="Cerrar"<X size={20} />
+              <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-lg" aria-label="Cerrar"><X size={20} />
               </button>
             </div>
           </div>
@@ -328,7 +328,7 @@ export function TipPayoutModal({ isOpen, onClose }: TipPayoutModalProps) {
                         disabled={voidPayout.isPending}
                         className="p-1.5 text-red-400 hover:bg-red-900/30 rounded"
                         title="Anular entrega"
-                      > aria-label="Eliminar"<Trash2 size={14} />
+                       aria-label="Eliminar"><Trash2 size={14} />
                       </button>
                     </div>
                   </div>

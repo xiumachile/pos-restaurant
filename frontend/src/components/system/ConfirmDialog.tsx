@@ -67,7 +67,7 @@ export function ConfirmDialog() {
             <button
               onClick={handleCancel}
               className="text-slate-400 hover:text-white transition-colors"
-            > aria-label="Cerrar"<X size={20} />
+             aria-label="Cerrar"><X size={20} />
             </button>
           </div>
         </div>

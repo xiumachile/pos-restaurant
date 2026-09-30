@@ -194,7 +194,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
                   onClick={() => removeItem(tableUuid, item.id)}
                   disabled={isProcessing}
                   className="min-w-[44px] min-h-[44px] p-2 hover:bg-red-500/20 rounded-lg ml-2 disabled:opacity-40 flex items-center justify-center"
-                > aria-label="Eliminar"<Trash2 size={20} className="text-red-400" />
+                 aria-label="Eliminar"><Trash2 size={20} className="text-red-400" />
                 </button>
               </div>
 
@@ -221,7 +221,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
                     onClick={() => updateQuantity(tableUuid, item.id, item.quantity - 1)}
                     disabled={isProcessing}
                     className="min-w-[44px] min-h-[44px] p-2 bg-slate-700 hover:bg-slate-600 rounded-lg disabled:opacity-40 flex items-center justify-center"
-                  > aria-label="Disminuir cantidad"<Minus size={20} />
+                   aria-label="Disminuir cantidad"><Minus size={20} />
                   </button>
                   <span className="text-base font-bold w-7 text-center">
                     {item.quantity}
@@ -230,7 +230,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
                     onClick={() => updateQuantity(tableUuid, item.id, item.quantity + 1)}
                     disabled={isProcessing}
                     className="min-w-[44px] min-h-[44px] p-2 bg-slate-700 hover:bg-slate-600 rounded-lg disabled:opacity-40 flex items-center justify-center"
-                  > aria-label="Aumentar cantidad"<Plus size={20} />
+                   aria-label="Aumentar cantidad"><Plus size={20} />
                   </button>
                   <button
                     onClick={() => {
