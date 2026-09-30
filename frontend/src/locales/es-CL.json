@@ -85,7 +85,8 @@
     "custom_note": "Nota personalizada",
     "no_spicy": "Sin picante",
     "extra_sauce": "Salsa extra",
-    "well_done": "Bien cocido"
+    "well_done": "Bien cocido",
+    "net_amount": "Neto"
   },
   "sync": {
     "sync_status": "Estado de sincronización",

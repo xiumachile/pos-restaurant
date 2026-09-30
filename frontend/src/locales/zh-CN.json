@@ -85,7 +85,8 @@
     "custom_note": "自定义备注",
     "no_spicy": "不要辣",
     "extra_sauce": "多加酱",
-    "well_done": "全熟"
+    "well_done": "全熟",
+    "net_amount": "净额"
   },
   "cashier": {
     "title": "收银台",

@@ -296,7 +296,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
         ) : (
           <>
             <div className="flex justify-between text-sm">
-              <span className="text-slate-400">{t("orders.subtotal")}</span>
+              <span className="text-slate-400">{t("orders.net_amount", "Neto")}</span>
               <span>{formatPrice(totals.subtotal)}</span>
             </div>
             <div className="flex justify-between text-sm">
