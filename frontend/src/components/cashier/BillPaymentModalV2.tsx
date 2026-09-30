@@ -58,6 +58,7 @@ export function BillPaymentModalV2({
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
   const [amountInput, setAmountInput] = useState<string>("");
   const [tipInput, setTipInput] = useState<string>("0");
+  const [tipPct, setTipPct] = useState<number | null>(null); // [AUDIT FIX] Guardar intención (porcentaje o manual)
   const [receivedInput, setReceivedInput] = useState<string>("");
   const [activeField, setActiveField] = useState<ActiveField>("amount");
   const [payments, setPayments] = useState<PendingPayment[]>([]);
@@ -82,30 +83,35 @@ export function BillPaymentModalV2({
   const canCharge = remaining === 0 && payments.length > 0 && !isProcessing;
 
   const currentAmount = parseInt(amountInput, 10) || 0;
-  const currentTip = parseInt(tipInput, 10) || 0;
-  const currentReceived = parseInt(receivedInput, 10) || 0;
   
   // Lógica de propina sugerida (única declaración)
   const tipBase = currentAmount > 0 ? currentAmount : remaining;
   const suggestedTipPercentages: number[] = [10, 15, 20];
   
-  const change = selectedMethod?.type === "cash"
-    ? Math.max(0, currentReceived - (currentAmount + currentTip))
-    : 0;
-
-  // Auto-sugerir "Recibido" = "Monto" + "Propina" al seleccionar efectivo, para evitar errores
-  useEffect(() => {
-    if (selectedMethod?.type === "cash" && activeField !== "received" && !receivedInput) {
-      setReceivedInput((currentAmount + currentTip).toString());
-    }
-  }, [selectedMethod, currentAmount, currentTip, activeField, receivedInput]);
-
-  // Auto-sugerir "Recibido" = "Monto" + "Propina" al seleccionar efectivo
-  useEffect(() => {
-    if (selectedMethod?.type === "cash" && activeField !== "received" && !receivedInput) {
-      setReceivedInput((currentAmount + currentTip).toString());
-    }
-  }, [selectedMethod, currentAmount, currentTip, activeField, receivedInput]);
+  // [AUDIT FIX] Derivar propina del porcentaje o del input manual
+  const currentTip = tipPct !== null
+    ? Math.round(tipBase * tipPct / 100)
+    : (parseInt(tipInput, 10) || 0);
+  const currentReceived = parseInt(receivedInput, 10) || 0;
+  
+  // [AUDIT FIX] Derivar "Recibido" automáticamente en lugar de useEffect duplicado
+  const isCash = selectedMethod?.type === "cash";
+  const amountToCharge = amountInput === "" ? remaining : currentAmount;
+  const receivedEffective = receivedInput === "" ? amountToCharge + currentTip : currentReceived;
+  const change = isCash ? Math.max(0, receivedEffective - (amountToCharge + currentTip)) : 0;
+  
+  const cashShort = isCash && receivedEffective < amountToCharge + currentTip;
+  const canAdd = !!selectedMethod && amountToCharge > 0 && amountToCharge <= remaining && !cashShort;
+  
+  // Determinar motivo de deshabilitado del botón
+  const getDisabledReason = () => {
+    if (!selectedMethod) return "Selecciona un método de pago";
+    if (amountToCharge <= 0) return "Monto debe ser mayor a 0";
+    if (amountToCharge > remaining) return `Monto excede el pendiente (${formatPrice(remaining)})`;
+    if (cashShort) return `Falta ${formatPrice(amountToCharge + currentTip - receivedEffective)} de efectivo`;
+    return null;
+  };
+  const disabledReason = getDisabledReason();
 
   // Teclado escribe en el campo activo
   const handleKeyPress = useCallback((key: string) => {
@@ -160,6 +166,7 @@ export function BillPaymentModalV2({
   
 
   const handleApplyTipPercentage = (percentage: number) => {
+    setTipPct(percentage); // [AUDIT FIX] Guardar porcentaje, derivar valor dinámicamente
     const calculatedTip = Math.round(tipBase * (percentage / 100));
     setTipInput(calculatedTip.toString());
   };
@@ -194,20 +201,23 @@ export function BillPaymentModalV2({
       }
     }
 
+    // [AUDIT FIX] Generar ID única del pago, luego derivar idempotency_key
+    const paymentId = crypto.randomUUID();
     const newPayment: PendingPayment = {
-      id: crypto.randomUUID(),
+      id: paymentId,
       payment_method_uuid: selectedMethod.uuid,
       method_code: selectedMethod.code,
       amount: currentAmount,
       tip_amount: currentTip,
       received_amount: selectedMethod.type === "cash" ? currentReceived : 0,
-      idempotency_key: crypto.randomUUID(),
+      idempotency_key: `${paymentId}-${effectiveBills.map(b => b.uuid).sort().join('-')}`, // [AUDIT FIX] UUID derivado por (pago, bills)
     };
 
     setPayments([...payments, newPayment]);
     // Resetear campos pero mantener método seleccionado
     setAmountInput("");
     setTipInput("0");
+    setTipPct(null); // [AUDIT FIX] Resetear porcentaje
     setReceivedInput("");
     setActiveField("amount");
   };
@@ -625,7 +635,7 @@ export function BillPaymentModalV2({
                 )}
               <button
                 onClick={handleAddPayment}
-                disabled={currentAmount <= 0 || currentAmount > remaining}
+                disabled={!canAdd}
                 className="w-full py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-700 disabled:text-slate-400 rounded-lg font-bold text-white flex items-center justify-center gap-2"
               >
                 + Agregar Pago

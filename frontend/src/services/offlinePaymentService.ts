@@ -239,7 +239,7 @@ export const offlinePaymentService = {
         bill_local_uuid: bill?.local_uuid,  // null si pago directo a order (sin bill)
         payment_method: paymentMethod,
         amount,
-        tip_amount: order.tip_amount,  // ✅ Usa order.tip_amount (consistente con Bill)
+        tip_amount: tipAmount ?? order.tip_amount,  // [AUDIT FIX] Usar tipAmount del payload, fallback a order.tip_amount
         reference_code: referenceCode,
         notes,
       }, db); // <-- Pasar contexto de transacción
