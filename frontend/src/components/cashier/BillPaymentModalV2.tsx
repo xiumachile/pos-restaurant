@@ -85,11 +85,7 @@ export function BillPaymentModalV2({
   const currentTip = parseInt(tipInput, 10) || 0;
   const currentReceived = parseInt(receivedInput, 10) || 0;
   
-  // Lógica de propina sugerida
-  const tipBase = currentAmount > 0 ? currentAmount : remaining;
-  const suggestedTipPercentages: number[] = [10, 15, 20];
-  
-  // Base para calcular propina sugerida
+  // Lógica de propina sugerida (única declaración)
   const tipBase = currentAmount > 0 ? currentAmount : remaining;
   const suggestedTipPercentages: number[] = [10, 15, 20];
   
@@ -159,10 +155,9 @@ export function BillPaymentModalV2({
     // Si ya había monto en el campo, no resetear
   };
 
-  const handleApplyTipPercentage = (percentage: number) => {
-    const calculatedTip = Math.round(tipBase * (percentage / 100));
-    setTipInput(calculatedTip.toString());
-  };
+  
+
+  
 
   const handleApplyTipPercentage = (percentage: number) => {
     const calculatedTip = Math.round(tipBase * (percentage / 100));
@@ -185,6 +180,8 @@ export function BillPaymentModalV2({
       return;
     }
     
+    
+
     // VALIDACIÓN DE EFECTIVO
     if (selectedMethod.type === "cash") {
       const requiredTotal = currentAmount + currentTip;
