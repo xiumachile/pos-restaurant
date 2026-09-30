@@ -43,8 +43,8 @@ interface PendingPayment {
 type ActiveField = "amount" | "tip" | "received";
 
 const PAYMENT_CONFIG: Record<string, { label: string; icon: any; color: string }> = {
-  CASH: { label: "t("bill_payment.payment_method_cash")", icon: Banknote, color: "bg-green-600" },
-  CARD: { label: "t("bill_payment.payment_method_card")", icon: CreditCard, color: "bg-blue-600" },
+  CASH: { label: "Efectivo", icon: Banknote, color: "bg-green-600" },
+  CARD: { label: "Tarjeta", icon: CreditCard, color: "bg-blue-600" },
   TRANSFER: { label: "Transfer", icon: Building2, color: "bg-purple-600" },
   GIFT_CARD: { label: "Gift Card", icon: Gift, color: "bg-amber-600" },
   DEBIT_CARD: { label: "Débito", icon: CreditCard, color: "bg-blue-600" },
@@ -105,7 +105,7 @@ export function BillPaymentModalV2({
     : parseCLPAmount(tipInput);
   const currentReceived = parseCLPAmount(receivedInput);
   
-  // [AUDIT FIX] Derivar "t("bill_payment.received")" automáticamente en lugar de useEffect duplicado
+  // [AUDIT FIX] Derivar "Recibido" automáticamente en lugar de useEffect duplicado
   const isCash = selectedMethod?.type === "cash";
   const amountToCharge = amountInput === "" ? remaining : currentAmount;
   const receivedEffective = receivedInput === "" ? amountToCharge + currentTip : currentReceived;
@@ -119,8 +119,8 @@ export function BillPaymentModalV2({
   
   // Determinar motivo de deshabilitado del botón
   const getDisabledReason = () => {
-    if (!selectedMethod) return "t("bill_payment.error_select_method")";
-    if (amountToCharge <= 0) return "t("bill_payment.error_amount_must_be_positive")";
+    if (!selectedMethod) return "Selecciona un método de pago";
+    if (amountToCharge <= 0) return "Monto debe ser mayor a 0";
     // En efectivo no hay límite superior, en otros métodos sí
     if (!isCash && amountToCharge > remaining) return `Monto excede el pendiente (${formatPrice(remaining)})`;
     if (cashShort) return `Falta ${formatPrice(amountToCharge + currentTip - receivedEffective)} de efectivo`;
@@ -190,7 +190,7 @@ export function BillPaymentModalV2({
     setErrors([]);
 
     if (!selectedMethod) {
-      setErrors(["t("bill_payment.error_select_method")"]);
+      setErrors(["Selecciona un método de pago"]);
       return;
     }
     if (currentAmount <= 0) {
@@ -382,7 +382,7 @@ export function BillPaymentModalV2({
           {/* Resumen */}
           <div className="bg-slate-900 border-b border-slate-800 p-3 grid grid-cols-3 gap-2 flex-shrink-0">
             <div className="text-center">
-              <div className="text-xs text-slate-400 uppercase">t("bill_payment.total")</div>
+              <div className="text-xs text-slate-400 uppercase">Total</div>
               <div className="text-sm font-bold text-white">{formatPrice(billPending)}</div>
             </div>
             <div className="text-center">
@@ -390,7 +390,7 @@ export function BillPaymentModalV2({
               <div className="text-sm font-bold text-blue-400">{formatPrice(paymentsSum)}</div>
             </div>
             <div className="text-center">
-              <div className="text-xs text-slate-400 uppercase">t("bill_payment.pending_amount")</div>
+              <div className="text-xs text-slate-400 uppercase">Pendiente</div>
               <div className={`text-sm font-bold ${remaining > 0 ? "text-orange-400" : "text-green-400"}`}>
                 {formatPrice(remaining)}
               </div>
@@ -608,7 +608,7 @@ export function BillPaymentModalV2({
                     onClick={() => setActiveField("received")}
                     className={fieldClass("received", "green")}
                   >
-                    <div className="text-xs text-slate-400 uppercase">t("bill_payment.received")</div>
+                    <div className="text-xs text-slate-400 uppercase">Recibido</div>
                     <div className="text-lg font-bold text-green-400 text-right tabular-nums">
                       ${receivedInput || "0"}
                     </div>
