@@ -55,7 +55,7 @@ export function KitchenPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full p-4 md:p-6">
       {/* Header con tabs */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-6">

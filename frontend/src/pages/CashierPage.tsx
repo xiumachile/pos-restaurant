@@ -68,7 +68,7 @@ export function CashierPage() {
   }
 
   return (
-    <div className="flex flex-col h-full gap-4">
+    <div className="flex flex-col h-full gap-4 p-4 md:p-6">
       {/* Barra compacta de estado de caja (solo si requiere sesión) */}
       <CapabilityGate requires={CapabilityKey.REQUIRES_CASHIER_SESSION}>
         <CashSessionStatus session={dashboard?.current_session || null} />
