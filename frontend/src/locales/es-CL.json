@@ -50,7 +50,7 @@
     "title": "Pedidos",
     "order": "pedido",
     "orders": "pedidos",
-    "sync_status": "Estado de pedidos y sincronización",
+    "sync_status": "Estado técnico de sincronización de datos",
     "sync_now": "Sincronizar ahora",
     "total": "Total",
     "synced": "Sincronizados",

@@ -50,29 +50,34 @@ export function Sidebar() {
 
   const NAV_ITEMS: NavItem[] = useMemo(
     () => [
+      // 1. Operación principal (Todos los roles operativos)
       { to: "/", label: t("tables.title"), icon: LayoutGrid, end: true, allowedRoles: ROLES.ALL },
-      { to: "/catalog", label: t("catalog.title"), icon: UtensilsCrossed, allowedRoles: ROLES.FRONT_OF_HOUSE },
+      
+      // 2. Áreas específicas por rol
       {
         to: "/kitchen",
         label: t("kitchen.title"),
         icon: ChefHat,
-        allowedRoles: ROLES.BACK_OF_HOUSE,
+        allowedRoles: ROLES.BACK_OF_HOUSE, // kitchen, manager, admin
       },
-      {
-        to: "/orders",
-        label: t("orders.title"),
-        icon: ListOrdered,
-        allowedRoles: [...ROLES.FRONT_OF_HOUSE, ...ROLES.BACK_OF_HOUSE],
+      { 
+        to: "/cashier", 
+        label: t("cashier.title"), 
+        icon: CreditCard, 
+        allowedRoles: ROLES.CASHIER_ONLY // cashier, manager, admin
       },
-      { to: "/cashier", label: t("cashier.title"), icon: CreditCard, allowedRoles: ROLES.CASHIER_ONLY },
+      
+      // 3. Gestión y Administración (Solo Management)
+      // Se eliminó "/catalog" del sidebar principal: los garzones usan el catálogo dentro de la toma de pedidos en Mesas.
+      // Se eliminó "/orders" del sidebar: era confuso porque mostraba estado de sync en lugar de historial de pedidos.
       { to: "/reports", label: t("reports.title"), icon: BarChart3, allowedRoles: ROLES.MANAGEMENT },
-      { to: "/settings", label: t("settings.title"), icon: Settings, allowedRoles: ROLES.MANAGEMENT },
       {
         to: "/sync-queue",
-        label: t("sync.queue"),
+        label: "Sincronización", // Nombre más claro que "Cola de sync"
         icon: Database,
         allowedRoles: ROLES.MANAGEMENT,
       },
+      { to: "/settings", label: t("settings.title"), icon: Settings, allowedRoles: ROLES.MANAGEMENT },
     ],
     [t]
   );
