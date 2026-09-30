@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useConfirmStore } from '@/store/useConfirmStore';
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Printer,
   Plus,
@@ -187,9 +188,9 @@ export function PrinterSettingsPage() {
   return (
     <div>
       <div className="flex items-center gap-4 mb-6">
-        <a href="/settings" className="text-slate-400 hover:text-white transition-colors">
+        <Link to="" /settings>
           <ArrowLeft size={24} />
-        </a>
+        </Link>
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <Printer size={28} />{t("printers.title")}</h1>

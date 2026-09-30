@@ -1,1 +1,5 @@
 @import "tailwindcss";
+
+/* Tailwind v4: por defecto dark: sigue al sistema (prefers-color-scheme).
+   Esto lo cambia a la clase .dark en <html>, controlada por useThemeStore. */
+@custom-variant dark (&:where(.dark, .dark *));

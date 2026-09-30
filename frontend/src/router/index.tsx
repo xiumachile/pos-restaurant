@@ -49,66 +49,48 @@ function SettingsPage() {
     <div>
       <h1 className="text-3xl font-bold mb-6">{t("settings.title")}</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <a
-          href="/settings/catalog"
-          className="bg-slate-800 hover:bg-slate-700 rounded-lg p-6 transition-colors border border-slate-700"
-        >
+        <Link to="" /settings/catalog>
           <div className="text-2xl mb-2">📦</div>
           <h2 className="font-bold text-lg mb-1">{t("settings.catalog_title")}</h2>
           <p className="text-sm text-slate-400">
             {t("settings.catalog_desc")}
           </p>
-        </a>
-        <a
-          href="/settings/tips"
-          className="bg-slate-800 hover:bg-slate-700 rounded-lg p-6 transition-colors border border-slate-700"
-        >
+        </Link>
+        <Link to="" /settings/tips>
           <div className="text-2xl mb-2">💰</div>
           <h2 className="font-bold text-lg mb-1">{t("settings.tips_title")}</h2>
           <p className="text-sm text-slate-400">
             {t("settings.tips_desc")}
           </p>
-        </a>
-        <a
-          href="/settings/capabilities"
-          className="bg-slate-800 hover:bg-slate-700 rounded-lg p-6 transition-colors border border-slate-700"
-        >
+        </Link>
+        <Link to="" /settings/capabilities>
           <div className="text-2xl mb-2">🎛️</div>
           <h2 className="font-bold text-lg mb-1">{t("settings.capabilities_title")}</h2>
           <p className="text-sm text-slate-400">
             {t("settings.capabilities_desc")}
           </p>
-        </a>
-        <a
-          href="/settings/printers"
-          className="bg-slate-800 hover:bg-slate-700 rounded-lg p-6 transition-colors border border-slate-700"
-        >
+        </Link>
+        <Link to="" /settings/printers>
           <div className="text-2xl mb-2">🖨️</div>
           <h2 className="font-bold text-lg mb-1">{t("settings.printers_title")}</h2>
           <p className="text-sm text-slate-400">
             {t("settings.printers_desc")}
           </p>
-        </a>
-        <a
-          href="/settings/users"
-          className="bg-slate-800 hover:bg-slate-700 rounded-lg p-6 transition-colors border border-slate-700"
-        >
+        </Link>
+        <Link to="" /settings/users>
           <div className="text-2xl mb-2">👥</div>
           <h2 className="font-bold text-lg mb-1">{t("settings.users_title")}</h2>
           <p className="text-sm text-slate-400">
             {t("settings.users_desc")}
           </p>
-        </a>
-        <a
-          href="/settings/default-notes"
-          className="bg-slate-800 hover:bg-slate-700 rounded-lg p-6 transition-colors border border-slate-700"
-        >
+        </Link>
+        <Link to="" /settings/default-notes>
           <div className="text-2xl mb-2">📝</div>
           <h2 className="font-bold text-lg mb-1">{t("settings.default_notes_title")}</h2>
           <p className="text-sm text-slate-400">
             {t("settings.default_notes_desc")}
           </p>
-        </a>
+        </Link>
       </div>
     </div>
   );

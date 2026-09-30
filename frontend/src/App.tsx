@@ -16,16 +16,15 @@ import i18n from "./i18n";
 import { preloadAuthToken } from "./services/secureStorage";
 
 function AppContent() {
-  // 🌗 Aplicar tema oscuro/claro globalmente
+  // 🌗 Aplicar tema globalmente y reaccionar a cambios del store
+  const theme = useThemeStore((state) => state.theme);
+
   useEffect(() => {
-    const root = window.document.documentElement;
-    const theme = useThemeStore.getState().theme;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-  }, []);
+    window.document.documentElement.classList.toggle(
+      "dark",
+      theme === "dark"
+    );
+  }, [theme]);
 
   // Refresh automático del JWT cuando queda < 2 minutos
   useAuthRefresh();
@@ -60,7 +59,10 @@ function AppContent() {
 
   return (
     <I18nextProvider i18n={i18n}>
-      <RouterProvider router={router} />
+      <>
+        <RouterProvider router={router} />
+        <ToastContainer />
+      </>
     </I18nextProvider>
   );
 }
@@ -85,5 +87,3 @@ function App() {
 }
 
 export default App;
-
-      <ToastContainer />
