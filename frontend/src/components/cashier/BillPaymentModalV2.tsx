@@ -86,8 +86,9 @@ export function BillPaymentModalV2({
 
   const currentAmount = parseCLPAmount(amountInput);
   
-  // Lógica de propina sugerida (única declaración)
-  const tipBase = currentAmount > 0 ? currentAmount : remaining;
+  // [FIX] La propina se calcula sobre el monto TOTAL de la cuenta, no sobre el monto ingresado
+  // Ejemplo: Cuenta $16.800, cajero ingresa $20.000 → 10% = $1.680 (no $2.000)
+  const tipBase = billPending;
   const suggestedTipPercentages: number[] = [10, 15, 20];
   
   // [AUDIT FIX] Derivar propina del porcentaje o del input manual
