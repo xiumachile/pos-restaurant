@@ -3,6 +3,7 @@ import { SyncQueueRepository, type SyncQueueItem } from "../../db/repositories/S
 import { syncApi } from "../syncApi";
 import { pullEngine } from "./PullEngine";
 import { useSyncStore } from "../../store/useSyncStore";
+import { useAuthStore } from "../../store/useAuthStore";
 import { useToastStore } from "../../store/useToastStore";
 import { validateContext } from "../authContext";
 import { SyncStrategies } from "./strategies/SyncStrategies";
@@ -24,6 +25,7 @@ export class SyncEngine {
     failed: number;
     skipped: number;
   }> {
+    if (!useAuthStore.getState().isAuthenticated) return { processed: 0, success: 0, failed: 0, skipped: 0 };
     if (this.isProcessing) {
       console.log("[SyncEngine] Ya procesando, saltando batch");
       return { processed: 0, success: 0, failed: 0, skipped: 1 };
@@ -216,6 +218,7 @@ export class SyncEngine {
    * Incluye notificaciones toast de progreso.
    */
   async triggerFullSync(): Promise<void> {
+    if (!useAuthStore.getState().isAuthenticated) return;
     if (this.isProcessing) {
       console.log("[SyncEngine] Ya hay una sincronización en progreso");
       return;

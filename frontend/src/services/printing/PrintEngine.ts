@@ -1,4 +1,5 @@
 import { printJobsApi, type PrintJob } from '../printJobsApi';
+import { useAuthStore } from "../../store/useAuthStore";
 import { MockPrinterAdapter, type PrinterAdapter } from './adapters/MockPrinterAdapter';
 
 /**
@@ -76,6 +77,7 @@ export class PrintEngine {
    * Procesa todos los jobs pendientes (una iteración del polling).
    */
   async processPendingJobs(): Promise<void> {
+    if (!useAuthStore.getState().isAuthenticated) return;
     try {
       const pendingJobs = await printJobsApi.listPending(20);
 
