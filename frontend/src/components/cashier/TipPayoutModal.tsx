@@ -85,14 +85,18 @@ export function TipPayoutModal({ isOpen, onClose }: TipPayoutModalProps) {
   };
 
   const handleVoid = async (uuid: string) => {
-    useConfirmStore.getState().open({ title: "Cancelar", message: "$1", variant: "info", onConfirm: () => {} });
-    return;
-    
-    try {
-      await voidPayout.mutateAsync(uuid);
-    } catch (e) {
-      console.error(e);
-    }
+    useConfirmStore.getState().open({
+      title: "Anular entrega",
+      message: "¿Estás seguro de que deseas anular esta entrega de propina? Esta acción no se puede deshacer.",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await voidPayout.mutateAsync(uuid);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    });
   };
 
   if (!isOpen) return null;
