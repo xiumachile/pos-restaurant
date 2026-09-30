@@ -85,6 +85,10 @@ export function BillPaymentModalV2({
   const currentTip = parseInt(tipInput, 10) || 0;
   const currentReceived = parseInt(receivedInput, 10) || 0;
   
+  // Lógica de propina sugerida
+  const tipBase = currentAmount > 0 ? currentAmount : remaining;
+  const suggestedTipPercentages: number[] = [10, 15, 20];
+  
   // Base para calcular propina sugerida
   const tipBase = currentAmount > 0 ? currentAmount : remaining;
   const suggestedTipPercentages: number[] = [10, 15, 20];
@@ -94,6 +98,13 @@ export function BillPaymentModalV2({
     : 0;
 
   // Auto-sugerir "Recibido" = "Monto" + "Propina" al seleccionar efectivo, para evitar errores
+  useEffect(() => {
+    if (selectedMethod?.type === "cash" && activeField !== "received" && !receivedInput) {
+      setReceivedInput((currentAmount + currentTip).toString());
+    }
+  }, [selectedMethod, currentAmount, currentTip, activeField, receivedInput]);
+
+  // Auto-sugerir "Recibido" = "Monto" + "Propina" al seleccionar efectivo
   useEffect(() => {
     if (selectedMethod?.type === "cash" && activeField !== "received" && !receivedInput) {
       setReceivedInput((currentAmount + currentTip).toString());
@@ -153,6 +164,11 @@ export function BillPaymentModalV2({
     setTipInput(calculatedTip.toString());
   };
 
+  const handleApplyTipPercentage = (percentage: number) => {
+    const calculatedTip = Math.round(tipBase * (percentage / 100));
+    setTipInput(calculatedTip.toString());
+  };
+
   const handleAddPayment = () => {
     setErrors([]);
 
@@ -165,11 +181,11 @@ export function BillPaymentModalV2({
       return;
     }
     if (currentAmount > remaining) {
-      setErrors([`El monto a cobrar ($${formatPrice(currentAmount)}) no puede ser mayor al saldo pendiente ($${formatPrice(remaining)}).`]);
+      setErrors([`El monto ($${formatPrice(currentAmount)}) excede el saldo pendiente ($${formatPrice(remaining)}).`]);
       return;
     }
     
-    // VALIDACIÓN DE EFECTIVO: Distinguir claramente entre "Monto a cobrar" y "Efectivo recibido"
+    // VALIDACIÓN DE EFECTIVO
     if (selectedMethod.type === "cash") {
       const requiredTotal = currentAmount + currentTip;
       if (currentReceived < requiredTotal) {
@@ -567,7 +583,6 @@ export function BillPaymentModalV2({
                 )}
               </div>
               </div>
-              </div>
 
               {/* Cambio */}
               {selectedMethod.type === "cash" && change > 0 && (
@@ -601,6 +616,16 @@ export function BillPaymentModalV2({
           {/* Botón Agregar */}
           {selectedMethod && (
             <div className="p-3 border-t border-slate-800 flex-shrink-0">
+                {errors.length > 0 && (
+                  <div className="bg-red-900/30 border border-red-700 rounded-lg p-3 text-xs text-red-300 space-y-1 mb-4">
+                    {errors.map((err, idx) => (
+                      <div key={idx} className="flex items-start gap-2">
+                        <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
+                        <span>{err}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               <button
                 onClick={handleAddPayment}
                 disabled={currentAmount <= 0 || currentAmount > remaining}
