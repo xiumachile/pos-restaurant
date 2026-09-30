@@ -292,15 +292,15 @@ export function BillPaymentModalV2({
           {/* Resumen */}
           <div className="bg-slate-900 border-b border-slate-800 p-3 grid grid-cols-3 gap-2 flex-shrink-0">
             <div className="text-center">
-              <div className="text-[10px] text-slate-500 uppercase">Total</div>
+              <div className="text-xs text-slate-500 uppercase">Total</div>
               <div className="text-sm font-bold text-white">{formatPrice(billPending)}</div>
             </div>
             <div className="text-center">
-              <div className="text-[10px] text-slate-500 uppercase">Pagado</div>
+              <div className="text-xs text-slate-500 uppercase">Pagado</div>
               <div className="text-sm font-bold text-blue-400">{formatPrice(paymentsSum)}</div>
             </div>
             <div className="text-center">
-              <div className="text-[10px] text-slate-500 uppercase">Pendiente</div>
+              <div className="text-xs text-slate-500 uppercase">Pendiente</div>
               <div className={`text-sm font-bold ${remaining > 0 ? "text-orange-400" : "text-green-400"}`}>
                 {formatPrice(remaining)}
               </div>
@@ -395,7 +395,7 @@ export function BillPaymentModalV2({
         <div className="lg:w-1/2 flex flex-col overflow-hidden bg-slate-900">
           {/* Pendiente destacado */}
           <div className={`p-3 border-b border-slate-800 flex-shrink-0 ${remaining > 0 ? "bg-orange-900/10" : "bg-green-900/10"}`}>
-            <div className="text-[10px] text-slate-400 uppercase">Pendiente por pagar</div>
+            <div className="text-xs text-slate-400 uppercase">Pendiente por pagar</div>
             <div className={`text-2xl font-bold ${remaining > 0 ? "text-orange-400" : "text-green-400"}`}>
               {formatPrice(remaining)}
             </div>
@@ -403,7 +403,7 @@ export function BillPaymentModalV2({
 
           {/* Métodos de pago */}
           <div className="p-3 border-b border-slate-800 flex-shrink-0">
-            <div className="text-[10px] text-slate-400 uppercase mb-2">Método de pago</div>
+            <div className="text-xs text-slate-400 uppercase mb-2">Método de pago</div>
             <div className="grid grid-cols-4 gap-2">
               {methods.map((method) => {
                 const config = PAYMENT_CONFIG[method.code.toUpperCase()] || {
@@ -428,7 +428,7 @@ export function BillPaymentModalV2({
                     <div className={`w-8 h-8 rounded-md ${config.color} flex items-center justify-center`}>
                       <Icon size={16} className="text-white" />
                     </div>
-                    <span className="text-[10px] font-semibold text-center leading-tight">{config.label}</span>
+                    <span className="text-xs font-semibold text-center leading-tight">{config.label}</span>
                   </button>
                 );
               })}
@@ -444,11 +444,11 @@ export function BillPaymentModalV2({
                 className={fieldClass("amount", "orange")}
               >
                 <div className="flex justify-between items-center">
-                  <span className="text-[10px] text-slate-400 uppercase">Monto</span>
+                  <span className="text-xs text-slate-400 uppercase">Monto</span>
                   {remaining > 0 && activeField === "amount" && (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleFillRemaining(); }}
-                      className="text-[10px] px-2 py-0.5 bg-orange-500/20 text-orange-300 rounded"
+                      className="text-xs px-2 py-0.5 bg-orange-500/20 text-orange-300 rounded"
                     >
                       Usar pendiente
                     </button>
@@ -465,7 +465,7 @@ export function BillPaymentModalV2({
                   onClick={() => setActiveField("tip")}
                   className={fieldClass("tip", "orange")}
                 >
-                  <div className="text-[10px] text-slate-400 uppercase">Propina</div>
+                  <div className="text-xs text-slate-400 uppercase">Propina</div>
                   <div className="text-lg font-bold text-orange-400 text-right tabular-nums">
                     ${tipInput || "0"}
                   </div>
@@ -475,7 +475,7 @@ export function BillPaymentModalV2({
                     onClick={() => setActiveField("received")}
                     className={fieldClass("received", "green")}
                   >
-                    <div className="text-[10px] text-slate-400 uppercase">Recibido</div>
+                    <div className="text-xs text-slate-400 uppercase">Recibido</div>
                     <div className="text-lg font-bold text-green-400 text-right tabular-nums">
                       ${receivedInput || "0"}
                     </div>

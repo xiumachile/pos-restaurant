@@ -113,7 +113,7 @@ export function PrintableSessionReport({ data }: PrintableSessionReportProps) {
                   <span>{formatPrice(p.total_amount)}</span>
                 </div>
                 {p.tip_amount > 0 && (
-                  <div className="text-right text-[9px]">
+                  <div className="text-right text-xs">
                     (incl. propina {formatPrice(p.tip_amount)})
                   </div>
                 )}

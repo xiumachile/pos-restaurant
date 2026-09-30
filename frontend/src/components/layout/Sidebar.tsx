@@ -146,7 +146,7 @@ export function Sidebar() {
           </div>
         )}
 
-        <p className="text-[10px] text-gray-400 dark:text-slate-600 text-center">
+        <p className="text-xs text-gray-400 dark:text-slate-600 text-center">
           v0.1.0 · Wok & Mesa POS
         </p>
       </div>

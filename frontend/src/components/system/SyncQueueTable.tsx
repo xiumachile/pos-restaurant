@@ -195,8 +195,8 @@ export function SyncQueueTable() {
                         )}
                         {enriched.idempotency_key && (
                           <div className="mt-1">
-                            <div className="text-[10px] text-slate-500">{t("sync.idempotency")}</div>
-                            <div className="text-[10px] text-slate-400 font-mono">
+                            <div className="text-xs text-slate-500">{t("sync.idempotency")}</div>
+                            <div className="text-xs text-slate-400 font-mono">
                               {enriched.idempotency_key.substring(0, 8)}...
                             </div>
                           </div>
