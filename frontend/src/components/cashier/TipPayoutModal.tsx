@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useConfirmStore } from "@/store/useConfirmStore";
 import { useQuery } from "@tanstack/react-query";
 import { tipPayoutService, tipMaxService } from "@/services/tipService";
 import {
