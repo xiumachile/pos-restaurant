@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
-import { ChangePopup } from "../ui/ChangePopup";
 import { useSettingsStore } from "../../store/useSettingsStore";
+import { usePopupStore } from "../../store/usePopupStore";
 
 import { parseCLPAmount } from '@/utils/money';
 import type { Bill } from "@/types/bills";
@@ -69,11 +69,10 @@ export function BillPaymentModalV2({
   const [payments, setPayments] = useState<PendingPayment[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
-  const [showChangePopupState, setShowChangePopupState] = useState(false);
-  const [changeAmountForPopup, setChangeAmountForPopup] = useState(0);
   
   // Configuración de popup de vuelto
   const { showChangePopup: changePopupEnabled, changePopupDuration } = useSettingsStore();
+  const showPopup = usePopupStore((state) => state.showPopup);
 
   const [processedPaymentIds, setProcessedPaymentIds] = useState<Set<string>>(new Set());
 
@@ -315,19 +314,15 @@ export function BillPaymentModalV2({
       return;
     }
 
-    // Mostrar popup de vuelto si está habilitado y hay vuelto
+    // Cerrar el modal inmediatamente
+    invalidate();
+    onSuccess();
+    onClose();
+    
+    // Mostrar popup de vuelto DESPUÉS de cerrar el modal
     if (changePopupEnabled && totalChange > 0) {
       console.log('[DEBUG handleCharge] Mostrando popup con monto:', totalChange);
-      setChangeAmountForPopup(totalChange);
-      setShowChangePopupState(true);
-      
-      // NO cerrar el modal todavía. El popup se encarga de cerrar todo
-      // cuando termine (onClose del popup llamará invalidate + onSuccess + onClose)
-    } else {
-      // Cerrar inmediatamente si no hay popup
-      invalidate();
-      onSuccess();
-      onClose();
+      showPopup('change', totalChange, changePopupDuration);
     }
     setPayments([]);
     setProcessedPaymentIds(new Set());

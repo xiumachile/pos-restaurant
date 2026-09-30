@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
 interface ChangePopupProps {
@@ -63,8 +62,7 @@ export function ChangePopup({ amount, duration = 5, onClose }: ChangePopupProps)
     }).format(value);
   };
 
-  // Usar Portal para renderizar FUERA del árbol de React del modal
-  return createPortal(
+  return (
     <div
       className={`fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm transition-opacity duration-300 ${
         isVisible ? 'opacity-100' : 'opacity-0'
@@ -106,7 +104,6 @@ export function ChangePopup({ amount, duration = 5, onClose }: ChangePopupProps)
           </button>
         </div>
       </div>
-    </div>,
-    document.body
+    </div>
   );
 }

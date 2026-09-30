@@ -19,7 +19,8 @@ export function AppLayout() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
         <main className="flex-1 overflow-y-auto bg-white dark:bg-slate-800 transition-colors duration-200 p-4 md:p-6">
-          <Outlet />
+          <PopupProvider />
+        <Outlet />
         </main>
       </div>
       <ToastContainer />
