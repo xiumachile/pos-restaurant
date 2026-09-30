@@ -5,6 +5,7 @@ import { Header } from './Header';
 // useSyncWorker eliminado: se monta una sola vez en App.tsx
 import { useAutoSync } from '../../hooks/useAutoSync';
 import { ToastContainer } from '../system/ToastContainer';
+import { ConfirmDialog } from '../system/ConfirmDialog';
 
 export function AppLayout() {
   const { t } = useTranslation();
@@ -22,6 +23,7 @@ export function AppLayout() {
         </main>
       </div>
       <ToastContainer />
+      <ConfirmDialog />
     </div>
   );
 }

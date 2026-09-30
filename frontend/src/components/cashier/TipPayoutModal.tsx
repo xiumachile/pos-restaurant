@@ -85,7 +85,8 @@ export function TipPayoutModal({ isOpen, onClose }: TipPayoutModalProps) {
   };
 
   const handleVoid = async (uuid: string) => {
-    if (!confirm("¿Anular esta entrega de propina?")) return;
+    useConfirmStore.getState().open({ title: "Cancelar", message: "$1", variant: "info", onConfirm: () => {} });
+    return;
     
     try {
       await voidPayout.mutateAsync(uuid);

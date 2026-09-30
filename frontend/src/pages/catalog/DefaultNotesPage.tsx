@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useConfirmStore } from '@/store/useConfirmStore';
 import { useDefaultNotes } from '@/hooks/useDefaultNotes';
 import { getDefaultNoteText, type DefaultNote } from '@/types/defaultNotes';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -83,7 +84,8 @@ export function DefaultNotesPage() {
   };
 
   const handleDelete = async (note: DefaultNote) => {
-    if (!confirm('¿Eliminar esta nota predefinida?')) return;
+    useConfirmStore.getState().open({ title: "Cancelar", message: "$1", variant: "info", onConfirm: () => {} });
+    return;
     try {
       await deleteNote(note.uuid);
       addToast('success', '🗑️ Nota eliminada');

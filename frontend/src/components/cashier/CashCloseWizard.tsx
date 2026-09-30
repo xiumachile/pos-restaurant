@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { useToastStore } from '@/store/useToastStore';
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { tipWizardService } from "@/services/tipService";
@@ -149,7 +150,7 @@ export function CashCloseWizard({
     // Si hay propinas pero no generó entregas, debe responder si las entregó
     if (hasPendingTips && generatedCashPayouts.length === 0) {
       if (tipsDelivered === null) {
-        alert("Indica si ya entregaste las propinas antes de continuar");
+        useToastStore.getState().addToast("warning", "$1");
         return;
       }
     }

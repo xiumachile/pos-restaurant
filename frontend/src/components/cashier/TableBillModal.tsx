@@ -187,7 +187,7 @@ export function TableBillModal({
       setPayingBills(result.bills);
     } catch (e) {
       console.error("Error preparando bills:", e);
-      alert("No se pudieron preparar las sub-cuentas. Intenta de nuevo.");
+      useToastStore.getState().addToast("warning", "$1");
     }
   };
 
