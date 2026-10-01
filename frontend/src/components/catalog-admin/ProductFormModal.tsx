@@ -6,6 +6,7 @@ import { useCreateProduct, useUpdateProduct } from "@/hooks/useCatalogAdmin";
 import type { Product, Category } from "@/types/catalog";
 import { getTranslatedName } from "@/types/catalog";
 import { RecipeSection } from "./RecipeSection";
+import { ComboProductsEditor } from "./ComboProductsEditor";
 
 export const CHANNEL_LABELS: Record<string, string> = {
   dine_in: "🍽️ Comedor",
@@ -68,6 +69,7 @@ export function ProductFormModal({ product, categories, onClose }: ProductFormMo
 
   // Estado para precios por lista de precios (solo en modo edición)
   const [priceEditorState, setPriceEditorState] = useState<PriceEditorState>({});
+  const [comboProducts, setComboProducts] = useState<Array<{product_uuid: string; quantity: number}>>([]);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
   // Datos de backend
@@ -426,15 +428,71 @@ export function ProductFormModal({ product, categories, onClose }: ProductFormMo
 
           {/* Sección 4: Flags */}
           <div className="flex gap-4 flex-wrap">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isCombo}
-                onChange={(e) => setIsCombo(e.target.checked)}
-                className="w-4 h-4 accent-orange-500"
-              />
-              <span className="text-sm text-slate-300">📦 Es combo</span>
-            </label>
+            {/* Wizard de tipo de producto: Simple / Compuesto / Combo */}
+            <div className="grid grid-cols-3 gap-2 col-span-full">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCombo(false);
+                  setHasRecipe(false);
+                }}
+                className={`p-3 rounded-lg border-2 transition-all ${
+                  !isCombo && !hasRecipe
+                    ? "border-orange-500 bg-orange-500/10"
+                    : "border-slate-700 hover:border-slate-600"
+                }`}
+              >
+                <div className="text-2xl mb-1">🍽️</div>
+                <div className="text-sm font-medium text-white">
+                  {t("products.type_simple")}
+                </div>
+                <div className="text-xs text-slate-400 mt-1">
+                  {t("products.type_simple_desc")}
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCombo(false);
+                  setHasRecipe(true);
+                }}
+                className={`p-3 rounded-lg border-2 transition-all ${
+                  !isCombo && hasRecipe
+                    ? "border-orange-500 bg-orange-500/10"
+                    : "border-slate-700 hover:border-slate-600"
+                }`}
+              >
+                <div className="text-2xl mb-1">🍳</div>
+                <div className="text-sm font-medium text-white">
+                  {t("products.type_compound")}
+                </div>
+                <div className="text-xs text-slate-400 mt-1">
+                  {t("products.type_compound_desc")}
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCombo(true);
+                  setHasRecipe(false);
+                }}
+                className={`p-3 rounded-lg border-2 transition-all ${
+                  isCombo && !hasRecipe
+                    ? "border-orange-500 bg-orange-500/10"
+                    : "border-slate-700 hover:border-slate-600"
+                }`}
+              >
+                <div className="text-2xl mb-1">📦</div>
+                <div className="text-sm font-medium text-white">
+                  {t("products.type_combo")}
+                </div>
+                <div className="text-xs text-slate-400 mt-1">
+                  {t("products.type_combo_desc")}
+                </div>
+              </button>
+            </div>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -444,17 +502,7 @@ export function ProductFormModal({ product, categories, onClose }: ProductFormMo
               />
               <span className="text-sm text-slate-300">{t("catalog_admin.active_product")}</span>
             </label>
-            {product && (
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={hasRecipe}
-                  onChange={(e) => setHasRecipe(e.target.checked)}
-                  className="w-4 h-4 accent-orange-500"
-                />
-                <span className="text-sm text-slate-300">🧾 Tiene receta</span>
-              </label>
-            )}
+
           </div>
 
           {/* Sección 5: Receta (ingredientes y costos) — solo en modo edición */}
@@ -463,6 +511,15 @@ export function ProductFormModal({ product, categories, onClose }: ProductFormMo
               product={product}
               enabled={hasRecipe}
               onSave={() => {}}
+            />
+          )}
+
+          {/* Sección 6: Productos del combo — solo si es combo */}
+          {product && isCombo && (
+            <ComboProductsEditor
+              product={product}
+              comboProducts={comboProducts}
+              onChange={setComboProducts}
             />
           )}
 

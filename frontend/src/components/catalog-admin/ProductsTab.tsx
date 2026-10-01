@@ -61,6 +61,26 @@ function ProductPriceBadge({ productUuid }: { productUuid: string }) {
 }
 
 
+
+/* ─── Badge de composición de combo (on-demand) ─── */
+
+function ComboCompositionBadge({ product }: { product: Product }) {
+  const { t } = useTranslation();
+  
+  if (!product.is_combo) return null;
+
+  // Por ahora solo mostramos que es combo
+  // En el futuro podríamos cargar la composición via useQuery
+  return (
+    <span
+      className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs cursor-help"
+      title={t("products.combo_product")}
+    >
+      📦 {t("products.combo")}
+    </span>
+  );
+}
+
 export function ProductsTab() {
   const { t } = useTranslation();
 
@@ -202,6 +222,7 @@ export function ProductsTab() {
                     Combo
                   </span>
                 )}
+                <ComboCompositionBadge product={product} />
                 <ProductPriceBadge productUuid={product.uuid} />
                 {product.is_active ? (
                   <span className="px-2 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-500/30 text-xs">{t("catalog_admin.active")}</span>
