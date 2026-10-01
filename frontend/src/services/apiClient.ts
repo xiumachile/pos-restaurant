@@ -1,7 +1,7 @@
-import axios, { type InternalAxiosRequestConfig } from 'axios';
+import axios, { type InternalAxiosRequestConfig, type AxiosResponse, type AxiosError } from 'axios';
 import { useAuthStore } from '@/store/useAuthStore';
 import { validateRequestMoney, validateResponseMoney } from '@/lib/apiClientMoneyGuard';
-import { getItemSync } from './secureStorage';
+import { getItemSync, updateSyncCache, setItem } from './secureStorage';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
@@ -50,21 +50,103 @@ apiClient.interceptors.request.use(
 );
 
 // ═══════════════════════════════════════════════════════════════
-// RESPONSE INTERCEPTOR
+// RESPONSE INTERCEPTOR con retry automático en 401
 // ═══════════════════════════════════════════════════════════════
 
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value?: unknown) => void;
+  reject: (reason?: unknown) => void;
+}> = [];
+
+const processQueue = (error: AxiosError | null, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+const refreshAccessToken = async (): Promise<string> => {
+  const response = await axios.post(`${API_URL}/auth/refresh`);
+  const newToken = response.data.access_token;
+  
+  // Actualizar token en cache síncrono (para interceptors)
+  updateSyncCache('access_token', newToken);
+  
+  // Actualizar token en storage persistente (async, no bloquea)
+  setItem('access_token', newToken);
+  
+  // Actualizar token en store
+  const { user } = useAuthStore.getState();
+  if (user) {
+    await useAuthStore.getState().setAuth(user, newToken);
+  }
+  
+  return newToken;
+};
+
 apiClient.interceptors.response.use(
-  (response) => {
+  (response: AxiosResponse) => {
     // ═══════════════════════════════════════════════════════════
     // MONEY CONTRACT: Validar response ANTES de usar (ADR-018)
     // ═══════════════════════════════════════════════════════════
     return validateResponseMoney(response);
   },
-  (error) => {
-    // Manejar errores de autenticación
-    if (error.response?.status === 401) {
-      useAuthStore.getState().clearAuth();
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & {
+      _retry?: boolean;
+    };
+
+    // Si es 401 y no es el endpoint de refresh y no hemos reintentado aún
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !originalRequest.url?.includes('/auth/refresh')
+    ) {
+      // Si ya estamos refrescando, encolar esta request
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return apiClient(originalRequest);
+          })
+          .catch((err) => {
+            return Promise.reject(err);
+          });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        console.log('[AuthRefresh] Token expirado, intentando refresh...');
+        const newToken = await refreshAccessToken();
+        console.log('[AuthRefresh] Token refrescado exitosamente');
+        
+        processQueue(null, newToken);
+        
+        // Reintentar la request original con el nuevo token
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        console.error('[AuthRefresh] Error refrescando token:', refreshError);
+        processQueue(refreshError as AxiosError, null);
+        
+        // Si el refresh falla, limpiar sesión
+        useAuthStore.getState().clearAuth();
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
     }
+
+    // Para otros errores, simplemente rechazar
     return Promise.reject(error);
   }
 );
