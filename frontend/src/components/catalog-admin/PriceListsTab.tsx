@@ -18,7 +18,6 @@ import {
   useDeletePriceList,
 } from "@/hooks/usePriceLists";
 import type { PriceList } from "@/services/priceListService";
-import { useToastStore } from "@/store/useToastStore";
 
 const CHANNEL_TYPES = [
   { value: "", label: "Sin canal (general)" },

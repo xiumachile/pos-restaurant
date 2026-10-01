@@ -20,7 +20,6 @@ import { useOfflinePayment } from "@/hooks/useOfflinePayment";
 import { useConnectionMode } from "@/hooks/useConnectionMode";
 import { formatPrice } from "@/types/catalog";
 import {
-import { SUGGESTED_TIP_PERCENTAGES } from "@/constants/tips";
   X,
   Loader2,
   AlertCircle,
@@ -31,6 +30,7 @@ import { SUGGESTED_TIP_PERCENTAGES } from "@/constants/tips";
   Gift,
   Trash2,
 } from "lucide-react";
+import { SUGGESTED_TIP_PERCENTAGES } from "@/constants/tips";
 
 interface BillPaymentModalV2Props {
   bill?: Bill | null;

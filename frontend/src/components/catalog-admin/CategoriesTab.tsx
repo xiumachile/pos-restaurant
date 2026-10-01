@@ -18,7 +18,6 @@ import {
 } from "@/hooks/useCatalogAdmin";
 import type { Category } from "@/types/catalog";
 import { getTranslatedName } from "@/types/catalog";
-import { useToastStore } from "@/store/useToastStore";
 
 export function CategoriesTab() {
   const { t } = useTranslation();
