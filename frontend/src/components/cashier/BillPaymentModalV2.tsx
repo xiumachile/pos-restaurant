@@ -361,7 +361,7 @@ export function BillPaymentModalV2({
       <div className="bg-slate-900 border-b border-slate-700 px-4 py-3 flex items-center justify-between flex-shrink-0">
         <div>
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            💳 Cobrar Cuenta
+            {t("bill_payment.charge_bill")}
           </h2>
           <p className="text-xs text-slate-400">
             {effectiveBills.length === 1
@@ -390,7 +390,7 @@ export function BillPaymentModalV2({
               <div className="text-sm font-bold text-white">{formatPrice(billPending)}</div>
             </div>
             <div className="text-center">
-              <div className="text-xs text-slate-400 uppercase">Pagado</div>
+              <div className="text-xs text-slate-400 uppercase">{t("bill_payment.paid")}</div>
               <div className="text-sm font-bold text-blue-400">{formatPrice(paymentsSum)}</div>
             </div>
             <div className="text-center">
@@ -461,15 +461,15 @@ export function BillPaymentModalV2({
 
                 <div className="bg-slate-900 rounded-lg p-3 border border-slate-800 mt-3 space-y-1">
                   <div className="flex justify-between text-xs">
-                    <span className="text-slate-400">Subtotal pagos:</span>
+                    <span className="text-slate-400">{t("bill_payment.payments_subtotal")}</span>
                     <span className="text-white">{formatPrice(paymentsSum)}</span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-slate-400">Propinas:</span>
+                    <span className="text-slate-400">{t("bill_payment.tips")}</span>
                     <span className="text-orange-400">{formatPrice(tipsSum)}</span>
                   </div>
                   <div className="flex justify-between text-sm font-bold pt-2 border-t border-slate-800">
-                    <span className="text-slate-200">Total cobrado:</span>
+                    <span className="text-slate-200">{t("bill_payment.total_charged")}</span>
                     <span className="text-green-400">{formatPrice(paymentsSum + tipsSum)}</span>
                   </div>
                 </div>
@@ -494,7 +494,7 @@ export function BillPaymentModalV2({
         <div className="lg:w-1/2 flex flex-col overflow-hidden bg-slate-900">
           {/* Pendiente destacado */}
           <div className={`p-3 border-b border-slate-800 flex-shrink-0 ${remaining > 0 ? "bg-orange-900/10" : "bg-green-900/10"}`}>
-            <div className="text-xs text-slate-400 uppercase">Pendiente por pagar</div>
+            <div className="text-xs text-slate-400 uppercase">{t("bill_payment.pending_to_pay")}</div>
             <div className={`text-2xl font-bold ${remaining > 0 ? "text-orange-400" : "text-green-400"}`}>
               {formatPrice(remaining)}
             </div>
@@ -602,7 +602,7 @@ export function BillPaymentModalV2({
                     onClick={() => setActiveField("tip")}
                     className={fieldClass("tip", "orange")}
                   >
-                    <div className="text-xs text-slate-400 uppercase">Propina (Manual)</div>
+                    <div className="text-xs text-slate-400 uppercase">{t("bill_payment.tip_manual")}</div>
                     <div className="text-lg font-bold text-orange-400 text-right tabular-nums">
                       ${tipInput || "0"}
                     </div>
@@ -701,7 +701,7 @@ export function BillPaymentModalV2({
           ) : (
             <>
               <CheckCircle2 size={18} />
-              Cobrar {formatPrice(billPending + tipsSum)}
+              {t("bill_payment.charge")} {formatPrice(billPending + tipsSum)}
             </>
           )}
         </button>

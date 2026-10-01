@@ -517,7 +517,16 @@
     "received": "已收",
     "total": "总计",
     "no_payments_added": "未添加支付",
-    "use_keyboard_hint": "使用键盘添加支付"
+    "use_keyboard_hint": "使用键盘添加支付",
+    "charge_bill": "💳 结账",
+    "paid": "已支付",
+    "pending_to_pay": "待支付",
+    "cancel": "取消",
+    "charge": "收款",
+    "payments_subtotal": "支付小计：",
+    "tips": "小费：",
+    "total_charged": "总计已收：",
+    "tip_manual": "小费（手动）"
   },
   "cash_close": {
     "title": "收银关账",
@@ -575,7 +584,8 @@
     "charge_anyway": "继续收款",
     "cancel": "取消",
     "unserved_items_indicator": "{count} 个产品未上菜",
-    "preparing_orders_indicator": "({count} 个订单准备中)"
+    "preparing_orders_indicator": "({count} 个订单准备中)",
+    "charge": "收款"
   },
   "tip_payout": {
     "title": "小费支付",
@@ -583,7 +593,7 @@
     "total_tips": "小费总计",
     "cash_tips": "现金小费",
     "payroll_tips": "工资小费",
-    "pending": "待支付",
+    "pending": "待处理",
     "delivered": "已交付",
     "deliver": "交付",
     "confirm_delivery": "确认交付",
@@ -598,7 +608,9 @@
     "status": "状态",
     "actions": "操作",
     "all_waiters": "所有服务员",
-    "filter_by_status": "按状态筛选"
+    "filter_by_status": "按状态筛选",
+    "close_button": "关闭",
+    "delete_button": "删除"
   },
   "session_sales": {
     "title": "会话销售",
@@ -617,7 +629,10 @@
     "close_session": "关收银",
     "current_session": "当前会话",
     "open_register": "开收银",
-    "placeholder_initial": "例如：早班初始现金"
+    "placeholder_initial": "例如：早班初始现金",
+    "payment_method_cash": "现金",
+    "payment_method_card": "银行卡",
+    "payment_method_transfer": "转账"
   },
   "cash_report": {
     "title": "收银报告",

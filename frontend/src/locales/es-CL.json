@@ -517,7 +517,16 @@
     "received": "Recibido",
     "total": "Total",
     "no_payments_added": "Sin pagos agregados",
-    "use_keyboard_hint": "Usa el teclado para agregar pagos"
+    "use_keyboard_hint": "Usa el teclado para agregar pagos",
+    "charge_bill": "💳 Cobrar Cuenta",
+    "paid": "Pagado",
+    "pending_to_pay": "Pendiente por pagar",
+    "cancel": "Cancelar",
+    "charge": "Cobrar",
+    "payments_subtotal": "Subtotal pagos:",
+    "tips": "Propinas:",
+    "total_charged": "Total cobrado:",
+    "tip_manual": "Propina (Manual)"
   },
   "cash_close": {
     "title": "Cierre de Caja",
@@ -575,7 +584,8 @@
     "charge_anyway": "Cobrar igual",
     "cancel": "Cancelar",
     "unserved_items_indicator": "{count} producto{plural} sin servir",
-    "preparing_orders_indicator": "({count} pedido{plural} en preparación)"
+    "preparing_orders_indicator": "({count} pedido{plural} en preparación)",
+    "charge": "Cobrar"
   },
   "tip_payout": {
     "title": "Pago de Propinas",
@@ -583,7 +593,7 @@
     "total_tips": "Total Propinas",
     "cash_tips": "Propinas en Efectivo",
     "payroll_tips": "Propinas por Nómina",
-    "pending": "Pendiente",
+    "pending": "Pendientes",
     "delivered": "Entregado",
     "deliver": "Entregar",
     "confirm_delivery": "Confirmar entrega",
@@ -598,7 +608,9 @@
     "status": "Estado",
     "actions": "Acciones",
     "all_waiters": "Todos los garzones",
-    "filter_by_status": "Filtrar por estado"
+    "filter_by_status": "Filtrar por estado",
+    "close_button": "Cerrar",
+    "delete_button": "Eliminar"
   },
   "session_sales": {
     "title": "Ventas de Sesión",
@@ -617,7 +629,10 @@
     "close_session": "Cerrar Caja",
     "current_session": "Sesión Actual",
     "open_register": "Abrir Caja",
-    "placeholder_initial": "Ej: Caja inicial del turno mañana"
+    "placeholder_initial": "Ej: Caja inicial del turno mañana",
+    "payment_method_cash": "Efectivo",
+    "payment_method_card": "Tarjeta",
+    "payment_method_transfer": "Transferencia"
   },
   "cash_report": {
     "title": "Reporte de Caja",
