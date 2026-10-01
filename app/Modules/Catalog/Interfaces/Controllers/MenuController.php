@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Modules\Catalog\Domain\Entities\Menu;
 use Modules\Catalog\Domain\Entities\MenuActivation;
 use Modules\Catalog\Domain\Services\MenuManagementService;
+use Modules\Catalog\Domain\Exceptions\BranchRequiresDefaultMenuException;
 use Modules\Catalog\Interfaces\Requests\AssignMenuProductsRequest;
 use Modules\Catalog\Interfaces\Requests\CreateMenuRequest;
 use Modules\Catalog\Interfaces\Requests\UpdateMenuRequest;

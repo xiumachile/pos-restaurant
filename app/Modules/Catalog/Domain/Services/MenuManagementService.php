@@ -8,6 +8,7 @@ use Modules\Catalog\Domain\Entities\MenuActivation;
 use Modules\Catalog\Domain\Entities\MenuProduct;
 use Modules\Catalog\Domain\Entities\PriceList;
 use Modules\Catalog\Domain\Entities\Product;
+use Modules\Catalog\Domain\Exceptions\BranchRequiresDefaultMenuException;
 use Modules\Identity\Domain\Entities\User;
 
 /**
@@ -112,6 +113,14 @@ class MenuManagementService
      */
     public function updateMenu(Menu $menu, array $data, User $user, bool $isDefault): Menu
     {
+        // Validación: si se intenta desmarcar is_default, verificar que haya otra default
+        if ($menu->is_default && !$isDefault) {
+            $otherDefaults = $this->countDefaultMenusInBranch($user->company_id, $user->branch_id, $menu->id);
+            if ($otherDefaults === 0) {
+                throw new BranchRequiresDefaultMenuException($menu->name);
+            }
+        }
+
         if (isset($data['price_list_id'])) {
             $priceList = PriceList::where('uuid', $data['price_list_id'])->firstOrFail();
             $data['price_list_id'] = $priceList->id;
@@ -131,6 +140,18 @@ class MenuManagementService
      */
     public function deleteMenu(Menu $menu): void
     {
+        // Validación: si la carta es default, verificar que haya otra default en la sucursal
+        if ($menu->is_default) {
+            $otherDefaults = $this->countDefaultMenusInBranch(
+                $menu->company_id,
+                $menu->branch_id,
+                $menu->id
+            );
+            if ($otherDefaults === 0) {
+                throw new BranchRequiresDefaultMenuException($menu->name);
+            }
+        }
+
         $menu->delete();
     }
 
@@ -247,4 +268,22 @@ class MenuManagementService
             'price' => $product->resolvePrice($menu->priceList),
         ];
     }
+
+    /**
+     * Cuenta cuántas cartas default existen en la sucursal.
+     * Opcionalmente excluye un menu específico (para validaciones de update/delete).
+     */
+    private function countDefaultMenusInBranch(int $companyId, int $branchId, ?int $excludeMenuId = null): int
+    {
+        $query = Menu::where('company_id', $companyId)
+            ->where('branch_id', $branchId)
+            ->where('is_default', true);
+
+        if ($excludeMenuId !== null) {
+            $query->where('id', '!=', $excludeMenuId);
+        }
+
+        return $query->count();
+    }
+
 }
