@@ -71,7 +71,19 @@ const processQueue = (error: AxiosError | null, token: string | null = null) => 
 };
 
 const refreshAccessToken = async (): Promise<string> => {
-  const response = await axios.post(`${API_URL}/auth/refresh`);
+  // El token actual está expirado (por eso estamos aquí), pero JWTAuth lo acepta
+  // para refresh dentro de la ventana de refresh_ttl (14 días según config/jwt.php).
+  // Se adjunta manualmente porque usamos axios directo (no apiClient) para evitar
+  // que el interceptor de 401 de apiClient se dispare recursivamente sobre sí mismo.
+  const currentToken = getItemSync('access_token');
+  if (!currentToken) {
+    throw new Error('No hay token disponible para refresh');
+  }
+  const response = await axios.post(
+    `${API_URL}/auth/refresh`,
+    null,
+    { headers: { Authorization: `Bearer ${currentToken}` } }
+  );
   const newToken = response.data.access_token;
   
   // Actualizar token en cache síncrono (para interceptors)
