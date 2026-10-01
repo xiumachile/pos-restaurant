@@ -153,4 +153,25 @@ export const menuAdminService = {
     );
     return response.data.data;
   },
+
+  /**
+   * Marca un menú como default (desmarca los demás).
+   */
+  async setDefault(uuid: string): Promise<Menu> {
+    const response = await apiClient.post<SuccessResponse<Menu>>(
+      `/catalog/menus/${uuid}/set-default`
+    );
+    return response.data.data;
+  },
+
+  /**
+   * Alterna el estado activo/inactivo de un menú.
+   */
+  async toggleActive(uuid: string, isActive: boolean): Promise<Menu> {
+    const response = await apiClient.put<SuccessResponse<Menu>>(
+      `/catalog/menus/${uuid}`,
+      { is_active: isActive }
+    );
+    return response.data.data;
+  },
 };

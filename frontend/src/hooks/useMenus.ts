@@ -72,3 +72,24 @@ export function useUpdateMenuActivations() {
     },
   });
 }
+
+export function useSetDefaultMenu() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (uuid: string) => menuAdminService.setDefault(uuid),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: MENUS_KEY });
+    },
+  });
+}
+
+export function useToggleMenuActive() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ uuid, isActive }: { uuid: string; isActive: boolean }) =>
+      menuAdminService.toggleActive(uuid, isActive),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: MENUS_KEY });
+    },
+  });
+}

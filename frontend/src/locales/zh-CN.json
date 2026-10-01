@@ -14,7 +14,8 @@
     "edit": "编辑",
     "inactive": "未激活",
     "pos_system": "POS系统",
-    "confirm_delete": "确认删除"
+    "confirm_delete": "确认删除",
+    "close": "关闭"
   },
   "auth": {
     "login": "登录",
@@ -409,7 +410,8 @@
     "no_menus_created": "尚未创建菜单",
     "menus_note": "💡 注意：自动解析会考虑销售渠道、营业时间和星期几。如果没有规则匹配，则使用默认菜单。",
     "active": "活跃",
-    "search_placeholder": "搜索产品..."
+    "search_placeholder": "搜索产品...",
+    "error_loading": "加载数据出错"
   },
   "menus": {
     "activation_rules": "激活规则",
@@ -433,7 +435,7 @@
     "default_badge": "默认",
     "active_badge": "活跃",
     "inactive_badge": "非活跃",
-    "products_count": "个产品",
+    "products_count": "产品",
     "more_rules": "条更多规则...",
     "menu_name": "菜单名称 *",
     "description": "描述",
@@ -444,7 +446,33 @@
     "create_menu": "创建菜单",
     "name_placeholder": "例如：餐厅菜单，欢乐时光",
     "description_placeholder": "可选描述...",
-    "select_list": "选择列表..."
+    "select_list": "选择列表...",
+    "assign_products_title": "菜单产品",
+    "products_selected": "已选产品",
+    "search_products": "搜索产品...",
+    "no_products_found": "无产品",
+    "assigned_order": "菜单顺序",
+    "drag_hint": "用箭头排序 · 停用可隐藏",
+    "select_from_left": "从左侧目录中选择产品",
+    "mark_unavailable": "标记为不可用",
+    "mark_available": "标记为可用",
+    "available": "可用",
+    "total": "总计",
+    "manage_products": "管理产品",
+    "preview": "预览",
+    "preview_title": "菜单预览",
+    "simulate_channel": "模拟渠道视图:",
+    "preview_error": "预览加载错误",
+    "no_products_in_menu": "此菜单没有分配产品",
+    "unavailable": "不可用",
+    "set_default_title": "设为默认菜单",
+    "set_default_confirm": "是否将\"{{name}}\"设为默认菜单？当前的将被取消标记。",
+    "set_as_default": "设为默认",
+    "status_active": "✓ 激活",
+    "status_inactive": "✗ 未激活",
+    "click_to_activate": "点击激活",
+    "click_to_deactivate": "点击停用",
+    "no_products": "无产品"
   },
   "products": {
     "sku": "SKU *",

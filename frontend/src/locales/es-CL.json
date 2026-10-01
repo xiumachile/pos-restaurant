@@ -14,7 +14,8 @@
     "edit": "Editar",
     "inactive": "Inactivo",
     "pos_system": "Sistema POS",
-    "confirm_delete": "Confirmar eliminación"
+    "confirm_delete": "Confirmar eliminación",
+    "close": "Cerrar"
   },
   "auth": {
     "login": "Ingresar",
@@ -409,7 +410,8 @@
     "no_menus_created": "No hay menús creados",
     "menus_note": "💡 Nota: La resolución automática considera el canal de venta, horario y día de la semana. Si ninguna regla matchea, se usa el menú default.",
     "active": "Activo",
-    "search_placeholder": "Buscar productos..."
+    "search_placeholder": "Buscar productos...",
+    "error_loading": "Error al cargar los datos"
   },
   "menus": {
     "activation_rules": "Reglas de activación",
@@ -444,7 +446,33 @@
     "create_menu": "Crear menú",
     "name_placeholder": "Ej: Carta Comedor, Happy Hour",
     "description_placeholder": "Descripción opcional...",
-    "select_list": "Selecciona una lista..."
+    "select_list": "Selecciona una lista...",
+    "assign_products_title": "Productos de la carta",
+    "products_selected": "productos seleccionados",
+    "search_products": "Buscar productos...",
+    "no_products_found": "Sin productos",
+    "assigned_order": "Orden en la carta",
+    "drag_hint": "Usa las flechas para reordenar · Desactiva para ocultar",
+    "select_from_left": "Selecciona productos del catálogo de la izquierda",
+    "mark_unavailable": "Marcar como no disponible",
+    "mark_available": "Marcar como disponible",
+    "available": "disponibles",
+    "total": "totales",
+    "manage_products": "Gestionar productos",
+    "preview": "Vista previa",
+    "preview_title": "Vista previa de la carta",
+    "simulate_channel": "Simular vista para canal:",
+    "preview_error": "Error al cargar vista previa",
+    "no_products_in_menu": "Esta carta no tiene productos asignados",
+    "unavailable": "No disponible",
+    "set_default_title": "Marcar como carta por defecto",
+    "set_default_confirm": "¿Deseas marcar \"{{name}}\" como carta por defecto? Se desmarcará la actual.",
+    "set_as_default": "Hacer default",
+    "status_active": "✓ Activo",
+    "status_inactive": "✗ Inactivo",
+    "click_to_activate": "Click para activar",
+    "click_to_deactivate": "Click para desactivar",
+    "no_products": "Sin productos"
   },
   "products": {
     "sku": "SKU *",
