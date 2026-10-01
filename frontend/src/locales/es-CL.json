@@ -515,7 +515,9 @@
     "payment_method_cash": "Efectivo",
     "pending_amount": "Pendiente",
     "received": "Recibido",
-    "total": "Total"
+    "total": "Total",
+    "no_payments_added": "Sin pagos agregados",
+    "use_keyboard_hint": "Usa el teclado para agregar pagos"
   },
   "cash_close": {
     "title": "Cierre de Caja",
@@ -557,7 +559,23 @@
     "bill_not_printed": "Cuenta no impresa",
     "print_now": "Imprimir Ahora",
     "continue_without_printing": "Continuar sin Imprimir",
-    "table_paid_success": "✅ Mesa cobrada correctamente"
+    "table_paid_success": "✅ Mesa cobrada correctamente",
+    "consumption_detail": "Detalle del Consumo",
+    "products_count": "productos",
+    "preparing": "Preparando...",
+    "charge_amount": "Cobrar",
+    "unserved_warning_message": "Hay {count} producto{plural} que aún {verb} en preparación.",
+    "orders_in_status": "{count} pedido{plural} {verb} en estados:",
+    "status_confirmed": "Confirmado",
+    "status_preparing": "En preparación",
+    "status_ready": "Listo",
+    "items_count": "ítem{plural}",
+    "unserved_warning_continue": "Si continúas, se cobrarán <strong>todos</strong> los productos, incluyendo los que aún no han llegado a la mesa.",
+    "wait_to_be_served": "⏸️ Esperar a que se sirvan",
+    "charge_anyway": "Cobrar igual",
+    "cancel": "Cancelar",
+    "unserved_items_indicator": "{count} producto{plural} sin servir",
+    "preparing_orders_indicator": "({count} pedido{plural} en preparación)"
   },
   "tip_payout": {
     "title": "Pago de Propinas",

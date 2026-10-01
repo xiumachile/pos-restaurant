@@ -515,7 +515,9 @@
     "payment_method_cash": "现金",
     "pending_amount": "待付金额",
     "received": "已收",
-    "total": "总计"
+    "total": "总计",
+    "no_payments_added": "未添加支付",
+    "use_keyboard_hint": "使用键盘添加支付"
   },
   "cash_close": {
     "title": "收银关账",
@@ -557,7 +559,23 @@
     "bill_not_printed": "账单未打印",
     "print_now": "立即打印",
     "continue_without_printing": "继续不打印",
-    "table_paid_success": "✅ 桌账收款成功"
+    "table_paid_success": "✅ 桌账收款成功",
+    "consumption_detail": "消费详情",
+    "products_count": "产品",
+    "preparing": "准备中...",
+    "charge_amount": "收款",
+    "unserved_warning_message": "有 {count} 个产品仍在准备中。",
+    "orders_in_status": "{count} 个订单处于以下状态：",
+    "status_confirmed": "已确认",
+    "status_preparing": "准备中",
+    "status_ready": "已就绪",
+    "items_count": "项",
+    "unserved_warning_continue": "如果继续，将收取<strong>所有</strong>产品，包括尚未送到餐桌的产品。",
+    "wait_to_be_served": "⏸️ 等待上菜",
+    "charge_anyway": "继续收款",
+    "cancel": "取消",
+    "unserved_items_indicator": "{count} 个产品未上菜",
+    "preparing_orders_indicator": "({count} 个订单准备中)"
   },
   "tip_payout": {
     "title": "小费支付",

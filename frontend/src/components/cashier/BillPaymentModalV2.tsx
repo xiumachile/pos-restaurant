@@ -406,9 +406,9 @@ export function BillPaymentModalV2({
             {payments.length === 0 ? (
               <div className="text-center py-12 text-slate-600">
                 <div className="text-5xl mb-3">💰</div>
-                <p className="text-sm">Sin pagos agregados</p>
+                <p className="text-sm">{t("bill_payment.no_payments_added")}</p>
                 <p className="text-xs mt-1 text-slate-400">
-                  Usa el teclado para agregar pagos
+                  {t("bill_payment.use_keyboard_hint")}
                 </p>
               </div>
             ) : (

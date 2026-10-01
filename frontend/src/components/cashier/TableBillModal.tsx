@@ -247,8 +247,8 @@ export function TableBillModal({
             {/* Lista de items */}
             <div className="bg-slate-800/50 rounded-lg p-4">
               <h3 className="text-sm font-semibold text-slate-400 mb-3 flex items-center justify-between">
-                <span>Detalle del Consumo</span>
-                <span className="text-xs font-normal">{aggregatedItems.length} productos</span>
+                <span>{t("table_bill.consumption_detail")}</span>
+                <span className="text-xs font-normal">{aggregatedItems.length} {t("table_bill.products_count")}</span>
               </h3>
               <div className="space-y-1.5 max-h-[40vh] overflow-y-auto">
                 {aggregatedItems.map((item) => (
@@ -291,8 +291,8 @@ export function TableBillModal({
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs bg-red-900/20 border border-red-700/50 text-red-300">
                 <AlertTriangle size={14} />
                 <span>
-                  <strong>{tableBill.unserved_items_count}</strong> producto{tableBill.unserved_items_count !== 1 ? "s" : ""} sin servir
-                  {" "}({tableBill.unserved_orders_count} pedido{tableBill.unserved_orders_count !== 1 ? "s" : ""} en preparación)
+                  <strong>{tableBill.unserved_items_count}</strong> {t("table_bill.unserved_items_indicator", { count: "", plural: tableBill.unserved_items_count !== 1 ? "s" : "" }).replace("{count}", "")}
+                  {" "}{t("table_bill.preparing_orders_indicator", { count: tableBill.unserved_orders_count, plural: tableBill.unserved_orders_count !== 1 ? "s" : "" })}
                 </span>
               </div>
             )}
@@ -306,12 +306,12 @@ export function TableBillModal({
               {isPrinted ? (
                 <>
                   <CheckCircle2 size={14} />
-                  Cuenta impresa
+                  {t("table_bill.bill_printed")}
                 </>
               ) : (
                 <>
                   <AlertTriangle size={14} />
-                  Cuenta pendiente de impresión
+                  {t("table_bill.bill_pending_print")}
                 </>
               )}
             </div>
@@ -342,12 +342,12 @@ export function TableBillModal({
                 {prepareTableBills.isPending ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
-                    Preparando...
+                    {t("table_bill.preparing")}
                   </>
                 ) : (
                   <>
                     <CheckCircle2 size={16} />
-                    Cobrar {formatPrice(totalAmount)}
+                    {t("table_bill.charge_amount")} {formatPrice(totalAmount)}
                   </>
                 )}
               </button>
@@ -384,9 +384,9 @@ export function TableBillModal({
                       .map((o) => (
                         <li key={o.uuid}>
                           <strong>#{o.order_number}</strong> ·{" "}
-                          {o.status === "confirmed" && "Confirmado"}
-                          {o.status === "preparing" && "En preparación"}
-                          {o.status === "ready" && "Listo"}
+                          {o.status === "confirmed" && t("table_bill.status_confirmed")}
+                          {o.status === "preparing" && t("table_bill.status_preparing")}
+                          {o.status === "ready" && t("table_bill.status_ready")}
                           {" "}({o.items.length} ítem{o.items.length !== 1 ? "s" : ""})
                         </li>
                       ))}
