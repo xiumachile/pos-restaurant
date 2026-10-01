@@ -66,7 +66,7 @@ export function PriceListsTab() {
     return (
       <div className="bg-red-900/30 border border-red-800 rounded-lg p-6 text-center">
         <AlertCircle className="mx-auto text-red-400 mb-3" size={32} />
-        <p className="text-red-300">Error al cargar listas de precios</p>
+        <p className="text-red-300">{t("price_lists.error_loading")}</p>
       </div>
     );
   }
@@ -135,16 +135,16 @@ export function PriceListsTab() {
               </span>
               {list.is_default && (
                 <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs">
-                  Default
+                  {t("price_lists.default_badge_label")}
                 </span>
               )}
               {list.is_active ? (
                 <span className="px-2 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-500/30 text-xs">
-                  Activa
+                  {t("price_lists.status_active")}
                 </span>
               ) : (
                 <span className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/30 text-xs">
-                  Inactiva
+                  {t("price_lists.status_inactive")}
                 </span>
               )}
             </div>
@@ -262,7 +262,7 @@ function PriceListFormModal({ list, onClose }: PriceListFormModalProps) {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Se genera automáticamente si se deja vacío"
+              placeholder={t("price_lists.auto_generated_placeholder")}
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono [color-scheme:dark]"
             />
             <p className="text-xs text-slate-400 mt-1">{t("price_lists.id_placeholder")}</p>

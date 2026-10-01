@@ -478,7 +478,7 @@
     "sku": "SKU *",
     "sku_placeholder": "Ej: BEB-001",
     "select": "Selecciona...",
-    "base_price": "Precio base (CLP) *",
+    "base_price": "Base",
     "iva_rate": "Tasa de IVA (%)",
     "prices_by_list_section": "Precios por lista (solo en modo edición)",
     "prices_by_list_title": "📋 Precios por lista",
@@ -486,7 +486,14 @@
     "no_lists_warning": "⚠️ No hay listas de precios configuradas. Ve a la pestaña \"Listas de Precios\" para crearlas.",
     "recipe_section": "Receta (ingredientes y costos) — solo en modo edición",
     "cancel": "Cancelar",
-    "fallback_help": "Fallback si la lista no tiene precio"
+    "fallback_help": "Fallback si la lista no tiene precio",
+    "status_inactive": "Inactivo",
+    "no_products_filtered": "No hay productos con los filtros aplicados",
+    "no_products_created": "No hay productos creados",
+    "prices_count": "{{count}} lista(s) de precio",
+    "prices_count_plural": "{{count}} listas de precio",
+    "multiple_prices": "Precios múltiples",
+    "view_prices": "Ver precios"
   },
   "price_lists": {
     "default_badge": "Default",
@@ -497,7 +504,12 @@
     "sales_channel": "Canal de venta",
     "default_list": "⭐ Lista default",
     "active_list": "Lista activa",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "error_loading": "Error al cargar listas de precios",
+    "default_badge_label": "Default",
+    "status_active": "Activa",
+    "status_inactive": "Inactiva",
+    "auto_generated_placeholder": "Se genera automáticamente si se deja vacío"
   },
   "categories": {
     "order": "Orden",

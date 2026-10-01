@@ -24,6 +24,43 @@ import type { PriceList, ProductPrice } from "@/services/priceListService";
 import { getTranslatedName, formatPrice } from "@/types/catalog";
 import { RecipeSection } from "./RecipeSection";
 
+
+/* ─── Badge de precios múltiples (on-demand) ─── */
+
+function ProductPriceBadge({ productUuid }: { productUuid: string }) {
+  const { t } = useTranslation();
+  const { data: prices, isLoading } = useProductPrices(productUuid);
+
+  if (isLoading) {
+    return (
+      <span className="px-2 py-0.5 rounded-full bg-slate-500/20 text-slate-400 border border-slate-500/30 text-xs">
+        ...
+      </span>
+    );
+  }
+
+  if (!prices || prices.length === 0) return null;
+
+  // Solo mostrar badge si hay más de 1 precio (o 1 pero distinto a base_price)
+  const activePrices = prices.filter((p) => p.price_list?.is_active);
+  if (activePrices.length === 0) return null;
+
+  return (
+    <span
+      className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs cursor-help"
+      title={activePrices
+        .map(
+          (p) =>
+            `${p.price_list?.display_name ?? p.price_list?.name}: ${formatPrice(p.price)}`
+        )
+        .join("\n")}
+    >
+      💰 {activePrices.length} {t("products.multiple_prices")}
+    </span>
+  );
+}
+
+
 export function ProductsTab() {
   const { t } = useTranslation();
 
@@ -165,12 +202,11 @@ export function ProductsTab() {
                     Combo
                   </span>
                 )}
+                <ProductPriceBadge productUuid={product.uuid} />
                 {product.is_active ? (
                   <span className="px-2 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-500/30 text-xs">{t("catalog_admin.active")}</span>
                 ) : (
-                  <span className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/30 text-xs">
-                    Inactivo
-                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/30 text-xs">{t("products.status_inactive")}</span>
                 )}
               </div>
             </div>
@@ -183,8 +219,8 @@ export function ProductsTab() {
           <Package className="mx-auto text-slate-400 mb-3" size={48} />
           <p className="text-slate-400">
             {searchQuery || selectedCategoryId
-              ? "No hay productos con los filtros aplicados"
-              : "No hay productos creados"}
+              ? t("products.no_products_filtered")
+              : t("products.no_products_created")}
           </p>
         </div>
       )}
