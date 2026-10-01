@@ -43,9 +43,14 @@ export function SyncQueuePage() {
               </button>
               <button
                 onClick={() => {
-                  if (confirm(t('sync.confirm_delete_failed', { count: stats.failed }))) {
-                    deleteAllFailed.mutate();
-                  }
+                  useConfirmStore.getState().open({
+                    title: t("common.confirm_delete"),
+                    message: t('sync.confirm_delete_failed', { count: stats.failed }),
+                    variant: "danger",
+                    onConfirm: () => {
+                      deleteAllFailed.mutate();
+                    }
+                  });
                 }}
                 disabled={deleteAllFailed.isPending}
                 className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"

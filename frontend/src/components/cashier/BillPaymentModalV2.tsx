@@ -20,6 +20,7 @@ import { useOfflinePayment } from "@/hooks/useOfflinePayment";
 import { useConnectionMode } from "@/hooks/useConnectionMode";
 import { formatPrice } from "@/types/catalog";
 import {
+import { SUGGESTED_TIP_PERCENTAGES } from "@/constants/tips";
   X,
   Loader2,
   AlertCircle,
@@ -101,7 +102,7 @@ export function BillPaymentModalV2({
   // [FIX] La propina se calcula sobre el monto TOTAL de la cuenta, no sobre el monto ingresado
   // Ejemplo: Cuenta $16.800, cajero ingresa $20.000 → 10% = $1.680 (no $2.000)
   const tipBase = billPending;
-  const suggestedTipPercentages: number[] = [10, 15, 20];
+  const suggestedTipPercentages: number[] = SUGGESTED_TIP_PERCENTAGES;
   
   // [AUDIT FIX] Derivar propina del porcentaje o del input manual
   const currentTip = tipPct !== null

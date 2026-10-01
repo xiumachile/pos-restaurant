@@ -13,7 +13,8 @@
     "delete": "Eliminar",
     "edit": "Editar",
     "inactive": "Inactivo",
-    "pos_system": "Sistema POS"
+    "pos_system": "Sistema POS",
+    "confirm_delete": "Confirmar eliminación"
   },
   "auth": {
     "login": "Ingresar",

@@ -18,6 +18,7 @@ import {
   useDeletePriceList,
 } from "@/hooks/usePriceLists";
 import type { PriceList } from "@/services/priceListService";
+import { useToastStore } from "@/store/useToastStore";
 
 const CHANNEL_TYPES = [
   { value: "", label: "Sin canal (general)" },
@@ -30,6 +31,7 @@ const CHANNEL_TYPES = [
 
 export function PriceListsTab() {
   const { t } = useTranslation();
+  const addToast = useToastStore((s) => s.addToast);
 
   const { data: priceLists = [], isLoading, error } = usePriceLists();
   const [editingList, setEditingList] = useState<PriceList | null>(null);
@@ -38,14 +40,19 @@ export function PriceListsTab() {
   const deleteMutation = useDeletePriceList();
 
   const handleDelete = async (list: PriceList) => {
-    if (confirm(t("catalog_admin.confirm_delete_list", { name: list.display_name }))) {
-      try {
-        await deleteMutation.mutateAsync(list.uuid);
-      } catch (err: any) {
-        const message = err?.response?.data?.error || "Error al eliminar";
-        alert(message);
+    useConfirmStore.getState().open({
+      title: t("common.confirm_delete"),
+      message: t("catalog_admin.confirm_delete_list", { name: list.display_name }),
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await deleteMutation.mutateAsync(list.uuid);
+        } catch (err: any) {
+          const message = err?.response?.data?.error || "Error al eliminar";
+          addToast("error", message);
+        }
       }
-    }
+    });
   };
 
   if (isLoading) {

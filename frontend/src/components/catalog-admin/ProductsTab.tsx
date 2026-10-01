@@ -42,13 +42,18 @@ export function ProductsTab() {
 
   const handleDelete = async (product: Product) => {
     const name = getTranslatedName(product.name_translations);
-    if (confirm(t("catalog_admin.confirm_delete_product", { name }))) {
-      try {
-        await deleteMutation.mutateAsync(product.uuid);
-      } catch (err) {
-        console.error("Error al eliminar producto:", err);
+    useConfirmStore.getState().open({
+      title: t("common.confirm_delete"),
+      message: t("catalog_admin.confirm_delete_product", { name }),
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await deleteMutation.mutateAsync(product.uuid);
+        } catch (err) {
+          console.error("Error al eliminar producto:", err);
+        }
       }
-    }
+    });
   };
 
   if (isLoading) {

@@ -36,13 +36,18 @@ export function MenusTab() {
   const deleteMutation = useDeleteMenu();
 
   const handleDelete = async (menu: Menu) => {
-    if (confirm(t("catalog_admin.confirm_delete_menu", { name: menu.name }))) {
-      try {
-        await deleteMutation.mutateAsync(menu.uuid);
-      } catch (err) {
-        console.error("Error al eliminar menú:", err);
+    useConfirmStore.getState().open({
+      title: t("common.confirm_delete"),
+      message: t("catalog_admin.confirm_delete_menu", { name: menu.name }),
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await deleteMutation.mutateAsync(menu.uuid);
+        } catch (err) {
+          console.error("Error al eliminar menú:", err);
+        }
       }
-    }
+    });
   };
 
   if (isLoading) {

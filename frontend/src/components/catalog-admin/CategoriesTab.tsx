@@ -18,9 +18,11 @@ import {
 } from "@/hooks/useCatalogAdmin";
 import type { Category } from "@/types/catalog";
 import { getTranslatedName } from "@/types/catalog";
+import { useToastStore } from "@/store/useToastStore";
 
 export function CategoriesTab() {
   const { t } = useTranslation();
+  const addToast = useToastStore((s) => s.addToast);
 
   const { data: categories = [], isLoading, error } = useAdminCategories();
   const deleteMutation = useDeleteCategory();
@@ -29,17 +31,22 @@ export function CategoriesTab() {
 
   const handleDelete = (category: Category) => {
     const categoryName = getTranslatedName(category.name_translations);
-    if (confirm(t("catalog_admin.confirm_delete_category", { name: categoryName }))) {
-      deleteMutation.mutate(category.uuid, {
-        onSuccess: () => {
-          console.log(t("catalog_admin.category_deleted", { name: categoryName }));
-        },
-        onError: (error: any) => {
-          console.error('Error al eliminar categoría:', error);
-          alert(`Error al eliminar la categoría. Por favor intenta de nuevo.`);
-        },
-      });
-    }
+    useConfirmStore.getState().open({
+      title: t("common.confirm_delete"),
+      message: t("catalog_admin.confirm_delete_category", { name: categoryName }),
+      variant: "danger",
+      onConfirm: () => {
+        deleteMutation.mutate(category.uuid, {
+          onSuccess: () => {
+            console.log(t("catalog_admin.category_deleted", { name: categoryName }));
+          },
+          onError: (error: any) => {
+            console.error('Error al eliminar categoría:', error);
+            addToast("error", `Error al eliminar la categoría. Por favor intenta de nuevo.`);
+          },
+        });
+      }
+    });
   };
 
   if (isLoading) {

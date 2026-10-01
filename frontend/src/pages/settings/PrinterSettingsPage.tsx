@@ -132,13 +132,19 @@ export function PrinterSettingsPage() {
   };
 
   const handleDelete = async (printer: PrinterConfig) => {
-    if (!confirm(t("printers.confirm_delete", { name: printer.name }))) return;
-    try {
-      await deletePrinter.mutateAsync(printer.local_uuid);
-      addToast("success", t("printers.success_deleted", { name: printer.name }));
-    } catch (err: any) {
-      addToast("error", err?.message || t("printers.error_delete"));
-    }
+    useConfirmStore.getState().open({
+      title: t("common.confirm_delete"),
+      message: t("printers.confirm_delete", { name: printer.name }),
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          await deletePrinter.mutateAsync(printer.local_uuid);
+          addToast("success", t("printers.success_deleted", { name: printer.name }));
+        } catch (err: any) {
+          addToast("error", err?.message || t("printers.error_delete"));
+        }
+      }
+    });
   };
 
   const handleSetDefault = async (printer: PrinterConfig) => {

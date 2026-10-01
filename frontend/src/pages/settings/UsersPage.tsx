@@ -5,6 +5,7 @@ import { userService, type CreateUserRequest, type UpdateUserRequest } from "@/s
 import type { User } from "@/types/auth";
 import { useToastStore } from "@/store/useToastStore";
 import { Plus, Pencil, Trash2, X, Loader2, User as UserIcon } from "lucide-react";
+import { useConfirmStore } from "@/store/useConfirmStore";
 
 type UserRole = 'admin' | 'manager' | 'waiter' | 'cashier' | 'kitchen';
 
@@ -153,9 +154,14 @@ export function UsersPage() {
                       </button>
                       <button
                         onClick={() => {
-                          if (confirm(t("users.delete_confirm"))) {
-                            deleteMutation.mutate(user.uuid);
-                          }
+                          useConfirmStore.getState().open({
+                            title: t("common.confirm_delete"),
+                            message: t("users.delete_confirm"),
+                            variant: "danger",
+                            onConfirm: () => {
+                              deleteMutation.mutate(user.uuid);
+                            }
+                          });
                         }}
                         className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
                         title={t("common.delete")}
