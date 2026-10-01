@@ -92,7 +92,8 @@
     "no_spicy": "Sin picante",
     "extra_sauce": "Salsa extra",
     "well_done": "Bien cocido",
-    "net_amount": "Neto"
+    "net_amount": "Neto",
+    "orders_with_error": "pedidos con error de sincronización"
   },
   "sync": {
     "sync_status": "Estado de sincronización",
@@ -129,7 +130,14 @@
     "status": "Estado",
     "sync_now": "Sincronizar ahora",
     "terminal": "Terminal",
-    "view_details": "Ver detalles"
+    "view_details": "Ver detalles",
+    "error_sync": "Error de sincronización",
+    "loading_queue": "Cargando cola de sincronización...",
+    "failed_sync": "Falló la sincronización:",
+    "completed": "Sincronización completada",
+    "items_updated": "elementos actualizados",
+    "error_in_sync": "Error en sincronización",
+    "error_in_full_sync": "Error en sincronización completa"
   },
   "cashier": {
     "title": "Caja",
@@ -589,7 +597,9 @@
     "closed": "Cerrada",
     "open_session": "Abrir Caja",
     "close_session": "Cerrar Caja",
-    "current_session": "Sesión Actual"
+    "current_session": "Sesión Actual",
+    "open_register": "Abrir Caja",
+    "placeholder_initial": "Ej: Caja inicial del turno mañana"
   },
   "cash_report": {
     "title": "Reporte de Caja",
@@ -620,6 +630,17 @@
     "price": "Precio",
     "category": "Categoría",
     "save": "Guardar",
+    "cancel": "Cancelar"
+  },
+  "sidebar": {
+    "sync": "Sincronización"
+  },
+  "sessions": {
+    "history_title": "Historial de Sesiones",
+    "session": "Sesión"
+  },
+  "cash_count": {
+    "title": "Arqueo de Caja",
     "cancel": "Cancelar"
   }
 }

@@ -92,7 +92,8 @@
     "no_spicy": "不要辣",
     "extra_sauce": "多加酱",
     "well_done": "全熟",
-    "net_amount": "净额"
+    "net_amount": "净额",
+    "orders_with_error": "个订单同步错误"
   },
   "cashier": {
     "title": "收银台",
@@ -168,7 +169,14 @@
     "status": "状态",
     "sync_now": "立即同步",
     "terminal": "终端",
-    "view_details": "查看详情"
+    "view_details": "查看详情",
+    "error_sync": "同步错误",
+    "loading_queue": "加载同步队列...",
+    "failed_sync": "同步失败：",
+    "completed": "同步完成",
+    "items_updated": "项已更新",
+    "error_in_sync": "同步错误",
+    "error_in_full_sync": "完整同步错误"
   },
   "settings": {
     "title": "设置",
@@ -589,7 +597,9 @@
     "closed": "已关",
     "open_session": "开收银",
     "close_session": "关收银",
-    "current_session": "当前会话"
+    "current_session": "当前会话",
+    "open_register": "开收银",
+    "placeholder_initial": "例如：早班初始现金"
   },
   "cash_report": {
     "title": "收银报告",
@@ -620,6 +630,17 @@
     "price": "价格",
     "category": "类别",
     "save": "保存",
+    "cancel": "取消"
+  },
+  "sidebar": {
+    "sync": "同步"
+  },
+  "sessions": {
+    "history_title": "会话历史",
+    "session": "会话"
+  },
+  "cash_count": {
+    "title": "现金清点",
     "cancel": "取消"
   }
 }

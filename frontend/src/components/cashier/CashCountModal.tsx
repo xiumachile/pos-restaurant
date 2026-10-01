@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useState, useMemo } from "react";
 import { CLP_DENOMINATIONS, type DenominationCount } from "@/types/cashier";
 import { formatPrice } from "@/types/catalog";
@@ -21,6 +22,7 @@ export function CashCountModal({
   onConfirm,
   isLoading,
 }: CashCountModalProps) {
+  const { t } = useTranslation();
   const [counts, setCounts] = useState<Record<number, string>>({});
   const [otherAmount, setOtherAmount] = useState<string>("");
 

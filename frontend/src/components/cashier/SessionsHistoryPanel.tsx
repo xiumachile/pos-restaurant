@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useSessionsHistory } from "@/hooks/usePayments";
 import { formatPrice } from "@/types/catalog";
@@ -10,6 +11,7 @@ interface SessionsHistoryPanelProps {
 }
 
 export function SessionsHistoryPanel({ isOpen, onClose }: SessionsHistoryPanelProps) {
+  const { t } = useTranslation();
   const { data: sessions = [], isLoading } = useSessionsHistory(isOpen);
   const [selectedSessionUuid, setSelectedSessionUuid] = useState<string | null>(null);
 
@@ -35,7 +37,7 @@ export function SessionsHistoryPanel({ isOpen, onClose }: SessionsHistoryPanelPr
         >
           <div className="flex items-center justify-between p-5 border-b border-slate-700">
             <div>
-              <h2 className="text-xl font-bold">Historial de Sesiones</h2>
+              <h2 className="text-xl font-bold">{t("sessions.history_title")}</h2>
               <p className="text-sm text-slate-400 mt-0.5">
                 Cajas cerradas en esta sucursal
               </p>
@@ -59,7 +61,7 @@ export function SessionsHistoryPanel({ isOpen, onClose }: SessionsHistoryPanelPr
               <table className="w-full text-sm">
                 <thead className="text-xs text-slate-400 border-b border-slate-700">
                   <tr>
-                    <th className="text-left py-2 px-2">Sesión</th>
+                    <th className="text-left py-2 px-2">{t("sessions.session")}</th>
                     <th className="text-left py-2 px-2">Cajero</th>
                     <th className="text-left py-2 px-2">Apertura</th>
                     <th className="text-left py-2 px-2">Cierre</th>

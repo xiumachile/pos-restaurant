@@ -54,7 +54,7 @@ export const ActiveOrderItems = memo(function ActiveOrderItems({ orders }: Activ
         <div className="flex items-center gap-2 px-2 py-1.5 bg-red-500/10 border border-red-500/30 rounded text-xs">
           <AlertCircle size={12} className="text-red-400 flex-shrink-0" />
           <span className="text-red-200">
-            {localErrors} pedido{localErrors > 1 ? "s" : ""} con error de sincronización
+            {localErrors} {t("orders.orders_with_error")}
           </span>
         </div>
       )}

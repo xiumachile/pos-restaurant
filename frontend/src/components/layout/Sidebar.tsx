@@ -73,7 +73,7 @@ export function Sidebar() {
       { to: "/reports", label: t("reports.title"), icon: BarChart3, allowedRoles: ROLES.MANAGEMENT },
       {
         to: "/sync-queue",
-        label: "Sincronización", // Nombre más claro que "Cola de sync"
+        label: t("sidebar.sync"),
         icon: Database,
         allowedRoles: ROLES.MANAGEMENT,
       },

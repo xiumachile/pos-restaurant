@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { AlertCircle } from "lucide-react";
 
 interface SyncErrorBoxProps {
@@ -6,13 +7,16 @@ interface SyncErrorBoxProps {
   className?: string;
 }
 
-export function SyncErrorBox({ 
-  errorMessage, 
-  title = "Error de sincronización:",
-  className = "" 
+export function SyncErrorBox({
+  errorMessage,
+  title,
+  className = ""
 }: SyncErrorBoxProps) {
+  const { t } = useTranslation();
+  const displayTitle = title ?? t("sync.error_sync");
+
   return (
-    <div 
+    <div
       className={`p-3 bg-red-50 border border-red-200 rounded-lg ${className}`}
       role="alert"
       aria-live="assertive"
@@ -20,7 +24,7 @@ export function SyncErrorBox({
       <div className="flex items-start gap-2">
         <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-red-800 font-medium mb-1">{title}</p>
+          <p className="text-sm text-red-800 font-medium mb-1">{displayTitle}</p>
           <p className="text-xs text-red-600 font-mono break-all">
             {errorMessage}
           </p>

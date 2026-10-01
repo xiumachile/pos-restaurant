@@ -246,7 +246,7 @@ export function CashSessionStatus({ session }: CashSessionStatusProps) {
                     onChange={(e) => setNotes(e.target.value)}
                     rows={2}
                     className="w-full px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                    placeholder="Ej: Caja inicial del turno mañana"
+                    placeholder={t("cash_session.placeholder_initial")}
                   />
                 </div>
                 <div className="flex gap-2 pt-2">

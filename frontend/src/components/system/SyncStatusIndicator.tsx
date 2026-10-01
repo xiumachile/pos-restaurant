@@ -45,7 +45,7 @@ export function SyncStatusIndicator() {
         icon: <AlertCircle size={16} className="text-red-400" />,
         bgColor: 'bg-red-500/20 border-red-500/30',
         textColor: 'text-red-100',
-        message: 'Error de sincronización',
+        message: t("sync.error_sync"),
         ariaLabel: `Error: ${lastError || 'Desconocido'}`,
       };
     }

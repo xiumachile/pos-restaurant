@@ -56,7 +56,7 @@ export function SyncQueueTable() {
     return (
       <div className="bg-slate-800 rounded-lg p-8 text-center">
         <RefreshCw className="w-8 h-8 text-slate-400 animate-spin mx-auto mb-2" />
-        <p className="text-slate-400">Cargando cola de sincronización...</p>
+        <p className="text-slate-400">{t("sync.loading_queue")}</p>
       </div>
     );
   }
