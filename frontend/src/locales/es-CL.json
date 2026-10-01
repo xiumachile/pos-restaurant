@@ -526,7 +526,10 @@
     "payments_subtotal": "Subtotal pagos:",
     "tips": "Propinas:",
     "total_charged": "Total cobrado:",
-    "tip_manual": "Propina (Manual)"
+    "tip_manual": "Propina (Manual)",
+    "single_bill": "Cuenta #{billNumber}",
+    "multiple_bills": "{count} sub-cuentas",
+    "pending": "Pendiente:"
   },
   "cash_close": {
     "title": "Cierre de Caja",
@@ -585,7 +588,14 @@
     "cancel": "Cancelar",
     "unserved_items_indicator": "{count} producto{plural} sin servir",
     "preparing_orders_indicator": "({count} pedido{plural} en preparación)",
-    "charge": "Cobrar"
+    "charge": "Cobrar",
+    "unserved_items_message": "Hay {{count}} producto{{plural}} que aún {{verb}} en preparación.",
+    "unserved_orders_message": "{{count}} pedido{{plural}} {{verb}} en estados:",
+    "items_count_label": "{{count}} ítem{{plural}}",
+    "unserved_warning_full": "Si continúas, se cobrarán <strong>todos</strong> los productos, incluyendo los que aún no han llegado a la mesa.",
+    "wait_for_serving": "⏸️ Esperar a que se sirvan",
+    "bill_not_printed_message": "La cuenta no ha sido impresa todavía.",
+    "what_do_you_want": "¿Qué deseas hacer?"
   },
   "tip_payout": {
     "title": "Pago de Propinas",

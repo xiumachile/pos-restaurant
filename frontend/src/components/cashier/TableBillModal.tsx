@@ -370,13 +370,13 @@ export function TableBillModal({
                   <div>
                     <h3 className="text-lg font-bold text-white">{t("table_bill.products_not_served")}</h3>
                     <p className="text-sm text-slate-400">
-                      Hay {tableBill.unserved_items_count} producto{tableBill.unserved_items_count !== 1 ? "s" : ""} que aún {tableBill.unserved_items_count !== 1 ? "están" : "está"} en preparación.
+                      {t("table_bill.unserved_items_message", { count: tableBill.unserved_items_count, plural: tableBill.unserved_items_count !== 1 ? "s" : "", verb: tableBill.unserved_items_count !== 1 ? "están" : "está" })}
                     </p>
                   </div>
                 </div>
                 <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-3 space-y-2">
                   <p className="text-sm text-slate-200">
-                    <strong>{tableBill.unserved_orders_count}</strong> pedido{tableBill.unserved_orders_count !== 1 ? "s" : ""} {tableBill.unserved_orders_count !== 1 ? "están" : "está"} en estados:
+                    {t("table_bill.unserved_orders_message", { count: tableBill.unserved_orders_count, plural: tableBill.unserved_orders_count !== 1 ? "s" : "", verb: tableBill.unserved_orders_count !== 1 ? "están" : "está" })}
                   </p>
                   <ul className="text-xs text-slate-300 space-y-1 pl-4">
                     {tableBill.orders
@@ -387,12 +387,12 @@ export function TableBillModal({
                           {o.status === "confirmed" && t("table_bill.status_confirmed")}
                           {o.status === "preparing" && t("table_bill.status_preparing")}
                           {o.status === "ready" && t("table_bill.status_ready")}
-                          {" "}({o.items.length} ítem{o.items.length !== 1 ? "s" : ""})
+                          {" "}({t("table_bill.items_count_label", { count: o.items.length, plural: o.items.length !== 1 ? "s" : "" })})
                         </li>
                       ))}
                   </ul>
                   <p className="text-sm text-slate-300 pt-2 border-t border-red-700/30">
-                    Si continúas, se cobrarán <strong>todos</strong> los productos, incluyendo los que aún no han llegado a la mesa.
+                    {t("table_bill.unserved_warning_full")}
                   </p>
                 </div>
               </div>
@@ -436,12 +436,12 @@ export function TableBillModal({
                   <div>
                     <h3 className="text-lg font-bold text-white">{t("table_bill.bill_not_printed")}</h3>
                     <p className="text-sm text-slate-400">
-                      La cuenta no ha sido impresa todavía.
+                      {t("table_bill.bill_not_printed_message")}
                     </p>
                   </div>
                 </div>
                 <p className="text-sm text-slate-300 bg-slate-800/50 rounded-lg p-3">
-                  ¿Qué deseas hacer?
+                  {t("table_bill.what_do_you_want")}
                 </p>
               </div>
               <div className="border-t border-slate-700 p-4 space-y-2">
