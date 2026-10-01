@@ -1,7 +1,7 @@
 import { useToastStore } from '@/store/useToastStore';
 import { useOfflinePrintJob } from '@/hooks/useOfflinePrintJob';
 import { formatPrecuenta, type PrecuentaData } from '@/services/printing/ticketFormatters';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, Trans } from 'react-i18next';
 import { useState, useMemo, useEffect } from "react";
 import type { Bill } from "@/types/bills";
 import {
@@ -332,7 +332,7 @@ export function TableBillModal({
                 disabled={prepareTableBills.isPending}
                 className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium disabled:opacity-50"
               >
-                Cancelar
+                {t("common.cancel")}
               </button>
               <button
                 onClick={handleChargeClick}
@@ -392,7 +392,7 @@ export function TableBillModal({
                       ))}
                   </ul>
                   <p className="text-sm text-slate-300 pt-2 border-t border-red-700/30">
-                    {t("table_bill.unserved_warning_full")}
+                    <Trans i18nKey="table_bill.unserved_warning_full" components={{ strong: <strong /> }} />
                   </p>
                 </div>
               </div>
@@ -401,20 +401,20 @@ export function TableBillModal({
                   onClick={() => setShowUnservedWarning(false)}
                   className="w-full px-4 py-2.5 bg-amber-600 hover:bg-amber-700 rounded-lg font-medium text-white flex items-center justify-center gap-2"
                 >
-                  ⏸️ Esperar a que se sirvan
+                  {t("table_bill.wait_to_serve")}
                 </button>
                 <button
                   onClick={handleContinueAfterUnserved}
                   className="w-full px-4 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-medium text-white flex items-center justify-center gap-2"
                 >
                   <CheckCircle2 size={16} />
-                  Cobrar igual
+                  {t("table_bill.charge_anyway")}
                 </button>
                 <button
                   onClick={() => setShowUnservedWarning(false)}
                   className="w-full px-4 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium text-slate-300"
                 >
-                  Cancelar
+                  {t("common.cancel")}
                 </button>
               </div>
             </div>
@@ -450,20 +450,20 @@ export function TableBillModal({
                   className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium text-white flex items-center justify-center gap-2"
                 >
                   <Printer size={16} />
-                  Imprimir Ahora
+                  {t("table_bill.print_now")}
                 </button>
                 <button
                   onClick={handleContinueWithoutPrint}
                   className="w-full px-4 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg font-medium text-white flex items-center justify-center gap-2"
                 >
                   <CheckCircle2 size={16} />
-                  Continuar sin Imprimir
+                  {t("table_bill.continue_without_print")}
                 </button>
                 <button
                   onClick={() => setShowPrintWarning(false)}
                   className="w-full px-4 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium text-slate-300"
                 >
-                  Cancelar
+                  {t("common.cancel")}
                 </button>
               </div>
             </div>

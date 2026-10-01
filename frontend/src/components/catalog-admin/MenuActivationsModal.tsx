@@ -245,7 +245,7 @@ export function ActivationsModal({ menu, onClose }: ActivationsModalProps) {
                   onClick={() => setShowAddForm(false)}
                   className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded text-sm font-medium transition-colors"
                 >
-                  Cancelar
+                  {t("common.cancel")}
                 </button>
               </div>
             </div>
@@ -275,7 +275,7 @@ export function ActivationsModal({ menu, onClose }: ActivationsModalProps) {
             disabled={isSaving}
             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-medium transition-colors"
           >
-            Cancelar
+            {t("common.cancel")}
           </button>
         </div>
       </div>

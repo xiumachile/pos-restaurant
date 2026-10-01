@@ -257,7 +257,7 @@ export function TipPayoutModal({ isOpen, onClose }: TipPayoutModalProps) {
                     onClick={() => setShowForm(false)}
                     className="flex-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm"
                   >
-                    Cancelar
+                    {t("common.cancel")}
                   </button>
                   <button
                     onClick={handleSubmit}

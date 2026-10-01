@@ -275,7 +275,7 @@ export function PrinterSettingsPage() {
               onClick={resetForm}
               className="bg-slate-600 hover:bg-slate-500 text-white px-4 py-2 rounded"
             >
-              Cancelar
+              {t("common.cancel")}
             </button>
           </div>
         </div>

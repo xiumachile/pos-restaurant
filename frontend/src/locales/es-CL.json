@@ -527,8 +527,8 @@
     "tips": "Propinas:",
     "total_charged": "Total cobrado:",
     "tip_manual": "Propina (Manual)",
-    "single_bill": "Cuenta #{billNumber}",
-    "multiple_bills": "{count} sub-cuentas",
+    "single_bill": "Cuenta #{{billNumber}}",
+    "multiple_bills": "{{count}} sub-cuentas",
     "pending": "Pendiente:"
   },
   "cash_close": {
@@ -595,7 +595,9 @@
     "unserved_warning_full": "Si continúas, se cobrarán <strong>todos</strong> los productos, incluyendo los que aún no han llegado a la mesa.",
     "wait_for_serving": "⏸️ Esperar a que se sirvan",
     "bill_not_printed_message": "La cuenta no ha sido impresa todavía.",
-    "what_do_you_want": "¿Qué deseas hacer?"
+    "what_do_you_want": "¿Qué deseas hacer?",
+    "wait_to_serve": "Esperar a que se sirvan",
+    "continue_without_print": "Continuar sin Imprimir"
   },
   "tip_payout": {
     "title": "Pago de Propinas",

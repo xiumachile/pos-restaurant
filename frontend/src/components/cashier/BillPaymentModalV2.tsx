@@ -365,9 +365,9 @@ export function BillPaymentModalV2({
           </h2>
           <p className="text-xs text-slate-400">
             {effectiveBills.length === 1
-              ? `Cuenta #${effectiveBills[0].bill_number}`
-              : `${effectiveBills.length} sub-cuentas`}
-            {" · "}Pendiente: <span className="text-orange-400 font-semibold">{formatPrice(billPending)}</span>
+              ? t("bill_payment.single_bill", { billNumber: effectiveBills[0].bill_number })
+              : t("bill_payment.multiple_bills", { count: effectiveBills.length })}
+            {" · "}{t("bill_payment.pending")} <span className="text-orange-400 font-semibold">{formatPrice(billPending)}</span>
           </p>
         </div>
         <button
@@ -686,7 +686,7 @@ export function BillPaymentModalV2({
           disabled={isProcessing}
           className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold disabled:opacity-50"
         >
-          Cancelar
+          {t("common.cancel")}
         </button>
         <button
           onClick={handleCharge}

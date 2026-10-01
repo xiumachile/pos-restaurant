@@ -254,7 +254,7 @@ export function CashSessionStatus({ session }: CashSessionStatusProps) {
                     onClick={() => setShowOpenModal(false)}
                     className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg"
                   >
-                    Cancelar
+                    {t("common.cancel")}
                   </button>
                   <button
                     onClick={handleOpen}

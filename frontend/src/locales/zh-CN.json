@@ -527,8 +527,8 @@
     "tips": "小费：",
     "total_charged": "总计已收：",
     "tip_manual": "小费（手动）",
-    "single_bill": "账单 #{billNumber}",
-    "multiple_bills": "{count} 个子账单",
+    "single_bill": "账单 #{{billNumber}}",
+    "multiple_bills": "{{count}} 个子账单",
     "pending": "待付："
   },
   "cash_close": {
@@ -584,7 +584,7 @@
     "items_count": "项",
     "unserved_warning_continue": "如果继续，将收取<strong>所有</strong>产品，包括尚未送到餐桌的产品。",
     "wait_to_be_served": "⏸️ 等待上菜",
-    "charge_anyway": "继续收款",
+    "charge_anyway": "仍然收费",
     "cancel": "取消",
     "unserved_items_indicator": "{count} 个产品未上菜",
     "preparing_orders_indicator": "({count} 个订单准备中)",
@@ -595,7 +595,9 @@
     "unserved_warning_full": "如果继续，将收取<strong>所有</strong>产品，包括尚未送到餐桌的产品。",
     "wait_for_serving": "⏸️ 等待上菜",
     "bill_not_printed_message": "账单尚未打印。",
-    "what_do_you_want": "您想做什么？"
+    "what_do_you_want": "您想做什么？",
+    "wait_to_serve": "等待上菜",
+    "continue_without_print": "继续不打印"
   },
   "tip_payout": {
     "title": "小费支付",

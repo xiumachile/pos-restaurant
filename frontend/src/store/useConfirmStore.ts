@@ -25,12 +25,12 @@ export const useConfirmStore = create<ConfirmState>((set) => ({
   isOpen: false,
   title: '',
   message: '',
-  confirmText: 'Confirmar',
-  cancelText: 'Cancelar',
+  confirmText: 'common.confirm',
+  cancelText: 'common.cancel',
   variant: 'warning',
   onConfirm: () => {},
   onCancel: () => {},
-  open: ({ title, message, confirmText = 'Confirmar', cancelText = 'Cancelar', variant = 'warning', onConfirm, onCancel }) =>
+  open: ({ title, message, confirmText = 'common.confirm', cancelText = 'common.cancel', variant = 'warning', onConfirm, onCancel }) =>
     set({ isOpen: true, title, message, confirmText, cancelText, variant, onConfirm, onCancel: onCancel || (() => {}) }),
   close: () => set({ isOpen: false }),
 }));

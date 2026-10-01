@@ -227,7 +227,7 @@ function CategoryFormModal({ category, onClose }: CategoryFormModalProps) {
               onClick={onClose}
               className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-medium transition-colors"
             >
-              Cancelar
+              {t("common.cancel")}
             </button>
           </div>
         </form>

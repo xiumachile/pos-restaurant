@@ -223,7 +223,7 @@ export function CashCountModal({
               disabled={isLoading}
               className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium disabled:opacity-50"
             >
-              Cancelar
+              {t("common.cancel")}
             </button>
             <button
               onClick={handleConfirm}

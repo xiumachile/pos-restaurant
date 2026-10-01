@@ -61,7 +61,7 @@ export function ConfirmDialog() {
               {getIcon()}
             </div>
             <div className="flex-1">
-              <h3 id="confirm-dialog-title" className="text-lg font-semibold text-white mb-2">{title}</h3>
+              <h3 id="confirm-dialog-title" className="text-lg font-semibold text-white mb-2">{t(title)}</h3>
               <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-line">{message}</p>
             </div>
             <button
@@ -77,13 +77,13 @@ export function ConfirmDialog() {
             onClick={handleCancel}
             className="px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors"
           >
-            {cancelText}
+            {t(cancelText)}
           </button>
           <button
             onClick={handleConfirm}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${getConfirmBtn()}`}
           >
-            {confirmText}
+            {t(confirmText)}
           </button>
         </div>
       </div>
