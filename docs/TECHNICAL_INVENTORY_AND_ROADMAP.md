@@ -48,8 +48,8 @@ no como parte del cierre de Fase 1. El endpoint `/menus/active` ya existe y func
 ## 1. Gestión de cartas (menús)
 - **Estado:** ✅ **COMPLETADO** (Backend + Frontend)
 - **Tareas Completadas:**
-  - [x] Backend: Endpoint `GET /menus/resolve-preview` con test de integración (commit pendiente)
-  - [x] Backend: Validación "no dejar sucursal sin carta default" con `BranchRequiresDefaultMenuException` (commit pendiente)
+  - [x] Backend: Endpoint `GET /menus/resolve-preview` con test de integración (commit 0e8a0f4)
+  - [x] Backend: Validación "no dejar sucursal sin carta default" con `BranchRequiresDefaultMenuException` (commit 0e8a0f4)
   - [x] Frontend: `MenusTab.tsx` con gestión completa de reglas de activación (commit 25f22ab)
   - [x] Frontend: Selector de carta con indicador "Predeterminada" + `useSetDefaultMenu` (commit 25f22ab)
   - [x] Frontend: `MenuProductsModal.tsx` para asignación de productos (commit 25f22ab)
