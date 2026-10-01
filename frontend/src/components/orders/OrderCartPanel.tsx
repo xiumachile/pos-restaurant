@@ -18,6 +18,7 @@ import { OrderRepository } from "@/db/repositories/OrderRepository";
 import { Plus, Minus, Trash2, Send, ShoppingCart, Loader2, CheckCircle2, AlertCircle, WifiOff } from "lucide-react";
 import { ActiveOrderItems } from "./ActiveOrderItems";
 import { mergeAuthContext } from "@/services/authContext";
+import { useActiveChannelStore, channelToOrderType } from "@/stores/useActiveChannelStore";
 
 interface OrderCartPanelProps {
   tableUuid: string;
@@ -70,7 +71,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
       const order = await OrderRepository.createWithItems(
         mergeAuthContext({
           table_id: tableUuid,
-          order_type: "dine_in",
+          order_type: channelToOrderType(useActiveChannelStore.getState().channel),
         }),
         items.map(item => ({
           product_id: item.product.uuid,

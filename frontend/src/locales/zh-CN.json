@@ -95,7 +95,22 @@
     "extra_sauce": "多加酱",
     "well_done": "全熟",
     "net_amount": "净额",
-    "orders_with_error": "个订单同步错误"
+    "orders_with_error": "个订单同步错误",
+    "channel_label": "渠道",
+    "channel_dine_in": "堂食",
+    "channel_delivery": "外卖",
+    "channel_takeout": "自提",
+    "channel_uber_eats": "UberEats",
+    "channel_rappi": "Rappi",
+    "search_product": "搜索产品...",
+    "all_categories": "全部",
+    "no_products_found": "未找到产品",
+    "products_count": "产品",
+    "product_added": "{{name}} 已添加",
+    "menu_load_error": "加载菜单错误",
+    "menu_load_error_hint": "请检查您的连接并重试。",
+    "no_active_menu": "{{icon}} {{channel}} 没有活动菜单",
+    "no_active_menu_hint": "请从管理 → 菜单中为此渠道配置默认菜单或激活规则。"
   },
   "cashier": {
     "title": "收银台",

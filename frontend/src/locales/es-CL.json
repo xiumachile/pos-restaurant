@@ -95,7 +95,22 @@
     "extra_sauce": "Salsa extra",
     "well_done": "Bien cocido",
     "net_amount": "Neto",
-    "orders_with_error": "pedidos con error de sincronización"
+    "orders_with_error": "pedidos con error de sincronización",
+    "channel_label": "Canal",
+    "channel_dine_in": "Comedor",
+    "channel_delivery": "Delivery",
+    "channel_takeout": "Para llevar",
+    "channel_uber_eats": "UberEats",
+    "channel_rappi": "Rappi",
+    "search_product": "Buscar producto...",
+    "all_categories": "Todos",
+    "no_products_found": "No se encontraron productos",
+    "products_count": "productos",
+    "product_added": "{{name}} agregado",
+    "menu_load_error": "Error al cargar la carta",
+    "menu_load_error_hint": "Verifica tu conexión e intenta nuevamente.",
+    "no_active_menu": "No hay carta activa para {{icon}} {{channel}}",
+    "no_active_menu_hint": "Configura una carta default o una regla de activación para este canal desde Administración → Cartas."
   },
   "sync": {
     "sync_status": "Estado de sincronización",
