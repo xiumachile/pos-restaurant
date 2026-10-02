@@ -118,9 +118,18 @@ class IdempotencyKey extends Model
         // UPDATE atómico: solo si processing_until ya expiró y no tiene response_code
         // Esto previene la condición de carrera TOCTOU donde dos requests intentan 
         // tomar ownership del mismo zombie lock simultáneamente.
-        $updated = $this->where('id', $this->id)
+        // P1-011 FIX: Usar withoutGlobalScopes() para evitar que CompanyScope/BranchScope
+
+        // filtren el registro (puede tener company_id=null si fue creado sin auth context).
+
+        $updated = self::withoutGlobalScopes()
+
+            ->where('id', $this->id)
+
             ->whereNull('response_code')
+
             ->where('processing_until', '<', now())
+
             ->update([
                 'processing_until' => now()->addSeconds(120), // Aumentado a 120s (2 min)
             ]);
