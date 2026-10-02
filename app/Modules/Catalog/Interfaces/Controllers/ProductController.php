@@ -7,6 +7,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\Catalog\Domain\Entities\Category;
 use Modules\Catalog\Domain\Entities\Product;
+use Modules\Catalog\Domain\Entities\Menu;
+use Modules\Catalog\Domain\Entities\MenuProduct;
 use Modules\Catalog\Interfaces\Requests\CreateProductRequest;
 use Modules\Catalog\Interfaces\Requests\UpdateProductRequest;
 use Modules\Orders\Domain\Entities\OrderItem;
@@ -84,10 +86,43 @@ class ProductController extends Controller
 
         $product = Product::create($data);
 
-        return response()->json([
+        // H3: Auto-asignación transaccional a carta default de la sucursal
+        // Salvo que el request pase skip_default_menu: true
+        $skipDefaultMenu = (bool) $request->input('skip_default_menu', false);
+        $assignedToDefaultMenu = false;
+        $defaultMenu = null;
+
+        if (!$skipDefaultMenu) {
+            $defaultMenu = Menu::where('branch_id', $user->branch_id)
+                ->where('company_id', $user->company_id)
+                ->where('is_default', true)
+                ->where('is_active', true)
+                ->whereNull('deleted_at')
+                ->first();
+
+            if ($defaultMenu) {
+                // Idempotente: si ya está asignado, no duplica
+                MenuProduct::firstOrCreate(
+                    ['menu_id' => $defaultMenu->id, 'product_id' => $product->id],
+                    ['position' => 0, 'is_available' => true]
+                );
+                $assignedToDefaultMenu = true;
+            }
+        }
+
+        $response = [
             'success' => true,
             'data' => $product->load(['category', 'menuItem']),
-        ], 201);
+        ];
+
+        if ($assignedToDefaultMenu) {
+            $response['meta'] = [
+                'assigned_to_default_menu' => true,
+                'default_menu_uuid' => $defaultMenu->uuid,
+            ];
+        }
+
+        return response()->json($response, 201);
     }
 
     /**

@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\Catalog\Interfaces\Controllers\CategoryController;
 use Modules\Catalog\Interfaces\Controllers\ProductController;
 use Modules\Catalog\Interfaces\Controllers\PriceListController;
+use Modules\Catalog\Interfaces\Controllers\CatalogHealthController;
 use Modules\Catalog\Interfaces\Controllers\ProductPriceController;
 use Modules\Catalog\Interfaces\Controllers\MenuController;
 use Modules\Catalog\Interfaces\Controllers\ComboSubstitutionController;
@@ -82,6 +83,9 @@ Route::prefix('v1/catalog')->middleware(['auth:api', TenantContextMiddleware::cl
     });
 
     // Listas de precios (lectura para usuarios autenticados)
+    
+    Route::get('/health', [CatalogHealthController::class, 'index'])->name('catalog.health');
+
     Route::get('/price-lists', [PriceListController::class, 'index'])->name('catalog.price-lists.index');
 
     // Precios de un producto (lectura)

@@ -133,6 +133,17 @@ class Product extends Model
      * Resuelve el precio efectivo del producto para una lista de precios.
      * Jerarquía: lista indicada → lista default de la empresa → base_price.
      */
+    /**
+     * Resuelve el precio del producto con jerarquía de 4 niveles:
+     *   1. Precio en la lista indicada explícitamente (si hay)
+     *   2. Precio en la lista default de la sucursal del producto (scoped por branch_id)
+     *   3. Precio en la lista default company-wide (legacy, branch_id null)
+     *   4. base_price del producto (fallback final)
+     *
+     * FIX H2: el paso 2 ahora scoping por branch_id para evitar precios cruzados
+     * en empresas multi-sucursal. Mantiene el paso 3 como compatibilidad con
+     * configuraciones mono-sucursal existentes que usan listas sin branch_id.
+     */
     public function resolvePrice(?PriceList $priceList = null): int
     {
         if ($priceList) {
@@ -142,12 +153,27 @@ class Product extends Model
             }
         }
 
-        $defaultList = PriceList::where('company_id', $this->company_id)
+        // Nivel 2: default scoped a la sucursal del producto
+        $branchDefaultList = PriceList::where('company_id', $this->company_id)
+            ->where('branch_id', $this->branch_id)
             ->where('is_default', true)
             ->first();
 
-        if ($defaultList) {
-            $price = $this->prices()->where('price_list_id', $defaultList->id)->first();
+        if ($branchDefaultList) {
+            $price = $this->prices()->where('price_list_id', $branchDefaultList->id)->first();
+            if ($price) {
+                return (int) $price->price;  // ADR-018
+            }
+        }
+
+        // Nivel 3: fallback legacy company-wide (branch_id null)
+        $companyDefaultList = PriceList::where('company_id', $this->company_id)
+            ->whereNull('branch_id')
+            ->where('is_default', true)
+            ->first();
+
+        if ($companyDefaultList) {
+            $price = $this->prices()->where('price_list_id', $companyDefaultList->id)->first();
             if ($price) {
                 return (int) $price->price;  // ADR-018
             }
