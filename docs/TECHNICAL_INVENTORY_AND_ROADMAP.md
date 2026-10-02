@@ -4,7 +4,7 @@
 **Autor:** Auditoría técnica y planificación colaborativa  
 **Fecha:** Septiembre 2026  
 **Estado del documento:** Activo (Fuente Única de la Verdad - SSOT)  
-**Última actualización:** Septiembre 2026
+**Última actualización:** October 2026
 
 ---
 
@@ -120,6 +120,93 @@ no como parte del cierre de Fase 1. El endpoint `/menus/active` ya existe y func
 
 ---
 
+### Nota sobre GAP #5 (Fase 1.2) — RESUELTO
+
+**Estado:** ✅ **RESUELTO** (Commits: `952e175` - Fase 2 H1)
+
+**Resolución (Octubre 2026):** El GAP #5 fue resuelto como parte del refactor de "canal por pedido" (Fase 2 H1).
+
+**Cambios implementados:**
+1. ~~`useActiveMenuStore` global~~ → Canal ahora vive como atributo del pedido (`TableCart.channel`)
+2. `OrderCatalogPanel` recibe `channel` como prop → resuelve carta vía `useActiveMenu(channel)`
+3. ~~Selector global de canal~~ → Canal se fija al crear el pedido (implícito `dine_in` para mesa, selección explícita para takeaway)
+4. Cache por canal vía `queryKey: ["pos", "active-menu", channel]` de react-query
+
+**Resultado:** Cada pedido resuelve su propia carta sin contaminación cruzada entre pedidos.
+El endpoint `/menus/active?channel_type=X` ahora es consumido correctamente desde el POS.
+
+---
+
+## Hallazgos de Auditoría (Septiembre-Octubre 2026)
+
+Hallazgos identificados durante auditoría técnica profunda del flujo POS + catálogo.
+Cada hallazgo tiene prioridad, fix implementado y tests que garantizan no-regresión.
+
+### H1 — Canal de venta por pedido (no por sesión) — ✅ RESUELTO
+
+**Problema (P0 - UX y dinero):** El canal de venta (`dine_in`/`delivery`/`takeout`) vivía en un store global con persistencia en `sessionStorage`. Al tomar un pedido delivery y luego entrar a una mesa física sin cerrar la app, la mesa se facturaba con precios de delivery (contaminación cruzada de canales).
+
+**Solución (Commit: `952e175`):**
+- Canal movido a atributo del pedido (`TableCart.channel`) fijado al crear el pedido
+- Nuevo método `useCartStore.initOrder({ tableUuid, channel })` que retorna el cartKey generado
+- Pedidos de mesa: canal `dine_in` implícito (sin UI de selección)
+- Pedidos fuera de mesa: nuevo flujo `/orders/new` → `ChannelSelectionModal` → `/orders/takeaway/:cartKey`
+- `useActiveChannelStore` marcado como DEPRECADO (sin persistencia sessionStorage)
+- `OrderCartPanel` refactorizado con props genéricas (`cartKey`, `tableId`, `title`)
+- `OrderCatalogPanel` con badge persistente (canal + carta + lista de precios activa) como salvaguarda visual
+
+**Tests (15 tests, todos pasando):**
+- `useCartStore.channel.test.ts` (7 tests): aislamiento entre pedidos
+- `OrderTakingPage.channel.test.tsx` (3 tests): canal dine_in implícito
+- `ChannelSelectionModal.test.tsx` (5 tests): selección explícita para takeaway
+
+### H2 — Scoping de precio por sucursal — ✅ RESUELTO
+
+**Problema (P0 - dinero):** `Product::resolvePrice()` no incluía `branch_id` en la jerarquía de resolución. En empresas multi-sucursal con listas default por sucursal, se podían mezclar precios cruzados.
+
+**Solución (Commit: `87fdd8c`):**
+- Nueva jerarquía de 4 niveles en `Product::resolvePrice()`:
+  1. Lista indicada explícitamente
+  2. **Default scoped por `branch_id` del producto** (NUEVO)
+  3. Default company-wide legacy (`branch_id` null)
+  4. `base_price` como fallback final
+- Compatibilidad con configuraciones legacy mono-sucursal
+
+**Tests (4 tests, todos pasando):**
+- `ProductResolvePriceTest`: cubre los 4 niveles de la jerarquía
+
+### H4 — Garantía de carta default por sucursal — ✅ RESUELTO
+
+**Problema (P1 - disponibilidad):** No existía garantía de que cada sucursal tuviera una PriceList y Menu default. Si una sucursal nueva se creaba sin defaults, el POS mostraba "no hay carta activa" sin forma automática de repararlo.
+
+**Solución (Commit: `87fdd8c`):**
+- Nuevo `BranchDefaultProvisioner` (lógica reutilizable)
+- Nuevo comando `php artisan catalog:ensure-default-menu` (idempotente)
+  - Sin argumentos: recorre todas las sucursales activas
+  - Con `{branchId}`: repara una específica
+- Nuevo `BranchObserver` que provisiona defaults automáticamente al crear una Branch
+- Endpoint de diagnóstico `GET /api/v1/catalog/health` (rol admin) con 4 checks:
+  - `has_default_price_list`
+  - `has_default_menu`
+  - `products_without_menu`
+  - `products_without_default_price`
+- Backfill ejecutado: Branch #2 (Providencia) reparada, Branch #1 (Centro) ya tenía defaults
+
+**Tests (6 tests, todos pasando):**
+- `EnsureDefaultMenuCommandTest` (3 tests): creación + idempotencia + recorrido completo
+- `CatalogHealthEndpointTest` (3 tests): healthy + unhealthy scenarios
+
+### H3 — Auto-asignación de productos nuevos a carta default (parcial)
+
+**Estado:** Implementado en `ProductController::store()` (commit `87fdd8c`).
+Un producto creado vía API se asigna automáticamente a la carta default de su sucursal (transaccional, idempotente).
+Flag `skip_default_menu: true` disponible para casos especiales.
+
+### H5 — Tests de canal por pedido — ✅ RESUELTO
+
+Tests de H1 escritos primero (TDD), garantizan que el canal de un pedido no se filtra a otro pedido/mesa.
+Ver sección H1 para detalle de los 15 tests.
+
 ## 9. Orden de Implementación Sugerido (Fases)
 
 ### Fase 1: Quick Wins (Entrega de valor visible, bajo riesgo)
@@ -146,3 +233,28 @@ no como parte del cierre de Fase 1. El endpoint `/menus/active` ya existe y func
 - Todo lo indicado como "qué ya existe" fue verificado leyendo directamente el código fuente.
 - Este documento es vivo. Al completar una tarea, marcar el checkbox `[x]` y referenciar el Pull Request correspondiente.
 - Cualquier desviación de esta hoja de ruta debe ser documentada aquí como una actualización de estado.
+
+---
+
+## 11. Histórico de Commits de Auditoría (Septiembre-Octubre 2026)
+
+Commits que resolvieron los hallazgos de auditoría documentados en la sección correspondiente.
+
+| Fecha | Commit | Hallazgo | Descripción |
+|-------|--------|----------|-------------|
+| Octubre 2026 | `87fdd8c` | H2, H4, H3 parcial | fix(catalog): scoping de precio + provisioning + health endpoint (Fase 1 H2/H4) |
+| Octubre 2026 | `c84c1f5` | - | test(catalog): factories, HasFactory traits y reorganización de tests (fix CI) |
+| Octubre 2026 | `952e175` | H1, H5 | feat(pos): canal por pedido - aislamiento de canales (Fase 2) |
+| Octubre 2026 | `3a64ec5` | - | Merge branch 'feature/channel-per-order' into main |
+
+### Rama de desarrollo
+- **Rama feature:** `feature/channel-per-order` (Fase 2 H1)
+- **Estrategia:** TDD (tests escritos antes de implementación)
+- **Merge:** `--no-ff` para preservar trazabilidad de la rama feature
+
+### Verificación de calidad
+- **Tests de Fase 1 (H2/H4):** 10 tests pasando (4 + 3 + 3)
+- **Tests de Fase 2 (H1):** 15 tests pasando (7 + 3 + 5)
+- **TypeCheck frontend:** 0 errores
+- **PHP linting:** limpio en todos los archivos modificados
+- **Suite completo:** 1051 passed (1 test flaky preexistente no relacionado)
