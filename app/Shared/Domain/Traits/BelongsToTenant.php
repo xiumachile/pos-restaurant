@@ -39,12 +39,36 @@ trait BelongsToTenant
 
     /**
      * Verificar si la tabla tiene columna branch_id.
+     * 
+     * Usa caché estática para evitar consultas repetidas a Schema.
+     * Si la BD no está disponible (ej: durante composer install en CI),
+     * retorna false para evitar errores en boot time.
      */
     protected static function hasBranchColumn(): bool
     {
+        static $cache = [];
+        $class = static::class;
+        
+        if (isset($cache[$class])) {
+            return $cache[$class];
+        }
+        
         $instance = new static();
-        return in_array('branch_id', $instance->getFillable())
-            || \Illuminate\Support\Facades\Schema::hasColumn($instance->getTable(), 'branch_id');
+        
+        // Chequeo rápido: si está en fillable, definitivamente existe
+        if (in_array('branch_id', $instance->getFillable())) {
+            return $cache[$class] = true;
+        }
+        
+        // Chequeo de BD: puede fallar si la BD no existe todavía
+        try {
+            $cache[$class] = \Illuminate\Support\Facades\Schema::hasColumn($instance->getTable(), 'branch_id');
+        } catch (\Throwable $e) {
+            // BD no disponible (ej: composer install antes de migraciones)
+            $cache[$class] = false;
+        }
+        
+        return $cache[$class];
     }
 
     /**
