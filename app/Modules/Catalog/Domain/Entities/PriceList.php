@@ -7,6 +7,7 @@ use App\Shared\Domain\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
  * Lista de precios configurable (precio_comedor, precio_delivery, etc.).
@@ -15,6 +16,13 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class PriceList extends Model
 {
+
+    protected static function newFactory()
+    {
+        return \Database\Factories\PriceListFactory::new();
+    }
+
+    use HasFactory;
     use HasUuid;
     use BelongsToTenant;
     use SoftDeletes;

@@ -7,9 +7,17 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\Companies\Domain\ValueObjects\CapabilityKey;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Company extends Model
 {
+
+    protected static function newFactory()
+    {
+        return \Database\Factories\CompanyFactory::new();
+    }
+
+    use HasFactory;
     use HasUuid;
     use SoftDeletes;
     // Nota: NO usamos BelongsToTenant porque Company es la raíz del tenant

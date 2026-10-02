@@ -9,9 +9,17 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\Companies\Domain\Entities\Company;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Branch extends Model
 {
+
+    protected static function newFactory()
+    {
+        return \Database\Factories\BranchFactory::new();
+    }
+
+    use HasFactory;
     use HasUuid;
     use BelongsToTenant;
     use SoftDeletes;

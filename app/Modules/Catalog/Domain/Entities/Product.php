@@ -11,9 +11,17 @@ use Modules\Tax\Domain\Entities\Tax;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Product extends Model
 {
+
+    protected static function newFactory()
+    {
+        return \Database\Factories\ProductFactory::new();
+    }
+
+    use HasFactory;
     use HasUuid;
     use BelongsToTenant;
     use HasTranslations;
@@ -154,7 +162,8 @@ class Product extends Model
         }
 
         // Nivel 2: default scoped a la sucursal del producto
-        $branchDefaultList = PriceList::where('company_id', $this->company_id)
+        $branchDefaultList = PriceList::withoutGlobalScopes()
+            ->where('company_id', $this->company_id)
             ->where('branch_id', $this->branch_id)
             ->where('is_default', true)
             ->first();
@@ -167,7 +176,8 @@ class Product extends Model
         }
 
         // Nivel 3: fallback legacy company-wide (branch_id null)
-        $companyDefaultList = PriceList::where('company_id', $this->company_id)
+        $companyDefaultList = PriceList::withoutGlobalScopes()
+            ->where('company_id', $this->company_id)
             ->whereNull('branch_id')
             ->where('is_default', true)
             ->first();

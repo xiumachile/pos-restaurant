@@ -2,44 +2,43 @@ import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useCategories } from "@/hooks/useCatalog";
 import { useActiveMenu } from "@/hooks/useActiveMenu";
-import { useActiveChannelStore, CHANNEL_LABELS } from "@/stores/useActiveChannelStore";
+import { CHANNEL_LABELS, type ChannelType } from "@/stores/useActiveChannelStore";
 import { getTranslatedName, formatPrice } from "@/types/catalog";
 import type { Product } from "@/types/catalog";
-import { Search, Plus, Package, Loader2, AlertCircle, BookOpen } from "lucide-react";
+import { Search, Plus, Package, Loader2, AlertCircle, BookOpen, Receipt } from "lucide-react";
 import { useToastStore } from "@/store/useToastStore";
-import { ChannelSelector } from "./ChannelSelector";
 
 interface OrderCatalogPanelProps {
   onAddProduct: (product: Product) => void;
+  /** Canal del pedido en curso (viene del cart, fijado al iniciar) */
+  channel: ChannelType;
 }
 
 /**
  * Catálogo compacto para toma de pedidos.
  * 
- * Usa la carta activa según el canal seleccionado (dine_in / delivery / takeout).
- * Los productos se filtran automáticamente según la carta resuelta por el backend.
- * Si no hay carta activa, muestra un mensaje de error claro.
+ * Fase 2: El canal se recibe como prop desde el padre (viene del cart del pedido),
+ * garantizando que cada pedido use su propio canal sin contaminación cruzada.
  * 
- * 100% bilingüe: todos los textos usan t().
+ * El badge persistente muestra la carta y lista de precios activas con
+ * el mismo peso visual que el total del carrito (salvaguarda de UX).
  */
-export function OrderCatalogPanel({ onAddProduct }: OrderCatalogPanelProps) {
+export function OrderCatalogPanel({ onAddProduct, channel }: OrderCatalogPanelProps) {
   const { t } = useTranslation();
   const addToast = useToastStore((s) => s.addToast);
-  const channel = useActiveChannelStore((s) => s.channel);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: categories = [] } = useCategories();
-  const { data: activeMenu, isLoading: loadingMenu, error: menuError } = useActiveMenu();
+  const { data: activeMenu, isLoading: loadingMenu, error: menuError } = useActiveMenu(channel);
 
-  // Construir "productos" a partir de los items de la carta activa
-  // Enriquecemos con metadata de la categoría desde categories[]
+  // Construir productos desde los items de la carta activa
   const products: Product[] = useMemo(() => {
     if (!activeMenu?.items) return [];
     return activeMenu.items.map((item) => {
       const category = categories.find((c) => c.id === item.category_id);
       return {
-        id: 0, // No tenemos ID numérico real del backend aquí
+        id: 0,
         uuid: item.product_uuid,
         company_id: 0,
         branch_id: 0,
@@ -61,7 +60,6 @@ export function OrderCatalogPanel({ onAddProduct }: OrderCatalogPanelProps) {
     });
   }, [activeMenu, categories]);
 
-  // Filtrar por categoría y búsqueda
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
       const matchesCategory =
@@ -73,7 +71,6 @@ export function OrderCatalogPanel({ onAddProduct }: OrderCatalogPanelProps) {
     });
   }, [products, selectedCategoryId, searchQuery]);
 
-  // Conteo por categoría para badges
   const productsByCategory = useMemo(() => {
     const counts: Record<number, number> = {};
     for (const p of products) {
@@ -93,7 +90,7 @@ export function OrderCatalogPanel({ onAddProduct }: OrderCatalogPanelProps) {
     );
   }
 
-  // ESTADO: error de red al cargar carta
+  // ESTADO: error de red
   if (menuError) {
     return (
       <div className="flex-1 flex items-center justify-center p-6">
@@ -114,7 +111,8 @@ export function OrderCatalogPanel({ onAddProduct }: OrderCatalogPanelProps) {
   if (!activeMenu) {
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
-        <ChannelSelector />
+        {/* Badge persistente (visible aunque no haya carta) */}
+        <CatalogContextBadge channel={channel} channelLabel={channelLabel} menuName={null} priceListName={null} />
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="text-center max-w-md">
             <BookOpen className="mx-auto text-slate-500 mb-3" size={48} />
@@ -135,19 +133,16 @@ export function OrderCatalogPanel({ onAddProduct }: OrderCatalogPanelProps) {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Selector de canal */}
-      <ChannelSelector />
+      {/* BADGE PERSISTENTE: contexto de precio activo (salvaguarda de UX) */}
+      <CatalogContextBadge
+        channel={channel}
+        channelLabel={channelLabel}
+        menuName={activeMenu.menu.name}
+        priceListName={activeMenu.menu.price_list?.display_name ?? null}
+      />
 
-      {/* Info de carta activa */}
+      {/* Info secundaria */}
       <div className="mb-2 flex items-center justify-between text-xs">
-        <span className="text-slate-400">
-          📋 <span className="text-orange-400 font-medium">{activeMenu.menu.name}</span>
-          {activeMenu.menu.price_list && (
-            <span className="ml-2 text-slate-500">
-              · {activeMenu.menu.price_list.display_name}
-            </span>
-          )}
-        </span>
         <span className="text-slate-500">
           {filteredProducts.length} {t("orders.products_count")}
         </span>
@@ -244,6 +239,51 @@ export function OrderCatalogPanel({ onAddProduct }: OrderCatalogPanelProps) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Badge persistente con el contexto de precio activo.
+ * 
+ * Mismo peso visual que el total del carrito (salvaguarda de UX).
+ * Si el canal o la carta se resuelven mal, es imposible no notarlo.
+ */
+function CatalogContextBadge({
+  channel,
+  channelLabel,
+  menuName,
+  priceListName,
+}: {
+  channel: ChannelType;
+  channelLabel: { icon: string };
+  menuName: string | null;
+  priceListName: string | null;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="mb-3 bg-slate-800/80 border border-slate-700 rounded-lg p-3 flex items-center gap-3 shadow-sm">
+      <div className="flex items-center gap-2 text-sm">
+        <span className="text-2xl">{channelLabel.icon}</span>
+        <span className="font-semibold text-white">
+          {t(`orders.channel_${channel}`)}
+        </span>
+      </div>
+      {menuName && (
+        <>
+          <div className="w-px h-6 bg-slate-600" />
+          <div className="flex items-center gap-1.5 text-sm">
+            <Receipt size={14} className="text-orange-400" />
+            <span className="text-orange-400 font-medium">{menuName}</span>
+          </div>
+        </>
+      )}
+      {priceListName && (
+        <>
+          <span className="text-slate-500">·</span>
+          <span className="text-xs text-slate-400">{priceListName}</span>
+        </>
+      )}
     </div>
   );
 }
