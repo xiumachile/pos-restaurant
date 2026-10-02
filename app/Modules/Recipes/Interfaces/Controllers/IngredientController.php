@@ -11,6 +11,12 @@ use Modules\Recipes\Interfaces\Requests\CreateIngredientRequest;
 use Modules\Recipes\Interfaces\Requests\RegisterPurchaseRequest;
 use Modules\Recipes\Interfaces\Resources\RawIngredientResource;
 
+use Modules\Recipes\Domain\Entities\RawIngredientMovement;
+use Modules\Recipes\Domain\Exceptions\InsufficientStockException;
+use Modules\Recipes\Domain\ValueObjects\MovementType;
+use Modules\Recipes\Interfaces\Requests\RecordMovementRequest;
+use Modules\Recipes\Interfaces\Resources\RawIngredientMovementResource;
+
 class IngredientController extends Controller
 {
     public function __construct(
@@ -133,5 +139,89 @@ class IngredientController extends Controller
         );
 
         return response()->json(['data' => $history]);
+    }
+
+    /**
+     * POST /api/v1/recipes/ingredients/{uuid}/movements
+     * Registra un movimiento de stock (compra, consumo, ajuste, merma, producción).
+     * 
+     * ADR-022: Endpoint unificado que reemplaza al antiguo Inventory.movement.
+     */
+    public function movement(RecordMovementRequest $request, string $uuid): JsonResponse
+    {
+        $validated = $request->validated();
+        $user = $request->user();
+
+        $ingredient = RawIngredient::where('uuid', $uuid)
+            ->where('company_id', $user->company_id)
+            ->first();
+
+        if (!$ingredient) {
+            return response()->json([
+                'error' => 'not_found',
+                'message' => 'Ingrediente no encontrado.',
+            ], 404);
+        }
+
+        try {
+            $movement = RawIngredientMovement::record(
+                companyId: $user->company_id,
+                branchId: $user->branch_id,
+                rawIngredientId: $ingredient->id,
+                type: MovementType::from($validated['type']),
+                quantityBase: (float) $validated['quantity_base'],
+                referenceType: $validated['reference_type'] ?? null,
+                referenceId: $validated['reference_id'] ?? null,
+                userId: $user->id,
+                reason: $validated['reason'] ?? null
+            );
+
+            return RawIngredientMovementResource::make($movement)
+                ->response()
+                ->setStatusCode(201);
+        } catch (InsufficientStockException $e) {
+            return response()->json([
+                'error' => 'insufficient_stock',
+                'message' => 'Stock insuficiente para el movimiento.',
+                'requested' => $e->requested,
+                'available' => $e->available,
+            ], 409);
+        }
+    }
+
+    /**
+     * GET /api/v1/recipes/ingredients/{uuid}/movements
+     * Lista el historial de movimientos de un insumo.
+     * 
+     * Parámetros query:
+     *   - type: filtra por tipo de movimiento (ej: in_purchase, out_consumption)
+     *   - limit: límite de resultados (default 100, max 500)
+     */
+    public function movements(Request $request, string $uuid): JsonResponse
+    {
+        $user = $request->user();
+
+        $ingredient = RawIngredient::where('uuid', $uuid)
+            ->where('company_id', $user->company_id)
+            ->first();
+
+        if (!$ingredient) {
+            return response()->json([
+                'error' => 'not_found',
+                'message' => 'Ingrediente no encontrado.',
+            ], 404);
+        }
+
+        $query = RawIngredientMovement::where('raw_ingredient_id', $ingredient->id)
+            ->orderBy('created_at', 'desc');
+
+        if ($type = $request->query('type')) {
+            $query->where('type', $type);
+        }
+
+        $limit = min((int) $request->query('limit', 100), 500);
+        $movements = $query->limit($limit)->get();
+
+        return RawIngredientMovementResource::collection($movements)->response();
     }
 }
