@@ -12,7 +12,7 @@ use Modules\Recipes\Interfaces\Requests\RegisterPurchaseRequest;
 use Modules\Recipes\Interfaces\Resources\RawIngredientResource;
 
 use Modules\Recipes\Domain\Entities\RawIngredientMovement;
-use Modules\Recipes\Domain\Exceptions\InsufficientStockException;
+use Modules\Recipes\Domain\Exceptions\InsufficientIngredientStockException;
 use Modules\Recipes\Domain\ValueObjects\MovementType;
 use Modules\Recipes\Interfaces\Requests\RecordMovementRequest;
 use Modules\Recipes\Interfaces\Resources\RawIngredientMovementResource;
@@ -179,7 +179,7 @@ class IngredientController extends Controller
             return RawIngredientMovementResource::make($movement)
                 ->response()
                 ->setStatusCode(201);
-        } catch (InsufficientStockException $e) {
+        } catch (InsufficientIngredientStockException $e) {
             return response()->json([
                 'error' => 'insufficient_stock',
                 'message' => 'Stock insuficiente para el movimiento.',

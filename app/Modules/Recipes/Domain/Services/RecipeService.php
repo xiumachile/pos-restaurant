@@ -8,6 +8,8 @@ use Modules\Catalog\Domain\Entities\Product;
 use Modules\Recipes\Domain\Entities\ProductRecipe;
 use Modules\Recipes\Domain\Entities\RawIngredient;
 use Modules\Recipes\Domain\Entities\RecipeItem;
+use Modules\Recipes\Domain\Entities\RawIngredientMovement;
+use Modules\Recipes\Domain\ValueObjects\MovementType;
 use Modules\Recipes\Domain\Exceptions\InsufficientIngredientStockException;
 use App\Shared\Application\TenantContext;
 
@@ -203,7 +205,19 @@ class RecipeService
             ]);
 
             // Descontar stock (lanza InsufficientIngredientStockException si no hay suficiente)
-            $ingredient->deductStock($quantityToDeduct);
+            // Descontar stock usando movimiento (lanza InsufficientIngredientStockException si no hay suficiente)
+            // ADR-022: Registro de movimiento OutConsumption con referencia a la orden
+            $orderId = $orderItem->order_id ?? null;
+            RawIngredientMovement::record(
+                companyId: $ingredient->company_id,
+                branchId: $ingredient->branch_id,
+                rawIngredientId: $ingredient->id,
+                type: MovementType::OutConsumption,
+                quantityBase: $quantityToDeduct,
+                referenceType: 'order',
+                referenceId: $orderId,
+                reason: "Consumo por pedido #{$orderItem->order->order_number}"
+            );
             
             Log::info('Stock descontado exitosamente', [
                 'ingredient_id' => $ingredient->id,

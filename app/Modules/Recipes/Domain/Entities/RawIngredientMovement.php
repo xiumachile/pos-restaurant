@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Modules\Branches\Domain\Entities\Branch;
 use Modules\Companies\Domain\Entities\Company;
 use Modules\Identity\Domain\Entities\User;
-use Modules\Recipes\Domain\Exceptions\InsufficientStockException;
+use Modules\Recipes\Domain\Exceptions\InsufficientIngredientStockException;
 use Modules\Recipes\Domain\ValueObjects\MovementType;
 
 /**
@@ -72,7 +72,7 @@ class RawIngredientMovement extends Model
      * Registra un movimiento de stock con validaciones y actualización atómica.
      * 
      * @throws \InvalidArgumentException si quantity_base es zero
-     * @throws InsufficientStockException si no hay stock suficiente para movimientos de salida
+     * @throws InsufficientIngredientStockException si no hay stock suficiente para movimientos de salida
      */
     public static function record(
         int $companyId,
@@ -105,8 +105,8 @@ class RawIngredientMovement extends Model
             $requestedAbs = abs($stockChange);
             
             if ($currentStock < $requestedAbs) {
-                throw new InsufficientStockException(
-                    $rawIngredientId,
+                throw new InsufficientIngredientStockException(
+                    $ingredient,
                     $requestedAbs,
                     $currentStock
                 );

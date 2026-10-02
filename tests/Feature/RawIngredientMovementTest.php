@@ -9,6 +9,7 @@ use Modules\Recipes\Domain\ValueObjects\MovementType;
 use Modules\Recipes\Domain\ValueObjects\DimensionType;
 use Modules\Recipes\Domain\ValueObjects\BaseUnit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Modules\Recipes\Domain\Exceptions\InsufficientIngredientStockException;
 
 uses(RefreshDatabase::class);
 
@@ -276,7 +277,7 @@ test('no se puede crear movimiento con quantity_base zero', function () {
 test('no se puede crear movimiento de salida si no hay stock suficiente', function () {
     $ingredient = createIngredient($this, 500);
 
-    $this->expectException(\Modules\Recipes\Domain\Exceptions\InsufficientStockException::class);
+    $this->expectException(\Modules\Recipes\Domain\Exceptions\InsufficientIngredientStockException::class);
 
     RawIngredientMovement::record(
         companyId: $this->company->id,
