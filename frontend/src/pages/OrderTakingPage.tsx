@@ -28,6 +28,7 @@ export function OrderTakingPage() {
   const addItem = useCartStore((s) => s.addItem);
 
   const table = flattenAreas(areas).find((t) => t.uuid === tableUuid);
+  const cart = useCartStore((s) => table?.uuid ? s.carts[table.uuid] : undefined);
 
   useEffect(() => {
     if (table) {
@@ -132,10 +133,11 @@ export function OrderTakingPage() {
       )}
 
       <div className="flex-1 flex gap-4 overflow-hidden">
-        <OrderCatalogPanel onAddProduct={handleAddProduct} />
+        <OrderCatalogPanel onAddProduct={handleAddProduct} channel={cart?.channel ?? "dine_in"} />
         <OrderCartPanel
-          tableUuid={table.uuid}
-          tableNumber={table.table_number}
+          cartKey={table.uuid}
+          tableId={table.uuid}
+          title={table.table_number}
         />
       </div>
     </div>

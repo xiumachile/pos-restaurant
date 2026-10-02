@@ -9,6 +9,8 @@ import { RoleProtectedRoute, type UserRole } from "@/components/auth/RoleProtect
 const LoginPage = lazy(() => import("@/pages/LoginPage").then(m => ({ default: m.LoginPage })));
 const TablesPage = lazy(() => import("@/pages/TablesPage").then(m => ({ default: m.TablesPage })));
 const OrderTakingPage = lazy(() => import("@/pages/OrderTakingPage").then(m => ({ default: m.OrderTakingPage })));
+const NewOrderPage = lazy(() => import("@/pages/NewOrderPage").then(m => ({ default: m.NewOrderPage })));
+const TakeawayOrderPage = lazy(() => import("@/pages/TakeawayOrderPage").then(m => ({ default: m.TakeawayOrderPage })));
 const CatalogPage = lazy(() => import("@/pages/CatalogPage").then(m => ({ default: m.CatalogPage })));
 const KitchenPage = lazy(() => import("@/pages/KitchenPage").then(m => ({ default: m.KitchenPage })));
 const CashierPage = lazy(() => import("@/pages/CashierPage").then(m => ({ default: m.CashierPage })));
@@ -159,6 +161,36 @@ export const router = createBrowserRouter([
             element: (
               <Suspense fallback={<LoadingFallback />}>
                 <OrderTakingPage />
+              </Suspense>
+            )
+          }
+        ]
+      },
+      // Pedido nuevo fuera de mesa: Front of house
+      {
+        path: "orders/new",
+        element: <RoleProtectedRoute allowedRoles={ROLES.FRONT_OF_HOUSE} />,
+        children: [
+          {
+            index: true,
+            element: (
+              <Suspense fallback={<LoadingFallback />}>
+                <NewOrderPage />
+              </Suspense>
+            )
+          }
+        ]
+      },
+      // Pedido takeaway: Front of house
+      {
+        path: "orders/takeaway/:cartKey",
+        element: <RoleProtectedRoute allowedRoles={ROLES.FRONT_OF_HOUSE} />,
+        children: [
+          {
+            index: true,
+            element: (
+              <Suspense fallback={<LoadingFallback />}>
+                <TakeawayOrderPage />
               </Suspense>
             )
           }

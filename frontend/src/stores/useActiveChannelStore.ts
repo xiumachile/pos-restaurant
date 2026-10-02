@@ -20,13 +20,24 @@ interface ActiveChannelState {
 }
 
 /**
- * Store global del canal de venta activo en el POS.
- * Persiste en sessionStorage para sobrevivir recargas de página durante la sesión.
+ * DEPRECADO (Fase 2): Este store ya no es la fuente de verdad del canal.
+ * 
+ * Desde Fase 2, el canal vive como atributo del pedido en useCartStore
+ * (campo `channel` de TableCart), garantizando que cada pedido tenga su
+ * propio canal sin contaminación cruzada.
+ * 
+ * Este store se mantiene únicamente para:
+ *   - Exportar el tipo ChannelType y CHANNEL_LABELS (usados por varios componentes)
+ *   - Exportar la función channelToOrderType (mapper para el backend)
+ *   - Ser fallback en componentes legacy que aún no han sido migrados
+ * 
+ * setChannel() ya no persiste: es un setter en memoria que se resetea
+ * al refrescar la página. Para iniciar un pedido con canal específico,
+ * usar useCartStore.initOrder({ tableUuid, channel }).
  */
 export const useActiveChannelStore = create<ActiveChannelState>((set) => ({
-  channel: (sessionStorage.getItem("pos_active_channel") as ChannelType) || "dine_in",
+  channel: "dine_in",
   setChannel: (channel) => {
-    sessionStorage.setItem("pos_active_channel", channel);
     set({ channel });
   },
 }));

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { CartItem, CartTotals, TableCart } from "@/types/cart";
 import type { Product } from "@/types/catalog";
+import type { ChannelType } from "@/stores/useActiveChannelStore";
 import { parsePrice } from "@/types/catalog";
 import { calculateTax } from "@/utils/money";
 import { IVA_RATE } from "@/config/tax";
@@ -14,33 +15,58 @@ function generateUUID(): string {
   });
 }
 
+/**
+ * Parámetros para iniciar un pedido nuevo.
+ * - Si `tableUuid` está presente, es un pedido de mesa (canal típico: dine_in).
+ * - Si `tableUuid` es null, es un pedido fuera de mesa (delivery/takeout),
+ *   y se genera una clave única tipo `takeaway-{uuid}`.
+ */
+export interface InitOrderParams {
+  tableUuid: string | null;
+  tableNumber?: string;
+  areaName?: string;
+  channel: ChannelType;
+}
+
 interface CartState {
-  /** Carritos activos, uno por mesa (key = tableUuid) */
+  /** Carritos activos, uno por pedido (key = tableUuid o takeaway-{uuid}) */
   carts: Record<string, TableCart>;
 
-  /** Inicializa el carrito de una mesa si no existe */
+  /**
+   * NUEVO (Fase 2): Inicia un pedido con canal fijado.
+   * Reemplaza a initCart() para todos los casos nuevos.
+   * @returns El cartKey generado (tableUuid para mesa, "takeaway-{uuid}" para fuera de mesa).
+   *          Permite al caller navegar al pedido recién creado.
+   */
+  initOrder: (params: InitOrderParams) => string;
+
+  /**
+   * LEGACY: Inicializa el carrito de una mesa (canal dine_in implícito).
+   * Mantiene compatibilidad con OrderTakingPage hasta el Bloque 5.
+   * Equivalente a initOrder({ tableUuid, tableNumber, areaName, channel: 'dine_in' })
+   */
   initCart: (tableUuid: string, tableNumber: string, areaName?: string) => void;
 
-  /** Agrega un producto al carrito de una mesa (o incrementa cantidad) */
-  addItem: (tableUuid: string, product: Product, quantity?: number) => void;
+  /** Agrega un producto al carrito (o incrementa cantidad) */
+  addItem: (cartKey: string, product: Product, quantity?: number) => void;
 
   /** Quita un item del carrito */
-  removeItem: (tableUuid: string, itemId: string) => void;
+  removeItem: (cartKey: string, itemId: string) => void;
 
   /** Actualiza cantidad (si llega a 0, elimina el item) */
-  updateQuantity: (tableUuid: string, itemId: string, quantity: number) => void;
+  updateQuantity: (cartKey: string, itemId: string, quantity: number) => void;
 
   /** Actualiza las notas de un item */
-  updateItemNotes: (tableUuid: string, itemId: string, notes: string) => void;
+  updateItemNotes: (cartKey: string, itemId: string, notes: string) => void;
 
-  /** Vacía el carrito de una mesa */
-  clearCart: (tableUuid: string) => void;
+  /** Vacía el carrito */
+  clearCart: (cartKey: string) => void;
 
-  /** Obtiene el carrito de una mesa (o null) */
-  getCart: (tableUuid: string) => TableCart | null;
+  /** Obtiene el carrito (o null) */
+  getCart: (cartKey: string) => TableCart | null;
 
-  /** Calcula totales de una mesa */
-  getTotals: (tableUuid: string) => CartTotals;
+  /** Calcula totales */
+  getTotals: (cartKey: string) => CartTotals;
 }
 
 export const useCartStore = create<CartState>()(
@@ -48,27 +74,43 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       carts: {},
 
-      initCart: (tableUuid, tableNumber, areaName) => {
+      initOrder: (params) => {
+        const { tableUuid, tableNumber = "", areaName, channel } = params;
+        const cartKey = tableUuid ?? `takeaway-${generateUUID()}`;
+
         set((state) => {
-          if (state.carts[tableUuid]) return state;
+          // Idempotente: si el cart ya existe, no lo sobreescribe
+          if (state.carts[cartKey]) return state;
           return {
             carts: {
               ...state.carts,
-              [tableUuid]: {
+              [cartKey]: {
                 tableUuid,
                 tableNumber,
                 areaName,
+                channel,
                 items: [],
                 createdAt: new Date().toISOString(),
               },
             },
           };
         });
+        return cartKey;
       },
 
-      addItem: (tableUuid, product, quantity = 1) => {
+      initCart: (tableUuid, tableNumber, areaName) => {
+        // Wrapper legacy: canal dine_in implícito
+        get().initOrder({
+          tableUuid,
+          tableNumber,
+          areaName,
+          channel: "dine_in",
+        });
+      },
+
+      addItem: (cartKey, product, quantity = 1) => {
         set((state) => {
-          const cart = state.carts[tableUuid];
+          const cart = state.carts[cartKey];
           if (!cart) return state;
 
           const existing = cart.items.find((i) => i.product.id === product.id);
@@ -85,19 +127,19 @@ export const useCartStore = create<CartState>()(
               ];
 
           return {
-            carts: { ...state.carts, [tableUuid]: { ...cart, items } },
+            carts: { ...state.carts, [cartKey]: { ...cart, items } },
           };
         });
       },
 
-      removeItem: (tableUuid, itemId) => {
+      removeItem: (cartKey, itemId) => {
         set((state) => {
-          const cart = state.carts[tableUuid];
+          const cart = state.carts[cartKey];
           if (!cart) return state;
           return {
             carts: {
               ...state.carts,
-              [tableUuid]: {
+              [cartKey]: {
                 ...cart,
                 items: cart.items.filter((i) => i.id !== itemId),
               },
@@ -106,36 +148,27 @@ export const useCartStore = create<CartState>()(
         });
       },
 
-      updateItemNotes: (tableUuid, itemId, notes) => {
+      updateQuantity: (cartKey, itemId, quantity) => {
         set((state) => {
-          const cart = state.carts[tableUuid];
+          const cart = state.carts[cartKey];
           if (!cart) return state;
-          return {
-            carts: {
-              ...state.carts,
-              [tableUuid]: {
-                ...cart,
-                items: cart.items.map((item) =>
-                  item.id === itemId ? { ...item, notes: notes || undefined } : item
-                ),
-              },
-            },
-          };
-        });
-      },
 
-      updateQuantity: (tableUuid, itemId, quantity) => {
-        if (quantity <= 0) {
-          get().removeItem(tableUuid, itemId);
-          return;
-        }
-        set((state) => {
-          const cart = state.carts[tableUuid];
-          if (!cart) return state;
+          if (quantity <= 0) {
+            return {
+              carts: {
+                ...state.carts,
+                [cartKey]: {
+                  ...cart,
+                  items: cart.items.filter((i) => i.id !== itemId),
+                },
+              },
+            };
+          }
+
           return {
             carts: {
               ...state.carts,
-              [tableUuid]: {
+              [cartKey]: {
                 ...cart,
                 items: cart.items.map((i) =>
                   i.id === itemId ? { ...i, quantity } : i
@@ -146,39 +179,62 @@ export const useCartStore = create<CartState>()(
         });
       },
 
-      clearCart: (tableUuid) => {
+      updateItemNotes: (cartKey, itemId, notes) => {
         set((state) => {
-          const { [tableUuid]: _removed, ...rest } = state.carts;
-          return { carts: rest };
+          const cart = state.carts[cartKey];
+          if (!cart) return state;
+          return {
+            carts: {
+              ...state.carts,
+              [cartKey]: {
+                ...cart,
+                items: cart.items.map((i) =>
+                  i.id === itemId ? { ...i, notes } : i
+                ),
+              },
+            },
+          };
         });
       },
 
-      getCart: (tableUuid) => {
-        return get().carts[tableUuid] ?? null;
+      clearCart: (cartKey) => {
+        set((state) => {
+          const cart = state.carts[cartKey];
+          if (!cart) return state;
+          return {
+            carts: {
+              ...state.carts,
+              [cartKey]: { ...cart, items: [] },
+            },
+          };
+        });
       },
 
-      getTotals: (tableUuid) => {
-        const cart = get().carts[tableUuid];
-        if (!cart) return { subtotal: 0, tax: 0, total: 0, itemCount: 0 };
+      getCart: (cartKey) => {
+        return get().carts[cartKey] || null;
+      },
 
-        // ADR-011: En Chile, los precios de carta (base_price) YA INCLUYEN IVA.
-        // Por lo tanto, el total es la suma directa de (base_price * cantidad).
-        const total = cart.items.reduce(
-          (sum, item) => sum + parsePrice(item.product.base_price) * item.quantity,
-          0
-        );
-        
-        // Desglose tributario: Neto = Total / 1.19, IVA = Total - Neto
-        const netAmount = Math.round(total / 1.19);
-        const tax = total - netAmount;
+      getTotals: (cartKey) => {
+        const cart = get().carts[cartKey];
+        if (!cart) {
+          return { subtotal: 0, tax: 0, total: 0, itemCount: 0 };
+        }
+
+        const subtotal = cart.items.reduce((sum, item) => {
+          const price = parsePrice(item.product.base_price);
+          return sum + price * item.quantity;
+        }, 0);
+
+        const tax = calculateTax(subtotal, IVA_RATE);
+        const total = subtotal + tax;
         const itemCount = cart.items.reduce((sum, i) => sum + i.quantity, 0);
 
-        // Mantenemos la interfaz: subtotal (neto) + tax = total (bruto/con IVA)
-        return { subtotal: netAmount, tax, total, itemCount };
+        return { subtotal, tax, total, itemCount };
       },
     }),
     {
       name: "pos-cart-storage",
+      partialize: (state) => ({ carts: state.carts }),
     }
   )
 );

@@ -7,7 +7,7 @@ import { TablesGrid } from "@/components/tables/TablesGrid";
 import { TablesStats } from "@/components/tables/TablesStats";
 import { flattenAreas, TABLE_STATUS_LABELS } from "@/types/tables";
 import type { RestaurantTable, TableStatus, TablesArea } from "@/types/tables";
-import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { Loader2, AlertCircle, RefreshCw, Plus } from "lucide-react";
 
 export function TablesPage() {
   const { t } = useTranslation();
@@ -68,12 +68,23 @@ export function TablesPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => refetch()}
-          disabled={isRefetching}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-white transition-colors disabled:opacity-50"
-        >
-          <RefreshCw size={16} className={isRefetching ? "animate-spin" : ""} />{t("tables.refresh")}</button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate("/orders/new")}
+            className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 rounded-lg text-white font-medium transition-colors"
+          >
+            <Plus size={16} />
+            {t("orders.new_order", { defaultValue: "Pedido nuevo" })}
+          </button>
+          <button
+            onClick={() => refetch()}
+            disabled={isRefetching}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-white transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={isRefetching ? "animate-spin" : ""} />
+            {t("tables.refresh")}
+          </button>
+        </div>
       </div>
 
       {/* Stats */}

@@ -18,11 +18,15 @@ import { OrderRepository } from "@/db/repositories/OrderRepository";
 import { Plus, Minus, Trash2, Send, ShoppingCart, Loader2, CheckCircle2, AlertCircle, WifiOff } from "lucide-react";
 import { ActiveOrderItems } from "./ActiveOrderItems";
 import { mergeAuthContext } from "@/services/authContext";
-import { useActiveChannelStore, channelToOrderType } from "@/stores/useActiveChannelStore";
+import { channelToOrderType } from "@/stores/useActiveChannelStore";
 
 interface OrderCartPanelProps {
-  tableUuid: string;
-  tableNumber: string;
+  /** Clave del cart en el store (cartKey para mesa, "takeaway-{uuid}" para fuera de mesa) */
+  cartKey: string;
+  /** ID de la mesa para el backend. null para pedidos fuera de mesa */
+  tableId: string | null;
+  /** Identificador a mostrar junto al título del carrito (ej: número de mesa) */
+  title: string;
 }
 
 type FeedbackState =
@@ -31,10 +35,10 @@ type FeedbackState =
   | { type: "success"; message: string }
   | { type: "error"; message: string };
 
-export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) {
+export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const cart = useCartStore((s) => s.carts[tableUuid]);
+  const cart = useCartStore((s) => s.carts[cartKey]);
   const { capabilities } = useCapabilities();
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
@@ -48,13 +52,13 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
   const user = useAuthStore((s) => s.user);
   const syncStatus = useSyncStore((s) => s.status);
 
-  const { data: activeOrders = [], refetch: refetchActiveOrders } = useTableOrders(tableUuid);
+  const { data: activeOrders = [], refetch: refetchActiveOrders } = useTableOrders(tableId);
   const [feedback, setFeedback] = useState<FeedbackState>({ type: "idle" });
   const [noteEditingId, setNoteEditingId] = useState<string | null>(null);
   const [noteInput, setNoteInput] = useState("");
   const { notes: defaultNotes, isLoading: isLoadingNotes } = useDefaultNotes();
 
-  const totals = getTotals(tableUuid);
+  const totals = getTotals(cartKey);
   const items = cart?.items ?? [];
 
   const aggregated = aggregateOrders(activeOrders);
@@ -70,8 +74,8 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
       // 1. Crear pedido (operación crítica)
       const order = await OrderRepository.createWithItems(
         mergeAuthContext({
-          table_id: tableUuid,
-          order_type: channelToOrderType(useActiveChannelStore.getState().channel),
+          table_id: tableId,
+          order_type: channelToOrderType(cart.channel),
         }),
         items.map(item => ({
           product_id: item.product.uuid,
@@ -83,7 +87,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
       );
 
       // 2. Limpiar carrito y actualizar UI inmediatamente
-      clearCart(tableUuid);
+      clearCart(cartKey);
       refetchActiveOrders();
 
       // 3. Mostrar feedback de éxito
@@ -131,7 +135,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
       <div className="p-4 border-b border-slate-700 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ShoppingCart size={20} className="text-orange-400" />
-          <h2 className="text-lg font-bold">{t("orders.cart_title")} {tableNumber}</h2>
+          <h2 className="text-lg font-bold">{t("orders.cart_title")} {title}</h2>
         </div>
         <div className="flex items-center gap-2">
           {syncStatus === "offline" && (
@@ -192,7 +196,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
                   </p>
                 </div>
                 <button
-                  onClick={() => removeItem(tableUuid, item.id)}
+                  onClick={() => removeItem(cartKey, item.id)}
                   disabled={isProcessing}
                   className="min-w-[44px] min-h-[44px] p-2 hover:bg-red-500/20 rounded-lg ml-2 disabled:opacity-40 flex items-center justify-center"
                  aria-label="Eliminar"><Trash2 size={20} className="text-red-400" />
@@ -219,7 +223,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
               <div className="flex items-center justify-between mt-2">
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => updateQuantity(tableUuid, item.id, item.quantity - 1)}
+                    onClick={() => updateQuantity(cartKey, item.id, item.quantity - 1)}
                     disabled={isProcessing}
                     className="min-w-[44px] min-h-[44px] p-2 bg-slate-700 hover:bg-slate-600 rounded-lg disabled:opacity-40 flex items-center justify-center"
                    aria-label="Disminuir cantidad"><Minus size={20} />
@@ -228,7 +232,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
                     {item.quantity}
                   </span>
                   <button
-                    onClick={() => updateQuantity(tableUuid, item.id, item.quantity + 1)}
+                    onClick={() => updateQuantity(cartKey, item.id, item.quantity + 1)}
                     disabled={isProcessing}
                     className="min-w-[44px] min-h-[44px] p-2 bg-slate-700 hover:bg-slate-600 rounded-lg disabled:opacity-40 flex items-center justify-center"
                    aria-label="Aumentar cantidad"><Plus size={20} />
@@ -310,7 +314,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
 
         <div className="flex gap-2 pt-2">
           <button
-            onClick={() => clearCart(tableUuid)}
+            onClick={() => clearCart(cartKey)}
             disabled={items.length === 0 || isProcessing}
             className="px-3 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm disabled:opacity-40"
           >
@@ -378,7 +382,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
             <div className="flex gap-2">
               <button
                 onClick={() => {
-                  updateItemNotes(tableUuid, noteEditingId, noteInput.trim());
+                  updateItemNotes(cartKey, noteEditingId, noteInput.trim());
                   setNoteEditingId(null);
                   setNoteInput("");
                 }}
@@ -388,7 +392,7 @@ export function OrderCartPanel({ tableUuid, tableNumber }: OrderCartPanelProps) 
               </button>
               <button
                 onClick={() => {
-                  updateItemNotes(tableUuid, noteEditingId, "");
+                  updateItemNotes(cartKey, noteEditingId, "");
                   setNoteEditingId(null);
                   setNoteInput("");
                 }}

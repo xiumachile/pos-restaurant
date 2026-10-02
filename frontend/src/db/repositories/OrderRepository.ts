@@ -77,7 +77,7 @@ export interface CreateOrderPayload {
   company_id: string;
   branch_id: string;
   terminal_id?: string;
-  table_id?: string;
+  table_id?: string | null;
   order_type?: "dine_in" | "take_out" | "delivery";
   waiter_id?: string;
   waiter_name?: string;
