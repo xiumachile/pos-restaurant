@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 /**
  * Carta de venta por sucursal.
@@ -16,6 +17,13 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class Menu extends Model
 {
+
+    protected static function newFactory()
+    {
+        return \Database\Factories\MenuFactory::new();
+    }
+
+    use HasFactory;
     use HasUuid;
     use BelongsToTenant;
     use SoftDeletes;

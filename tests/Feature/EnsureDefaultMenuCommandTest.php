@@ -1,6 +1,6 @@
 <?php
 
-namespace Modules\Catalog\Tests\Feature;
+namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Branches\Domain\Entities\Branch;
@@ -16,7 +16,7 @@ class EnsureDefaultMenuCommandTest extends TestCase
     public function test_command_creates_defaults_for_branch_without_them(): void
     {
         $company = Company::factory()->create();
-        $branch = Branch::factory()->create(['company_id' => $company->id]);
+        $branch = Branch::withoutEvents(fn() => Branch::factory()->create(['company_id' => $company->id]));
 
         $this->artisan("catalog:ensure-default-menu {$branch->id}")
             ->assertSuccessful();
@@ -37,30 +37,32 @@ class EnsureDefaultMenuCommandTest extends TestCase
     public function test_command_is_idempotent(): void
     {
         $company = Company::factory()->create();
-        $branch = Branch::factory()->create(['company_id' => $company->id]);
+        $branch = Branch::withoutEvents(fn() => Branch::factory()->create(['company_id' => $company->id]));
 
         $this->artisan("catalog:ensure-default-menu {$branch->id}")->assertSuccessful();
 
-        $priceListId = PriceList::where('branch_id', $branch->id)
+        $priceListId = PriceList::withoutGlobalScopes()
+            ->where('branch_id', $branch->id)
             ->where('is_default', true)
             ->first()->id;
-        $menuId = Menu::where('branch_id', $branch->id)
+        $menuId = Menu::withoutGlobalScopes()
+            ->where('branch_id', $branch->id)
             ->where('is_default', true)
             ->first()->id;
 
         $this->artisan("catalog:ensure-default-menu {$branch->id}")->assertSuccessful();
 
-        $this->assertEquals($priceListId, PriceList::where('branch_id', $branch->id)->where('is_default', true)->first()->id);
-        $this->assertEquals($menuId, Menu::where('branch_id', $branch->id)->where('is_default', true)->first()->id);
-        $this->assertEquals(1, PriceList::where('branch_id', $branch->id)->where('is_default', true)->count());
-        $this->assertEquals(1, Menu::where('branch_id', $branch->id)->where('is_default', true)->count());
+        $this->assertEquals($priceListId, PriceList::withoutGlobalScopes()->where('branch_id', $branch->id)->where('is_default', true)->first()->id);
+        $this->assertEquals($menuId, Menu::withoutGlobalScopes()->where('branch_id', $branch->id)->where('is_default', true)->first()->id);
+        $this->assertEquals(1, PriceList::withoutGlobalScopes()->where('branch_id', $branch->id)->where('is_default', true)->count());
+        $this->assertEquals(1, Menu::withoutGlobalScopes()->where('branch_id', $branch->id)->where('is_default', true)->count());
     }
 
     public function test_command_processes_all_branches_when_no_argument(): void
     {
         $company = Company::factory()->create();
-        $branch1 = Branch::factory()->create(['company_id' => $company->id]);
-        $branch2 = Branch::factory()->create(['company_id' => $company->id]);
+        $branch1 = Branch::withoutEvents(fn() => Branch::factory()->create(['company_id' => $company->id]));
+        $branch2 = Branch::withoutEvents(fn() => Branch::factory()->create(['company_id' => $company->id]));
 
         $this->artisan('catalog:ensure-default-menu')->assertSuccessful();
 

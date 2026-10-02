@@ -10,9 +10,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Modules\Tax\Domain\Entities\Tax;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Category extends Model
 {
+
+    protected static function newFactory()
+    {
+        return \Database\Factories\CategoryFactory::new();
+    }
+
+    use HasFactory;
     use HasUuid;
     use BelongsToTenant;
     use HasTranslations;

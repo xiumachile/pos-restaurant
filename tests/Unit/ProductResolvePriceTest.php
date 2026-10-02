@@ -1,6 +1,6 @@
 <?php
 
-namespace Modules\Catalog\Tests\Unit;
+namespace Tests\Unit;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Branches\Domain\Entities\Branch;
@@ -21,8 +21,14 @@ class ProductResolvePriceTest extends TestCase
     {
         parent::setUp();
         $this->company = Company::factory()->create();
-        $this->branch1 = Branch::factory()->create(['company_id' => $this->company->id]);
-        $this->branch2 = Branch::factory()->create(['company_id' => $this->company->id]);
+        
+        // Desactivar BranchObserver para evitar que cree PriceList/Menu defaults automáticamente
+        $this->branch1 = Branch::withoutEvents(function () {
+            return Branch::factory()->create(['company_id' => $this->company->id]);
+        });
+        $this->branch2 = Branch::withoutEvents(function () {
+            return Branch::factory()->create(['company_id' => $this->company->id]);
+        });
     }
 
     public function test_resolves_price_from_explicit_price_list(): void
@@ -77,11 +83,13 @@ class ProductResolvePriceTest extends TestCase
             'currency' => 'CLP',
         ]);
 
+        // Debe usar 2000 (default de SU sucursal), nunca 5000 (otra sucursal)
         $this->assertEquals(2000, $product->resolvePrice());
     }
 
     public function test_falls_back_to_company_wide_default_when_no_branch_default(): void
     {
+        // Company-wide default (legacy: branch_id null)
         $companyDefault = PriceList::factory()->create([
             'company_id' => $this->company->id,
             'branch_id' => null,

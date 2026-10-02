@@ -2,30 +2,28 @@
 
 namespace Database\Factories;
 
-use Modules\Identity\Domain\Entities\User;
+use Modules\Catalog\Domain\Entities\Category;
 use Modules\Companies\Domain\Entities\Company;
 use Modules\Branches\Domain\Entities\Branch;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
-class UserFactory extends Factory
+class CategoryFactory extends Factory
 {
-    protected $model = User::class;
+    protected $model = Category::class;
 
     public function definition(): array
     {
         return [
             'uuid' => (string) Str::uuid(),
-            'name' => fake()->name(),
-            'email' => fake()->unique()->safeEmail(),
-            'email_verified_at' => now(),
-            'password' => Hash::make('password'),
             'company_id' => Company::factory(),
             'branch_id' => Branch::factory(),
-            'role' => 'admin',
-            'locale' => 'es-CL',
+            'name_translations' => json_encode([
+                'es' => fake()->word(),
+                'en' => fake()->word(),
+            ]),
             'is_active' => true,
+            'sort_order' => 0,
         ];
     }
 }

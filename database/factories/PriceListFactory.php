@@ -2,30 +2,34 @@
 
 namespace Database\Factories;
 
-use Modules\Identity\Domain\Entities\User;
+use Modules\Catalog\Domain\Entities\PriceList;
 use Modules\Companies\Domain\Entities\Company;
 use Modules\Branches\Domain\Entities\Branch;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
-class UserFactory extends Factory
+class PriceListFactory extends Factory
 {
-    protected $model = User::class;
+    protected $model = PriceList::class;
 
     public function definition(): array
     {
         return [
             'uuid' => (string) Str::uuid(),
-            'name' => fake()->name(),
-            'email' => fake()->unique()->safeEmail(),
-            'email_verified_at' => now(),
-            'password' => Hash::make('password'),
             'company_id' => Company::factory(),
             'branch_id' => Branch::factory(),
-            'role' => 'admin',
-            'locale' => 'es-CL',
+            'name' => fake()->words(3, true),
+            'display_name' => fake()->sentence(3),
+            'currency' => 'CLP',
+            'is_default' => false,
             'is_active' => true,
         ];
+    }
+
+    public function default(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_default' => true,
+        ]);
     }
 }

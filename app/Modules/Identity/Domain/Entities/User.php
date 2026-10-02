@@ -15,6 +15,12 @@ use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
 
 class User extends Authenticatable implements JWTSubject
 {
+
+    protected static function newFactory()
+    {
+        return \Database\Factories\UserFactory::new();
+    }
+
     use HasApiTokens;
     use HasFactory;
     use Notifiable;

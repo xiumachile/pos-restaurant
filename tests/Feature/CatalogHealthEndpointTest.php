@@ -1,6 +1,6 @@
 <?php
 
-namespace Modules\Catalog\Tests\Feature;
+namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Branches\Domain\Entities\Branch;
@@ -23,7 +23,12 @@ class CatalogHealthEndpointTest extends TestCase
     {
         parent::setUp();
         $this->company = Company::factory()->create();
-        $this->branch = Branch::factory()->create(['company_id' => $this->company->id]);
+        
+        // Desactivar BranchObserver para evitar que cree PriceList/Menu defaults automáticamente
+        $this->branch = Branch::withoutEvents(function () {
+            return Branch::factory()->create(['company_id' => $this->company->id]);
+        });
+        
         $this->user = User::factory()->create([
             'company_id' => $this->company->id,
             'branch_id' => $this->branch->id,
@@ -77,6 +82,7 @@ class CatalogHealthEndpointTest extends TestCase
             'branch_id' => $this->branch->id,
             'is_default' => true,
         ]);
+        // No creamos Menu default
 
         $response = $this->actingAs($this->user)
             ->getJson('/api/v1/catalog/health');
@@ -101,6 +107,7 @@ class CatalogHealthEndpointTest extends TestCase
             'is_active' => true,
         ]);
 
+        // Producto sin asignar a ningún menu
         Product::factory()->create([
             'company_id' => $this->company->id,
             'branch_id' => $this->branch->id,
