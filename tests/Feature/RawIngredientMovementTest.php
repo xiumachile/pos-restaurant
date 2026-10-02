@@ -71,8 +71,8 @@ test('se puede crear un movimiento de compra', function () {
     expect($movement->id)->not->toBeNull();
     expect($movement->uuid)->not->toBeNull();
     expect($movement->type)->toBe(MovementType::InPurchase);
-    expect($movement->quantity_base)->toBe(5000.0);
-    expect($movement->balance_after)->toBe(5000.0);
+    expect((float) $movement->quantity_base)->toBe(5000.0);
+    expect((float) $movement->balance_after)->toBe(5000.0);
     expect($movement->user_id)->toBe($this->user->id);
     expect($movement->reason)->toBe('Compra inicial de harina');
 });
@@ -91,8 +91,8 @@ test('se puede crear un movimiento de consumo', function () {
     );
 
     expect($movement->type)->toBe(MovementType::OutConsumption);
-    expect($movement->quantity_base)->toBe(1500.0);
-    expect($movement->balance_after)->toBe(3500.0); // 5000 - 1500
+    expect((float) $movement->quantity_base)->toBe(1500.0);
+    expect((float) $movement->balance_after)->toBe(3500.0); // 5000 - 1500
 });
 
 test('se puede crear un movimiento de ajuste', function () {
@@ -109,8 +109,8 @@ test('se puede crear un movimiento de ajuste', function () {
     );
 
     expect($movement->type)->toBe(MovementType::Adjustment);
-    expect($movement->quantity_base)->toBe(-200.0);
-    expect($movement->balance_after)->toBe(2800.0); // 3000 - 200
+    expect((float) $movement->quantity_base)->toBe(-200.0);
+    expect((float) $movement->balance_after)->toBe(2800.0); // 3000 - 200
 });
 
 // ============================================
@@ -129,7 +129,7 @@ test('balance_after se calcula correctamente para movimientos de entrada', funct
         userId: $this->user->id
     );
 
-    expect($movement->balance_after)->toBe(3000.0); // 1000 + 2000
+    expect((float) $movement->balance_after)->toBe(3000.0); // 1000 + 2000
 });
 
 test('balance_after se calcula correctamente para movimientos de salida', function () {
@@ -144,7 +144,7 @@ test('balance_after se calcula correctamente para movimientos de salida', functi
         userId: $this->user->id
     );
 
-    expect($movement->balance_after)->toBe(3200.0); // 5000 - 1800
+    expect((float) $movement->balance_after)->toBe(3200.0); // 5000 - 1800
 });
 
 test('balance_after se calcula correctamente para ajustes positivos', function () {
@@ -159,7 +159,7 @@ test('balance_after se calcula correctamente para ajustes positivos', function (
         userId: $this->user->id
     );
 
-    expect($movement->balance_after)->toBe(3000.0); // 2500 + 500
+    expect((float) $movement->balance_after)->toBe(3000.0); // 2500 + 500
 });
 
 // ============================================
@@ -179,7 +179,7 @@ test('current_stock_base del ingrediente se actualiza después de un movimiento'
     );
 
     $ingredient->refresh();
-    expect($ingredient->current_stock_base)->toBe(3000.0);
+    expect((float) $ingredient->current_stock_base)->toBe(3000.0);
 });
 
 test('current_stock_base se actualiza correctamente después de múltiples movimientos', function () {
@@ -213,7 +213,7 @@ test('current_stock_base se actualiza correctamente después de múltiples movim
     );
 
     $ingredient->refresh();
-    expect($ingredient->current_stock_base)->toBe(2100.0); // 1000 + 2000 - 800 - 100
+    expect((float) $ingredient->current_stock_base)->toBe(2100.0); // 1000 + 2000 - 800 - 100
 });
 
 // ============================================
@@ -221,7 +221,7 @@ test('current_stock_base se actualiza correctamente después de múltiples movim
 // ============================================
 
 test('movimiento puede tener reference_type y reference_id', function () {
-    $ingredient = createIngredient($this, 0);
+    $ingredient = createIngredient($this, 1000); // stock suficiente
 
     $movement = RawIngredientMovement::record(
         companyId: $this->company->id,
