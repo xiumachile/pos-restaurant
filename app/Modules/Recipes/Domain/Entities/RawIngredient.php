@@ -6,6 +6,9 @@ use App\Shared\Domain\Traits\BelongsToTenant;
 use App\Shared\Domain\Traits\HasTranslations;
 use App\Shared\Domain\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
+use Modules\Recipes\Domain\Entities\RawIngredientMovement;
+use Modules\Recipes\Domain\ValueObjects\MovementType;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -82,47 +85,64 @@ class RawIngredient extends Model
         float $totalPurchaseCost,
         int $userId
     ): RawIngredientPurchase {
-        // Calcular cantidad total en unidad base
-        $totalBaseQuantity = round($purchaseQuantity * $conversionFactorToBase, 4);
+        return DB::transaction(function () use (
+            $purchaseUnitName,
+            $purchaseQuantity,
+            $conversionFactorToBase,
+            $totalPurchaseCost,
+            $userId
+        ) {
+            // Calcular cantidad total en unidad base
+            $totalBaseQuantity = round($purchaseQuantity * $conversionFactorToBase, 4);
 
-        // Calcular nuevo costo por unidad base
-        $costPerBaseUnit = round($totalPurchaseCost / $totalBaseQuantity, 6);
+            // Calcular costo por unidad base de esta compra específica
+            $costPerBaseUnit = $totalBaseQuantity > 0
+                ? round($totalPurchaseCost / $totalBaseQuantity, 6)
+                : 0;
 
-        // Calcular nuevo costo promedio ponderado
-        $currentStock = (float) $this->current_stock_base;
-        $currentCost = (float) $this->cost_per_base_unit;
+            // Calcular costo promedio ponderado ANTES del movimiento
+            $currentStock = (float) $this->current_stock_base;
+            $currentCost = (float) $this->cost_per_base_unit;
+            $totalCurrentValue = ($currentStock * $currentCost) + $totalPurchaseCost;
+            $totalNewStock = $currentStock + $totalBaseQuantity;
 
-        $totalCurrentValue = ($currentStock * $currentCost) + $totalPurchaseCost;
-        $totalNewStock = $currentStock + $totalBaseQuantity;
+            $newCostPerBaseUnit = $totalNewStock > 0
+                ? round($totalCurrentValue / $totalNewStock, 6)
+                : $costPerBaseUnit;
 
-        $newCostPerBaseUnit = $totalNewStock > 0
-            ? round($totalCurrentValue / $totalNewStock, 6)
-            : $costPerBaseUnit;
+            // 1. Crear registro de compra (inmutable)
+            $purchase = RawIngredientPurchase::create([
+                'raw_ingredient_id' => $this->id,
+                'user_id' => $userId,
+                'purchase_unit_name' => $purchaseUnitName,
+                'purchase_quantity' => $purchaseQuantity,
+                'conversion_factor_to_base' => $conversionFactorToBase,
+                'total_base_quantity_added' => $totalBaseQuantity,
+                'total_purchase_cost' => $totalPurchaseCost,
+                'calculated_cost_per_base_unit' => $costPerBaseUnit,
+                'purchase_date' => now(),
+            ]);
 
-        // Crear registro de compra
-        $purchase = RawIngredientPurchase::create([
-            'raw_ingredient_id' => $this->id,
-            'user_id' => $userId,
-            'purchase_unit_name' => $purchaseUnitName,
-            'purchase_quantity' => $purchaseQuantity,
-            'conversion_factor_to_base' => $conversionFactorToBase,
-            'total_base_quantity_added' => $totalBaseQuantity,
-            'total_purchase_cost' => $totalPurchaseCost,
-            'calculated_cost_per_base_unit' => $costPerBaseUnit,
-        ]);
+            // 2. Crear movimiento in_purchase (esto actualiza el stock automáticamente vía balanceAfter)
+            RawIngredientMovement::record(
+                companyId: $this->company_id,
+                branchId: $this->branch_id,
+                rawIngredientId: $this->id,
+                type: MovementType::InPurchase,
+                quantityBase: (float) $totalBaseQuantity,
+                referenceType: 'purchase',
+                referenceId: $purchase->id,
+                reason: "Compra de {$purchaseQuantity} {$purchaseUnitName}"
+            );
 
-        // Actualizar stock y costo promedio
-        $this->current_stock_base = $totalNewStock;
-        $this->cost_per_base_unit = $newCostPerBaseUnit;
-        $this->save();
+            // 3. Actualizar solo el costo promedio ponderado (el stock ya lo actualizó el movimiento)
+            $this->cost_per_base_unit = $newCostPerBaseUnit;
+            $this->save();
 
-        return $purchase;
+            return $purchase;
+        });
     }
 
-    /**
-     * Descuenta stock en unidad base SI.
-     * Usado por RecipeService al confirmar pedido.
-     */
     public function deductStock(float $quantityBase): void
     {
         $branch = $this->branch;

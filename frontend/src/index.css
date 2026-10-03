@@ -3,3 +3,43 @@
 /* Tailwind v4: por defecto dark: sigue al sistema (prefers-color-scheme).
    Esto lo cambia a la clase .dark en <html>, controlada por useThemeStore. */
 @custom-variant dark (&:where(.dark, .dark *));
+
+/* ═══════════════════════════════════════════════════════════
+   FIX: Estilos globales para selects e inputs en modo oscuro
+   ═══════════════════════════════════════════════════════════ */
+
+/* Selects en modo oscuro */
+.dark select {
+  background-color: rgb(30 41 59); /* slate-800 */
+  color: rgb(255 255 255);
+  border-color: rgb(51 65 85); /* slate-700 */
+  color-scheme: dark;
+}
+
+.dark select option {
+  background-color: rgb(30 41 59);
+  color: rgb(255 255 255);
+}
+
+.dark select option:hover,
+.dark select option:checked {
+  background-color: rgb(249 115 22); /* orange-500 */
+  color: rgb(255 255 255);
+}
+
+/* Inputs de fecha, hora, etc. en modo oscuro */
+.dark input[type="date"],
+.dark input[type="time"],
+.dark input[type="datetime-local"],
+.dark input[type="month"],
+.dark input[type="week"] {
+  color-scheme: dark;
+  background-color: rgb(30 41 59);
+  color: rgb(255 255 255);
+}
+
+/* Number inputs con spinners */
+.dark input[type="number"] {
+  color-scheme: dark;
+}
+

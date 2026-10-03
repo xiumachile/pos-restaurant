@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Search, Package, AlertTriangle, Loader2, History, Factory } from "lucide-react";
+import { Search, Package, AlertTriangle, Loader2, History, Factory, ShoppingCart } from "lucide-react";
 import { useIngredients } from "@/hooks/useRecipe";
 import { IngredientStockCard } from "@/components/inventory/IngredientStockCard";
 import { MovementHistoryTable } from "@/components/inventory/MovementHistoryTable";
 import { ProductionBatchForm } from "@/components/inventory/ProductionBatchForm";
+import { PurchaseForm } from "@/components/inventory/PurchaseForm";
 import type { RawIngredient } from "@/services/recipeService";
 
 export function InventoryPage() {
@@ -13,7 +14,7 @@ export function InventoryPage() {
   const [selectedUuid, setSelectedUuid] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showOnlyLowStock, setShowOnlyLowStock] = useState(false);
-  const [activeTab, setActiveTab] = useState<"stock" | "production">("stock");
+  const [activeTab, setActiveTab] = useState<"stock" | "production" | "purchase">("stock");
 
   const filteredIngredients = useMemo(() => {
     let result = ingredients;
@@ -140,6 +141,17 @@ export function InventoryPage() {
             <Factory size={18} />
             <span>Producción</span>
           </button>
+          <button
+            onClick={() => setActiveTab("purchase")}
+            className={`flex items-center gap-2 px-4 py-2 font-medium transition-colors border-b-2 ${
+              activeTab === "purchase"
+                ? "border-orange-500 text-orange-400"
+                : "border-transparent text-slate-400 hover:text-white"
+            }`}
+          >
+            <ShoppingCart size={18} />
+            <span>Compras</span>
+          </button>
         </div>
 
         {/* Barra de búsqueda y filtros (solo en tab stock) */}
@@ -175,7 +187,9 @@ export function InventoryPage() {
       </div>
 
       {/* Contenido según tab activo */}
-      {activeTab === "production" ? (
+      {activeTab === "purchase" ? (
+        <PurchaseForm />
+      ) : activeTab === "production" ? (
         <ProductionBatchForm />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
