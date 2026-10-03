@@ -10,6 +10,7 @@ import {
   Settings,
   LogOut,
   Database,
+  Package,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -70,6 +71,13 @@ export function Sidebar() {
       // 3. Gestión y Administración (Solo Management)
       // Se eliminó "/catalog" del sidebar principal: los garzones usan el catálogo dentro de la toma de pedidos en Mesas.
       // Se eliminó "/orders" del sidebar: era confuso porque mostraba estado de sync en lugar de historial de pedidos.
+      {
+        to: "/inventory",
+        label: t("inventory.title", "Inventario"),
+        icon: Package,
+        allowedRoles: ROLES.MANAGEMENT,
+        requiresCapability: CapabilityKey.CAN_MANAGE_RECIPES,
+      },
       { to: "/reports", label: t("reports.title"), icon: BarChart3, allowedRoles: ROLES.MANAGEMENT },
       {
         to: "/sync-queue",

@@ -11,6 +11,9 @@ use Modules\Recipes\Domain\Services\RecipeService;
 use Modules\Recipes\Interfaces\Requests\CreateRecipeRequest;
 use Modules\Recipes\Interfaces\Requests\UpdateRecipeRequest;
 use Modules\Recipes\Interfaces\Resources\ProductRecipeResource;
+use Modules\Recipes\Interfaces\Requests\CreateProductionBatchRequest;
+use Modules\Recipes\Interfaces\Resources\ProductionBatchResource;
+use Modules\Recipes\Domain\Exceptions\InsufficientIngredientStockException;
 
 class RecipeController extends Controller
 {
@@ -157,4 +160,47 @@ class RecipeController extends Controller
 
         return response()->json(['data' => $report]);
     }
+
+    /**
+     * POST /api/v1/recipes/production-batches
+     * Crea un lote de producción, descontando ingredientes de la receta.
+     * 
+     * ADR-022 / Fase 3.2: endpoint para registrar producción interna.
+     */
+    public function createProductionBatch(CreateProductionBatchRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+        $user = $request->user();
+
+        try {
+            $result = $this->recipeService->createProductionBatch(
+                companyId: $user->company_id,
+                branchId: $user->branch_id,
+                productUuid: $validated['product_uuid'],
+                quantity: (int) $validated['quantity'],
+                batchNotes: $validated['batch_notes'] ?? null
+            );
+
+            return ProductionBatchResource::make($result)
+                ->response()
+                ->setStatusCode(201);
+        } catch (InsufficientIngredientStockException $e) {
+            return response()->json([
+                'error' => 'insufficient_stock',
+                'message' => $e->getMessage(),
+                'ingredient_name' => $e->ingredient->name_translations['es'] ?? $e->ingredient->sku,
+                'requested' => $e->requested,
+                'available' => $e->available,
+            ], 409);
+        } catch (\Exception $e) {
+            if ($e->getMessage() === 'recipe_not_found') {
+                return response()->json([
+                    'error' => 'recipe_not_found',
+                    'message' => 'El producto no tiene una ficha técnica (receta) configurada.',
+                ], 404);
+            }
+            throw $e;
+        }
+    }
+
 }

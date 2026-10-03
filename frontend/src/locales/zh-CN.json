@@ -763,5 +763,12 @@
   "cash_count": {
     "title": "现金清点",
     "cancel": "取消"
+  },
+  "inventory": {
+    "title": "库存",
+    "subtitle": "原材料库存与流动",
+    "production_tab": "生产",
+    "stock_tab": "库存与流动",
+    "register_batch": "记录生产"
   }
 }

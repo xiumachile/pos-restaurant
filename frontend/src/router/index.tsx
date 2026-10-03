@@ -23,6 +23,7 @@ const PrinterSettingsPage = lazy(() => import("@/pages/settings/PrinterSettingsP
 const UsersPage = lazy(() => import("@/pages/settings/UsersPage").then(m => ({ default: m.UsersPage })));
 const GeneralSettingsPage = lazy(() => import("@/pages/settings/GeneralSettingsPage").then(m => ({ default: m.GeneralSettingsPage })));
 const DefaultNotesPage = lazy(() => import("@/pages/catalog/DefaultNotesPage").then(m => ({ default: m.DefaultNotesPage })));
+const InventoryPage = lazy(() => import("@/pages/InventoryPage").then(m => ({ default: m.InventoryPage })));
 
 // Componente de carga
 function LoadingFallback() {

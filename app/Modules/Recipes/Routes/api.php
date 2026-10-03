@@ -27,6 +27,11 @@ Route::prefix('v1/recipes')->middleware(['auth:api', TenantContextMiddleware::cl
     Route::delete('/{uuid}', [RecipeController::class, 'destroy'])->name('recipes.destroy');
 
     // ============================================
+    // Producción de lotes (Fase 3.2)
+    // ============================================
+    Route::post('/production-batches', [RecipeController::class, 'createProductionBatch'])->name('recipes.production-batches.store');
+
+    // ============================================
     // Reportes
     // ============================================
     Route::get('/food-cost', [RecipeController::class, 'foodCostReport'])->name('recipes.food-cost');
