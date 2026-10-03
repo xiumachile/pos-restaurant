@@ -258,6 +258,21 @@ export const router = createBrowserRouter([
         ]
       },
       // Reportes: Solo Management
+      // Inventario: Solo Management (Fase 3.2)
+      {
+        path: "inventory",
+        element: <RoleProtectedRoute allowedRoles={ROLES.MANAGEMENT} />,
+        children: [
+          {
+            index: true,
+            element: (
+              <Suspense fallback={<LoadingFallback />}>
+                <InventoryPage />
+              </Suspense>
+            )
+          }
+        ]
+      },
       { 
         path: "reports", 
         element: <RoleProtectedRoute allowedRoles={ROLES.MANAGEMENT} />,

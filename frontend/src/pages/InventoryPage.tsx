@@ -49,6 +49,13 @@ export function InventoryPage() {
     (i) => i.uuid === selectedUuid
   );
 
+  // Auto-seleccionar el primer insumo si no hay selección
+  useEffect(() => {
+    if (!selectedUuid && filteredIngredients.length > 0) {
+      setSelectedUuid(filteredIngredients[0].uuid);
+    }
+  }, [selectedUuid, filteredIngredients]);
+
   const stats = useMemo(() => {
     const total = ingredients.length;
     const lowStock = ingredients.filter((i) => i.is_low_stock).length;
@@ -57,14 +64,6 @@ export function InventoryPage() {
     ).length;
     return { total, lowStock, outOfStock };
   }, [ingredients]);
-
-  // Seleccionar el primero automáticamente si hay ingredientes y no hay selección
-  // (movido a useEffect para evitar setState durante render)
-  useEffect(() => {
-    if (!selectedUuid && filteredIngredients.length > 0) {
-      setSelectedUuid(filteredIngredients[0].uuid);
-    }
-  }, [selectedUuid, filteredIngredients]);
 
   if (isLoading) {
     return (
@@ -117,111 +116,109 @@ export function InventoryPage() {
           </div>
         </div>
 
-        {/* Barra de búsqueda y filtros */}
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1 max-w-md">
-            <Search
-              size={18}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-            />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar por nombre o SKU..."
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
-            />
-          </div>
-
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showOnlyLowStock}
-              onChange={(e) => setShowOnlyLowStock(e.target.checked)}
-              className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-orange-500 focus:ring-orange-500"
-            />
-            <span className="text-sm text-slate-300">
-              Solo stock bajo / sin stock
-            </span>
-          </label>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6 border-b border-slate-700">
-        <button
-          onClick={() => setActiveTab("stock")}
-          className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-            activeTab === "stock"
-              ? "border-orange-500 text-orange-400"
-              : "border-transparent text-slate-400 hover:text-white"
-          }`}
-        >
-          <div className="flex items-center gap-2">
+        {/* Tabs */}
+        <div className="flex gap-2 mb-4 border-b border-slate-700">
+          <button
+            onClick={() => setActiveTab("stock")}
+            className={`flex items-center gap-2 px-4 py-2 font-medium transition-colors border-b-2 ${
+              activeTab === "stock"
+                ? "border-orange-500 text-orange-400"
+                : "border-transparent text-slate-400 hover:text-white"
+            }`}
+          >
             <History size={18} />
             <span>Stock & Movimientos</span>
-          </div>
-        </button>
-        <button
-          onClick={() => setActiveTab("production")}
-          className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-            activeTab === "production"
-              ? "border-orange-500 text-orange-400"
-              : "border-transparent text-slate-400 hover:text-white"
-          }`}
-        >
-          <div className="flex items-center gap-2">
+          </button>
+          <button
+            onClick={() => setActiveTab("production")}
+            className={`flex items-center gap-2 px-4 py-2 font-medium transition-colors border-b-2 ${
+              activeTab === "production"
+                ? "border-orange-500 text-orange-400"
+                : "border-transparent text-slate-400 hover:text-white"
+            }`}
+          >
             <Factory size={18} />
             <span>Producción</span>
+          </button>
+        </div>
+
+        {/* Barra de búsqueda y filtros (solo en tab stock) */}
+        {activeTab === "stock" && (
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar por nombre o SKU..."
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+            </div>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showOnlyLowStock}
+                onChange={(e) => setShowOnlyLowStock(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-orange-500 focus:ring-orange-500"
+              />
+              <span className="text-sm text-slate-300">
+                Solo stock bajo / sin stock
+              </span>
+            </label>
           </div>
-        </button>
+        )}
       </div>
 
       {/* Contenido según tab activo */}
       {activeTab === "production" ? (
         <ProductionBatchForm />
       ) : (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Lista de insumos */}
-        <div className="lg:col-span-1">
-          <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-3 max-h-[calc(100vh-280px)] overflow-y-auto">
-            {filteredIngredients.length === 0 ? (
-              <div className="text-center py-8">
-                <Package className="mx-auto text-slate-500 mb-2" size={32} />
-                <p className="text-sm text-slate-400">
-                  {searchQuery || showOnlyLowStock
-                    ? "Sin resultados"
-                    : "No hay insumos registrados"}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {filteredIngredients.map((ing) => (
-                  <IngredientStockCard
-                    key={ing.uuid}
-                    ingredient={ing}
-                    isSelected={selectedUuid === ing.uuid}
-                    onClick={() => setSelectedUuid(ing.uuid)}
-                  />
-                ))}
-              </div>
-            )}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Lista de insumos */}
+          <div className="lg:col-span-1">
+            <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-3 max-h-[calc(100vh-280px)] overflow-y-auto">
+              {filteredIngredients.length === 0 ? (
+                <div className="text-center py-8">
+                  <Package className="mx-auto text-slate-500 mb-2" size={32} />
+                  <p className="text-sm text-slate-400">
+                    {searchQuery || showOnlyLowStock
+                      ? "Sin resultados"
+                      : "No hay insumos registrados"}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredIngredients.map((ing) => (
+                    <IngredientStockCard
+                      key={ing.uuid}
+                      ingredient={ing}
+                      isSelected={selectedUuid === ing.uuid}
+                      onClick={() => setSelectedUuid(ing.uuid)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Panel derecho: historial de movimientos */}
+          <div className="lg:col-span-2">
+            <MovementHistoryTable
+              ingredientUuid={selectedUuid}
+              ingredientName={
+                selectedIngredient?.name_translations?.es ??
+                selectedIngredient?.name_translations?.["zh-CN"] ??
+                selectedIngredient?.sku ??
+                ""
+              }
+            />
           </div>
         </div>
-
-        {/* Historial de movimientos */}
-        <div className="lg:col-span-2">
-          <MovementHistoryTable
-            ingredientUuid={selectedUuid}
-            ingredientName={
-              selectedIngredient?.name_translations?.es ??
-              selectedIngredient?.name_translations?.["zh-CN"] ??
-              selectedIngredient?.sku ??
-              ""
-            }
-          />
-        </div>
-      </div>
       )}
     </div>
   );
