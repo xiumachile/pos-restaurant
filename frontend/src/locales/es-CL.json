@@ -776,6 +776,14 @@
     "no_movements": "No hay movimientos registrados para este insumo",
     "total": "Total",
     "low_stock": "Stock bajo",
-    "out_of_stock": "Sin stock"
+    "out_of_stock": "Sin stock",
+    "production_tab": "Producción",
+    "stock_tab": "Stock & Movimientos",
+    "register_batch": "Registrar Producción",
+    "product_uuid": "UUID del Producto (con receta)",
+    "batch_quantity": "Cantidad de lotes a producir",
+    "batch_notes": "Notas del lote (opcional)",
+    "batch_success": "Lote creado exitosamente",
+    "no_recipe": "Este producto no tiene receta configurada"
   }
 }

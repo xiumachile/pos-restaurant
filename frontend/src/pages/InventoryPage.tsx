@@ -1,9 +1,10 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Search, Package, AlertTriangle, Loader2 } from "lucide-react";
+import { Search, Package, AlertTriangle, Loader2, History, Factory } from "lucide-react";
 import { useIngredients } from "@/hooks/useRecipe";
 import { IngredientStockCard } from "@/components/inventory/IngredientStockCard";
 import { MovementHistoryTable } from "@/components/inventory/MovementHistoryTable";
+import { ProductionBatchForm } from "@/components/inventory/ProductionBatchForm";
 import type { RawIngredient } from "@/services/recipeService";
 
 export function InventoryPage() {
@@ -12,6 +13,7 @@ export function InventoryPage() {
   const [selectedUuid, setSelectedUuid] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showOnlyLowStock, setShowOnlyLowStock] = useState(false);
+  const [activeTab, setActiveTab] = useState<"stock" | "production">("stock");
 
   const filteredIngredients = useMemo(() => {
     let result = ingredients;
@@ -142,7 +144,40 @@ export function InventoryPage() {
         </div>
       </div>
 
-      {/* Layout 2 columnas */}
+      {/* Tabs */}
+      <div className="flex gap-2 mb-6 border-b border-slate-700">
+        <button
+          onClick={() => setActiveTab("stock")}
+          className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+            activeTab === "stock"
+              ? "border-orange-500 text-orange-400"
+              : "border-transparent text-slate-400 hover:text-white"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <History size={18} />
+            <span>Stock & Movimientos</span>
+          </div>
+        </button>
+        <button
+          onClick={() => setActiveTab("production")}
+          className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+            activeTab === "production"
+              ? "border-orange-500 text-orange-400"
+              : "border-transparent text-slate-400 hover:text-white"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Factory size={18} />
+            <span>Producción</span>
+          </div>
+        </button>
+      </div>
+
+      {/* Contenido según tab activo */}
+      {activeTab === "production" ? (
+        <ProductionBatchForm />
+      ) : (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Lista de insumos */}
         <div className="lg:col-span-1">
@@ -184,6 +219,7 @@ export function InventoryPage() {
           />
         </div>
       </div>
+      )}
     </div>
   );
 }

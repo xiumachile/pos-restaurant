@@ -27,6 +27,24 @@ export interface MovementFilters {
   limit?: number;
 }
 
+export interface ProductionBatchResponse {
+  uuid: string;
+  product_uuid: string;
+  product_name: string;
+  quantity: number;
+  movements_count: number;
+  batch_notes: string | null;
+  created_at: string;
+}
+
+export interface CreateProductionBatchPayload {
+  product_uuid: string;
+  quantity: number;
+  batch_notes?: string;
+}
+
+
+
 /* ─── Labels ─── */
 
 export const MOVEMENT_TYPE_CONFIG: Record<
@@ -87,4 +105,19 @@ export const inventoryService = {
     const data = response.data as any;
     return Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
   },
+
+  /**
+   * Registra un lote de producción (descuenta ingredientes de la receta).
+   */
+  async createProductionBatch(
+    payload: CreateProductionBatchPayload
+  ): Promise<ProductionBatchResponse> {
+    const response = await apiClient.post<{ data: ProductionBatchResponse }>(
+      "/recipes/production-batches",
+      payload
+    );
+    const data = response.data as any;
+    return data?.data ?? data;
+  },
+
 };
