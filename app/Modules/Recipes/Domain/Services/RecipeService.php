@@ -12,6 +12,7 @@ use Modules\Recipes\Domain\Entities\RawIngredientMovement;
 use Modules\Recipes\Domain\ValueObjects\MovementType;
 use Modules\Recipes\Domain\Exceptions\InsufficientIngredientStockException;
 use App\Shared\Application\TenantContext;
+use Illuminate\Support\Str;
 
 /**
  * Servicio de dominio para gestión de Fichas Técnicas (BOM).
@@ -239,4 +240,95 @@ class RecipeService
             abort(403, 'No autorizado para acceder a este ingrediente');
         }
     }
+
+    /**
+     * ADR-022 / Fase 3.2: Crea un lote de producción.
+     * 
+     * Descuenta ingredientes de la receta del producto y registra
+     * movimientos OutConsumption con reference_type='production_batch'.
+     * 
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException si producto no existe
+     * @throws \Exception con mensaje 'recipe_not_found' si producto no tiene receta
+     * @throws InsufficientIngredientStockException si stock insuficiente
+     */
+    public function createProductionBatch(
+        int $companyId,
+        int $branchId,
+        string $productUuid,
+        int $quantity,
+        ?string $batchNotes = null
+    ): array {
+        // Buscar producto (sin Global Scopes de Catalog)
+        $product = Product::withoutGlobalScopes()
+            ->where('uuid', $productUuid)
+            ->where('company_id', $companyId)
+            ->firstOrFail();
+
+        // Buscar receta
+        $recipe = ProductRecipe::withoutGlobalScopes()
+            ->where('product_id', $product->id)
+            ->where('company_id', $companyId)
+            ->with(['items.ingredient' => function ($query) use ($branchId) {
+                $query->where('branch_id', $branchId);
+            }])
+            ->first();
+
+        if (!$recipe) {
+            throw new \Exception('recipe_not_found');
+        }
+
+        $batchUuid = Str::uuid()->toString();
+        $movements = [];
+        $productName = $product->name_translations['es'] ?? $product->uuid;
+
+        DB::transaction(function () use ($recipe, $quantity, $branchId, $companyId, $batchNotes, $productName, &$movements) {
+            foreach ($recipe->items as $recipeItem) {
+                $ingredient = $recipeItem->ingredient;
+
+                if (!$ingredient) {
+                    Log::warning('ProductionBatch: ingrediente no encontrado en branch', [
+                        'recipe_item_id' => $recipeItem->id,
+                        'branch_id' => $branchId,
+                    ]);
+                    continue;
+                }
+
+                // Cantidad a descontar = cantidad efectiva * cantidad de lotes
+                $quantityToDeduct = (float) $recipeItem->effective_discount_base_quantity * $quantity;
+
+                // Registrar movimiento OutConsumption
+                $movement = RawIngredientMovement::record(
+                    companyId: $companyId,
+                    branchId: $branchId,
+                    rawIngredientId: $ingredient->id,
+                    type: MovementType::OutConsumption,
+                    quantityBase: $quantityToDeduct,
+                    referenceType: 'production_batch',
+                    referenceId: null,
+                    reason: $batchNotes ?? "Producción de {$quantity} lote(s) de {$productName}"
+                );
+
+                $movements[] = $movement;
+            }
+        });
+
+        Log::info('ProductionBatch: lote creado exitosamente', [
+            'batch_uuid' => $batchUuid,
+            'product_uuid' => $productUuid,
+            'quantity' => $quantity,
+            'movements_count' => count($movements),
+        ]);
+
+        return [
+            'uuid' => $batchUuid,
+            'product_uuid' => $product->uuid,
+            'product_name' => $productName,
+            'quantity' => $quantity,
+            'movements_count' => count($movements),
+            'movements' => $movements,
+            'batch_notes' => $batchNotes,
+            'created_at' => now()->toIso8601String(),
+        ];
+    }
+
 }
