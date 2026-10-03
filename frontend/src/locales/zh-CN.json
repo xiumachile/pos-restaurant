@@ -763,5 +763,9 @@
   "cash_count": {
     "title": "现金清点",
     "cancel": "取消"
+  },
+  "inventory": {
+    "title": "库存",
+    "subtitle": "原材料库存与流动"
   }
 }

@@ -763,5 +763,19 @@
   "cash_count": {
     "title": "Arqueo de Caja",
     "cancel": "Cancelar"
+  },
+  "inventory": {
+    "title": "Inventario",
+    "subtitle": "Stock y movimientos de insumos",
+    "search_placeholder": "Buscar por nombre o SKU...",
+    "only_low_stock": "Solo stock bajo / sin stock",
+    "no_results": "Sin resultados",
+    "no_ingredients": "No hay insumos registrados",
+    "movement_history": "Historial de Movimientos",
+    "select_ingredient": "Selecciona un insumo para ver su historial",
+    "no_movements": "No hay movimientos registrados para este insumo",
+    "total": "Total",
+    "low_stock": "Stock bajo",
+    "out_of_stock": "Sin stock"
   }
 }
