@@ -767,8 +767,143 @@
   "inventory": {
     "title": "库存",
     "subtitle": "原材料库存与流动",
-    "production_tab": "生产",
-    "stock_tab": "库存与流动",
-    "register_batch": "记录生产"
+    "tabs": {
+      "stock": "库存与流动",
+      "production": "生产",
+      "purchase": "采购"
+    },
+    "stats": {
+      "total": "总计",
+      "low_stock": "低库存",
+      "out_of_stock": "缺货"
+    },
+    "search": {
+      "placeholder": "按名称或 SKU 搜索..."
+    },
+    "filter": {
+      "only_low_stock": "仅显示低库存/缺货"
+    },
+    "list": {
+      "empty_filtered": "无结果",
+      "empty_no_ingredients": "未注册任何原材料"
+    },
+    "movements": {
+      "title": "流动历史",
+      "select_ingredient": "选择原材料以查看其流动历史",
+      "empty": "该原材料尚无流动记录",
+      "error": "加载流动记录出错",
+      "columns": {
+        "date": "日期",
+        "type": "类型",
+        "quantity": "数量",
+        "balance": "余额",
+        "reference": "参考",
+        "reason": "原因"
+      },
+      "types": {
+        "all": "全部",
+        "in_purchase": "采购",
+        "in_production": "生产",
+        "out_consumption": "消费",
+        "out_waste": "损耗",
+        "adjustment": "调整"
+      },
+      "time": {
+        "just_now": "刚刚",
+        "minutes_ago": "{{count}} 分钟前",
+        "hours_ago": "{{count}} 小时前",
+        "days_ago": "{{count}} 天前"
+      },
+      "reference": {
+        "order": "订单 #{{id}}",
+        "production_batch": "生产批次",
+        "purchase": "采购"
+      },
+      "filter": {
+        "type": "类型",
+        "limit": "限制"
+      }
+    },
+    "production": {
+      "title": "登记生产批次",
+      "product_uuid": "产品 UUID(含配方)",
+      "product_uuid_placeholder": "在此粘贴产品 UUID...",
+      "product_uuid_hint": "该产品必须已配置配方",
+      "recipe_label": "配方",
+      "recipe_items": "{{count}} 种原料",
+      "total_cost": "预估总成本",
+      "quantity_label": "生产批次数量",
+      "notes_label": "批次备注(可选)",
+      "notes_placeholder": "例如:早班,A 班次...",
+      "submit": "登记生产",
+      "submitting": "正在登记生产...",
+      "no_recipe_warning": "该产品尚未配置配方。请先创建配方。",
+      "success": "批次已创建:{{product}} 的 {{quantity}} 批次已登记 {{movements}} 条流动",
+      "error_prefix": "错误"
+    },
+    "purchase": {
+      "title": "登记原材料采购",
+      "select_ingredient": "采购的原材料",
+      "select_placeholder": "选择原材料...",
+      "current_stock": "当前库存",
+      "min_stock": "最低库存",
+      "current_cost": "当前成本",
+      "per_unit": "/ {{unit}}",
+      "unit_label": "采购单位",
+      "unit_placeholder": "选择单位...",
+      "unit_conversion_info": "1 {{unit}} = {{factor}} {{base_unit}}",
+      "conversion_factor_label": "换算系数:1 {{unit}} = 多少 {{base_unit}}?",
+      "conversion_factor_placeholder_kg": "例如:1000(1 千克 = 1000 克)",
+      "conversion_factor_placeholder_dozen": "例如:12(1 打 = 12 个)",
+      "conversion_factor_placeholder_generic": "例如:1000",
+      "quantity_label": "采购数量({{unit}})",
+      "quantity_placeholder": "例如:5",
+      "will_add_to_stock": "将添加到库存",
+      "total_cost_label": "采购总成本(CLP)",
+      "total_cost_placeholder": "例如:25000",
+      "cost_per_unit_label": "每 {{unit}} 成本",
+      "submit": "登记采购",
+      "submitting": "正在登记采购...",
+      "success_message": "采购已登记:+{{added}} {{unit}} {{ingredient}}\n新库存:{{stock}} {{unit}}",
+      "error_prefix": "错误",
+      "units": {
+        "mass": {
+          "kg": "千克(kg)",
+          "g": "克(g)",
+          "lb": "磅(lb)",
+          "caja": "箱",
+          "bolsa": "袋"
+        },
+        "volume": {
+          "l": "升(l)",
+          "ml": "毫升(ml)",
+          "galon": "加仑",
+          "botella": "瓶",
+          "bidon": "桶"
+        },
+        "unit": {
+          "unidad": "个",
+          "docena": "打",
+          "caja": "箱",
+          "pack": "包"
+        }
+      },
+      "new_ingredient_btn": "新建原材料",
+      "new_ingredient_title": "创建新原材料",
+      "document_section": "会计凭证",
+      "document_optional": "可选但推荐",
+      "document_type": "凭证类型",
+      "document_select": "选择",
+      "document_number": "凭证编号",
+      "supplier_name": "供应商",
+      "supplier_rut": "供应商税号",
+      "doc_types": {
+        "boleta": "收据",
+        "factura": "发票",
+        "factura_exenta": "免税发票",
+        "nota_entrada": "入库单",
+        "otro": "其他"
+      }
+    }
   }
 }

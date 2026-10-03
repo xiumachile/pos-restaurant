@@ -57,7 +57,11 @@ class IngredientService
         float $purchaseQuantity,
         float $totalPurchaseCost,
         int $userId,
-        ?float $conversionFactor = null
+        ?float $conversionFactor = null,
+        ?string $documentType = null,
+        ?string $documentNumber = null,
+        ?string $supplierName = null,
+        ?string $supplierRut = null
     ): RawIngredientPurchase {
         // Si no se proporciona factor, usar el de la unidad base del insumo
         if ($conversionFactor === null) {
@@ -69,7 +73,11 @@ class IngredientService
             purchaseQuantity: $purchaseQuantity,
             conversionFactorToBase: $conversionFactor,
             totalPurchaseCost: $totalPurchaseCost,
-            userId: $userId
+            userId: $userId,
+            documentType: $documentType,
+            documentNumber: $documentNumber,
+            supplierName: $supplierName,
+            supplierRut: $supplierRut
         );
     }
 

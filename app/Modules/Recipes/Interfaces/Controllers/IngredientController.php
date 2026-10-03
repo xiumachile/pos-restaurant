@@ -108,7 +108,11 @@ class IngredientController extends Controller
             userId: $user->id,
             conversionFactor: isset($validated['conversion_factor_to_base'])
                 ? (float) $validated['conversion_factor_to_base']
-                : null
+                : null,
+            documentType: $validated['document_type'] ?? null,
+            documentNumber: $validated['document_number'] ?? null,
+            supplierName: $validated['supplier_name'] ?? null,
+            supplierRut: $validated['supplier_rut'] ?? null
         );
 
         return response()->json([

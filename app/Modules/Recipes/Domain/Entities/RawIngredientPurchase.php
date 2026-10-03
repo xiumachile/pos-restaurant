@@ -26,6 +26,10 @@ class RawIngredientPurchase extends Model
         'total_purchase_cost',
         'calculated_cost_per_base_unit',
         'purchase_date',
+        'document_type',
+        'document_number',
+        'supplier_name',
+        'supplier_rut',
     ];
 
     protected $casts = [

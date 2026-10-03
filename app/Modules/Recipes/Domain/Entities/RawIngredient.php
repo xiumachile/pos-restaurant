@@ -83,14 +83,22 @@ class RawIngredient extends Model
         float $purchaseQuantity,
         float $conversionFactorToBase,
         float $totalPurchaseCost,
-        int $userId
+        int $userId,
+        ?string $documentType = null,
+        ?string $documentNumber = null,
+        ?string $supplierName = null,
+        ?string $supplierRut = null
     ): RawIngredientPurchase {
         return DB::transaction(function () use (
             $purchaseUnitName,
             $purchaseQuantity,
             $conversionFactorToBase,
             $totalPurchaseCost,
-            $userId
+            $userId,
+            $documentType,
+            $documentNumber,
+            $supplierName,
+            $supplierRut
         ) {
             // Calcular cantidad total en unidad base
             $totalBaseQuantity = round($purchaseQuantity * $conversionFactorToBase, 4);
@@ -110,7 +118,7 @@ class RawIngredient extends Model
                 ? round($totalCurrentValue / $totalNewStock, 6)
                 : $costPerBaseUnit;
 
-            // 1. Crear registro de compra (inmutable)
+            // 1. Crear registro de compra con documento contable
             $purchase = RawIngredientPurchase::create([
                 'raw_ingredient_id' => $this->id,
                 'user_id' => $userId,
@@ -121,9 +129,18 @@ class RawIngredient extends Model
                 'total_purchase_cost' => $totalPurchaseCost,
                 'calculated_cost_per_base_unit' => $costPerBaseUnit,
                 'purchase_date' => now(),
+                'document_type' => $documentType,
+                'document_number' => $documentNumber,
+                'supplier_name' => $supplierName,
+                'supplier_rut' => $supplierRut,
             ]);
 
-            // 2. Crear movimiento in_purchase (esto actualiza el stock automáticamente vía balanceAfter)
+            // 2. Crear movimiento in_purchase (esto actualiza el stock automáticamente)
+            $reason = "Compra de {$purchaseQuantity} {$purchaseUnitName}";
+            if ($documentType && $documentNumber) {
+                $reason .= " ({$documentType} #{$documentNumber})";
+            }
+
             RawIngredientMovement::record(
                 companyId: $this->company_id,
                 branchId: $this->branch_id,
@@ -132,7 +149,7 @@ class RawIngredient extends Model
                 quantityBase: (float) $totalBaseQuantity,
                 referenceType: 'purchase',
                 referenceId: $purchase->id,
-                reason: "Compra de {$purchaseQuantity} {$purchaseUnitName}"
+                reason: $reason
             );
 
             // 3. Actualizar solo el costo promedio ponderado (el stock ya lo actualizó el movimiento)

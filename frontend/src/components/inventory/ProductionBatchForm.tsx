@@ -1,30 +1,18 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Factory, CheckCircle2, AlertTriangle, Loader2, Package } from "lucide-react";
-import { useIngredients, useProductRecipe } from "@/hooks/useRecipe";
+import { Factory, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+import { useProductRecipe } from "@/hooks/useRecipe";
 import { useCreateProductionBatch } from "@/hooks/useInventory";
-import type { Product } from "@/types/catalog";
-import type { RawIngredient } from "@/services/recipeService";
 
 export function ProductionBatchForm() {
   const { t } = useTranslation();
-  const { data: ingredients = [] } = useIngredients();
   const createBatch = useCreateProductionBatch();
 
-  // Productos que tienen receta (buscamos por product_uuid en recetas existentes)
-  // Simplificación: mostramos selector de insumos que tienen recetas asociadas
-  // Como useProductRecipe necesita un product_uuid, usamos una lista manual
-  const [selectedIngredientId, setSelectedIngredientId] = useState<string>("");
+  const [productUuid, setProductUuid] = useState<string>("");
   const [quantity, setQuantity] = useState<number>(1);
   const [batchNotes, setBatchNotes] = useState<string>("");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Para este MVP, el selector es de productos con receta
-  // Nota: el backend requiere product_uuid (no ingredient_id)
-  // Esto es una limitación del MVP - en producción habría un selector de productos con receta
-  // Por ahora usamos un campo de texto para product_uuid
-
-  const [productUuid, setProductUuid] = useState<string>("");
   const { data: recipe } = useProductRecipe(productUuid || null);
 
   const preview = useMemo(() => {
@@ -58,10 +46,13 @@ export function ProductionBatchForm() {
       });
 
       setSuccessMessage(
-        `✅ Lote creado: ${result.movements_count} movimiento(s) registrado(s) para ${result.quantity} lote(s) de ${result.product_name}`
+        t("inventory.production.success", {
+          movements: result.movements_count,
+          quantity: result.quantity,
+          product: result.product_name,
+        })
       );
 
-      // Limpiar formulario
       setQuantity(1);
       setBatchNotes("");
 
@@ -70,8 +61,8 @@ export function ProductionBatchForm() {
       const message =
         error?.response?.data?.message ??
         error?.response?.data?.error ??
-        "Error al registrar producción";
-      alert(`Error: ${message}`);
+        "Unknown error";
+      alert(`${t("inventory.production.error_prefix")}: ${message}`);
     }
   };
 
@@ -80,32 +71,32 @@ export function ProductionBatchForm() {
       <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6">
         <div className="flex items-center gap-2 mb-6">
           <Factory size={24} className="text-orange-400" />
-          <h2 className="text-2xl font-bold text-white">Registrar Lote de Producción</h2>
+          <h2 className="text-2xl font-bold text-white">{t("inventory.production.title")}</h2>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Product UUID (MVP) */}
+          {/* Product UUID */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              UUID del Producto (con receta)
+              {t("inventory.production.product_uuid")}
             </label>
             <input
               type="text"
               value={productUuid}
               onChange={(e) => setProductUuid(e.target.value)}
-              placeholder="Pega aquí el UUID del producto..."
+              placeholder={t("inventory.production.product_uuid_placeholder")}
               className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono text-sm"
             />
             <p className="text-xs text-slate-500 mt-1">
-              El producto debe tener una ficha técnica (receta) configurada
+              {t("inventory.production.product_uuid_hint")}
             </p>
           </div>
 
-          {/* Preview de receta si existe */}
+          {/* Preview de receta */}
           {recipe && recipe.items.length > 0 && (
             <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
               <h3 className="text-sm font-semibold text-slate-300 mb-3">
-                Receta: {recipe.items.length} ingrediente(s)
+                {t("inventory.production.recipe_label")}: {t("inventory.production.recipe_items", { count: recipe.items.length })}
               </h3>
               <div className="space-y-2">
                 {preview.map((item) => (
@@ -122,7 +113,7 @@ export function ProductionBatchForm() {
                   </div>
                 ))}
                 <div className="pt-2 mt-2 border-t border-slate-700 flex justify-between font-semibold">
-                  <span className="text-slate-300">Costo total estimado:</span>
+                  <span className="text-slate-300">{t("inventory.production.total_cost")}:</span>
                   <span className="text-white">
                     {totalCost.toLocaleString("es-CL", {
                       style: "currency",
@@ -139,7 +130,7 @@ export function ProductionBatchForm() {
             <div className="bg-yellow-900/20 border border-yellow-800/50 rounded-lg p-3 flex items-start gap-2">
               <AlertTriangle size={16} className="text-yellow-400 mt-0.5" />
               <p className="text-sm text-yellow-300">
-                Este producto no tiene receta configurada. Crea una ficha técnica primero.
+                {t("inventory.production.no_recipe_warning")}
               </p>
             </div>
           )}
@@ -147,7 +138,7 @@ export function ProductionBatchForm() {
           {/* Cantidad */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Cantidad de lotes a producir
+              {t("inventory.production.quantity_label")}
             </label>
             <input
               type="number"
@@ -162,14 +153,14 @@ export function ProductionBatchForm() {
           {/* Notas del lote */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Notas del lote (opcional)
+              {t("inventory.production.notes_label")}
             </label>
             <textarea
               value={batchNotes}
               onChange={(e) => setBatchNotes(e.target.value)}
               maxLength={500}
               rows={2}
-              placeholder="Ej: Lote matutino, turno A..."
+              placeholder={t("inventory.production.notes_placeholder")}
               className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
             />
             <p className="text-xs text-slate-500 mt-1 text-right">
@@ -180,7 +171,7 @@ export function ProductionBatchForm() {
           {/* Mensaje de éxito */}
           {successMessage && (
             <div className="bg-emerald-900/30 border border-emerald-700 rounded-lg p-3 flex items-start gap-2">
-              <CheckCircle2 size={16} className="text-emerald-400 mt-0.5" />
+              <CheckCircle2 size={16} className="text-emerald-400 mt-0.5 flex-shrink-0" />
               <p className="text-sm text-emerald-300">{successMessage}</p>
             </div>
           )}
@@ -194,12 +185,12 @@ export function ProductionBatchForm() {
             {createBatch.isPending ? (
               <>
                 <Loader2 className="animate-spin" size={18} />
-                Registrando producción...
+                {t("inventory.production.submitting")}
               </>
             ) : (
               <>
                 <Factory size={18} />
-                Registrar Producción
+                {t("inventory.production.submit")}
               </>
             )}
           </button>

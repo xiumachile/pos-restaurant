@@ -767,23 +767,143 @@
   "inventory": {
     "title": "Inventario",
     "subtitle": "Stock y movimientos de insumos",
-    "search_placeholder": "Buscar por nombre o SKU...",
-    "only_low_stock": "Solo stock bajo / sin stock",
-    "no_results": "Sin resultados",
-    "no_ingredients": "No hay insumos registrados",
-    "movement_history": "Historial de Movimientos",
-    "select_ingredient": "Selecciona un insumo para ver su historial",
-    "no_movements": "No hay movimientos registrados para este insumo",
-    "total": "Total",
-    "low_stock": "Stock bajo",
-    "out_of_stock": "Sin stock",
-    "production_tab": "Producción",
-    "stock_tab": "Stock & Movimientos",
-    "register_batch": "Registrar Producción",
-    "product_uuid": "UUID del Producto (con receta)",
-    "batch_quantity": "Cantidad de lotes a producir",
-    "batch_notes": "Notas del lote (opcional)",
-    "batch_success": "Lote creado exitosamente",
-    "no_recipe": "Este producto no tiene receta configurada"
+    "tabs": {
+      "stock": "Stock & Movimientos",
+      "production": "Producción",
+      "purchase": "Compras"
+    },
+    "stats": {
+      "total": "Total",
+      "low_stock": "Stock bajo",
+      "out_of_stock": "Sin stock"
+    },
+    "search": {
+      "placeholder": "Buscar por nombre o SKU..."
+    },
+    "filter": {
+      "only_low_stock": "Solo stock bajo / sin stock"
+    },
+    "list": {
+      "empty_filtered": "Sin resultados",
+      "empty_no_ingredients": "No hay insumos registrados"
+    },
+    "movements": {
+      "title": "Historial de Movimientos",
+      "select_ingredient": "Selecciona un insumo para ver su historial de movimientos",
+      "empty": "No hay movimientos registrados para este insumo",
+      "error": "Error al cargar movimientos",
+      "columns": {
+        "date": "Fecha",
+        "type": "Tipo",
+        "quantity": "Cantidad",
+        "balance": "Balance",
+        "reference": "Referencia",
+        "reason": "Razón"
+      },
+      "types": {
+        "all": "Todos",
+        "in_purchase": "Compra",
+        "in_production": "Producción",
+        "out_consumption": "Consumo",
+        "out_waste": "Merma",
+        "adjustment": "Ajuste"
+      },
+      "time": {
+        "just_now": "Justo ahora",
+        "minutes_ago": "Hace {{count}} min",
+        "hours_ago": "Hace {{count}}h",
+        "days_ago": "Hace {{count}}d"
+      },
+      "reference": {
+        "order": "Pedido #{{id}}",
+        "production_batch": "Lote producción",
+        "purchase": "Compra"
+      },
+      "filter": {
+        "type": "Tipo",
+        "limit": "Límite"
+      }
+    },
+    "production": {
+      "title": "Registrar Lote de Producción",
+      "product_uuid": "UUID del Producto (con receta)",
+      "product_uuid_placeholder": "Pega aquí el UUID del producto...",
+      "product_uuid_hint": "El producto debe tener una ficha técnica (receta) configurada",
+      "recipe_label": "Receta",
+      "recipe_items": "{{count}} ingrediente(s)",
+      "total_cost": "Costo total estimado",
+      "quantity_label": "Cantidad de lotes a producir",
+      "notes_label": "Notas del lote (opcional)",
+      "notes_placeholder": "Ej: Lote matutino, turno A...",
+      "submit": "Registrar Producción",
+      "submitting": "Registrando producción...",
+      "no_recipe_warning": "Este producto no tiene receta configurada. Crea una ficha técnica primero.",
+      "success": "Lote creado: {{movements}} movimiento(s) registrado(s) para {{quantity}} lote(s) de {{product}}",
+      "error_prefix": "Error"
+    },
+    "purchase": {
+      "title": "Registrar Compra de Insumo",
+      "select_ingredient": "Insumo a comprar",
+      "select_placeholder": "Selecciona un insumo...",
+      "current_stock": "Stock actual",
+      "min_stock": "Stock mínimo",
+      "current_cost": "Costo actual",
+      "per_unit": "/ {{unit}}",
+      "unit_label": "Unidad de compra",
+      "unit_placeholder": "Selecciona unidad...",
+      "unit_conversion_info": "1 {{unit}} = {{factor}} {{base_unit}}",
+      "conversion_factor_label": "Factor de conversión: 1 {{unit}} = ¿cuántas {{base_unit}}?",
+      "conversion_factor_placeholder_kg": "Ej: 1000 (1 kg = 1000 g)",
+      "conversion_factor_placeholder_dozen": "Ej: 12 (1 docena = 12 unidades)",
+      "conversion_factor_placeholder_generic": "Ej: 1000",
+      "quantity_label": "Cantidad comprada ({{unit}})",
+      "quantity_placeholder": "Ej: 5",
+      "will_add_to_stock": "Se agregará al stock",
+      "total_cost_label": "Costo total de la compra (CLP)",
+      "total_cost_placeholder": "Ej: 25000",
+      "cost_per_unit_label": "Costo por {{unit}}",
+      "submit": "Registrar Compra",
+      "submitting": "Registrando compra...",
+      "success_message": "Compra registrada: +{{added}} {{unit}} de {{ingredient}}\nNuevo stock: {{stock}} {{unit}}",
+      "error_prefix": "Error",
+      "units": {
+        "mass": {
+          "kg": "Kilogramo (kg)",
+          "g": "Gramo (g)",
+          "lb": "Libra (lb)",
+          "caja": "Caja",
+          "bolsa": "Bolsa"
+        },
+        "volume": {
+          "l": "Litro (l)",
+          "ml": "Mililitro (ml)",
+          "galon": "Galón",
+          "botella": "Botella",
+          "bidon": "Bidón"
+        },
+        "unit": {
+          "unidad": "Unidad",
+          "docena": "Docena",
+          "caja": "Caja",
+          "pack": "Pack"
+        }
+      },
+      "new_ingredient_btn": "Nuevo Insumo",
+      "new_ingredient_title": "Crear Nuevo Insumo",
+      "document_section": "Documento Contable",
+      "document_optional": "Opcional pero recomendado",
+      "document_type": "Tipo de documento",
+      "document_select": "Seleccionar",
+      "document_number": "Número de documento",
+      "supplier_name": "Proveedor",
+      "supplier_rut": "RUT Proveedor",
+      "doc_types": {
+        "boleta": "Boleta",
+        "factura": "Factura",
+        "factura_exenta": "Factura Exenta",
+        "nota_entrada": "Nota de Entrada",
+        "otro": "Otro"
+      }
+    }
   }
 }

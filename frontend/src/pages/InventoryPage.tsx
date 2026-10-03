@@ -38,7 +38,6 @@ export function InventoryPage() {
     }
 
     return result.sort((a, b) => {
-      // Low stock primero
       const aLow = a.is_low_stock || (a.current_stock_base ?? 0) <= 0 ? 0 : 1;
       const bLow = b.is_low_stock || (b.current_stock_base ?? 0) <= 0 ? 0 : 1;
       if (aLow !== bLow) return aLow - bLow;
@@ -50,7 +49,6 @@ export function InventoryPage() {
     (i) => i.uuid === selectedUuid
   );
 
-  // Auto-seleccionar el primer insumo si no hay selección
   useEffect(() => {
     if (!selectedUuid && filteredIngredients.length > 0) {
       setSelectedUuid(filteredIngredients[0].uuid);
@@ -78,7 +76,7 @@ export function InventoryPage() {
     return (
       <div className="bg-red-900/30 border border-red-800 rounded-lg p-8 text-center">
         <AlertTriangle className="mx-auto text-red-400 mb-3" size={48} />
-        <p className="text-red-300">Error al cargar insumos: {error.message}</p>
+        <p className="text-red-300">{t("inventory.movements.error")}: {error.message}</p>
       </div>
     );
   }
@@ -91,26 +89,26 @@ export function InventoryPage() {
           <div>
             <h1 className="text-3xl font-bold text-white flex items-center gap-2">
               <Package className="text-orange-400" size={32} />
-              Inventario
+              {t("inventory.title")}
             </h1>
             <p className="text-slate-400 mt-1">
-              Stock y movimientos de insumos
+              {t("inventory.subtitle")}
             </p>
           </div>
 
           <div className="flex items-center gap-3">
             <StatPill
-              label="Total"
+              label={t("inventory.stats.total")}
               value={stats.total}
               color="text-slate-300"
             />
             <StatPill
-              label="Stock bajo"
+              label={t("inventory.stats.low_stock")}
               value={stats.lowStock}
               color="text-yellow-400"
             />
             <StatPill
-              label="Sin stock"
+              label={t("inventory.stats.out_of_stock")}
               value={stats.outOfStock}
               color="text-red-400"
             />
@@ -128,7 +126,7 @@ export function InventoryPage() {
             }`}
           >
             <History size={18} />
-            <span>Stock & Movimientos</span>
+            <span>{t("inventory.tabs.stock")}</span>
           </button>
           <button
             onClick={() => setActiveTab("production")}
@@ -139,7 +137,7 @@ export function InventoryPage() {
             }`}
           >
             <Factory size={18} />
-            <span>Producción</span>
+            <span>{t("inventory.tabs.production")}</span>
           </button>
           <button
             onClick={() => setActiveTab("purchase")}
@@ -150,7 +148,7 @@ export function InventoryPage() {
             }`}
           >
             <ShoppingCart size={18} />
-            <span>Compras</span>
+            <span>{t("inventory.tabs.purchase")}</span>
           </button>
         </div>
 
@@ -166,7 +164,7 @@ export function InventoryPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar por nombre o SKU..."
+                placeholder={t("inventory.search.placeholder")}
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
               />
             </div>
@@ -179,7 +177,7 @@ export function InventoryPage() {
                 className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-orange-500 focus:ring-orange-500"
               />
               <span className="text-sm text-slate-300">
-                Solo stock bajo / sin stock
+                {t("inventory.filter.only_low_stock")}
               </span>
             </label>
           </div>
@@ -201,8 +199,8 @@ export function InventoryPage() {
                   <Package className="mx-auto text-slate-500 mb-2" size={32} />
                   <p className="text-sm text-slate-400">
                     {searchQuery || showOnlyLowStock
-                      ? "Sin resultados"
-                      : "No hay insumos registrados"}
+                      ? t("inventory.list.empty_filtered")
+                      : t("inventory.list.empty_no_ingredients")}
                   </p>
                 </div>
               ) : (
