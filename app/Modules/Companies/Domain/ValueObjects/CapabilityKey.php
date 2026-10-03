@@ -14,7 +14,7 @@ enum CapabilityKey: string
     case CAN_SPLIT_BILLS = 'can_split_bills';
     
     // Inventario
-    case CAN_MANAGE_INVENTORY = 'can_manage_inventory';
+    case CAN_MANAGE_RECIPES = 'can_manage_recipes';
     
     // Caja
     case REQUIRES_CASHIER_SESSION = 'requires_cashier_session';
@@ -60,7 +60,7 @@ enum CapabilityKey: string
     {
         return match($this) {
             self::CAN_SPLIT_BILLS => 'Dividir cuentas',
-            self::CAN_MANAGE_INVENTORY => 'Gestionar inventario',
+            self::CAN_MANAGE_RECIPES => 'Gestionar recetas e inventario',
             self::REQUIRES_CASHIER_SESSION => 'Requiere apertura/cierre de caja',
             self::CAN_ACCEPT_TIPS => 'Aceptar propinas',
             self::HAS_KITCHEN_DISPLAY => 'Kitchen Display System',
