@@ -903,7 +903,45 @@
         "factura_exenta": "免税发票",
         "nota_entrada": "入库单",
         "otro": "其他"
-      }
+      },
+      "new_ingredient": {
+        "title": "创建新原材料",
+        "btn": "新建原材料",
+        "sku_label": "SKU (唯一代码)",
+        "sku_placeholder": "例如: HARINA-001",
+        "sku_required": "*",
+        "name_es_label": "名称 (西班牙语)",
+        "name_es_placeholder": "例如: Harina",
+        "name_zh_label": "名称 (中文)",
+        "name_zh_optional": "可选",
+        "name_zh_placeholder": "例如: 面粉",
+        "dimension_label": "计量类型",
+        "dimension_mass": "重量 (质量)",
+        "dimension_volume": "体积",
+        "dimension_count": "数量 (单位)",
+        "base_unit_label": "基本单位",
+        "min_stock_label": "最低库存 (警报)",
+        "min_stock_placeholder": "例如: 1000",
+        "initial_cost_label": "初始单位成本 (CLP)",
+        "initial_cost_placeholder": "例如: 2.5",
+        "cancel": "取消",
+        "submit": "创建原材料",
+        "submitting": "创建中...",
+        "success_prefix": "原材料已创建"
+      },
+      "units_names": {
+        "g": "克 (g)",
+        "kg": "千克 (kg)",
+        "lb": "磅 (lb)",
+        "ml": "毫升 (ml)",
+        "l": "升 (l)",
+        "un": "单位 (un)",
+        "doc": "打 (doc)",
+        "pack": "包装 (pack)"
+      },
+      "document_number_placeholder": "例如: F-12345",
+      "supplier_name_placeholder": "例如: Distribuidora Central",
+      "supplier_rut_placeholder": "例如: 76.123.456-7"
     }
   }
 }

@@ -903,7 +903,45 @@
         "factura_exenta": "Factura Exenta",
         "nota_entrada": "Nota de Entrada",
         "otro": "Otro"
-      }
+      },
+      "new_ingredient": {
+        "title": "Crear Nuevo Insumo",
+        "btn": "Nuevo Insumo",
+        "sku_label": "SKU (código único)",
+        "sku_placeholder": "Ej: HARINA-001",
+        "sku_required": "*",
+        "name_es_label": "Nombre (español)",
+        "name_es_placeholder": "Ej: Harina",
+        "name_zh_label": "Nombre (中文)",
+        "name_zh_optional": "opcional",
+        "name_zh_placeholder": "Ej: 面粉",
+        "dimension_label": "Tipo de medición",
+        "dimension_mass": "Peso (masa)",
+        "dimension_volume": "Volumen",
+        "dimension_count": "Conteo (unidades)",
+        "base_unit_label": "Unidad base",
+        "min_stock_label": "Stock mínimo (alerta)",
+        "min_stock_placeholder": "Ej: 1000",
+        "initial_cost_label": "Costo inicial por unidad (CLP)",
+        "initial_cost_placeholder": "Ej: 2.5",
+        "cancel": "Cancelar",
+        "submit": "Crear Insumo",
+        "submitting": "Creando...",
+        "success_prefix": "Insumo creado"
+      },
+      "units_names": {
+        "g": "Gramos (g)",
+        "kg": "Kilogramos (kg)",
+        "lb": "Libras (lb)",
+        "ml": "Mililitros (ml)",
+        "l": "Litros (l)",
+        "un": "Unidades (un)",
+        "doc": "Docenas (doc)",
+        "pack": "Packs (pack)"
+      },
+      "document_number_placeholder": "Ej: F-12345",
+      "supplier_name_placeholder": "Ej: Distribuidora Central",
+      "supplier_rut_placeholder": "Ej: 76.123.456-7"
     }
   }
 }

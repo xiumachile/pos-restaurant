@@ -9,19 +9,22 @@ interface NewIngredientFormProps {
   onCancel: () => void;
 }
 
-const DIMENSION_TYPES = ["mass", "volume", "unit"] as const;
+const DIMENSION_TYPES = ["mass", "volume", "count"] as const;
 
 const BASE_UNITS = {
   mass: [
-    { value: "gram", label: "Gramos (g)" },
-    { value: "kilogram", label: "Kilogramos (kg)" },
+    { value: "g", labelKey: "inventory.purchase.units_names.g" },
+    { value: "kg", labelKey: "inventory.purchase.units_names.kg" },
+    { value: "lb", labelKey: "inventory.purchase.units_names.lb" },
   ],
   volume: [
-    { value: "milliliter", label: "Mililitros (ml)" },
-    { value: "liter", label: "Litros (l)" },
+    { value: "ml", labelKey: "inventory.purchase.units_names.ml" },
+    { value: "l", labelKey: "inventory.purchase.units_names.l" },
   ],
-  unit: [
-    { value: "unit", label: "Unidades" },
+  count: [
+    { value: "un", labelKey: "inventory.purchase.units_names.un" },
+    { value: "doc", labelKey: "inventory.purchase.units_names.doc" },
+    { value: "pack", labelKey: "inventory.purchase.units_names.pack" },
   ],
 };
 
@@ -33,7 +36,7 @@ export function NewIngredientForm({ onCreated, onCancel }: NewIngredientFormProp
   const [nameEs, setNameEs] = useState("");
   const [nameZh, setNameZh] = useState("");
   const [dimensionType, setDimensionType] = useState<string>("mass");
-  const [baseUnit, setBaseUnit] = useState<string>("gram");
+  const [baseUnit, setBaseUnit] = useState<string>("g");
   const [minimumStock, setMinimumStock] = useState<number>(0);
   const [initialCost, setInitialCost] = useState<number>(0);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -48,7 +51,7 @@ export function NewIngredientForm({ onCreated, onCancel }: NewIngredientFormProp
       queryClient.invalidateQueries({ queryKey: ["recipes", "ingredients"] });
       const uuid = data?.data?.uuid ?? data?.uuid;
       if (uuid) {
-        setSuccessMessage(`✅ Insumo creado: ${nameEs}`);
+        setSuccessMessage(`✅ ${t("inventory.purchase.new_ingredient.success_prefix")}: ${nameEs}`);
         setTimeout(() => onCreated(uuid), 800);
       }
     },
@@ -72,7 +75,7 @@ export function NewIngredientForm({ onCreated, onCancel }: NewIngredientFormProp
     if (!canSubmit) return;
 
     const nameTranslations: Record<string, string> = { es: nameEs.trim() };
-    if (nameZh.trim()) nameTranslations["zh-CN"] = nameZh.trim();
+    if (nameZh.trim()) nameTranslations["zh"] = nameZh.trim();
 
     createMutation.mutate({
       sku: sku.trim().toUpperCase(),
@@ -80,24 +83,31 @@ export function NewIngredientForm({ onCreated, onCancel }: NewIngredientFormProp
       dimension_type: dimensionType,
       base_unit: baseUnit,
       minimum_stock_base: minimumStock,
-      cost_per_base_unit: initialCost,
+      initial_cost_per_base_unit: initialCost,
     });
   };
 
   const availableUnits = BASE_UNITS[dimensionType as keyof typeof BASE_UNITS] || BASE_UNITS.mass;
+
+  const dimensionLabel = (dim: string) => {
+    if (dim === "mass") return t("inventory.purchase.new_ingredient.dimension_mass");
+    if (dim === "volume") return t("inventory.purchase.new_ingredient.dimension_volume");
+    return t("inventory.purchase.new_ingredient.dimension_count");
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* SKU */}
       <div>
         <label className="block text-sm font-medium text-slate-300 mb-1">
-          SKU (código único) *
+          {t("inventory.purchase.new_ingredient.sku_label")}{" "}
+          <span className="text-red-400">{t("inventory.purchase.new_ingredient.sku_required")}</span>
         </label>
         <input
           type="text"
           value={sku}
           onChange={(e) => setSku(e.target.value.toUpperCase())}
-          placeholder="Ej: HARINA-001"
+          placeholder={t("inventory.purchase.new_ingredient.sku_placeholder")}
           className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono"
         />
       </div>
@@ -105,13 +115,14 @@ export function NewIngredientForm({ onCreated, onCancel }: NewIngredientFormProp
       {/* Nombre español */}
       <div>
         <label className="block text-sm font-medium text-slate-300 mb-1">
-          Nombre (español) *
+          {t("inventory.purchase.new_ingredient.name_es_label")}{" "}
+          <span className="text-red-400">{t("inventory.purchase.new_ingredient.sku_required")}</span>
         </label>
         <input
           type="text"
           value={nameEs}
           onChange={(e) => setNameEs(e.target.value)}
-          placeholder="Ej: Harina"
+          placeholder={t("inventory.purchase.new_ingredient.name_es_placeholder")}
           className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
         />
       </div>
@@ -119,13 +130,14 @@ export function NewIngredientForm({ onCreated, onCancel }: NewIngredientFormProp
       {/* Nombre chino (opcional) */}
       <div>
         <label className="block text-sm font-medium text-slate-300 mb-1">
-          Nombre (中文) — opcional
+          {t("inventory.purchase.new_ingredient.name_zh_label")}{" "}
+          <span className="text-slate-500 text-xs">({t("inventory.purchase.new_ingredient.name_zh_optional")})</span>
         </label>
         <input
           type="text"
           value={nameZh}
           onChange={(e) => setNameZh(e.target.value)}
-          placeholder="Ej: 面粉"
+          placeholder={t("inventory.purchase.new_ingredient.name_zh_placeholder")}
           className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
         />
       </div>
@@ -133,13 +145,12 @@ export function NewIngredientForm({ onCreated, onCancel }: NewIngredientFormProp
       {/* Tipo de dimensión */}
       <div>
         <label className="block text-sm font-medium text-slate-300 mb-1">
-          Tipo de medición
+          {t("inventory.purchase.new_ingredient.dimension_label")}
         </label>
         <select
           value={dimensionType}
           onChange={(e) => {
             setDimensionType(e.target.value);
-            // Reset unit al cambiar dimensión
             const units = BASE_UNITS[e.target.value as keyof typeof BASE_UNITS] || [];
             setBaseUnit(units[0]?.value ?? "");
           }}
@@ -147,7 +158,7 @@ export function NewIngredientForm({ onCreated, onCancel }: NewIngredientFormProp
         >
           {DIMENSION_TYPES.map((dim) => (
             <option key={dim} value={dim}>
-              {dim === "mass" ? "Peso (masa)" : dim === "volume" ? "Volumen" : "Unidades"}
+              {dimensionLabel(dim)}
             </option>
           ))}
         </select>
@@ -156,7 +167,7 @@ export function NewIngredientForm({ onCreated, onCancel }: NewIngredientFormProp
       {/* Unidad base */}
       <div>
         <label className="block text-sm font-medium text-slate-300 mb-1">
-          Unidad base
+          {t("inventory.purchase.new_ingredient.base_unit_label")}
         </label>
         <select
           value={baseUnit}
@@ -165,7 +176,7 @@ export function NewIngredientForm({ onCreated, onCancel }: NewIngredientFormProp
         >
           {availableUnits.map((u) => (
             <option key={u.value} value={u.value}>
-              {u.label}
+              {t(u.labelKey)}
             </option>
           ))}
         </select>
@@ -174,7 +185,7 @@ export function NewIngredientForm({ onCreated, onCancel }: NewIngredientFormProp
       {/* Stock mínimo */}
       <div>
         <label className="block text-sm font-medium text-slate-300 mb-1">
-          Stock mínimo (alerta)
+          {t("inventory.purchase.new_ingredient.min_stock_label")}
         </label>
         <input
           type="number"
@@ -182,7 +193,7 @@ export function NewIngredientForm({ onCreated, onCancel }: NewIngredientFormProp
           step={0.01}
           value={minimumStock || ""}
           onChange={(e) => setMinimumStock(parseFloat(e.target.value) || 0)}
-          placeholder="Ej: 1000"
+          placeholder={t("inventory.purchase.new_ingredient.min_stock_placeholder")}
           className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono"
         />
       </div>
@@ -190,7 +201,7 @@ export function NewIngredientForm({ onCreated, onCancel }: NewIngredientFormProp
       {/* Costo inicial */}
       <div>
         <label className="block text-sm font-medium text-slate-300 mb-1">
-          Costo inicial por unidad (CLP)
+          {t("inventory.purchase.new_ingredient.initial_cost_label")}
         </label>
         <input
           type="number"
@@ -198,7 +209,7 @@ export function NewIngredientForm({ onCreated, onCancel }: NewIngredientFormProp
           step={0.01}
           value={initialCost || ""}
           onChange={(e) => setInitialCost(parseFloat(e.target.value) || 0)}
-          placeholder="Ej: 2.5"
+          placeholder={t("inventory.purchase.new_ingredient.initial_cost_placeholder")}
           className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono"
         />
       </div>
@@ -225,7 +236,7 @@ export function NewIngredientForm({ onCreated, onCancel }: NewIngredientFormProp
           onClick={onCancel}
           className="flex-1 py-2.5 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-lg transition-colors"
         >
-          Cancelar
+          {t("inventory.purchase.new_ingredient.cancel")}
         </button>
         <button
           type="submit"
@@ -235,10 +246,10 @@ export function NewIngredientForm({ onCreated, onCancel }: NewIngredientFormProp
           {createMutation.isPending ? (
             <>
               <Loader2 className="animate-spin" size={16} />
-              Creando...
+              {t("inventory.purchase.new_ingredient.submitting")}
             </>
           ) : (
-            <>Crear Insumo</>
+            <>{t("inventory.purchase.new_ingredient.submit")}</>
           )}
         </button>
       </div>
