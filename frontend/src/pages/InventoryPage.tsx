@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Search, Package, AlertTriangle, Loader2, History, Factory } from "lucide-react";
 import { useIngredients } from "@/hooks/useRecipe";
@@ -59,9 +59,12 @@ export function InventoryPage() {
   }, [ingredients]);
 
   // Seleccionar el primero automáticamente si hay ingredientes y no hay selección
-  if (!selectedUuid && filteredIngredients.length > 0) {
-    setSelectedUuid(filteredIngredients[0].uuid);
-  }
+  // (movido a useEffect para evitar setState durante render)
+  useEffect(() => {
+    if (!selectedUuid && filteredIngredients.length > 0) {
+      setSelectedUuid(filteredIngredients[0].uuid);
+    }
+  }, [selectedUuid, filteredIngredients]);
 
   if (isLoading) {
     return (
