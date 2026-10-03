@@ -5,7 +5,7 @@
 
 export enum CapabilityKey {
   CAN_SPLIT_BILLS = 'can_split_bills',
-  CAN_MANAGE_INVENTORY = 'can_manage_inventory',
+  CAN_MANAGE_RECIPES = 'can_manage_recipes',
   REQUIRES_CASHIER_SESSION = 'requires_cashier_session',
   CAN_ACCEPT_TIPS = 'can_accept_tips',
   HAS_KITCHEN_DISPLAY = 'has_kitchen_display',
@@ -41,9 +41,9 @@ export const CAPABILITY_META: Record<CapabilityKey, Omit<CapabilityInfo, 'is_ena
     icon: '📋',
     category: 'payments',
   },
-  [CapabilityKey.CAN_MANAGE_INVENTORY]: {
-    key: CapabilityKey.CAN_MANAGE_INVENTORY,
-    descriptionKey: 'capabilities.descriptions.CAN_MANAGE_INVENTORY',
+  [CapabilityKey.CAN_MANAGE_RECIPES]: {
+    key: CapabilityKey.CAN_MANAGE_RECIPES,
+    descriptionKey: 'capabilities.descriptions.CAN_MANAGE_RECIPES',
     icon: '📦',
     category: 'operations',
   },

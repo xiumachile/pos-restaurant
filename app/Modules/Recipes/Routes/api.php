@@ -14,6 +14,9 @@ Route::prefix('v1/recipes')->middleware(['auth:api', TenantContextMiddleware::cl
     Route::get('/ingredients/{uuid}', [IngredientController::class, 'show'])->name('ingredients.show');
     Route::post('/ingredients/{uuid}/purchase', [IngredientController::class, 'purchase'])->name('ingredients.purchase');
     Route::get('/ingredients/{uuid}/purchases', [IngredientController::class, 'purchases'])->name('ingredients.purchases');
+    Route::post('/ingredients/{uuid}/movements', [IngredientController::class, 'movement'])->name('ingredients.movement');
+    Route::get('/ingredients/{uuid}/movements', [IngredientController::class, 'movements'])->name('ingredients.movements');
+
 
     // ============================================
     // Recetas (Fichas Técnicas / BOM)

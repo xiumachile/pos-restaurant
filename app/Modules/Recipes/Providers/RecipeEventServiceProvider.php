@@ -5,6 +5,8 @@ namespace Modules\Recipes\Providers;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
 use Modules\Orders\Domain\Events\OrderConfirmed;
 use Modules\Recipes\Domain\Listeners\DeductRecipeOnOrderConfirm;
+use Modules\Recipes\Domain\Listeners\ReturnIngredientsOnOrderCancel;
+use Modules\Orders\Domain\Events\OrderCancelled;
 
 class RecipeEventServiceProvider extends ServiceProvider
 {
@@ -16,6 +18,9 @@ class RecipeEventServiceProvider extends ServiceProvider
     protected $listen = [
         OrderConfirmed::class => [
             DeductRecipeOnOrderConfirm::class,
+        ],
+        OrderCancelled::class => [
+            ReturnIngredientsOnOrderCancel::class,
         ],
     ];
 
