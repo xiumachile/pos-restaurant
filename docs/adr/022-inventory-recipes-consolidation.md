@@ -1,7 +1,7 @@
 # ADR-022: Consolidación de Inventory en Recipes
 
 **Fecha:** 2026-10-02
-**Estado:** ✅ Aceptada
+**Estado:** ✅ Implementada (Octubre 2026)
 **Autores:** Auditoría técnica colaborativa
 **Reemplaza:** Estado previo de deuda técnica documentado en `TECHNICAL_INVENTORY_AND_ROADMAP.md` (Sección 3)
 
@@ -121,7 +121,13 @@ Mover la lógica de Recipes a Inventory.
 
 - **Roadmap**: Sección 3 de `docs/TECHNICAL_INVENTORY_AND_ROADMAP.md`
 - **Rama de trabajo**: `feature/inventory-consolidation`
-- **Commits esperados**: ~8 commits atómicos con TDD
+- **Commits implementados**: 6 commits en `feature/inventory-consolidation`
+  - `84d1298` docs(adr)
+  - `0070fbb` test(TDD rojo)
+  - `efab124` feat(entity)
+  - `fc4d1d8` feat(API)
+  - `6a65105` feat(integración)
+  - `26f67cc` refactor(drop)
 
 ## Plan de implementación (8 bloques)
 
@@ -138,11 +144,11 @@ Mover la lógica de Recipes a Inventory.
 
 ## Criterios de aceptación
 
-- [ ] Un solo módulo (`Recipes`) maneja insumos + recetas + stock
-- [ ] Tabla `raw_ingredient_movements` con historial completo
-- [ ] Cada pedido confirmado deduce stock vía movimientos
-- [ ] Tablas `inventory_*` eliminadas
-- [ ] Capability `can_manage_inventory` eliminada
-- [ ] Suite backend: ≥1052 tests pasando
-- [ ] Frontend: pantallas de movimientos funcionales
-- [ ] ADR documentado y aceptado
+- [x] Un solo módulo (`Recipes`) maneja insumos + recetas + stock
+- [x] Tabla `raw_ingredient_movements` con historial completo
+- [x] Cada pedido confirmado deduce stock vía movimientos
+- [x] Tablas `inventory_*` eliminadas
+- [x] Capability `can_manage_inventory` → `can_manage_recipes`
+- [x] Suite backend: 1052 tests pasando, 3204 assertions
+- [ ] Frontend: pantallas de movimientos funcionales (pendiente, Fase 3.2)
+- [x] ADR documentado e implementado

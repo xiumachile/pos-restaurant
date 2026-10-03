@@ -66,13 +66,22 @@ no como parte del cierre de Fase 1. El endpoint `/menus/active` ya existe y func
   - [ ] Frontend: `TablesGrid.tsx` adaptable a `card_grid` o `compact_row`.
 
 ## 3. Stock, inventario y recetas (Ingredientes elaborados)
-- **Estado:** ⚠️ **DEUDA TÉCNICA CRÍTICA**. Dos sistemas paralelos (`Modules\Inventory` y `Modules\Recipes`) que no se hablan.
-- **Decisión Arquitectónica Pendiente:** Consolidar todo en `Recipes` (Opción A, recomendada) o mantener ambos con adaptador (Opción B).
-- **Tareas Pendientes (post-decisión):**
-  - [ ] Backend: Migraciones de `recipe_items` (tipo + FK a receta) y `product_recipes` (tipo de receta).
-  - [ ] Backend: Endpoint `POST /recipes/{id}/production-batches` para registrar producción de elaborados.
-  - [ ] Backend: Completar TODO de reserva de stock al confirmar pedido.
-  - [ ] Frontend: Pantallas "Insumos", "Producción" y editor de receta mixto.
+- **Estado:** ✅ **COMPLETADO** (Consolidación ADR-022, Octubre 2026)
+- **Decisión Arquitectónica:** Consolidado en `Recipes` (Opción A del ADR-022)
+- **Referencia:** `docs/adr/022-inventory-recipes-consolidation.md`
+- **Commits:** `84d1298`..`26f67cc` en rama `feature/inventory-consolidation`
+- **Tareas Completadas:**
+  - [x] Backend: Tabla `raw_ingredient_movements` con historial completo (commit `efab124`)
+  - [x] Backend: API de movimientos `POST/GET /ingredients/{uuid}/movements` (commit `fc4d1d8`)
+  - [x] Backend: Integración orden→receta→movimientos (commit `6a65105`)
+  - [x] Backend: Listener `ReturnIngredientsOnOrderCancel` para cancelaciones (commit `26f67cc`)
+  - [x] Backend: Eliminación completa del módulo `Inventory` (commit `26f67cc`, -2039 líneas)
+  - [x] Backend: Capability renombrada `CAN_MANAGE_INVENTORY` → `CAN_MANAGE_RECIPES`
+- **Tareas Pendientes (Fase 3.2 — UI y features nuevos):**
+  - [ ] Frontend: Pantalla "Historial de movimientos" por insumo
+  - [ ] Frontend: Pantalla "Producción" (registro de lotes elaborados)
+  - [ ] Backend: Endpoint `POST /recipes/{id}/production-batches`
+  - [ ] Frontend: Editor de receta mixto (insumos + elaborados)
 
 ## 4. Producto único / compuesto / combo
 - **Estado:** ✅ **COMPLETADO** (Backend + Frontend)

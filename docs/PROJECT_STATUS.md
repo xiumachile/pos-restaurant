@@ -84,6 +84,7 @@ ADR-013	Tenant Immutability	✅ Implementado
 ADR-014	Fail-Secure Auth	✅ Implementado
 ADR-015	Idempotencia Scoped	✅ Implementado
 ADR-016	Migración NETO → BRUTO	✅ Implementado
+ADR-022	Consolidación Inventory → Recipes	✅ Implementado (Oct 2026)
 
 🧪 Cobertura de Tests
 Backend (997 tests)
@@ -159,7 +160,7 @@ Integración con sistemas de delivery
 Documentación: /docs/
 Issues: GitHub Issues
 Email: soporte@tudominio.com
-Última actualización: 16 Septiembre 2026
+Última actualización: 03 October 2026
 Versión: 1.0.0
 Maintainer: Equipo POS Restaurant
 Estado: 🟢 PRODUCCIÓN-READY
