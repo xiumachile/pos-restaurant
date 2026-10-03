@@ -77,11 +77,16 @@ no como parte del cierre de Fase 1. El endpoint `/menus/active` ya existe y func
   - [x] Backend: Listener `ReturnIngredientsOnOrderCancel` para cancelaciones (commit `26f67cc`)
   - [x] Backend: Eliminación completa del módulo `Inventory` (commit `26f67cc`, -2039 líneas)
   - [x] Backend: Capability renombrada `CAN_MANAGE_INVENTORY` → `CAN_MANAGE_RECIPES`
-- **Tareas Pendientes (Fase 3.2 — UI y features nuevos):**
-  - [ ] Frontend: Pantalla "Historial de movimientos" por insumo
-  - [ ] Frontend: Pantalla "Producción" (registro de lotes elaborados)
-  - [ ] Backend: Endpoint `POST /recipes/{id}/production-batches`
+- **Tareas Completadas (Fase 3.2 — Octubre 2026):**
+  - [x] Backend: Endpoint `POST /recipes/production-batches` (commit `7d40e83`)
+  - [x] Frontend: Pantalla "Historial de movimientos" por insumo (commit Bloque 3)
+  - [x] Frontend: Tab "Producción" con formulario de lotes (commit Bloque 4)
+  - [x] Frontend: Tests de componentes de inventario (11 tests, commit `a584fbe`)
+- **Tareas Pendientes (Fase 3.3 — mejoras futuras):**
   - [ ] Frontend: Editor de receta mixto (insumos + elaborados)
+  - [ ] Frontend: Selector visual de productos con receta en ProductionBatchForm (actualmente usa UUID manual)
+  - [ ] Backend: Stock de productos elaborados como insumos de otras recetas
+  - [ ] Frontend: Exportar historial de movimientos a CSV
 
 ## 4. Producto único / compuesto / combo
 - **Estado:** ✅ **COMPLETADO** (Backend + Frontend)
