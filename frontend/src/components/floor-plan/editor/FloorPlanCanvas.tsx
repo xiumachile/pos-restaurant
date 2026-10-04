@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react';
 import { Stage, Layer, Rect, Line, Text } from 'react-konva';
 import { useFloorPlanStore } from '@/stores/floor-plan/floorPlanStore';
 import { FloorPlanTable } from '../objects/FloorPlanTable';
+import { FloorPlanDecoration } from '../objects/FloorPlanDecoration';
 import type { CatalogItem, FloorPlanObject } from '@/types/floor-plan/floorPlan.types';
 
 interface FloorPlanCanvasProps {
@@ -103,6 +104,11 @@ export function FloorPlanCanvas({ width, height }: FloorPlanCanvasProps) {
     x = Math.max(0, Math.min(planWidth, x));
     y = Math.max(0, Math.min(planHeight, y));
 
+    const zIndexMap: Record<string, number> = {
+      table: 10, wall: 1, column: 2, window: 2, door: 2, separator: 3,
+      decoration: 4, furniture: 5, plant: 6, service: 7, infrastructure: 1,
+    };
+
     const newObject: FloorPlanObject = {
       id: Date.now(),
       uuid: crypto.randomUUID(),
@@ -114,7 +120,7 @@ export function FloorPlanCanvas({ width, height }: FloorPlanCanvasProps) {
       width: item.defaultWidth,
       height: item.defaultHeight,
       rotation: 0,
-      z_index: 1,
+      z_index: zIndexMap[item.type] ?? 5,
       properties: item.defaultProperties,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -176,17 +182,12 @@ export function FloorPlanCanvas({ width, height }: FloorPlanCanvasProps) {
 
         {/* Capa de objetos */}
         <Layer>
-          {objects.map((obj) => {
+          {[...objects].sort((a, b) => (a.z_index ?? 0) - (b.z_index ?? 0)).map((obj) => {
+            const isSelected = editor.selectedObjectIds.includes(obj.uuid);
             if (obj.object_type === 'table') {
-              return (
-                <FloorPlanTable
-                  key={obj.uuid}
-                  object={obj}
-                  isSelected={editor.selectedObjectIds.includes(obj.uuid)}
-                />
-              );
+              return <FloorPlanTable key={obj.uuid} object={obj} isSelected={isSelected} />;
             }
-            return null;
+            return <FloorPlanDecoration key={obj.uuid} object={obj} isSelected={isSelected} />;
           })}
         </Layer>
       </Stage>

@@ -23,10 +23,10 @@ export function FloorPlanProperties() {
   const [localReference, setLocalReference] = useState('');
 
   useEffect(() => {
-    if (selectedObject?.object_type === 'table') {
-      const props = selectedObject.properties as TableProperties;
-      setLocalLabel(props.label ?? '');
-      setLocalReference(props.reference ?? '');
+    if (selectedObject) {
+      const props = selectedObject.properties as any;
+      setLocalLabel(props?.label ?? '');
+      setLocalReference(props?.reference ?? '');
     }
   }, [selectedObject]);
 
