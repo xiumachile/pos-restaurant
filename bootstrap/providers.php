@@ -12,4 +12,6 @@ return [
     Modules\Branches\Providers\BranchesServiceProvider::class,
     Modules\Catalog\Providers\CatalogServiceProvider::class,
     Modules\Tables\Providers\TablesServiceProvider::class,
+    Modules\FloorPlan\Providers\FloorPlanServiceProvider::class,
 ];
+
