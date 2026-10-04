@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useFloorPlanStore } from '@/stores/floor-plan/floorPlanStore';
-import { useState } from 'react';
 import { AreaManagementModal } from '@/components/areas/AreaManagementModal';
 import { TableManagementPanel } from '@/components/tables/TableManagementPanel';
 import { useTranslation } from 'react-i18next';
