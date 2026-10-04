@@ -13,6 +13,8 @@ use Modules\Branches\Domain\Entities\Branch;
 use Modules\Companies\Domain\Entities\Company;
 use Modules\Tables\Domain\Exceptions\InvalidTableStatusTransition;
 use Modules\Tables\Domain\Services\TableStateMachine;
+use Modules\Tables\Domain\Entities\DiningZone;
+use Modules\Tables\Domain\ValueObjects\TableShape;
 use Modules\Tables\Domain\ValueObjects\TableStatus;
 
 class RestaurantTable extends Model
@@ -26,10 +28,17 @@ class RestaurantTable extends Model
     protected $fillable = [
         'company_id',
         'branch_id',
+        'zone_id',
         'area_code',
         'area_name_translations',
         'table_number',
         'capacity',
+        'position_x',
+        'position_y',
+        'rotation',
+        'shape',
+        'width',
+        'height',
         'status',
         'current_order_id',
     ];
@@ -37,6 +46,12 @@ class RestaurantTable extends Model
     protected $casts = [
         'area_name_translations' => 'array',
         'capacity' => 'integer',
+        'position_x' => 'integer',
+        'position_y' => 'integer',
+        'rotation' => 'integer',
+        'shape' => TableShape::class,
+        'width' => 'integer',
+        'height' => 'integer',
         'status' => TableStatus::class,
     ];
 
@@ -62,9 +77,17 @@ class RestaurantTable extends Model
         return $this->belongsTo(Company::class);
     }
 
-    public function branch(): BelongsTo
+public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    /**
+     * Zona del floor plan a la que pertenece esta mesa.
+     */
+    public function zone(): BelongsTo
+    {
+        return $this->belongsTo(DiningZone::class, 'zone_id');
     }
 
     /**
@@ -90,9 +113,14 @@ class RestaurantTable extends Model
         return $query->where('status', TableStatus::Occupied);
     }
 
-    public function scopeInArea($query, string $areaCode)
+public function scopeInArea($query, string $areaCode)
     {
         return $query->where('area_code', $areaCode);
+    }
+
+    public function scopeInZone($query, int $zoneId)
+    {
+        return $query->where('zone_id', $zoneId);
     }
 
     public function scopeOrdered($query)
