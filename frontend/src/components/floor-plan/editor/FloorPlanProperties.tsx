@@ -2,13 +2,23 @@ import { useState, useEffect } from 'react';
 import { useFloorPlanStore } from '@/stores/floor-plan/floorPlanStore';
 import { useRestaurantTables } from '@/hooks/floor-plan/useRestaurantTables';
 import type { FloorPlanObject, TableProperties, ChairPosition } from '@/types/floor-plan/floorPlan.types';
-import { Trash2, Copy, Lock, Unlock, RotateCw, Link, CheckCircle } from 'lucide-react';
+import {
+  Trash2,
+  Copy,
+  RotateCw,
+  Link2,
+  CheckCircle,
+  Info,
+  Hash,
+} from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 /**
- * Panel derecho: propiedades del objeto seleccionado.
- * Sección 4.1 de la especificación técnica.
+ * Panel derecho con propiedades del objeto seleccionado.
+ * Rediseñado para ser claro y entendible por usuarios no técnicos.
  */
 export function FloorPlanProperties() {
+  const { t } = useTranslation();
   const {
     objects,
     editor,
@@ -16,28 +26,35 @@ export function FloorPlanProperties() {
     deleteObject,
     deleteObjects,
     pushHistory,
+    duplicateSelected,
   } = useFloorPlanStore();
 
-  const { tables, availableTables, loading: tablesLoading, isTableLinked } = useRestaurantTables();
+  const { tables, isTableLinked } = useRestaurantTables();
+
   const selectedId = editor.selectedObjectIds[0];
   const selectedObject = objects.find((o) => o.uuid === selectedId) ?? null;
+
   const [localLabel, setLocalLabel] = useState('');
   const [localReference, setLocalReference] = useState('');
+  const [localNumber, setLocalNumber] = useState('');
 
   useEffect(() => {
     if (selectedObject) {
       const props = selectedObject.properties as any;
       setLocalLabel(props?.label ?? '');
       setLocalReference(props?.reference ?? '');
+      setLocalNumber(props?.number ?? props?.label ?? '');
     }
   }, [selectedObject]);
 
   if (!selectedObject) {
     return (
-      <div className="w-80 bg-white border-l border-gray-200 overflow-y-auto p-4">
-        <h2 className="text-lg font-bold text-gray-800 mb-4">Propiedades</h2>
-        <p className="text-sm text-gray-500">
-          Selecciona un objeto en el plano para ver y editar sus propiedades.
+      <div className="w-80 bg-white dark:bg-slate-900 border-l border-gray-200 dark:border-slate-800 overflow-y-auto p-4">
+        <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-4">
+          {t('floor_plan.properties.title', 'Propiedades')}
+        </h2>
+        <p className="text-sm text-gray-500 dark:text-slate-400">
+          {t('floor_plan.properties.select_hint', 'Selecciona un objeto en el plano para ver y editar sus propiedades.')}
         </p>
       </div>
     );
@@ -58,6 +75,11 @@ export function FloorPlanProperties() {
   };
 
   const handleDelete = () => {
+    const confirmed = confirm(
+      t('floor_plan.properties.delete_confirm', '¿Eliminar este objeto del plano?')
+    );
+    if (!confirmed) return;
+
     pushHistory({ type: 'DELETE_OBJECT', objectId: selectedObject.uuid, object: selectedObject });
     deleteObject(selectedObject.uuid);
   };
@@ -100,236 +122,351 @@ export function FloorPlanProperties() {
     '#654321', '#2F4F4F', '#556B2F', '#8B0000',
   ];
 
+  // Para vinculación: vincular la mesa gráfica con una mesa operativa
+  const handleLinkTable = (tableUuid: string | null) => {
+    const selectedTable = tables.find(t => t.uuid === tableUuid);
+    useFloorPlanStore.getState().linkTableToObject(
+      selectedObject.uuid,
+      tableUuid,
+      selectedTable?.table_number
+    );
+  };
+
   return (
-    <div className="w-80 bg-white border-l border-gray-200 overflow-y-auto">
+    <div className="w-80 bg-white dark:bg-slate-900 border-l border-gray-200 dark:border-slate-800 overflow-y-auto">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 bg-gray-50">
-        <h2 className="text-lg font-bold text-gray-800">Propiedades</h2>
-        <p className="text-xs text-gray-500 mt-1 capitalize">
-          {selectedObject.object_type} · {selectedObject.uuid.slice(0, 8)}
+      <div className="p-4 border-b border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-800 sticky top-0 z-10">
+        <h2 className="text-lg font-bold text-gray-800 dark:text-white">
+          {t('floor_plan.properties.title', 'Propiedades')}
+        </h2>
+        <p className="text-xs text-gray-500 dark:text-slate-400 mt-1 capitalize">
+          {t(`floor_plan.object_type.${selectedObject.object_type}`, selectedObject.object_type)}
+          {' · '}{selectedObject.uuid.slice(0, 8)}
         </p>
       </div>
 
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-5">
         {/* ===== ACCIONES RÁPIDAS ===== */}
         <section>
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">Acciones</h3>
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300 mb-2 uppercase tracking-wide">
+            {t('floor_plan.properties.actions', 'Acciones')}
+          </h3>
           <div className="grid grid-cols-3 gap-2">
             <button
               onClick={handleRotate90}
-              className="flex flex-col items-center gap-1 p-2 border border-gray-200 rounded hover:bg-gray-50 text-xs"
-              title="Rotar 90°"
+              className="flex flex-col items-center gap-1 p-2 border border-gray-200 dark:border-slate-700 rounded hover:bg-gray-50 dark:hover:bg-slate-800 text-xs text-gray-700 dark:text-slate-300 transition-colors"
+              title={t('floor_plan.properties.rotate_90', 'Rotar 90°')}
             >
               <RotateCw size={16} />
-              <span>Rotar 90°</span>
+              <span>{t('floor_plan.properties.rotate', 'Rotar')}</span>
             </button>
             <button
-              onClick={() => {
-                // TODO: duplicar (implementar en store)
-                alert('Duplicar: Ctrl+D');
-              }}
-              className="flex flex-col items-center gap-1 p-2 border border-gray-200 rounded hover:bg-gray-50 text-xs"
+              onClick={duplicateSelected}
+              className="flex flex-col items-center gap-1 p-2 border border-gray-200 dark:border-slate-700 rounded hover:bg-gray-50 dark:hover:bg-slate-800 text-xs text-gray-700 dark:text-slate-300 transition-colors"
+              title={t('floor_plan.properties.duplicate', 'Duplicar (Ctrl+D)')}
             >
               <Copy size={16} />
-              <span>Duplicar</span>
+              <span>{t('floor_plan.properties.duplicate_short', 'Duplicar')}</span>
             </button>
             <button
               onClick={handleDelete}
-              className="flex flex-col items-center gap-1 p-2 border border-red-200 rounded hover:bg-red-50 text-xs text-red-600"
+              className="flex flex-col items-center gap-1 p-2 border border-red-200 dark:border-red-900 rounded hover:bg-red-50 dark:hover:bg-red-900/30 text-xs text-red-600 dark:text-red-400 transition-colors"
+              title={t('floor_plan.properties.delete', 'Eliminar (Delete)')}
             >
               <Trash2 size={16} />
-              <span>Eliminar</span>
+              <span>{t('floor_plan.properties.delete_short', 'Eliminar')}</span>
             </button>
           </div>
         </section>
 
+        {/* ===== VINCULACIÓN CON MESA REAL (solo para mesas) ===== */}
+        {isTable && (
+          <section className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-900 rounded-lg p-3">
+            <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-2 flex items-center gap-2">
+              <Link2 size={14} />
+              {t('floor_plan.properties.link_table_title', 'Conectar con mesa real del restaurante')}
+            </h3>
+            <p className="text-xs text-blue-700 dark:text-blue-300 mb-3 flex items-start gap-1.5">
+              <Info size={12} className="flex-shrink-0 mt-0.5" />
+              <span>
+                {t('floor_plan.properties.link_table_help',
+                  'Asocia este dibujo con una mesa física del restaurante. Esto permite al garzón abrir pedidos directamente desde el plano.')}
+              </span>
+            </p>
+
+            <label className="block text-xs font-medium text-blue-900 dark:text-blue-200 mb-1">
+              {t('floor_plan.properties.select_real_table', 'Selecciona la mesa real:')}
+            </label>
+            <select
+              value={selectedObject.object_key ?? ''}
+              onChange={(e) => handleLinkTable(e.target.value || null)}
+              className="w-full px-3 py-2 border border-blue-300 dark:border-blue-800 rounded text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">{t('floor_plan.properties.not_assigned', '— Aún no asignada —')}</option>
+              {tables.map((table) => {
+                const isLinkedElsewhere = isTableLinked(table.uuid) && selectedObject.object_key !== table.uuid;
+                return (
+                  <option
+                    key={table.uuid}
+                    value={table.uuid}
+                    disabled={isLinkedElsewhere}
+                  >
+                    Mesa {table.table_number} ({table.capacity} personas)
+                    {isLinkedElsewhere ? ' [ya usada]' : ''}
+                  </option>
+                );
+              })}
+            </select>
+
+            {selectedObject.object_key && (
+              <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-1.5 rounded">
+                <CheckCircle size={12} />
+                <span className="font-medium">
+                  {t('floor_plan.properties.connected_to', 'Conectada con mesa real')}
+                </span>
+              </div>
+            )}
+
+            {!selectedObject.object_key && (
+              <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-1.5 rounded">
+                <Info size={12} />
+                <span>
+                  {t('floor_plan.properties.not_connected_warning',
+                    'Esta mesa no está conectada con una mesa real. Los garzones no podrán abrir pedidos desde aquí.')}
+                </span>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ===== IDENTIFICACIÓN VISUAL ===== */}
+        {isTable && tableProps && (
+          <section>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300 mb-2 uppercase tracking-wide flex items-center gap-2">
+              <Hash size={14} />
+              {t('floor_plan.properties.visual_id', 'Identificación visual')}
+            </h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1">
+                  {t('floor_plan.properties.display_number', 'Número visible en el plano')}
+                </label>
+                <input
+                  type="text"
+                  value={localLabel}
+                  onChange={(e) => setLocalLabel(e.target.value)}
+                  onBlur={() => handleUpdateTableProps({ label: localLabel })}
+                  maxLength={10}
+                  placeholder="Ej: 01, VIP, T5"
+                  className="w-full px-3 py-1.5 border border-gray-300 dark:border-slate-700 rounded text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-white"
+                />
+                <p className="text-xs text-gray-500 dark:text-slate-500 mt-1">
+                  {t('floor_plan.properties.display_number_help',
+                    'Este es el número que ven los garzones en pantalla.')}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1">
+                  {t('floor_plan.properties.reference', 'Referencia física (opcional)')}
+                </label>
+                <input
+                  type="text"
+                  value={localReference}
+                  onChange={(e) => setLocalReference(e.target.value)}
+                  onBlur={() => handleUpdateTableProps({ reference: localReference })}
+                  placeholder="Ej: Junto a la ventana, Frente a la barra"
+                  className="w-full px-3 py-1.5 border border-gray-300 dark:border-slate-700 rounded text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-white"
+                />
+                <p className="text-xs text-gray-500 dark:text-slate-500 mt-1">
+                  {t('floor_plan.properties.reference_help',
+                    'Descripción que ayuda al garzón a ubicar la mesa física en el salón.')}
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* ===== POSICIÓN Y TAMAÑO ===== */}
         <section>
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">Posición y tamaño</h3>
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300 mb-2 uppercase tracking-wide">
+            {t('floor_plan.properties.position_size', 'Posición y tamaño')}
+          </h3>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-xs text-gray-500">X</label>
+              <label className="text-xs text-gray-500 dark:text-slate-400">X</label>
               <input
                 type="number"
                 value={selectedObject.x}
                 onChange={(e) => handleUpdate({ x: parseInt(e.target.value) || 0 })}
-                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                className="w-full px-2 py-1 border border-gray-300 dark:border-slate-700 rounded text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-white"
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500">Y</label>
+              <label className="text-xs text-gray-500 dark:text-slate-400">Y</label>
               <input
                 type="number"
                 value={selectedObject.y}
                 onChange={(e) => handleUpdate({ y: parseInt(e.target.value) || 0 })}
-                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                className="w-full px-2 py-1 border border-gray-300 dark:border-slate-700 rounded text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-white"
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500">Ancho</label>
+              <label className="text-xs text-gray-500 dark:text-slate-400">
+                {t('floor_plan.properties.width', 'Ancho')}
+              </label>
               <input
                 type="number"
                 value={selectedObject.width ?? 0}
                 onChange={(e) => handleUpdate({ width: parseInt(e.target.value) || 0 })}
-                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                className="w-full px-2 py-1 border border-gray-300 dark:border-slate-700 rounded text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-white"
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500">Alto</label>
+              <label className="text-xs text-gray-500 dark:text-slate-400">
+                {t('floor_plan.properties.height', 'Alto')}
+              </label>
               <input
                 type="number"
                 value={selectedObject.height ?? 0}
                 onChange={(e) => handleUpdate({ height: parseInt(e.target.value) || 0 })}
-                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                className="w-full px-2 py-1 border border-gray-300 dark:border-slate-700 rounded text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-white"
               />
             </div>
             <div className="col-span-2">
-              <label className="text-xs text-gray-500">Rotación (°)</label>
+              <label className="text-xs text-gray-500 dark:text-slate-400">
+                {t('floor_plan.properties.rotation', 'Rotación (°)')}
+              </label>
               <input
                 type="number"
                 value={selectedObject.rotation ?? 0}
                 onChange={(e) => handleUpdate({ rotation: parseInt(e.target.value) || 0 })}
-                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                className="w-full px-2 py-1 border border-gray-300 dark:border-slate-700 rounded text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-white"
               />
             </div>
           </div>
         </section>
 
-        {/* ===== PROPIEDADES DE MESA ===== */}
+        {/* ===== COLOR DE MESA ===== */}
         {isTable && tableProps && (
-          <>
-            <section>
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">Identificación</h3>
-              <div className="space-y-2">
-                <div>
-                  <label className="text-xs text-gray-500">Número / Etiqueta</label>
-                  <input
-                    type="text"
-                    value={localLabel}
-                    onChange={(e) => setLocalLabel(e.target.value)}
-                    onBlur={() => handleUpdateTableProps({ label: localLabel })}
-                    maxLength={10}
-                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500">Referencia</label>
-                  <input
-                    type="text"
-                    value={localReference}
-                    onChange={(e) => setLocalReference(e.target.value)}
-                    onBlur={() => handleUpdateTableProps({ reference: localReference })}
-                    placeholder="Junto a la ventana"
-                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                  />
-                </div>
-              </div>
+          <section>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300 mb-2 uppercase tracking-wide">
+              {t('floor_plan.properties.table_color', 'Color de la mesa')}
+            </h3>
+            <div className="flex gap-2 flex-wrap">
+              {PRESET_COLORS.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => handleUpdateTableProps({ color: c })}
+                  className={`w-8 h-8 rounded border-2 transition-transform hover:scale-110 ${
+                    tableProps.color === c ? 'border-blue-500 ring-2 ring-blue-300' : 'border-gray-300 dark:border-slate-700'
+                  }`}
+                  style={{ backgroundColor: c }}
+                  title={c}
+                />
+              ))}
+              <input
+                type="color"
+                value={tableProps.color}
+                onChange={(e) => handleUpdateTableProps({ color: e.target.value })}
+                className="w-8 h-8 rounded cursor-pointer border border-gray-300 dark:border-slate-700"
+                title={t('floor_plan.properties.custom_color', 'Color personalizado')}
+              />
+            </div>
+          </section>
+        )}
 
-            <section>
-              <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                <Link size={14} />
-                Vinculación operativa
-              </h3>
-              <p className="text-xs text-gray-500 mb-2">
-                Asocia este objeto gráfico con una mesa real del sistema.
-              </p>
-              <select
-                value={selectedObject.object_key ?? ''}
-                onChange={(e) => {
-                  const tableUuid = e.target.value || null;
-                  const selectedTable = tables.find(t => t.uuid === tableUuid);
-                  useFloorPlanStore.getState().linkTableToObject(
-                    selectedObject.uuid,
-                    tableUuid,
-                    selectedTable?.table_number
-                  );
-                }}
-                disabled={tablesLoading}
-                className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm bg-white"
-              >
-                <option value="">-- Sin vincular --</option>
-                {tables.map((table) => {
-                  const isLinkedElsewhere = isTableLinked(table.uuid) && selectedObject.object_key !== table.uuid;
-                  return (
-                    <option
-                      key={table.uuid}
-                      value={table.uuid}
-                      disabled={isLinkedElsewhere}
+        {/* ===== SILLAS ===== */}
+        {isTable && tableProps && (
+          <section>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300 mb-2 uppercase tracking-wide">
+              {t('floor_plan.properties.chairs', 'Sillas')} ({tableProps.chairs.length})
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-slate-400 mb-2">
+              {t('floor_plan.properties.chairs_help',
+                'Haz clic para agregar una silla en esa posición. Las sillas ayudan al garzón a reconocer la mesa física.')}
+            </p>
+            <div className="grid grid-cols-4 gap-1 mb-2">
+              {CHAIR_POSITIONS.map((pos) => (
+                <button
+                  key={pos}
+                  onClick={() => addChair(pos)}
+                  className="text-xs px-1 py-1.5 border border-gray-200 dark:border-slate-700 rounded hover:bg-gray-50 dark:hover:bg-slate-800 capitalize text-gray-700 dark:text-slate-300 transition-colors"
+                  title={t('floor_plan.properties.add_chair', 'Agregar silla {{position}}', { position: pos })}
+                >
+                  {t(`floor_plan.chair_position.${pos}`, pos.replace('-', ' '))}
+                </button>
+              ))}
+            </div>
+            {tableProps.chairs.length > 0 && (
+              <div className="space-y-1 max-h-40 overflow-y-auto">
+                {tableProps.chairs.map((chair, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between text-xs bg-gray-50 dark:bg-slate-800 px-2 py-1.5 rounded"
+                  >
+                    <span className="capitalize text-gray-700 dark:text-slate-300">
+                      {t(`floor_plan.chair_position.${chair.position}`, chair.position.replace('-', ' '))}
+                    </span>
+                    <button
+                      onClick={() => removeChairAt(idx)}
+                      className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                      title={t('floor_plan.properties.remove_chair', 'Quitar silla')}
                     >
-                      Mesa {table.table_number} ({table.capacity}p)
-                      {isLinkedElsewhere ? ' [vinculada]' : ''}
-                    </option>
-                  );
-                })}
-              </select>
-              {selectedObject.object_key && (
-                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                  <CheckCircle size={12} />
-                  Vinculada a mesa operativa
-                </p>
-              )}
-            </section>
-
-            </section>
-
-            <section>
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">Color de superficie</h3>
-              <div className="flex gap-2 flex-wrap">
-                {PRESET_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => handleUpdateTableProps({ color: c })}
-                    className={`w-8 h-8 rounded border-2 ${
-                      tableProps.color === c ? 'border-blue-500' : 'border-gray-300'
-                    }`}
-                    style={{ backgroundColor: c }}
-                  />
+                      ✕
+                    </button>
+                  </div>
                 ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ===== PROPIEDADES GENÉRICAS DE DECORACIÓN ===== */}
+        {!isTable && (
+          <section>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300 mb-2 uppercase tracking-wide">
+              {t('floor_plan.properties.identification', 'Identificación')}
+            </h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-600 dark:text-slate-400">
+                  {t('floor_plan.properties.label', 'Etiqueta')}
+                </label>
                 <input
-                  type="color"
-                  value={tableProps.color}
-                  onChange={(e) => handleUpdateTableProps({ color: e.target.value })}
-                  className="w-8 h-8 rounded cursor-pointer"
+                  type="text"
+                  value={localLabel}
+                  onChange={(e) => setLocalLabel(e.target.value)}
+                  onBlur={() => {
+                    const currentProps = (selectedObject.properties as any) ?? {};
+                    handleUpdate({
+                      properties: { ...currentProps, label: localLabel },
+                    });
+                  }}
+                  placeholder={t('floor_plan.properties.label_placeholder', 'Ej: Planta del rincón')}
+                  className="w-full px-3 py-1.5 border border-gray-300 dark:border-slate-700 rounded text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-white"
                 />
               </div>
-            </section>
-
-            <section>
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">
-                Sillas ({tableProps.chairs.length})
-              </h3>
-              <div className="grid grid-cols-4 gap-1 mb-2">
-                {CHAIR_POSITIONS.map((pos) => (
-                  <button
-                    key={pos}
-                    onClick={() => addChair(pos)}
-                    className="text-xs px-1 py-1 border border-gray-200 rounded hover:bg-gray-50 capitalize"
-                    title={`Agregar silla ${pos}`}
-                  >
-                    {pos.replace('-', ' ')}
-                  </button>
-                ))}
+              <div>
+                <label className="text-xs text-gray-600 dark:text-slate-400">
+                  {t('floor_plan.properties.reference', 'Referencia (opcional)')}
+                </label>
+                <input
+                  type="text"
+                  value={localReference}
+                  onChange={(e) => setLocalReference(e.target.value)}
+                  onBlur={() => {
+                    const currentProps = (selectedObject.properties as any) ?? {};
+                    handleUpdate({
+                      properties: { ...currentProps, reference: localReference },
+                    });
+                  }}
+                  placeholder={t('floor_plan.properties.reference_placeholder', 'Ej: Junto a la puerta')}
+                  className="w-full px-3 py-1.5 border border-gray-300 dark:border-slate-700 rounded text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-white"
+                />
               </div>
-              {tableProps.chairs.length > 0 && (
-                <div className="space-y-1 max-h-40 overflow-y-auto">
-                  {tableProps.chairs.map((chair, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between text-xs bg-gray-50 px-2 py-1 rounded"
-                    >
-                      <span className="capitalize">{chair.position.replace('-', ' ')}</span>
-                      <button
-                        onClick={() => removeChairAt(idx)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          </>
+            </div>
+          </section>
         )}
       </div>
     </div>
