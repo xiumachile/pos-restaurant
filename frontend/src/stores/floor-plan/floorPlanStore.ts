@@ -24,11 +24,11 @@ interface FloorPlanStore {
   setObjects: (objects: FloorPlanObject[]) => void;
   addObject: (object: FloorPlanObject) => void;
   updateObject: (objectId: string, changes: Partial<FloorPlanObject>) => void;
-  moveObject: (objectId: string, x: number, y: number) => void;
   deleteObject: (objectId: string) => void;
   deleteObjects: (objectIds: string[]) => void;
   duplicateObject: (objectId: string) => FloorPlanObject | null;
   duplicateSelected: () => void;
+  moveObject: (objectId: string, x: number, y: number) => void;
 
   // Acciones del editor
   selectObject: (objectId: string, addToSelection?: boolean) => void;
@@ -124,6 +124,53 @@ export const useFloorPlanStore = create<FloorPlanStore>((set, get) => ({
         selectedObjectIds: [],
       },
     })),
+
+  duplicateObject: (objectId) => {
+    const state = get();
+    const original = state.objects.find((obj) => obj.uuid === objectId);
+    if (!original || !state.currentPlan) return null;
+
+    const duplicate: FloorPlanObject = {
+      ...original,
+      id: Date.now(),
+      uuid: crypto.randomUUID(),
+      x: original.x + 40,
+      y: original.y + 40,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    set({ objects: [...state.objects, duplicate] });
+    state.pushHistory({ type: 'CREATE_OBJECT', object: duplicate });
+    return duplicate;
+  },
+
+  duplicateSelected: () => {
+    const state = get();
+    const newSelection: string[] = [];
+
+    state.editor.selectedObjectIds.forEach((id) => {
+      const original = state.objects.find((obj) => obj.uuid === id);
+      if (original && state.currentPlan) {
+        const duplicate: FloorPlanObject = {
+          ...original,
+          id: Date.now() + newSelection.length,
+          uuid: crypto.randomUUID(),
+          x: original.x + 40,
+          y: original.y + 40,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        set({ objects: [...get().objects, duplicate] });
+        state.pushHistory({ type: 'CREATE_OBJECT', object: duplicate });
+        newSelection.push(duplicate.uuid);
+      }
+    });
+
+    if (newSelection.length > 0) {
+      state.selectObjects(newSelection);
+    }
+  },
 
   // Acciones del editor
   selectObject: (objectId, addToSelection = false) =>
