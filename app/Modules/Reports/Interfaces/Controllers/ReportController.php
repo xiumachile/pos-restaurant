@@ -3,9 +3,9 @@
 namespace Modules\Reports\Interfaces\Controllers;
 
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Modules\Reports\Domain\Services\ReportService;
+use Modules\Reports\Interfaces\Requests\ReportFilterRequest;
 
 class ReportController extends Controller
 {
@@ -15,33 +15,44 @@ class ReportController extends Controller
 
     /**
      * GET /api/v1/reports/dashboard
-     * KPIs del día (ventas, órdenes, ticket promedio, propinas)
+     * KPIs con filtro de fechas
      */
-    public function dashboard(Request $request): JsonResponse
+    public function dashboard(ReportFilterRequest $request): JsonResponse
     {
         $user = $request->user();
+        $range = $request->getDateRange(7); // Default 7 días
+
         $kpis = $this->reportService->getDashboardKPIs(
             $user->company_id,
-            $user->branch_id
+            $user->branch_id,
+            $range['from'],
+            $range['to']
         );
 
-        return response()->json(['data' => $kpis]);
+        return response()->json([
+            'data' => $kpis,
+            'filters' => [
+                'from' => $range['from']->toIso8601String(),
+                'to' => $range['to']->toIso8601String(),
+            ],
+        ]);
     }
 
     /**
      * GET /api/v1/reports/top-products
-     * Ranking de productos más vendidos
+     * Ranking con filtro de fechas
      */
-    public function topProducts(Request $request): JsonResponse
+    public function topProducts(ReportFilterRequest $request): JsonResponse
     {
         $user = $request->user();
-        $days = (int) $request->query('days', 7);
+        $range = $request->getDateRange(7);
         $limit = min((int) $request->query('limit', 10), 50);
 
         $products = $this->reportService->getTopProducts(
             $user->company_id,
             $user->branch_id,
-            $days,
+            $range['from'],
+            $range['to'],
             $limit
         );
 
@@ -50,17 +61,18 @@ class ReportController extends Controller
 
     /**
      * GET /api/v1/reports/sales-by-hour
-     * Distribución horaria de ventas
+     * Distribución horaria con filtro de fechas
      */
-    public function salesByHour(Request $request): JsonResponse
+    public function salesByHour(ReportFilterRequest $request): JsonResponse
     {
         $user = $request->user();
-        $days = (int) $request->query('days', 7);
+        $range = $request->getDateRange(7);
 
         $hourly = $this->reportService->getSalesByHour(
             $user->company_id,
             $user->branch_id,
-            $days
+            $range['from'],
+            $range['to']
         );
 
         return response()->json(['data' => $hourly]);
@@ -68,17 +80,18 @@ class ReportController extends Controller
 
     /**
      * GET /api/v1/reports/payment-methods
-     * Distribución por método de pago
+     * Métodos de pago con filtro de fechas
      */
-    public function paymentMethods(Request $request): JsonResponse
+    public function paymentMethods(ReportFilterRequest $request): JsonResponse
     {
         $user = $request->user();
-        $days = (int) $request->query('days', 30);
+        $range = $request->getDateRange(30); // Default 30 días
 
         $methods = $this->reportService->getPaymentMethods(
             $user->company_id,
             $user->branch_id,
-            $days
+            $range['from'],
+            $range['to']
         );
 
         return response()->json(['data' => $methods]);
