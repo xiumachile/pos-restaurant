@@ -1217,7 +1217,10 @@
     "save_error": "Error al guardar la mesa",
     "delete_success": "Mesa eliminada correctamente",
     "delete_error": "Error al eliminar la mesa",
-    "delete_confirm": "¿Estás seguro de eliminar la mesa {number}?\n\nEsta acción no se puede deshacer."
+    "delete_confirm": "¿Eliminar la mesa {number}? Esta acción no se puede deshacer.",
+    "title": "Mesas del restaurante",
+    "no_tables": "No hay mesas creadas. Crea la primera mesa.",
+    "delete_table": "Eliminar mesa"
   },
   "areas": {
     "MAIN": "Salón Principal",

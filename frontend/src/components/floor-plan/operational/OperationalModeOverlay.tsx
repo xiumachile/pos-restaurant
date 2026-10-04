@@ -135,11 +135,16 @@ export function OperationalModeOverlay({ onTableClick }: OperationalModeOverlayP
               {selectedTableInfo.linkedTable && selectedTableInfo.linkedTable.status === 'available' && (
                 <button
                   onClick={() => {
-                    // Navegar a toma de pedido
-                    if (onTableClick && selectedTableInfo.objectKey) {
-                      onTableClick(selectedTableInfo.objectKey, selectedTableInfo.label);
-                    }
+                    // Cerrar popup PRIMERO, luego navegar
+                    const info = selectedTableInfo;
                     setSelectedTableInfo(null);
+                    selectObject('', false);
+                    // Usar setTimeout para asegurar que el popup se cierre antes de navegar
+                    setTimeout(() => {
+                      if (onTableClick && info?.objectKey) {
+                        onTableClick(info.objectKey, info.label);
+                      }
+                    }, 50);
                   }}
                   className="w-full px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded font-medium text-sm flex items-center justify-center gap-2"
                 >
@@ -150,11 +155,14 @@ export function OperationalModeOverlay({ onTableClick }: OperationalModeOverlayP
               {selectedTableInfo.linkedTable && selectedTableInfo.linkedTable.status === 'occupied' && (
                 <button
                   onClick={() => {
-                    // Navegar a ver pedido
-                    if (onTableClick && selectedTableInfo.objectKey) {
-                      onTableClick(selectedTableInfo.objectKey, selectedTableInfo.label);
-                    }
+                    const info = selectedTableInfo;
                     setSelectedTableInfo(null);
+                    selectObject('', false);
+                    setTimeout(() => {
+                      if (onTableClick && info?.objectKey) {
+                        onTableClick(info.objectKey, info.label);
+                      }
+                    }, 50);
                   }}
                   className="w-full px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded font-medium text-sm flex items-center justify-center gap-2"
                 >

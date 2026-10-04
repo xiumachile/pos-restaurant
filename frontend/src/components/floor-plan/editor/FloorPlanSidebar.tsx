@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useFloorPlanStore } from '@/stores/floor-plan/floorPlanStore';
+import { TableManagementPanel } from '@/components/tables/TableManagementPanel';
 import { useTranslation } from 'react-i18next';
 import { useTableManagement } from '@/hooks/useTableManagement';
 import { TableManagementModal } from '@/components/tables/TableManagementModal';
@@ -120,13 +121,7 @@ export function FloorPlanSidebar() {
           <Armchair size={18} />
           Biblioteca
         </h2>
-        <button
-          onClick={() => tableManagement.openCreateModal()}
-          className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded text-sm font-medium transition-colors"
-        >
-          <Settings size={16} />
-          {t('floor_plan.sidebar.manage_tables', 'Gestionar mesas')}
-        </button>
+        
 
         <p className="text-xs text-gray-500 mt-1">
           Arrastra elementos al plano
@@ -154,6 +149,8 @@ export function FloorPlanSidebar() {
           )}
         </div>
       </div>
+    
+      <TableManagementPanel />
     </div>
   );
 }

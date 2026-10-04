@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useFloorPlanStore } from '@/stores/floor-plan/floorPlanStore';
 import { FloorPlanCanvas } from './editor/FloorPlanCanvas';
 import { FloorPlanToolbar } from './editor/FloorPlanToolbar';
@@ -14,24 +14,13 @@ interface FloorPlanViewProps {
   isEditMode: boolean;
   onToggleEditMode?: () => void;
   onTableClick?: (tableUuid: string, tableNumber: string) => void;
-  showModeToggle?: boolean; // Controla si se muestra el botón de toggle
+  showModeToggle?: boolean;
 }
 
-/**
- * Componente principal del plano que sirve tanto para:
- * - Vista operativa (garzón): solo lectura, click en mesa abre pedido
- * - Modo edición (admin): con sidebar, propiedades y herramientas
- */
 export function FloorPlanView({ isEditMode, onToggleEditMode, onTableClick, showModeToggle = true }: FloorPlanViewProps) {
-  const { editor, setCurrentPlan, setObjects } = useFloorPlanStore();
+  const { editor, setCurrentPlan, setObjects, reset } = useFloorPlanStore();
   const { save, hasChanges, isSaving, lastSavedAt } = useFloorPlanPersistence();
   const [canvasSize, setCanvasSize] = useState({ width: 1000, height: 700 });
-
-  // Atajos de teclado solo en modo edición
-  useEffect(() => {
-    if (!isEditMode) return;
-    // useFloorPlanKeyboard ya maneja esto internamente
-  }, [isEditMode]);
 
   useFloorPlanKeyboard();
 
@@ -48,15 +37,6 @@ export function FloorPlanView({ isEditMode, onToggleEditMode, onTableClick, show
     return () => window.removeEventListener('keydown', handleSave);
   }, [save, isEditMode]);
 
-  // Limpiar estado al desmontar (evita residuos al navegar)
-  useEffect(() => {
-    return () => {
-      const { clearSelection, setEditorMode } = useFloorPlanStore.getState();
-      clearSelection();
-      setEditorMode('select');
-    };
-  }, []);
-
   // Cargar plano al iniciar
   useEffect(() => {
     if (!localStorageService.hasStoredPlan()) {
@@ -71,11 +51,7 @@ export function FloorPlanView({ isEditMode, onToggleEditMode, onTableClick, show
         height: 1800,
         scale: 100,
         background: null,
-        settings: {
-          gridSize: 20,
-          snapToGrid: true,
-          showGrid: true,
-        },
+        settings: { gridSize: 20, snapToGrid: true, showGrid: true },
         version: 1,
         status: 'draft',
         published_at: null,
@@ -87,15 +63,35 @@ export function FloorPlanView({ isEditMode, onToggleEditMode, onTableClick, show
     }
   }, [setCurrentPlan]);
 
+  // CRÍTICO: Cleanup agresivo al desmontar
+  // Esto previene que el canvas Konva quede visible sobre otras páginas
+  useEffect(() => {
+    return () => {
+      console.log('[FloorPlanView] Desmontando - limpiando estado');
+      reset();
+      // Limpiar cualquier canvas Konva residual
+      const konvaContainers = document.querySelectorAll('.konvajs-content');
+      konvaContainers.forEach((el) => {
+        if (el.parentNode) {
+          el.parentNode.removeChild(el);
+        }
+      });
+    };
+  }, [reset]);
+
   // Calcular tamaño dinámico del canvas
   useEffect(() => {
     const updateSize = () => {
       const sidebarWidth = isEditMode ? 256 : 0;
       const propertiesWidth = isEditMode && editor.selectedObjectIds.length > 0 ? 320 : 0;
       const toolbarHeight = 60;
+      // Usar el contenedor padre en vez de window
+      const container = document.getElementById('floor-plan-container');
+      const availWidth = container?.clientWidth ?? (window.innerWidth - sidebarWidth - propertiesWidth);
+      const availHeight = container?.clientHeight ?? (window.innerHeight - toolbarHeight - 80);
       setCanvasSize({
-        width: window.innerWidth - sidebarWidth - propertiesWidth,
-        height: window.innerHeight - toolbarHeight,
+        width: Math.max(availWidth - sidebarWidth - propertiesWidth, 400),
+        height: Math.max(availHeight - toolbarHeight, 300),
       });
     };
 
@@ -107,7 +103,7 @@ export function FloorPlanView({ isEditMode, onToggleEditMode, onTableClick, show
   const hasSelection = editor.selectedObjectIds.length > 0;
 
   return (
-    <div className="h-screen flex flex-col">
+    <div id="floor-plan-container" className="h-full flex flex-col overflow-hidden">
       <FloorPlanToolbar
         onSave={isEditMode ? save : undefined}
         isSaving={isSaving}
@@ -117,21 +113,14 @@ export function FloorPlanView({ isEditMode, onToggleEditMode, onTableClick, show
         onToggleEditMode={showModeToggle ? onToggleEditMode : undefined}
       />
       <div className="flex flex-1 overflow-hidden relative">
-        {/* Sidebar solo en modo edición */}
         {isEditMode && <FloorPlanSidebar />}
-
-        {/* Canvas siempre visible */}
         <FloorPlanCanvas
           width={canvasSize.width}
           height={canvasSize.height}
           isEditMode={isEditMode}
           onTableClick={onTableClick}
         />
-
-        {/* Panel de propiedades solo en modo edición */}
         {isEditMode && hasSelection && <FloorPlanProperties />}
-
-        {/* Overlay del modo operativo (indicadores de estado) */}
         {!isEditMode && <OperationalModeOverlay onTableClick={onTableClick} />}
       </div>
     </div>

@@ -1217,7 +1217,10 @@
     "save_error": "保存桌子时出错",
     "delete_success": "桌子删除成功",
     "delete_error": "删除桌子时出错",
-    "delete_confirm": "确定要删除桌子 {number} 吗？\n\n此操作无法撤销。"
+    "delete_confirm": "确定要删除桌子 {number} 吗？此操作无法撤销。",
+    "title": "餐厅桌子",
+    "no_tables": "还没有桌子。创建第一张桌子。",
+    "delete_table": "删除桌子"
   },
   "areas": {
     "MAIN": "主厅",
