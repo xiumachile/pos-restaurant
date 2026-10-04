@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { ReportsPage } from "@/pages/ReportsPage";
+import { FloorPlanPage } from "@/pages/FloorPlanPage";
+
 import { createBrowserRouter, Navigate, Outlet, Link } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -275,6 +277,22 @@ export const router = createBrowserRouter([
           }
         ]
       },
+      // Floor Plan (Sesión 1B - Desarrollo)
+      {
+        path: "floor-plan",
+        element: <RoleProtectedRoute allowedRoles={ROLES.MANAGEMENT} />,
+        children: [
+          {
+            index: true,
+            element: (
+              <Suspense fallback={<LoadingFallback />}>
+                <FloorPlanPage />
+              </Suspense>
+            )
+          }
+        ]
+      },
+
       // Ajustes: Solo Management
       { 
         path: "settings", 
