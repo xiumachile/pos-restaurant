@@ -182,3 +182,48 @@ export interface SaveFloorPlanPayload {
   settings?: FloorPlanSettings;
   objects?: FloorPlanObject[];
 }
+
+// ============================================
+// PAYLOADS DE API (F5/F8)
+// ============================================
+
+export interface CreateFloorPlanPayload {
+  name: string;
+  slug?: string;
+  width?: number;
+  height?: number;
+  scale?: number;
+  background?: FloorPlanBackground;
+  settings?: FloorPlanSettings;
+}
+
+export interface UpdateFloorPlanPayload {
+  name?: string;
+  slug?: string;
+  width?: number;
+  height?: number;
+  scale?: number;
+  background?: FloorPlanBackground;
+  settings?: FloorPlanSettings;
+  status?: FloorPlanStatus;
+  objects?: FloorPlanObject[];
+}
+
+// ============================================
+// TIPOS PARA VISTA OPERATIVA (F6)
+// ============================================
+
+export type OperationalTableStatus = 'available' | 'occupied' | 'reserved' | 'blocked';
+
+export interface OperationalTableState {
+  uuid: string;
+  table_number: string;
+  status: OperationalTableStatus;
+  current_order_id: number | null;
+  waiter_name?: string | null;
+  opened_at?: string | null;
+  guest_count?: number | null;
+  total_amount?: number | null;
+  has_pending_items?: boolean;
+  reference?: string | null;
+}

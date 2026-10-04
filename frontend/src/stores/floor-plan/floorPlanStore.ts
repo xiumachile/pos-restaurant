@@ -29,6 +29,7 @@ interface FloorPlanStore {
   duplicateObject: (objectId: string) => FloorPlanObject | null;
   duplicateSelected: () => void;
   moveObject: (objectId: string, x: number, y: number) => void;
+  linkTableToObject: (objectId: string, tableUuid: string | null, tableNumber?: string) => void;
 
   // Acciones del editor
   selectObject: (objectId: string, addToSelection?: boolean) => void;
@@ -106,6 +107,44 @@ export const useFloorPlanStore = create<FloorPlanStore>((set, get) => ({
         obj.uuid === objectId ? { ...obj, x, y } : obj
       ),
     })),
+
+  linkTableToObject: (objectId, tableUuid, tableNumber) => {
+    const state = get();
+    const obj = state.objects.find((o) => o.uuid === objectId);
+    if (!obj || obj.object_type !== 'table') return;
+
+    // Validar que la mesa no esté vinculada a otro objeto
+    if (tableUuid) {
+      const alreadyLinked = state.objects.find(
+        (o) => o.uuid !== objectId && o.object_key === tableUuid
+      );
+      if (alreadyLinked) {
+        console.warn(`Mesa ${tableUuid} ya vinculada a objeto ${alreadyLinked.uuid}`);
+        return;
+      }
+    }
+
+    const currentProps = (obj.properties as any) ?? {};
+    const newLabel = tableNumber ?? currentProps.label ?? '';
+
+    state.pushHistory({
+      type: 'UPDATE_OBJECT',
+      objectId,
+      changes: {
+        object_key: obj.object_key,
+        properties: obj.properties,
+      },
+    });
+
+    state.updateObject(objectId, {
+      object_key: tableUuid,
+      properties: {
+        ...currentProps,
+        label: newLabel,
+      },
+    });
+  },
+
 
   deleteObject: (objectId) =>
     set((state) => ({

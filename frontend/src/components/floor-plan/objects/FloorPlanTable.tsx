@@ -154,7 +154,20 @@ export function FloorPlanTable({ object, isSelected }: FloorPlanTableProps) {
           offsetY={-8}
         />
 
-        {/* Indicador de capacidad */}
+  
+      {/* Indicador de vinculación operativa (F5) */}
+      {object.object_key && (
+        <Circle
+          x={width / 2 - 8}
+          y={-height / 2 + 8}
+          radius={6}
+          fill="#10b981"
+          stroke="white"
+          strokeWidth={2}
+        />
+      )}
+
+      {/* Indicador de capacidad */}
         <Text
           text={`${capacity}p`}
           fontSize={10}

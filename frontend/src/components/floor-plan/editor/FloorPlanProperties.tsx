@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useFloorPlanStore } from '@/stores/floor-plan/floorPlanStore';
+import { useRestaurantTables } from '@/hooks/floor-plan/useRestaurantTables';
 import type { FloorPlanObject, TableProperties, ChairPosition } from '@/types/floor-plan/floorPlan.types';
-import { Trash2, Copy, Lock, Unlock, RotateCw } from 'lucide-react';
+import { Trash2, Copy, Lock, Unlock, RotateCw, Link, CheckCircle } from 'lucide-react';
 
 /**
  * Panel derecho: propiedades del objeto seleccionado.
@@ -17,6 +18,7 @@ export function FloorPlanProperties() {
     pushHistory,
   } = useFloorPlanStore();
 
+  const { tables, availableTables, loading: tablesLoading, isTableLinked } = useRestaurantTables();
   const selectedId = editor.selectedObjectIds[0];
   const selectedObject = objects.find((o) => o.uuid === selectedId) ?? null;
   const [localLabel, setLocalLabel] = useState('');
@@ -222,6 +224,52 @@ export function FloorPlanProperties() {
                   />
                 </div>
               </div>
+
+            <section>
+              <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                <Link size={14} />
+                Vinculación operativa
+              </h3>
+              <p className="text-xs text-gray-500 mb-2">
+                Asocia este objeto gráfico con una mesa real del sistema.
+              </p>
+              <select
+                value={selectedObject.object_key ?? ''}
+                onChange={(e) => {
+                  const tableUuid = e.target.value || null;
+                  const selectedTable = tables.find(t => t.uuid === tableUuid);
+                  useFloorPlanStore.getState().linkTableToObject(
+                    selectedObject.uuid,
+                    tableUuid,
+                    selectedTable?.table_number
+                  );
+                }}
+                disabled={tablesLoading}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm bg-white"
+              >
+                <option value="">-- Sin vincular --</option>
+                {tables.map((table) => {
+                  const isLinkedElsewhere = isTableLinked(table.uuid) && selectedObject.object_key !== table.uuid;
+                  return (
+                    <option
+                      key={table.uuid}
+                      value={table.uuid}
+                      disabled={isLinkedElsewhere}
+                    >
+                      Mesa {table.table_number} ({table.capacity}p)
+                      {isLinkedElsewhere ? ' [vinculada]' : ''}
+                    </option>
+                  );
+                })}
+              </select>
+              {selectedObject.object_key && (
+                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                  <CheckCircle size={12} />
+                  Vinculada a mesa operativa
+                </p>
+              )}
+            </section>
+
             </section>
 
             <section>
