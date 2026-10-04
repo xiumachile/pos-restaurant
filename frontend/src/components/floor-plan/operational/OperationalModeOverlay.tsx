@@ -41,10 +41,9 @@ export function OperationalModeOverlay({ onTableClick }: OperationalModeOverlayP
     setSelectedTableInfo(info);
     selectObject(obj.uuid);
 
-    // Si hay callback y está vinculada, disparar acción
-    if (onTableClick && obj.object_key) {
-      onTableClick(obj.object_key, props.label || '');
-    }
+    // NO disparar onTableClick automáticamente
+    // El usuario debe hacer click en el botón "Abrir pedido" del popup
+    // Esto evita navegación accidental cuando la mesa no está vinculada
   };
 
   // Cerrar popup al hacer click fuera
@@ -136,8 +135,10 @@ export function OperationalModeOverlay({ onTableClick }: OperationalModeOverlayP
               {selectedTableInfo.linkedTable && selectedTableInfo.linkedTable.status === 'available' && (
                 <button
                   onClick={() => {
-                    // Aquí se abriría el nuevo pedido (se integrará con Orders en F6)
-                    alert(`Abrir pedido en mesa ${selectedTableInfo.label}`);
+                    // Navegar a toma de pedido
+                    if (onTableClick && selectedTableInfo.objectKey) {
+                      onTableClick(selectedTableInfo.objectKey, selectedTableInfo.label);
+                    }
                     setSelectedTableInfo(null);
                   }}
                   className="w-full px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded font-medium text-sm flex items-center justify-center gap-2"
@@ -149,7 +150,10 @@ export function OperationalModeOverlay({ onTableClick }: OperationalModeOverlayP
               {selectedTableInfo.linkedTable && selectedTableInfo.linkedTable.status === 'occupied' && (
                 <button
                   onClick={() => {
-                    alert(`Ver pedido de mesa ${selectedTableInfo.label}`);
+                    // Navegar a ver pedido
+                    if (onTableClick && selectedTableInfo.objectKey) {
+                      onTableClick(selectedTableInfo.objectKey, selectedTableInfo.label);
+                    }
                     setSelectedTableInfo(null);
                   }}
                   className="w-full px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded font-medium text-sm flex items-center justify-center gap-2"
@@ -161,6 +165,7 @@ export function OperationalModeOverlay({ onTableClick }: OperationalModeOverlayP
               {selectedTableInfo.linkedTable && selectedTableInfo.linkedTable.status === 'reserved' && (
                 <button
                   onClick={() => {
+                    // TODO: Navegar a ver reserva
                     alert(`Ver reserva de mesa ${selectedTableInfo.label}`);
                     setSelectedTableInfo(null);
                   }}
