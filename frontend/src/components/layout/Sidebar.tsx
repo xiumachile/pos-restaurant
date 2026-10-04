@@ -7,6 +7,7 @@ import {
   CreditCard,
   ListOrdered,
   BarChart3,
+  Map,
   Settings,
   LogOut,
   Database,
@@ -79,6 +80,7 @@ export function Sidebar() {
         requiresCapability: CapabilityKey.CAN_MANAGE_RECIPES,
       },
       { to: "/reports", label: t("reports.title"), icon: BarChart3, allowedRoles: ROLES.MANAGEMENT },
+      { to: "/floor-plan", label: t("navigation.floor_plan", "Plano del Restaurante"), icon: Map, allowedRoles: ROLES.MANAGEMENT },
       {
         to: "/sync-queue",
         label: t("sidebar.sync"),
