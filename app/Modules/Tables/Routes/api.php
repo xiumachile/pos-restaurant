@@ -6,7 +6,7 @@ use Modules\Tables\Interfaces\Controllers\RestaurantTableController;
 Route::prefix('v1')->middleware(['auth:api'])->group(function () {
     // Mesas (CRUD básico)
     Route::apiResource('tables', RestaurantTableController::class)
-        ->only(['index', 'store', 'update']);
+        ->only(['index', 'store', 'update', 'destroy']);
 
     Route::get('tables/{uuid}/orders', [RestaurantTableController::class, 'orders'])
         ->name('tables.orders');

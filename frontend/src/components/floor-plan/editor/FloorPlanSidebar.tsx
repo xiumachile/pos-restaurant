@@ -1,5 +1,9 @@
 import { useState } from 'react';
 import { useFloorPlanStore } from '@/stores/floor-plan/floorPlanStore';
+import { useTranslation } from 'react-i18next';
+import { useTableManagement } from '@/hooks/useTableManagement';
+import { TableManagementModal } from '@/components/tables/TableManagementModal';
+import { Settings } from 'lucide-react';
 import { tablesCatalogByCategory } from '../catalog/tables.catalog';
 import { decorationsCatalogByCategory } from '../catalog/decorations.catalog';
 import type { CatalogItem, FloorPlanObject } from '@/types/floor-plan/floorPlan.types';
@@ -23,6 +27,8 @@ const Z_INDEX_MAP: Record<string, number> = {
  * Panel izquierdo con biblioteca completa: mesas + decoración + arquitectura
  */
 export function FloorPlanSidebar() {
+  const { t } = useTranslation();
+  const tableManagement = useTableManagement();
   const { addObject, currentPlan } = useFloorPlanStore();
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
     'Redondas': true,
@@ -114,6 +120,14 @@ export function FloorPlanSidebar() {
           <Armchair size={18} />
           Biblioteca
         </h2>
+        <button
+          onClick={() => tableManagement.openCreateModal()}
+          className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded text-sm font-medium transition-colors"
+        >
+          <Settings size={16} />
+          {t('floor_plan.sidebar.manage_tables', 'Gestionar mesas')}
+        </button>
+
         <p className="text-xs text-gray-500 mt-1">
           Arrastra elementos al plano
         </p>

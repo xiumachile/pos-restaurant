@@ -3,6 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { Trash2, Copy, RotateCw, Link2, Info, Hash, Users, AlertTriangle } from 'lucide-react';
 import { useFloorPlanStore } from '@/stores/floor-plan/floorPlanStore';
 import { useRestaurantTables } from '@/hooks/floor-plan/useRestaurantTables';
+import { useTableManagement } from '@/hooks/useTableManagement';
+import { TableManagementModal } from '@/components/tables/TableManagementModal';
+import { Plus, Edit2 } from 'lucide-react';
 import type { FloorPlanObject, TableProperties, ChairPosition } from '@/types/floor-plan/floorPlan.types';
 
 /**
@@ -211,6 +214,16 @@ export function FloorPlanProperties() {
                   );
                 })}
               </select>
+              <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-800">
+                <button
+                  onClick={() => tableManagement.openCreateModal()}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm font-medium transition-colors"
+                >
+                  <Plus size={16} />
+                  {t('floor_plan.properties.create_table', 'Crear nueva mesa real')}
+                </button>
+              </div>
+
               
               {tables.length === 0 && (
                 <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 p-2 rounded">

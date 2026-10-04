@@ -28,7 +28,7 @@
     "title": "桌台",
     "not_found": "未找到桌台",
     "back_to_tables": "返回桌台",
-    "capacity": "人",
+    "capacity": "容量（人数）",
     "available": "空闲",
     "occupied": "占用",
     "reserved": "已预订",
@@ -50,7 +50,11 @@
     "table": "桌台",
     "tables": "桌台",
     "capacity_label": "容量:",
-    "edit_permission_required": "只有管理员可以编辑平面图"
+    "edit_permission_required": "只有管理员可以编辑平面图",
+    "create_table": "创建桌子",
+    "edit_table": "编辑桌子",
+    "table_number": "桌子编号",
+    "area": "区域"
   },
   "orders": {
     "new_order": "新账单",
@@ -1147,7 +1151,8 @@
       "remove_all_chairs": "移除所有椅子",
       "remove_all_chairs_confirm": "移除所有椅子吗?",
       "no_tables_available": "没有可用的桌子。请先在桌子部分创建桌子。",
-      "unlink_table": "断开与真实桌子的连接"
+      "unlink_table": "断开与真实桌子的连接",
+      "create_table": "创建新桌子"
     },
     "chair_position": {
       "top": "上",
@@ -1190,6 +1195,9 @@
         "blocked": "已阻止",
         "maintenance": "维护中"
       }
+    },
+    "sidebar": {
+      "manage_tables": "管理桌子"
     }
   },
   "navigation": {
