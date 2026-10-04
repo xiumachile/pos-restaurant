@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   BarChart3,
@@ -14,6 +15,8 @@ import {
   useSalesByHour,
   usePaymentMethods,
 } from "@/hooks/useReports";
+import { DateRangeFilter } from "@/components/reports/DateRangeFilter";
+import type { DateFilter } from "@/services/reportsService";
 import {
   BarChart,
   Bar,
@@ -64,18 +67,16 @@ function KPICard({
 export function ReportsPage() {
   const { t } = useTranslation();
 
-  const { data: kpis, isLoading: loadingKPIs } = useDashboardKPIs();
-  const { data: topProducts, isLoading: loadingProducts } = useTopProducts(7, 10);
-  const { data: salesByHour, isLoading: loadingSales } = useSalesByHour(7);
-  const { data: paymentMethods, isLoading: loadingPayments } = usePaymentMethods(30);
+  const [dateFilter, setDateFilter] = useState<DateFilter>({
+    preset: "last_7_days",
+  });
 
-  if (loadingKPIs || loadingProducts || loadingSales || loadingPayments) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="animate-spin text-orange-500" size={48} />
-      </div>
-    );
-  }
+  const { data: kpis, isLoading: loadingKPIs } = useDashboardKPIs(dateFilter);
+  const { data: topProducts, isLoading: loadingProducts } = useTopProducts(dateFilter, 10);
+  const { data: salesByHour, isLoading: loadingSales } = useSalesByHour(dateFilter);
+  const { data: paymentMethods, isLoading: loadingPayments } = usePaymentMethods(dateFilter);
+
+  const isLoading = loadingKPIs || loadingProducts || loadingSales || loadingPayments;
 
   const CHART_COLORS = ["#f97316", "#3b82f6", "#10b981", "#8b5cf6", "#ec4899"];
 
@@ -89,6 +90,17 @@ export function ReportsPage() {
           <p className="text-slate-400">{t("reports.subtitle")}</p>
         </div>
       </div>
+
+      {/* Filtro de fechas */}
+      <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
+
+      {/* Loading overlay */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="animate-spin text-orange-500" size={32} />
+          <span className="ml-2 text-slate-400">{t("reports.loading")}</span>
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -168,28 +180,34 @@ export function ReportsPage() {
             <h2 className="text-xl font-bold text-white">{t("reports.top_products")}</h2>
           </div>
           <div className="space-y-3 max-h-[300px] overflow-y-auto">
-            {topProducts?.map((product, idx) => (
-              <div
-                key={idx}
-                className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl font-bold text-slate-600">#{idx + 1}</span>
-                  <div>
-                    <p className="font-medium text-white">{product.name}</p>
-                    <p className="text-sm text-slate-400">
-                      {product.quantity} {t("reports.units")}
-                    </p>
+            {topProducts && topProducts.length > 0 ? (
+              topProducts.map((product, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl font-bold text-slate-600">#{idx + 1}</span>
+                    <div>
+                      <p className="font-medium text-white">{product.name}</p>
+                      <p className="text-sm text-slate-400">
+                        {product.quantity} {t("reports.units")}
+                      </p>
+                    </div>
                   </div>
+                  <p className="font-bold text-emerald-400">
+                    {product.revenue.toLocaleString("es-CL", {
+                      style: "currency",
+                      currency: "CLP",
+                    })}
+                  </p>
                 </div>
-                <p className="font-bold text-emerald-400">
-                  {product.revenue.toLocaleString("es-CL", {
-                    style: "currency",
-                    currency: "CLP",
-                  })}
-                </p>
+              ))
+            ) : (
+              <div className="text-center py-8 text-slate-400 text-sm">
+                {t("reports.empty.no_data")}
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -200,68 +218,76 @@ export function ReportsPage() {
             <h2 className="text-xl font-bold text-white">{t("reports.payment_methods")}</h2>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={paymentMethods}
-                  dataKey="total_amount"
-                  nameKey="method_code"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  label={(entry: any) => entry.method_code}
-                >
-                  {paymentMethods?.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={CHART_COLORS[index % CHART_COLORS.length]}
+            {paymentMethods && paymentMethods.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={paymentMethods}
+                      dataKey="total_amount"
+                      nameKey="method_code"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      label={(entry: any) => entry.method_code}
+                    >
+                      {paymentMethods.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={CHART_COLORS[index % CHART_COLORS.length]}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#1e293b",
+                        border: "1px solid #475569",
+                        borderRadius: "8px",
+                      }}
+                      formatter={(value: any) => [
+                        Number(value).toLocaleString("es-CL", {
+                          style: "currency",
+                          currency: "CLP",
+                        }),
+                        t("reports.total"),
+                      ]}
                     />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1e293b",
-                    border: "1px solid #475569",
-                    borderRadius: "8px",
-                  }}
-                  formatter={(value: any) => [
-                    Number(value).toLocaleString("es-CL", {
-                      style: "currency",
-                      currency: "CLP",
-                    }),
-                    t("reports.total"),
-                  ]}
-                />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="space-y-3">
-              {paymentMethods?.map((method, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg"
-                >
-                  <div className="flex items-center gap-3">
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="space-y-3">
+                  {paymentMethods.map((method, idx) => (
                     <div
-                      className="w-4 h-4 rounded"
-                      style={{ backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }}
-                    />
-                    <div>
-                      <p className="font-medium text-white">{method.method_code}</p>
-                      <p className="text-sm text-slate-400">
-                        {method.count} {t("reports.payments")}
+                      key={idx}
+                      className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-4 h-4 rounded"
+                          style={{ backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }}
+                        />
+                        <div>
+                          <p className="font-medium text-white">{method.method_code}</p>
+                          <p className="text-sm text-slate-400">
+                            {method.count} {t("reports.payments")}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="font-bold text-emerald-400">
+                        {method.total_amount.toLocaleString("es-CL", {
+                          style: "currency",
+                          currency: "CLP",
+                        })}
                       </p>
                     </div>
-                  </div>
-                  <p className="font-bold text-emerald-400">
-                    {method.total_amount.toLocaleString("es-CL", {
-                      style: "currency",
-                      currency: "CLP",
-                    })}
-                  </p>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            ) : (
+              <div className="col-span-2 text-center py-8 text-slate-400 text-sm">
+                {t("reports.empty.no_data")}
+              </div>
+            )}
           </div>
         </div>
       </div>

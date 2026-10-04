@@ -285,6 +285,22 @@
     "empty": {
       "no_data": "所选时间段无数据",
       "no_sales": "暂无销售记录"
+    },
+    "filters": {
+      "title": "时间段",
+      "from": "从",
+      "to": "到",
+      "apply": "应用",
+      "presets": {
+        "today": "今天",
+        "yesterday": "昨天",
+        "last_7_days": "最近7天",
+        "last_30_days": "最近30天",
+        "this_month": "本月",
+        "last_month": "上月",
+        "this_year": "今年",
+        "custom": "自定义"
+      }
     }
   },
   "catalog": {
