@@ -301,6 +301,33 @@
         "this_year": "今年",
         "custom": "自定义"
       }
+    },
+    "tabs": {
+      "sales": "销售",
+      "purchases": "采购"
+    },
+    "purchases": {
+      "kpis": {
+        "total_amount": "采购总额",
+        "purchases_count": "采购次数",
+        "average_ticket": "平均采购单价",
+        "with_document": "有凭证"
+      },
+      "by_document_type": "按凭证类型分布",
+      "top_suppliers": "主要供应商",
+      "top_ingredients": "最常采购原材料",
+      "doc_types": {
+        "boleta": "收据",
+        "factura": "发票",
+        "factura_exenta": "免税发票",
+        "nota_entrada": "入库单",
+        "otro": "其他"
+      },
+      "ingredient": "原材料",
+      "count": "数量",
+      "purchases_label": "次采购",
+      "total_quantity": "总数量",
+      "no_rut": "无税号"
     }
   },
   "catalog": {

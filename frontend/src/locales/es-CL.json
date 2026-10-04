@@ -301,6 +301,33 @@
         "this_year": "Este año",
         "custom": "Personalizado"
       }
+    },
+    "tabs": {
+      "sales": "Ventas",
+      "purchases": "Compras"
+    },
+    "purchases": {
+      "kpis": {
+        "total_amount": "Total Comprado",
+        "purchases_count": "Compras",
+        "average_ticket": "Ticket Promedio Compra",
+        "with_document": "Con Documento"
+      },
+      "by_document_type": "Distribución por Tipo de Documento",
+      "top_suppliers": "Top Proveedores",
+      "top_ingredients": "Insumos Más Comprados",
+      "doc_types": {
+        "boleta": "Boleta",
+        "factura": "Factura",
+        "factura_exenta": "Factura Exenta",
+        "nota_entrada": "Nota Entrada",
+        "otro": "Otro"
+      },
+      "ingredient": "Insumo",
+      "count": "Cantidad",
+      "purchases_label": "compras",
+      "total_quantity": "Cantidad Total",
+      "no_rut": "Sin RUT"
     }
   },
   "catalog": {
