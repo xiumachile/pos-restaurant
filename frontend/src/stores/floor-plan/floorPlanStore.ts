@@ -24,6 +24,7 @@ interface FloorPlanStore {
   setObjects: (objects: FloorPlanObject[]) => void;
   addObject: (object: FloorPlanObject) => void;
   updateObject: (objectId: string, changes: Partial<FloorPlanObject>) => void;
+  moveObject: (objectId: string, x: number, y: number) => void;
   deleteObject: (objectId: string) => void;
   deleteObjects: (objectIds: string[]) => void;
 
@@ -94,6 +95,13 @@ export const useFloorPlanStore = create<FloorPlanStore>((set, get) => ({
     set((state) => ({
       objects: state.objects.map((obj) =>
         obj.uuid === objectId ? { ...obj, ...changes } : obj
+      ),
+    })),
+
+  moveObject: (objectId, x, y) =>
+    set((state) => ({
+      objects: state.objects.map((obj) =>
+        obj.uuid === objectId ? { ...obj, x, y } : obj
       ),
     })),
 

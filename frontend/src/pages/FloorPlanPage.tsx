@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useFloorPlanStore } from '@/stores/floor-plan/floorPlanStore';
 import { FloorPlanCanvas } from '@/components/floor-plan/editor/FloorPlanCanvas';
 import { FloorPlanToolbar } from '@/components/floor-plan/editor/FloorPlanToolbar';
+import { FloorPlanSidebar } from '@/components/floor-plan/editor/FloorPlanSidebar';
 import type { FloorPlan } from '@/types/floor-plan/floorPlan.types';
 
 // Plano de ejemplo para desarrollo
@@ -30,22 +31,39 @@ const mockPlan: FloorPlan = {
 };
 
 export function FloorPlanPage() {
-  const { setCurrentPlan } = useFloorPlanStore();
+  const { setCurrentPlan, reset } = useFloorPlanStore();
+  const [canvasSize, setCanvasSize] = useState({ width: 1000, height: 700 });
 
   useEffect(() => {
-    // Cargar plano de ejemplo
     setCurrentPlan(mockPlan);
-
     return () => {
-      // Limpiar al desmontar
-      setCurrentPlan(null);
+      reset();
     };
-  }, [setCurrentPlan]);
+  }, [setCurrentPlan, reset]);
+
+  // Recalcular tamaño del canvas cuando cambia la ventana
+  useEffect(() => {
+    const updateSize = () => {
+      const sidebarWidth = 256; // w-64
+      const toolbarHeight = 60;
+      setCanvasSize({
+        width: window.innerWidth - sidebarWidth,
+        height: window.innerHeight - toolbarHeight,
+      });
+    };
+
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
 
   return (
     <div className="h-screen flex flex-col">
       <FloorPlanToolbar />
-      <FloorPlanCanvas width={window.innerWidth} height={window.innerHeight - 60} />
+      <div className="flex flex-1 overflow-hidden">
+        <FloorPlanSidebar />
+        <FloorPlanCanvas width={canvasSize.width} height={canvasSize.height} />
+      </div>
     </div>
   );
 }
