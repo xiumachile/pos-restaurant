@@ -148,7 +148,7 @@ export function FloorPlanProperties() {
                     value={table.uuid}
                     disabled={linked && !isCurrent}
                   >
-                    {table.table_number} - {table.area_name} ({table.capacity}p)
+                    {table.table_number} - {t(`areas.${table.area_code}`, table.area_code)} ({table.capacity}p)
                     {linked && !isCurrent ? ' [vinculada]' : ''}
                   </option>
                 );
