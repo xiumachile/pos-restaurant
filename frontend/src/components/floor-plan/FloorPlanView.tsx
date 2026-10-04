@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
 import { useFloorPlanStore } from '@/stores/floor-plan/floorPlanStore';
 import { FloorPlanCanvas } from './editor/FloorPlanCanvas';
 import { FloorPlanToolbar } from './editor/FloorPlanToolbar';
@@ -18,37 +17,12 @@ interface FloorPlanViewProps {
   showModeToggle?: boolean;
 }
 
-/**
- * Guarda defensivo: solo renderizar en rutas donde corresponde.
- * Esto previene que el canvas Konva y el toolbar "floten" sobre otras páginas
- * si el componente no se desmonta correctamente.
- */
-function shouldRenderFloorPlan(pathname: string): boolean {
-  // Rutas donde SÍ debe aparecer el plano:
-  // - "/" (índice, que es TablesPage)
-  // - "/tables" (explícito)
-  // - "/floor-plan"
-  if (pathname === '/' || pathname === '/tables' || pathname === '/floor-plan') {
-    return true;
-  }
-  
-  // Rutas donde NO debe aparecer:
-  // - "/tables/:uuid" (toma de pedido) - patrón UUID
-  // - "/orders/..." 
-  // - Cualquier otra ruta
-  return false;
-}
-
 export function FloorPlanView({ isEditMode, onToggleEditMode, onTableClick, showModeToggle = true }: FloorPlanViewProps) {
-  const location = useLocation();
-  const { editor, setCurrentPlan, setObjects, reset } = useFloorPlanStore();
+  const { editor, setCurrentPlan, setObjects, clearSelection, setEditorMode } = useFloorPlanStore();
   const { save, hasChanges, isSaving, lastSavedAt } = useFloorPlanPersistence();
   const [canvasSize, setCanvasSize] = useState({ width: 1000, height: 700 });
 
   useFloorPlanKeyboard();
-
-  // GUARD: No renderizar en rutas donde no corresponde
-  const shouldRender = shouldRenderFloorPlan(location.pathname);
 
   // Ctrl+S para guardar (solo en modo edición)
   useEffect(() => {
@@ -63,7 +37,7 @@ export function FloorPlanView({ isEditMode, onToggleEditMode, onTableClick, show
     return () => window.removeEventListener('keydown', handleSave);
   }, [save, isEditMode]);
 
-  // Cargar plano al iniciar
+  // Cargar plano al iniciar (solo si no hay plan en localStorage)
   useEffect(() => {
     if (!localStorageService.hasStoredPlan()) {
       const mockPlan: FloorPlan = {
@@ -89,20 +63,15 @@ export function FloorPlanView({ isEditMode, onToggleEditMode, onTableClick, show
     }
   }, [setCurrentPlan]);
 
-  // Cleanup agresivo al desmontar
+  // Cleanup SELECTIVO al desmontar (NO reset total)
+  // Solo limpiar selección y modo del editor, NO el plan ni los objetos
   useEffect(() => {
     return () => {
-      console.log('[FloorPlanView] Desmontando - limpiando estado');
-      reset();
-      // Destruir todos los stages de Konva residuales
-      const konvaContainers = document.querySelectorAll('.konvajs-content');
-      konvaContainers.forEach((el) => {
-        if (el.parentNode) {
-          el.parentNode.removeChild(el);
-        }
-      });
+      console.log('[FloorPlanView] Desmontando - limpiando selección');
+      clearSelection();
+      setEditorMode('select');
     };
-  }, [reset]);
+  }, [clearSelection, setEditorMode]);
 
   // Calcular tamaño dinámico del canvas
   useEffect(() => {
@@ -124,17 +93,10 @@ export function FloorPlanView({ isEditMode, onToggleEditMode, onTableClick, show
     return () => window.removeEventListener('resize', updateSize);
   }, [editor.selectedObjectIds.length, isEditMode]);
 
-  // GUARD: Si la ruta no corresponde, NO renderizar nada
-  // Esto es el fix definitivo contra la superposición
-  if (!shouldRender) {
-    console.log('[FloorPlanView] Ruta no corresponde, no renderizando:', location.pathname);
-    return null;
-  }
-
   const hasSelection = editor.selectedObjectIds.length > 0;
 
   return (
-    <div id="floor-plan-container" className="h-full flex flex-col overflow-hidden">
+    <div id="floor-plan-container" className="h-full flex flex-col overflow-hidden relative">
       <FloorPlanToolbar
         onSave={isEditMode ? save : undefined}
         isSaving={isSaving}
