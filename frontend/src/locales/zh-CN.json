@@ -1015,5 +1015,71 @@
       "supplier_name_placeholder": "例如: Distribuidora Central",
       "supplier_rut_placeholder": "例如: 76.123.456-7"
     }
+  },
+  "floor_plan": {
+    "title": "餐厅平面图",
+    "subtitle": "组织您的餐厅桌位和区域",
+    "actions": {
+      "edit": "编辑平面图",
+      "view": "查看平面图",
+      "save": "保存更改",
+      "cancel": "取消",
+      "add_zone": "新建区域",
+      "delete": "删除",
+      "confirm": "确认?"
+    },
+    "zone_panel": {
+      "title": "区域",
+      "empty": "尚未创建任何区域",
+      "tables": "张桌",
+      "empty_zone": "空区域",
+      "cannot_delete_has_tables": "请先将桌子移到其他区域"
+    },
+    "canvas": {
+      "empty": "此平面图中没有桌位",
+      "empty_hint": "请从管理模块创建区域和桌位"
+    },
+    "modal": {
+      "create": {
+        "title": "新建区域"
+      },
+      "edit": {
+        "title": "编辑区域"
+      },
+      "fields": {
+        "code": "标识码",
+        "name_es": "名称 (西班牙语)",
+        "name_zh": "名称 (中文)",
+        "color": "颜色",
+        "floor_level": "楼层"
+      },
+      "buttons": {
+        "create": "创建区域",
+        "update": "保存更改",
+        "cancel": "取消"
+      }
+    },
+    "table": {
+      "status": {
+        "available": "空闲",
+        "occupied": "占用中",
+        "billing": "请求结账",
+        "maintenance": "维护中"
+      }
+    },
+    "messages": {
+      "saved": "平面图已保存",
+      "error_save": "保存平面图时出错",
+      "error_load": "加载平面图时出错",
+      "error_generic": "发生错误。请重试。",
+      "zone_created": "区域创建成功",
+      "zone_updated": "区域更新成功",
+      "zone_deleted": "区域删除成功",
+      "zone_delete_error": "无法删除区域",
+      "discard_changes_confirm": "您有未保存的更改。是否放弃?"
+    }
+  },
+  "navigation": {
+    "floor_plan": "餐厅平面图"
   }
 }
