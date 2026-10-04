@@ -11,11 +11,11 @@ const CHAIR_POSITIONS = ['top', 'right', 'bottom', 'left', 'top-right', 'top-lef
 
 export function FloorPlanProperties() {
   const { t } = useTranslation();
-  const { objects, selectedObjectIds, deleteObject, updateObject } = useFloorPlanStore();
+  const { objects, editor, deleteObject, updateObject } = useFloorPlanStore();
   const { tables, isTableLinked } = useRestaurantTables();
   const tableManagement = useTableManagement();
 
-  const selectedObject = objects.find((obj) => selectedObjectIds.includes(obj.uuid));
+  const selectedObject = objects.find((obj) => editor.selectedObjectIds.includes(obj.uuid));
 
   const [localProperties, setLocalProperties] = useState<Record<string, any>>({});
 
@@ -148,7 +148,7 @@ export function FloorPlanProperties() {
                     value={table.uuid}
                     disabled={linked && !isCurrent}
                   >
-                    {table.table_number} - {t(`areas.${table.area_code}`, table.area_code)} ({table.capacity}p)
+                    {table.table_number} - {t(`areas.${table.area_code ?? 'DEFAULT'}`, table.area_code ?? '')} ({table.capacity}p)
                     {linked && !isCurrent ? ' [vinculada]' : ''}
                   </option>
                 );
