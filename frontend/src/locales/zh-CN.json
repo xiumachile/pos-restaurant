@@ -262,7 +262,30 @@
     "view_table_history": "查看餐桌历史"
   },
   "reports": {
-    "title": "报告"
+    "title": "报告",
+    "subtitle": "销售和业绩指标概览",
+    "kpis": {
+      "today_sales": "今日销售",
+      "today_orders": "今日订单",
+      "average_ticket": "平均客单价",
+      "today_tips": "今日小费"
+    },
+    "sales_by_hour": "每小时销售 (最近7天)",
+    "top_products": "最畅销产品 (7天)",
+    "payment_methods": "支付方式 (30天)",
+    "total": "总计",
+    "units": "件",
+    "payments": "笔",
+    "loading": "正在加载报告...",
+    "periods": {
+      "today": "今天",
+      "week": "本周",
+      "month": "本月"
+    },
+    "empty": {
+      "no_data": "所选时间段无数据",
+      "no_sales": "暂无销售记录"
+    }
   },
   "catalog": {
     "title": "目录",

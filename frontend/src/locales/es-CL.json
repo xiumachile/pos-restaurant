@@ -262,7 +262,30 @@
     "view_table_history": "Ver historial de mesa"
   },
   "reports": {
-    "title": "Reportes"
+    "title": "Reportes",
+    "subtitle": "Resumen de ventas y métricas del negocio",
+    "kpis": {
+      "today_sales": "Ventas de Hoy",
+      "today_orders": "Órdenes de Hoy",
+      "average_ticket": "Ticket Promedio",
+      "today_tips": "Propinas de Hoy"
+    },
+    "sales_by_hour": "Ventas por Hora (últimos 7 días)",
+    "top_products": "Productos Más Vendidos (7 días)",
+    "payment_methods": "Métodos de Pago (30 días)",
+    "total": "Total",
+    "units": "unidades",
+    "payments": "pagos",
+    "loading": "Cargando reportes...",
+    "periods": {
+      "today": "Hoy",
+      "week": "Semana",
+      "month": "Mes"
+    },
+    "empty": {
+      "no_data": "Sin datos para el período seleccionado",
+      "no_sales": "No hay ventas registradas aún"
+    }
   },
   "catalog": {
     "title": "Catálogo",
