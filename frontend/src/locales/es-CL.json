@@ -1015,5 +1015,68 @@
       "supplier_name_placeholder": "Ej: Distribuidora Central",
       "supplier_rut_placeholder": "Ej: 76.123.456-7"
     }
+  },
+  "floor_plan": {
+    "title": "Plano del Restaurante",
+    "subtitle": "Organiza las mesas y zonas de tu local",
+    "actions": {
+      "edit": "Editar plano",
+      "view": "Ver plano",
+      "save": "Guardar cambios",
+      "cancel": "Cancelar",
+      "add_zone": "Nueva zona",
+      "delete": "Eliminar",
+      "confirm": "¿Confirmar?"
+    },
+    "zone_panel": {
+      "title": "Zonas",
+      "empty": "No hay zonas creadas aún",
+      "tables": "mesas",
+      "empty_zone": "Zona vacía",
+      "cannot_delete_has_tables": "Mueva las mesas a otra zona primero"
+    },
+    "canvas": {
+      "empty": "No hay mesas en este plano",
+      "empty_hint": "Cree zonas y mesas desde el módulo de administración"
+    },
+    "modal": {
+      "create": {
+        "title": "Nueva zona"
+      },
+      "edit": {
+        "title": "Editar zona"
+      },
+      "fields": {
+        "code": "Código identificador",
+        "name_es": "Nombre (español)",
+        "name_zh": "Nombre (中文)",
+        "color": "Color",
+        "floor_level": "Nivel de piso"
+      },
+      "buttons": {
+        "create": "Crear zona",
+        "update": "Guardar cambios",
+        "cancel": "Cancelar"
+      }
+    },
+    "table": {
+      "status": {
+        "available": "Disponible",
+        "occupied": "Ocupada",
+        "billing": "Pidiendo cuenta",
+        "maintenance": "Mantenimiento"
+      }
+    },
+    "messages": {
+      "saved": "Plano guardado correctamente",
+      "error_save": "Error al guardar el plano",
+      "error_load": "Error al cargar el plano",
+      "error_generic": "Ocurrió un error. Intente de nuevo.",
+      "zone_created": "Zona creada correctamente",
+      "zone_updated": "Zona actualizada correctamente",
+      "zone_deleted": "Zona eliminada correctamente",
+      "zone_delete_error": "No se pudo eliminar la zona",
+      "discard_changes_confirm": "Tienes cambios sin guardar. ¿Deseas descartarlos?"
+    }
   }
 }
