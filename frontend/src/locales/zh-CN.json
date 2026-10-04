@@ -285,6 +285,55 @@
     "empty": {
       "no_data": "所选时间段无数据",
       "no_sales": "暂无销售记录"
+    },
+    "filters": {
+      "title": "时间段",
+      "from": "从",
+      "to": "到",
+      "apply": "应用",
+      "presets": {
+        "today": "今天",
+        "yesterday": "昨天",
+        "last_7_days": "最近7天",
+        "last_30_days": "最近30天",
+        "this_month": "本月",
+        "last_month": "上月",
+        "this_year": "今年",
+        "custom": "自定义"
+      }
+    },
+    "tabs": {
+      "sales": "销售",
+      "purchases": "采购"
+    },
+    "purchases": {
+      "kpis": {
+        "total_amount": "采购总额",
+        "purchases_count": "采购次数",
+        "average_ticket": "平均采购单价",
+        "with_document": "有凭证"
+      },
+      "by_document_type": "按凭证类型分布",
+      "top_suppliers": "主要供应商",
+      "top_ingredients": "最常采购原材料",
+      "doc_types": {
+        "boleta": "收据",
+        "factura": "发票",
+        "factura_exenta": "免税发票",
+        "nota_entrada": "入库单",
+        "otro": "其他"
+      },
+      "ingredient": "原材料",
+      "count": "数量",
+      "purchases_label": "次采购",
+      "total_quantity": "总数量",
+      "no_rut": "无税号"
+    },
+    "print": {
+      "button": "打印",
+      "date_range": "时间段",
+      "generated_on": "生成时间",
+      "footer": "由 POS Restaurant 生成 — 管理系统"
     }
   },
   "catalog": {

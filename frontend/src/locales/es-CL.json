@@ -285,6 +285,55 @@
     "empty": {
       "no_data": "Sin datos para el período seleccionado",
       "no_sales": "No hay ventas registradas aún"
+    },
+    "filters": {
+      "title": "Período",
+      "from": "Desde",
+      "to": "Hasta",
+      "apply": "Aplicar",
+      "presets": {
+        "today": "Hoy",
+        "yesterday": "Ayer",
+        "last_7_days": "Últimos 7 días",
+        "last_30_days": "Últimos 30 días",
+        "this_month": "Este mes",
+        "last_month": "Mes anterior",
+        "this_year": "Este año",
+        "custom": "Personalizado"
+      }
+    },
+    "tabs": {
+      "sales": "Ventas",
+      "purchases": "Compras"
+    },
+    "purchases": {
+      "kpis": {
+        "total_amount": "Total Comprado",
+        "purchases_count": "Compras",
+        "average_ticket": "Ticket Promedio Compra",
+        "with_document": "Con Documento"
+      },
+      "by_document_type": "Distribución por Tipo de Documento",
+      "top_suppliers": "Top Proveedores",
+      "top_ingredients": "Insumos Más Comprados",
+      "doc_types": {
+        "boleta": "Boleta",
+        "factura": "Factura",
+        "factura_exenta": "Factura Exenta",
+        "nota_entrada": "Nota Entrada",
+        "otro": "Otro"
+      },
+      "ingredient": "Insumo",
+      "count": "Cantidad",
+      "purchases_label": "compras",
+      "total_quantity": "Cantidad Total",
+      "no_rut": "Sin RUT"
+    },
+    "print": {
+      "button": "Imprimir",
+      "date_range": "Período",
+      "generated_on": "Generado el",
+      "footer": "Generado por POS Restaurant — Sistema de Gestión"
     }
   },
   "catalog": {

@@ -43,3 +43,6 @@
   color-scheme: dark;
 }
 
+
+/* Estilos de impresión */
+@import "./styles/print.css";

@@ -1,35 +1,35 @@
 import { useQuery } from "@tanstack/react-query";
-import { reportsService } from "@/services/reportsService";
+import { reportsService, type DateFilter } from "@/services/reportsService";
 
-export function useDashboardKPIs() {
+export function useDashboardKPIs(filter: DateFilter) {
   return useQuery({
-    queryKey: ["reports", "dashboard"],
-    queryFn: reportsService.getDashboardKPIs,
-    staleTime: 60 * 1000, // 1 minuto
-    refetchInterval: 5 * 60 * 1000, // Refrescar cada 5 minutos
+    queryKey: ["reports", "dashboard", filter.preset, filter.from_date, filter.to_date],
+    queryFn: () => reportsService.getDashboardKPIs(filter),
+    staleTime: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
   });
 }
 
-export function useTopProducts(days = 7, limit = 10) {
+export function useTopProducts(filter: DateFilter, limit = 10) {
   return useQuery({
-    queryKey: ["reports", "top-products", days, limit],
-    queryFn: () => reportsService.getTopProducts(days, limit),
-    staleTime: 5 * 60 * 1000, // 5 minutos
+    queryKey: ["reports", "top-products", filter.preset, filter.from_date, filter.to_date, limit],
+    queryFn: () => reportsService.getTopProducts(filter, limit),
+    staleTime: 5 * 60 * 1000,
   });
 }
 
-export function useSalesByHour(days = 7) {
+export function useSalesByHour(filter: DateFilter) {
   return useQuery({
-    queryKey: ["reports", "sales-by-hour", days],
-    queryFn: () => reportsService.getSalesByHour(days),
-    staleTime: 5 * 60 * 1000, // 5 minutos
+    queryKey: ["reports", "sales-by-hour", filter.preset, filter.from_date, filter.to_date],
+    queryFn: () => reportsService.getSalesByHour(filter),
+    staleTime: 5 * 60 * 1000,
   });
 }
 
-export function usePaymentMethods(days = 30) {
+export function usePaymentMethods(filter: DateFilter) {
   return useQuery({
-    queryKey: ["reports", "payment-methods", days],
-    queryFn: () => reportsService.getPaymentMethods(days),
-    staleTime: 10 * 60 * 1000, // 10 minutos
+    queryKey: ["reports", "payment-methods", filter.preset, filter.from_date, filter.to_date],
+    queryFn: () => reportsService.getPaymentMethods(filter),
+    staleTime: 10 * 60 * 1000,
   });
 }

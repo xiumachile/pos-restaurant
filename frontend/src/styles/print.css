@@ -1,0 +1,134 @@
+/* ═══════════════════════════════════════════════════════════
+   Estilos de impresión para reportes (Ventas y Compras)
+   Optimizado para impresión en papel A4 / Letter
+   ═══════════════════════════════════════════════════════════ */
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 1.5cm;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 11pt;
+  }
+
+  /* Ocultar elementos de navegación y UI interactiva */
+  nav,
+  aside,
+  [data-print-hide="true"],
+  .no-print,
+  button:not([data-print-show="true"]),
+  input,
+  select,
+  textarea {
+    display: none !important;
+  }
+
+  .max-w-7xl {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Header de impresión */
+  [data-print-header="true"] {
+    display: block !important;
+    border-bottom: 2px solid #000 !important;
+    padding-bottom: 12px !important;
+    margin-bottom: 20px !important;
+    page-break-after: avoid;
+  }
+
+  /* Footer de impresión */
+  [data-print-footer="true"] {
+    display: block !important;
+    border-top: 1px solid #999 !important;
+    padding-top: 10px !important;
+    margin-top: 30px !important;
+    font-size: 9pt;
+    color: #666 !important;
+    page-break-before: avoid;
+  }
+
+  /* KPI Cards */
+  [class*="bg-slate-800"] {
+    background: white !important;
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+  }
+
+  .text-white { color: #000 !important; }
+  .text-slate-300, .text-slate-400, .text-slate-500 { color: #444 !important; }
+  .text-emerald-400 { color: #047857 !important; }
+  .text-blue-400 { color: #1d4ed8 !important; }
+  .text-purple-400 { color: #6d28d9 !important; }
+  .text-pink-400 { color: #be185d !important; }
+  .text-orange-400 { color: #c2410c !important; }
+
+  .text-3xl {
+    font-size: 18pt !important;
+    font-weight: bold !important;
+  }
+
+  h1 { font-size: 22pt !important; color: #000 !important; margin-bottom: 8px !important; }
+  h2 { font-size: 14pt !important; color: #000 !important; margin-bottom: 10px !important; }
+
+  svg {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  .recharts-wrapper { page-break-inside: avoid; }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: avoid;
+  }
+
+  table th, table td {
+    border: 1px solid #ccc !important;
+    padding: 6px 8px !important;
+    color: #000 !important;
+    font-size: 10pt !important;
+  }
+
+  table thead { background: #f3f4f6 !important; }
+  table tbody tr { page-break-inside: avoid; }
+
+  [class*="space-y-3"] > div {
+    border: 1px solid #ddd !important;
+    background: white !important;
+    page-break-inside: avoid;
+    padding: 8px !important;
+    margin-bottom: 4px !important;
+  }
+
+  .grid.grid-cols-1.lg\:grid-cols-2 {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 16px !important;
+  }
+
+  .lg\:col-span-2 { grid-column: span 2 !important; }
+  .bg-slate-800\/30 { page-break-inside: avoid; }
+
+  .max-h-\[300px\], .overflow-y-auto {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+}
+
+.print-only { display: none !important; }
+
+@media print {
+  .print-only { display: block !important; }
+}
