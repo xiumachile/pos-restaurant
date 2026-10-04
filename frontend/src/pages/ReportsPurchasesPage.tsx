@@ -15,6 +15,7 @@ import {
   useTopPurchasedIngredients,
 } from "@/hooks/usePurchaseReports";
 import type { DateFilter } from "@/services/reportsService";
+import { PrintButton } from "@/components/ui/PrintButton";
 import {
   BarChart,
   Bar,
@@ -77,9 +78,10 @@ const CHART_COLORS = ["#f97316", "#3b82f6", "#10b981", "#8b5cf6", "#ec4899", "#f
 
 interface ReportsPurchasesPageProps {
   dateFilter: DateFilter;
+  dateRangeLabel?: string;
 }
 
-export function ReportsPurchasesPage({ dateFilter }: ReportsPurchasesPageProps) {
+export function ReportsPurchasesPage({ dateFilter, dateRangeLabel }: ReportsPurchasesPageProps) {
   const { t } = useTranslation();
 
   const { data: kpis, isLoading: loadingKPIs } = usePurchaseKPIs(dateFilter);
@@ -89,7 +91,6 @@ export function ReportsPurchasesPage({ dateFilter }: ReportsPurchasesPageProps) 
 
   const isLoading = loadingKPIs || loadingDoc || loadingSuppliers || loadingIngredients;
 
-  // Calcular % con documento
   const documentPercentage =
     kpis && kpis.purchases_count > 0
       ? (kpis.with_document_count / kpis.purchases_count) * 100
@@ -106,6 +107,18 @@ export function ReportsPurchasesPage({ dateFilter }: ReportsPurchasesPageProps) 
 
   return (
     <div className="space-y-6">
+      {/* Header solo visible al imprimir */}
+      <div data-print-header="true" className="print-only" />
+
+      {/* Botón de impresión */}
+      <div className="flex justify-end no-print" data-print-hide="true">
+        <PrintButton
+          title={t("reports.title")}
+          subtitle={t("reports.tabs.purchases")}
+          dateRangeLabel={dateRangeLabel}
+        />
+      </div>
+
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
@@ -164,10 +177,9 @@ export function ReportsPurchasesPage({ dateFilter }: ReportsPurchasesPageProps) 
                     borderRadius: "8px",
                   }}
                   labelStyle={{ color: "#fff" }}
-                  labelFormatter={(label) => {
-                    const key = `reports.purchases.doc_types.${String(label)}`;
-                    return t(key, { defaultValue: String(label) });
-                  }}
+                  labelFormatter={(label) =>
+                    String(t(`reports.purchases.doc_types.${String(label)}`, { defaultValue: String(label) }))
+                  }
                   formatter={(value: any, name: any) => {
                     if (name === "total_amount") {
                       return [
@@ -296,6 +308,13 @@ export function ReportsPurchasesPage({ dateFilter }: ReportsPurchasesPageProps) 
             </div>
           )}
         </div>
+      </div>
+
+      {/* Footer solo visible al imprimir */}
+      <div data-print-footer="true" className="print-only">
+        <p style={{ textAlign: "center", margin: 0 }}>
+          {t("reports.print.footer")}
+        </p>
       </div>
     </div>
   );

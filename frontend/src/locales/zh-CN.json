@@ -328,6 +328,12 @@
       "purchases_label": "次采购",
       "total_quantity": "总数量",
       "no_rut": "无税号"
+    },
+    "print": {
+      "button": "打印",
+      "date_range": "时间段",
+      "generated_on": "生成时间",
+      "footer": "由 POS Restaurant 生成 — 管理系统"
     }
   },
   "catalog": {

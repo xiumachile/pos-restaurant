@@ -14,6 +14,7 @@ import {
   usePaymentMethods,
 } from "@/hooks/useReports";
 import type { DateFilter } from "@/services/reportsService";
+import { PrintButton } from "@/components/ui/PrintButton";
 import {
   BarChart,
   Bar,
@@ -63,9 +64,10 @@ function KPICard({
 
 interface ReportsSalesPageProps {
   dateFilter: DateFilter;
+  dateRangeLabel?: string;
 }
 
-export function ReportsSalesPage({ dateFilter }: ReportsSalesPageProps) {
+export function ReportsSalesPage({ dateFilter, dateRangeLabel }: ReportsSalesPageProps) {
   const { t } = useTranslation();
 
   const { data: kpis, isLoading: loadingKPIs } = useDashboardKPIs(dateFilter);
@@ -88,6 +90,18 @@ export function ReportsSalesPage({ dateFilter }: ReportsSalesPageProps) {
 
   return (
     <div className="space-y-6">
+      {/* Header solo visible al imprimir */}
+      <div data-print-header="true" className="print-only" />
+
+      {/* Botón de impresión */}
+      <div className="flex justify-end no-print" data-print-hide="true">
+        <PrintButton
+          title={t("reports.title")}
+          subtitle={t("reports.tabs.sales")}
+          dateRangeLabel={dateRangeLabel}
+        />
+      </div>
+
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
@@ -276,6 +290,13 @@ export function ReportsSalesPage({ dateFilter }: ReportsSalesPageProps) {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Footer solo visible al imprimir */}
+      <div data-print-footer="true" className="print-only">
+        <p style={{ textAlign: "center", margin: 0 }}>
+          {t("reports.print.footer")}
+        </p>
       </div>
     </div>
   );

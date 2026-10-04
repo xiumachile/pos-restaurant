@@ -328,6 +328,12 @@
       "purchases_label": "compras",
       "total_quantity": "Cantidad Total",
       "no_rut": "Sin RUT"
+    },
+    "print": {
+      "button": "Imprimir",
+      "date_range": "Período",
+      "generated_on": "Generado el",
+      "footer": "Generado por POS Restaurant — Sistema de Gestión"
     }
   },
   "catalog": {
