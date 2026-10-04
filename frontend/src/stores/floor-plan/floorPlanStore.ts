@@ -27,6 +27,8 @@ interface FloorPlanStore {
   moveObject: (objectId: string, x: number, y: number) => void;
   deleteObject: (objectId: string) => void;
   deleteObjects: (objectIds: string[]) => void;
+  duplicateObject: (objectId: string) => FloorPlanObject | null;
+  duplicateSelected: () => void;
 
   // Acciones del editor
   selectObject: (objectId: string, addToSelection?: boolean) => void;

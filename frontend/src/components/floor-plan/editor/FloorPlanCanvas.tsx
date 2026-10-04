@@ -178,7 +178,13 @@ export function FloorPlanCanvas({ width, height }: FloorPlanCanvasProps) {
         <Layer>
           {objects.map((obj) => {
             if (obj.object_type === 'table') {
-              return <FloorPlanTable key={obj.uuid} object={obj} />;
+              return (
+                <FloorPlanTable
+                  key={obj.uuid}
+                  object={obj}
+                  isSelected={editor.selectedObjectIds.includes(obj.uuid)}
+                />
+              );
             }
             return null;
           })}
