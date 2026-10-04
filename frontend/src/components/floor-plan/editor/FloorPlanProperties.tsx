@@ -1,63 +1,41 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Trash2, Copy, RotateCw, Link2, Info, Hash, Users, AlertTriangle } from 'lucide-react';
 import { useFloorPlanStore } from '@/stores/floor-plan/floorPlanStore';
 import { useRestaurantTables } from '@/hooks/floor-plan/useRestaurantTables';
 import type { FloorPlanObject, TableProperties, ChairPosition } from '@/types/floor-plan/floorPlan.types';
-import {
-  Trash2,
-  Copy,
-  RotateCw,
-  Link2,
-  CheckCircle,
-  Info,
-  Hash,
-} from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 
 /**
- * Panel derecho con propiedades del objeto seleccionado.
- * Rediseñado para ser claro y entendible por usuarios no técnicos.
+ * Valida que un string sea un UUID válido
+ */
+function isValidUUID(uuid: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+}
+
+/**
+ * Panel derecho: propiedades del objeto seleccionado
  */
 export function FloorPlanProperties() {
   const { t } = useTranslation();
-  const {
-    objects,
-    editor,
-    updateObject,
-    deleteObject,
-    deleteObjects,
-    pushHistory,
-    duplicateSelected,
-  } = useFloorPlanStore();
-
-  const { tables, isTableLinked } = useRestaurantTables();
-
-  const selectedId = editor.selectedObjectIds[0];
-  const selectedObject = objects.find((o) => o.uuid === selectedId) ?? null;
-
+  const { objects, editor, updateObject, deleteObject, duplicateObject } = useFloorPlanStore();
+  const { tables } = useRestaurantTables();
+  
+  const selectedObject = objects.find(obj => editor.selectedObjectIds.includes(obj.uuid));
+  
   const [localLabel, setLocalLabel] = useState('');
   const [localReference, setLocalReference] = useState('');
-  const [localNumber, setLocalNumber] = useState('');
 
   useEffect(() => {
     if (selectedObject) {
       const props = selectedObject.properties as any;
-      setLocalLabel(props?.label ?? '');
-      setLocalReference(props?.reference ?? '');
-      setLocalNumber(props?.number ?? props?.label ?? '');
+      setLocalLabel(props?.label || '');
+      setLocalReference(props?.reference || '');
     }
   }, [selectedObject]);
 
   if (!selectedObject) {
-    return (
-      <div className="w-80 bg-white dark:bg-slate-900 border-l border-gray-200 dark:border-slate-800 overflow-y-auto p-4">
-        <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-4">
-          {t('floor_plan.properties.title', 'Propiedades')}
-        </h2>
-        <p className="text-sm text-gray-500 dark:text-slate-400">
-          {t('floor_plan.properties.select_hint', 'Selecciona un objeto en el plano para ver y editar sus propiedades.')}
-        </p>
-      </div>
-    );
+    return null;
   }
 
   const isTable = selectedObject.object_type === 'table';
@@ -75,22 +53,17 @@ export function FloorPlanProperties() {
   };
 
   const handleDelete = () => {
-    const confirmed = confirm(
-      t('floor_plan.properties.delete_confirm', '¿Eliminar este objeto del plano?')
-    );
-    if (!confirmed) return;
+    if (confirm(t('floor_plan.properties.delete_confirm', '¿Eliminar este objeto del plano?'))) {
+      deleteObject(selectedObject.uuid);
+    }
+  };
 
-    pushHistory({ type: 'DELETE_OBJECT', objectId: selectedObject.uuid, object: selectedObject });
-    deleteObject(selectedObject.uuid);
+  const handleDuplicate = () => {
+    duplicateObject(selectedObject.uuid);
   };
 
   const handleRotate90 = () => {
     const newRotation = ((selectedObject.rotation ?? 0) + 90) % 360;
-    pushHistory({
-      type: 'UPDATE_OBJECT',
-      objectId: selectedObject.uuid,
-      changes: { rotation: selectedObject.rotation ?? 0 },
-    });
     handleUpdate({ rotation: newRotation });
   };
 
@@ -122,8 +95,20 @@ export function FloorPlanProperties() {
     '#654321', '#2F4F4F', '#556B2F', '#8B0000',
   ];
 
-  // Para vinculación: vincular la mesa gráfica con una mesa operativa
   const handleLinkTable = (tableUuid: string | null) => {
+    console.log('[FloorPlanProperties] Vinculando mesa:', { 
+      objectUuid: selectedObject.uuid, 
+      tableUuid,
+      isValid: tableUuid ? isValidUUID(tableUuid) : 'null'
+    });
+    
+    // VALIDACIÓN CRÍTICA: Si tableUuid no es null, debe ser un UUID válido
+    if (tableUuid && !isValidUUID(tableUuid)) {
+      console.error('[FloorPlanProperties] UUID inválido recibido:', tableUuid);
+      alert(t('floor_plan.properties.invalid_uuid', 'Error: El identificador de mesa es inválido. Por favor selecciona una mesa válida del listado.'));
+      return;
+    }
+    
     const selectedTable = tables.find(t => t.uuid === tableUuid);
     useFloorPlanStore.getState().linkTableToObject(
       selectedObject.uuid,
@@ -161,7 +146,7 @@ export function FloorPlanProperties() {
               <span>{t('floor_plan.properties.rotate', 'Rotar')}</span>
             </button>
             <button
-              onClick={duplicateSelected}
+              onClick={handleDuplicate}
               className="flex flex-col items-center gap-1 p-2 border border-gray-200 dark:border-slate-700 rounded hover:bg-gray-50 dark:hover:bg-slate-800 text-xs text-gray-700 dark:text-slate-300 transition-colors"
               title={t('floor_plan.properties.duplicate', 'Duplicar (Ctrl+D)')}
             >
@@ -200,12 +185,17 @@ export function FloorPlanProperties() {
             <div className="space-y-2">
               <select
                 value={selectedObject.object_key ?? ''}
-                onChange={(e) => handleLinkTable(e.target.value || null)}
+                onChange={(e) => {
+                  console.log('[FloorPlanProperties] Select onChange:', e.target.value);
+                  handleLinkTable(e.target.value || null);
+                }}
                 className="w-full px-3 py-2 border border-blue-300 dark:border-blue-800 rounded text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
               >
                 <option key="unassigned" value="">{t('floor_plan.properties.not_assigned', '— Aún no asignada —')}</option>
                 {tables.map((table) => {
-                  const isLinkedElsewhere = isTableLinked(table.uuid) && selectedObject.object_key !== table.uuid;
+                  const isLinkedElsewhere = objects.some(
+                    obj => obj.uuid !== selectedObject.uuid && obj.object_key === table.uuid
+                  );
                   const isCurrentLinked = selectedObject.object_key === table.uuid;
                   return (
                     <option
@@ -229,7 +219,7 @@ export function FloorPlanProperties() {
                 </p>
               )}
               
-              {selectedObject.object_key && (
+              {selectedObject.object_key && isValidUUID(selectedObject.object_key) && (
                 <button
                   onClick={() => handleLinkTable(null)}
                   className="w-full text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 py-1 underline"
@@ -237,11 +227,22 @@ export function FloorPlanProperties() {
                   {t('floor_plan.properties.unlink_table', 'Desconectar de mesa real')}
                 </button>
               )}
+              
+              {/* Advertencia si object_key está corrupto */}
+              {selectedObject.object_key && !isValidUUID(selectedObject.object_key) && (
+                <div className="flex items-start gap-1.5 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 p-2 rounded">
+                  <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
+                  <span>
+                    {t('floor_plan.properties.corrupted_link',
+                      '⚠️ El vínculo con la mesa real está corrupto. Por favor selecciona nuevamente la mesa del listado.')}
+                  </span>
+                </div>
+              )}
             </div>
 
-            {selectedObject.object_key && (
+            {selectedObject.object_key && isValidUUID(selectedObject.object_key) && (
               <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-1.5 rounded">
-                <CheckCircle size={12} />
+                <Info size={12} />
                 <span className="font-medium">
                   {t('floor_plan.properties.connected_to', 'Conectada con mesa real')}
                 </span>
@@ -253,7 +254,7 @@ export function FloorPlanProperties() {
                 <Info size={12} />
                 <span>
                   {t('floor_plan.properties.not_connected_warning',
-                    'Esta mesa no está conectada con una mesa real. Los garzones no podrán abrir pedidos desde aquí.')}
+                    'Esta mesa no está conectada con una mesa real del restaurante.')}
                 </span>
               </div>
             )}
@@ -308,11 +309,11 @@ export function FloorPlanProperties() {
           </section>
         )}
 
-
         {/* ===== CAPACIDAD ===== */}
         {isTable && tableProps && (
           <section>
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300 mb-2 uppercase tracking-wide">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300 mb-2 uppercase tracking-wide flex items-center gap-2">
+              <Users size={14} />
               {t('floor_plan.properties.capacity_title', 'Capacidad')}
             </h3>
             <div>
@@ -466,9 +467,9 @@ export function FloorPlanProperties() {
                   key={pos}
                   onClick={() => addChair(pos)}
                   className="text-xs px-1 py-1.5 border border-gray-200 dark:border-slate-700 rounded hover:bg-gray-50 dark:hover:bg-slate-800 capitalize text-gray-700 dark:text-slate-300 transition-colors"
-                  title={String(t('floor_plan.properties.add_chair', { position: pos }))}
+                  title={t('floor_plan.properties.add_chair', 'Agregar silla {{position}}', { position: pos })}
                 >
-                  {String(t(`floor_plan.chair_position.${pos}`, pos.replace('-', ' ')))}
+                  {t(`floor_plan.chair_position.${pos}`, pos.replace('-', ' '))}
                 </button>
               ))}
             </div>
@@ -484,7 +485,7 @@ export function FloorPlanProperties() {
                       className="flex items-center justify-between text-xs bg-gray-50 dark:bg-slate-800 px-2 py-1.5 rounded border border-gray-200 dark:border-slate-700"
                     >
                       <span className="capitalize text-gray-700 dark:text-slate-300 truncate pr-1">
-                        {String(t(`floor_plan.chair_position.${chair.position}`, chair.position.replace('-', ' ')))}
+                        {t(`floor_plan.chair_position.${chair.position}`, chair.position.replace('-', ' '))}
                       </span>
                       <button
                         onClick={() => removeChairAt(idx)}
