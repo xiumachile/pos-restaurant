@@ -203,13 +203,13 @@ export function FloorPlanProperties() {
                 onChange={(e) => handleLinkTable(e.target.value || null)}
                 className="w-full px-3 py-2 border border-blue-300 dark:border-blue-800 rounded text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">{t('floor_plan.properties.not_assigned', '— Aún no asignada —')}</option>
+                <option key="unassigned" value="">{t('floor_plan.properties.not_assigned', '— Aún no asignada —')}</option>
                 {tables.map((table) => {
                   const isLinkedElsewhere = isTableLinked(table.uuid) && selectedObject.object_key !== table.uuid;
                   const isCurrentLinked = selectedObject.object_key === table.uuid;
                   return (
                     <option
-                      key={table.uuid}
+                      key={`table-option-${table.uuid}`}
                       value={table.uuid}
                       disabled={isLinkedElsewhere}
                       className={isCurrentLinked ? 'font-bold' : ''}

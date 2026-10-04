@@ -14,6 +14,7 @@ interface FloorPlanViewProps {
   isEditMode: boolean;
   onToggleEditMode?: () => void;
   onTableClick?: (tableUuid: string, tableNumber: string) => void;
+  showModeToggle?: boolean; // Controla si se muestra el botón de toggle
 }
 
 /**
@@ -21,7 +22,7 @@ interface FloorPlanViewProps {
  * - Vista operativa (garzón): solo lectura, click en mesa abre pedido
  * - Modo edición (admin): con sidebar, propiedades y herramientas
  */
-export function FloorPlanView({ isEditMode, onToggleEditMode, onTableClick }: FloorPlanViewProps) {
+export function FloorPlanView({ isEditMode, onToggleEditMode, onTableClick, showModeToggle = true }: FloorPlanViewProps) {
   const { editor, setCurrentPlan, setObjects } = useFloorPlanStore();
   const { save, hasChanges, isSaving, lastSavedAt } = useFloorPlanPersistence();
   const [canvasSize, setCanvasSize] = useState({ width: 1000, height: 700 });
@@ -104,7 +105,7 @@ export function FloorPlanView({ isEditMode, onToggleEditMode, onTableClick }: Fl
         hasChanges={hasChanges}
         lastSavedAt={lastSavedAt}
         isEditMode={isEditMode}
-        onToggleEditMode={onToggleEditMode}
+        onToggleEditMode={showModeToggle ? onToggleEditMode : undefined}
       />
       <div className="flex flex-1 overflow-hidden relative">
         {/* Sidebar solo en modo edición */}

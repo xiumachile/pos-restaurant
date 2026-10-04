@@ -44,6 +44,7 @@ export function TablesPage() {
       isEditMode={isEditMode}
       onToggleEditMode={canEdit ? handleToggleEditMode : undefined}
       onTableClick={handleTableClick}
+      showModeToggle={true}
     />
   );
 }
