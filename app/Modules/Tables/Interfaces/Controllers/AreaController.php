@@ -25,7 +25,7 @@ class AreaController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'code' => 'required|string|max:50',
+            'code' => 'required|string|max:50|regex:/^[A-Z0-9_-]+$/',
             'name_translations.es' => 'required|string|max:100',
             'name_translations.zh' => 'required|string|max:100',
             'sort_order' => 'nullable|integer|min:0',
@@ -33,9 +33,9 @@ class AreaController extends Controller
 
         $user = $request->user();
 
-        // Verificar que el código no exista en esta sucursal
         $exists = Area::where('branch_id', $user->branch_id)
-            ->where('code', $validated['code'])
+            ->where('code', strtoupper($validated['code']))
+            ->whereNull('deleted_at')
             ->exists();
 
         if ($exists) {
@@ -49,7 +49,7 @@ class AreaController extends Controller
             'uuid' => Str::uuid(),
             'company_id' => $user->company_id,
             'branch_id' => $user->branch_id,
-            'code' => $validated['code'],
+            'code' => strtoupper($validated['code']),
             'name_translations' => $validated['name_translations'],
             'sort_order' => $validated['sort_order'] ?? 0,
             'is_active' => true,
@@ -61,7 +61,7 @@ class AreaController extends Controller
     public function update(Request $request, string $uuid): JsonResponse
     {
         $validated = $request->validate([
-            'code' => 'sometimes|string|max:50',
+            'code' => 'sometimes|string|max:50|regex:/^[A-Z0-9_-]+$/',
             'name_translations.es' => 'sometimes|string|max:100',
             'name_translations.zh' => 'sometimes|string|max:100',
             'sort_order' => 'nullable|integer|min:0',
@@ -73,22 +73,22 @@ class AreaController extends Controller
             ->firstOrFail();
 
         if (isset($validated['code'])) {
-            // Verificar que el código no exista en otra área
+            $validated['code'] = strtoupper($validated['code']);
             $exists = Area::where('branch_id', $user->branch_id)
                 ->where('code', $validated['code'])
                 ->where('id', '!=', $area->id)
+                ->whereNull('deleted_at')
                 ->exists();
 
             if ($exists) {
                 return response()->json([
                     'error' => 'area_code_exists',
-                    'message' => 'Ya existe un área con este código en la sucursal'
+                    'message' => 'Ya existe un área con este código'
                 ], 422);
             }
         }
 
         $area->update($validated);
-
         return response()->json(['data' => $area]);
     }
 
@@ -99,16 +99,20 @@ class AreaController extends Controller
             ->where('branch_id', $user->branch_id)
             ->firstOrFail();
 
-        // Verificar que no tenga mesas asociadas
-        if ($area->tables()->count() > 0) {
+        // Verificar si hay mesas usando este area_code
+        $tablesCount = \Modules\Tables\Domain\Entities\RestaurantTable::where('branch_id', $user->branch_id)
+            ->where('area_code', $area->code)
+            ->whereNull('deleted_at')
+            ->count();
+
+        if ($tablesCount > 0) {
             return response()->json([
                 'error' => 'area_has_tables',
-                'message' => 'No se puede eliminar el área porque tiene mesas asociadas. Primero elimina o reasigna las mesas.'
+                'message' => "No se puede eliminar: hay {$tablesCount} mesa(s) usando esta área. Primero reasigna o elimina las mesas."
             ], 422);
         }
 
         $area->delete();
-
         return response()->json(['message' => 'Área eliminada correctamente']);
     }
 }

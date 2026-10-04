@@ -5,7 +5,6 @@ namespace Modules\Tables\Domain\Entities;
 use App\Shared\Infrastructure\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Modules\Identity\Domain\Entities\Branch;
 use Modules\Identity\Domain\Entities\Company;
@@ -37,11 +36,6 @@ class Area extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
-    }
-
-    public function tables(): HasMany
-    {
-        return $this->hasMany(RestaurantTable::class);
     }
 
     public function getNameAttribute(): string

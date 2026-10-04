@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useAreas } from '@/hooks/useAreas';
 
 interface TableManagementModalProps {
   isOpen: boolean;
@@ -11,13 +12,7 @@ interface TableManagementModalProps {
   isLoading: boolean;
 }
 
-const AREA_OPTIONS = [
-  { code: 'MAIN' },
-  { code: 'TERRAZA' },
-  { code: 'BAR' },
-  { code: 'VIP' },
-  { code: 'PATIO' },
-];
+
 
 export function TableManagementModal({
   isOpen,
@@ -28,6 +23,7 @@ export function TableManagementModal({
   isLoading,
 }: TableManagementModalProps) {
   const { t, i18n } = useTranslation();
+  const { areas } = useAreas();
   const currentLang = i18n.language.startsWith('zh') ? 'zh' : 'es';
   
   const [formData, setFormData] = useState({
@@ -129,11 +125,14 @@ export function TableManagementModal({
               onChange={(e) => handleAreaChange(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500"
             >
-              {AREA_OPTIONS.map((area) => (
-                <option key={area.code} value={area.code}>
-                  {t(`areas.${area.code}`)}
+              {areas.map((area) => (
+                <option key={area.uuid} value={area.code}>
+                  {area.name_translations[currentLang]} ({area.code})
                 </option>
               ))}
+              {areas.length === 0 && (
+                <option disabled>{t('areas.no_areas_select', 'No hay áreas - créalas primero')}</option>
+              )}
             </select>
           </div>
 

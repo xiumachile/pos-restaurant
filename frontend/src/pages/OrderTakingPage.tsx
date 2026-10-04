@@ -78,7 +78,7 @@ export function OrderTakingPage() {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-4">
           <button
