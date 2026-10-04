@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { ReportsPage } from "@/pages/ReportsPage";
 import { createBrowserRouter, Navigate, Outlet, Link } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -36,16 +37,7 @@ function LoadingFallback() {
 
 
 
-function ReportsPage() {
-  return (
-    <div>
-      <h1 className="text-3xl font-bold mb-4">Reportes</h1>
-      <div className="bg-slate-800 rounded-lg p-8 text-center">
-        <p className="text-slate-400">🚧 En construcción</p>
-      </div>
-    </div>
-  );
-}
+
 
 function SettingsPage() {
   const { t } = useTranslation();
