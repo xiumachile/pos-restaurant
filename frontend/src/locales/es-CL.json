@@ -49,7 +49,8 @@
     "count": "{{count}} mesas",
     "table": "Mesa",
     "tables": "mesas",
-    "capacity_label": "Capacidad:"
+    "capacity_label": "Capacidad:",
+    "edit_permission_required": "Solo administradores pueden editar el plano"
   },
   "orders": {
     "new_order": "Nueva Cuenta",
@@ -1144,7 +1145,9 @@
       "increase": "Aumentar",
       "current_chairs": "Sillas actuales:",
       "remove_all_chairs": "Quitar todas las sillas",
-      "remove_all_chairs_confirm": "¿Quitar todas las sillas?"
+      "remove_all_chairs_confirm": "¿Quitar todas las sillas?",
+      "no_tables_available": "No hay mesas disponibles. Crea mesas primero en la sección de Mesas.",
+      "unlink_table": "Desconectar de mesa real"
     },
     "chair_position": {
       "top": "Arriba",

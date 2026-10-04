@@ -49,7 +49,8 @@
     "count": "{{count}} 张桌台",
     "table": "桌台",
     "tables": "桌台",
-    "capacity_label": "容量:"
+    "capacity_label": "容量:",
+    "edit_permission_required": "只有管理员可以编辑平面图"
   },
   "orders": {
     "new_order": "新账单",
@@ -1144,7 +1145,9 @@
       "increase": "增加",
       "current_chairs": "当前椅子:",
       "remove_all_chairs": "移除所有椅子",
-      "remove_all_chairs_confirm": "移除所有椅子吗?"
+      "remove_all_chairs_confirm": "移除所有椅子吗?",
+      "no_tables_available": "没有可用的桌子。请先在桌子部分创建桌子。",
+      "unlink_table": "断开与真实桌子的连接"
     },
     "chair_position": {
       "top": "上",

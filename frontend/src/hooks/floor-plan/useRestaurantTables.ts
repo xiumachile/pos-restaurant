@@ -16,9 +16,12 @@ export function useRestaurantTables() {
     setLoading(true);
     setError(null);
     try {
+      console.log('🔄 Cargando mesas operativas...');
       const data = await floorPlanService.getOperationalTables();
+      console.log('✅ Mesas cargadas:', data.length, data);
       setTables(data);
     } catch (err: any) {
+      console.error('❌ Error al cargar mesas:', err);
       setError(err?.message ?? 'Error al cargar mesas');
       setTables([]);
     } finally {

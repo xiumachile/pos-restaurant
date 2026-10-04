@@ -197,26 +197,47 @@ export function FloorPlanProperties() {
             <label className="block text-xs font-medium text-blue-900 dark:text-blue-200 mb-1">
               {t('floor_plan.properties.select_real_table', 'Selecciona la mesa real:')}
             </label>
-            <select
-              value={selectedObject.object_key ?? ''}
-              onChange={(e) => handleLinkTable(e.target.value || null)}
-              className="w-full px-3 py-2 border border-blue-300 dark:border-blue-800 rounded text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">{t('floor_plan.properties.not_assigned', '— Aún no asignada —')}</option>
-              {tables.map((table) => {
-                const isLinkedElsewhere = isTableLinked(table.uuid) && selectedObject.object_key !== table.uuid;
-                return (
-                  <option
-                    key={table.uuid}
-                    value={table.uuid}
-                    disabled={isLinkedElsewhere}
-                  >
-                    Mesa {table.table_number} ({table.capacity} personas)
-                    {isLinkedElsewhere ? ' [ya usada]' : ''}
-                  </option>
-                );
-              })}
-            </select>
+            <div className="space-y-2">
+              <select
+                value={selectedObject.object_key ?? ''}
+                onChange={(e) => handleLinkTable(e.target.value || null)}
+                className="w-full px-3 py-2 border border-blue-300 dark:border-blue-800 rounded text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">{t('floor_plan.properties.not_assigned', '— Aún no asignada —')}</option>
+                {tables.map((table) => {
+                  const isLinkedElsewhere = isTableLinked(table.uuid) && selectedObject.object_key !== table.uuid;
+                  const isCurrentLinked = selectedObject.object_key === table.uuid;
+                  return (
+                    <option
+                      key={table.uuid}
+                      value={table.uuid}
+                      disabled={isLinkedElsewhere}
+                      className={isCurrentLinked ? 'font-bold' : ''}
+                    >
+                      Mesa {table.table_number} ({table.capacity}p) - {table.area_code || 'Sin zona'}
+                      {isLinkedElsewhere ? ' [usada en otro dibujo]' : ''}
+                      {isCurrentLinked ? ' ✓' : ''}
+                    </option>
+                  );
+                })}
+              </select>
+              
+              {tables.length === 0 && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 p-2 rounded">
+                  {t('floor_plan.properties.no_tables_available', 
+                    'No hay mesas disponibles. Crea mesas primero en la sección de Mesas.')}
+                </p>
+              )}
+              
+              {selectedObject.object_key && (
+                <button
+                  onClick={() => handleLinkTable(null)}
+                  className="w-full text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 py-1 underline"
+                >
+                  {t('floor_plan.properties.unlink_table', 'Desconectar de mesa real')}
+                </button>
+              )}
+            </div>
 
             {selectedObject.object_key && (
               <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-1.5 rounded">
