@@ -48,7 +48,8 @@ beforeEach(function () {
         'is_active' => true,
     ]);
 
-    // 3 órdenes pagadas hoy
+    // 3 órdenes pagadas hoy (horas fijas para evitar problemas de timezone)
+    $today = \Carbon\Carbon::today();
     for ($i = 1; $i <= 3; $i++) {
         $order = Order::create([
             'company_id' => $this->company->id,
@@ -58,7 +59,7 @@ beforeEach(function () {
             'subtotal' => 10000,
             'tax_amount' => 1900,
             'total' => 11900,
-            'paid_at' => now()->subHours($i),
+            'paid_at' => $today->copy()->addHours(10 + $i), // 11:00, 12:00, 13:00 del día actual
         ]);
 
         OrderItem::create([
