@@ -2,10 +2,11 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\Reports\Interfaces\Controllers\ReportController;
+use Modules\Reports\Interfaces\Controllers\PurchaseReportController;
 use App\Shared\Http\Middleware\TenantContextMiddleware;
 
 // ============================================
-// Reports - Dashboard y métricas para el dueño
+// Reports - Dashboard de Ventas
 // ============================================
 Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class])->group(function () {
     Route::get('/reports/dashboard', [ReportController::class, 'dashboard'])
@@ -19,4 +20,19 @@ Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class])->g
 
     Route::get('/reports/payment-methods', [ReportController::class, 'paymentMethods'])
         ->name('reports.payment-methods');
+
+    // ============================================
+    // Reports - Dashboard de Compras
+    // ============================================
+    Route::get('/reports/purchases/kpis', [PurchaseReportController::class, 'kpis'])
+        ->name('reports.purchases.kpis');
+
+    Route::get('/reports/purchases/by-document-type', [PurchaseReportController::class, 'byDocumentType'])
+        ->name('reports.purchases.by-document-type');
+
+    Route::get('/reports/purchases/top-suppliers', [PurchaseReportController::class, 'topSuppliers'])
+        ->name('reports.purchases.top-suppliers');
+
+    Route::get('/reports/purchases/top-ingredients', [PurchaseReportController::class, 'topIngredients'])
+        ->name('reports.purchases.top-ingredients');
 });
