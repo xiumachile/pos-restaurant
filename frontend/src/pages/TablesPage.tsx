@@ -43,7 +43,7 @@ export function TablesPage() {
   };
 
   return (
-    <div className="h-full min-h-0 -m-4 md:-m-6">
+    <div className="h-[calc(100vh-8rem)]">
       <FloorPlanView
         isEditMode={isEditMode}
         onToggleEditMode={canEdit ? handleToggleEditMode : undefined}

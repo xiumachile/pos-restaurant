@@ -8,6 +8,7 @@ use App\Shared\Domain\Traits\HasUuid;
 use App\Shared\Domain\Traits\Syncable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Modules\Tables\Domain\Entities\Area;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Modules\Branches\Domain\Entities\Branch;
 use Modules\Companies\Domain\Entities\Company;
@@ -212,4 +213,11 @@ public function scopeInArea($query, string $areaCode)
     {
         return $this->hasMany(\Modules\Orders\Domain\Entities\Order::class, 'table_id');
     }
+
+
+    public function area(): BelongsTo
+    {
+        return $this->belongsTo(Area::class);
+    }
+
 }

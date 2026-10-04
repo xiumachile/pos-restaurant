@@ -1223,11 +1223,19 @@
     "delete_table": "Eliminar mesa"
   },
   "areas": {
-    "MAIN": "Salón Principal",
-    "TERRAZA": "Terraza",
-    "BAR": "Bar",
-    "VIP": "VIP",
-    "PATIO": "Patio"
+    "management_title": "Gestión de Áreas del Restaurante",
+    "create_area": "Crear Nueva Área",
+    "edit_area": "Editar Área",
+    "existing_areas": "Áreas Existentes",
+    "code": "Código",
+    "name_es": "Nombre (Español)",
+    "name_zh": "Nombre (Chino)",
+    "sort_order": "Orden",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "delete_confirm": "¿Eliminar el área {name}?",
+    "no_areas": "No hay áreas creadas. Crea la primera área.",
+    "manage_areas": "Gestionar Áreas"
   },
   "operational": {
     "status": {

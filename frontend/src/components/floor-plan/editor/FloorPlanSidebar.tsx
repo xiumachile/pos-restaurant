@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useFloorPlanStore } from '@/stores/floor-plan/floorPlanStore';
+import { useState } from 'react';
+import { AreaManagementModal } from '@/components/areas/AreaManagementModal';
 import { TableManagementPanel } from '@/components/tables/TableManagementPanel';
 import { useTranslation } from 'react-i18next';
 import { useTableManagement } from '@/hooks/useTableManagement';
@@ -28,6 +30,7 @@ const Z_INDEX_MAP: Record<string, number> = {
  * Panel izquierdo con biblioteca completa: mesas + decoración + arquitectura
  */
 export function FloorPlanSidebar() {
+  const [showAreaModal, setShowAreaModal] = useState(false);
   const { t } = useTranslation();
   const tableManagement = useTableManagement();
   const { addObject, currentPlan } = useFloorPlanStore();
@@ -150,7 +153,21 @@ export function FloorPlanSidebar() {
         </div>
       </div>
     
+      
+      <button
+        onClick={() => setShowAreaModal(true)}
+        className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded text-sm font-medium transition-colors mb-2"
+      >
+        🗺️ {t('areas.manage_areas', 'Gestionar Áreas')}
+      </button>
+
       <TableManagementPanel />
+    
+      <AreaManagementModal
+        isOpen={showAreaModal}
+        onClose={() => setShowAreaModal(false)}
+      />
+
     </div>
   );
 }

@@ -1223,11 +1223,19 @@
     "delete_table": "删除桌子"
   },
   "areas": {
-    "MAIN": "主厅",
-    "TERRAZA": "露台",
-    "BAR": "酒吧",
-    "VIP": "贵宾",
-    "PATIO": "庭院"
+    "management_title": "餐厅区域管理",
+    "create_area": "创建新区域",
+    "edit_area": "编辑区域",
+    "existing_areas": "现有区域",
+    "code": "代码",
+    "name_es": "名称（西班牙语）",
+    "name_zh": "名称（中文）",
+    "sort_order": "排序",
+    "edit": "编辑",
+    "delete": "删除",
+    "delete_confirm": "确定要删除区域 {name} 吗？",
+    "no_areas": "还没有区域。创建第一个区域。",
+    "manage_areas": "管理区域"
   },
   "operational": {
     "status": {

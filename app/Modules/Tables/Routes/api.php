@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\Tables\Interfaces\Controllers\RestaurantTableController;
+use Modules\Tables\Interfaces\Controllers\AreaController;
 
 Route::prefix('v1')->middleware(['auth:api'])->group(function () {
     // Mesas (CRUD básico)
@@ -12,4 +13,9 @@ Route::prefix('v1')->middleware(['auth:api'])->group(function () {
         ->name('tables.orders');
     Route::put('tables/{table}/status', [RestaurantTableController::class, 'updateStatus'])
         ->name('tables.update-status');
+
+    // Áreas (CRUD)
+    Route::apiResource('areas', AreaController::class)
+        ->only(['index', 'store', 'update', 'destroy']);
+
 });
