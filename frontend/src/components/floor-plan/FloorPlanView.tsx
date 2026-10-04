@@ -48,6 +48,15 @@ export function FloorPlanView({ isEditMode, onToggleEditMode, onTableClick, show
     return () => window.removeEventListener('keydown', handleSave);
   }, [save, isEditMode]);
 
+  // Limpiar estado al desmontar (evita residuos al navegar)
+  useEffect(() => {
+    return () => {
+      const { clearSelection, setEditorMode } = useFloorPlanStore.getState();
+      clearSelection();
+      setEditorMode('select');
+    };
+  }, []);
+
   // Cargar plano al iniciar
   useEffect(() => {
     if (!localStorageService.hasStoredPlan()) {

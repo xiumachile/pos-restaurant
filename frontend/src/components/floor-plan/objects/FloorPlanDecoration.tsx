@@ -9,8 +9,8 @@ interface FloorPlanDecorationProps {
 }
 
 /**
- * Renderiza un elemento decorativo/arquitectónico genérico.
- * Usa formas básicas (rectángulo/círculo) con color + icono de etiqueta.
+ * Renderiza un elemento decorativo/arquitectónico con emoji visual.
+ * Los emojis se guardan en properties.emoji y se renderizan con Text de Konva.
  */
 export function FloorPlanDecoration({ object, isSelected }: FloorPlanDecorationProps) {
   const groupRef = useRef<any>(null);
@@ -20,11 +20,11 @@ export function FloorPlanDecoration({ object, isSelected }: FloorPlanDecorationP
   const properties = object.properties as any;
   const color = properties?.color ?? '#6b7280';
   const label = properties?.label ?? '';
+  const emoji = properties?.emoji ?? '⬜';
 
   const width = object.width ?? 80;
   const height = object.height ?? 80;
 
-  // Determinar forma según tipo
   const isCircle = ['plant', 'lamp', 'stool', 'column'].includes(object.object_type);
   const isLinear = ['wall', 'window', 'door', 'screen', 'lattice', 'panel', 'entrance', 'emergency-exit'].includes(object.object_type);
 
@@ -126,6 +126,9 @@ export function FloorPlanDecoration({ object, isSelected }: FloorPlanDecorationP
     );
   };
 
+  // Calcular tamaño del emoji proporcional al objeto
+  const emojiFontSize = Math.min(width, height) * 0.6;
+
   return (
     <>
       <Group
@@ -144,7 +147,20 @@ export function FloorPlanDecoration({ object, isSelected }: FloorPlanDecorationP
       >
         {renderShape()}
 
-        {/* Etiqueta dentro del elemento */}
+        {/* Emoji central (referencia visual) */}
+        <Text
+          text={emoji}
+          fontSize={emojiFontSize}
+          align="center"
+          verticalAlign="middle"
+          width={width}
+          height={height}
+          offsetX={width / 2}
+          offsetY={height / 2}
+          fill="black"
+        />
+
+        {/* Etiqueta opcional debajo */}
         {label && (
           <Text
             text={label}
@@ -154,7 +170,7 @@ export function FloorPlanDecoration({ object, isSelected }: FloorPlanDecorationP
             align="center"
             width={width}
             offsetX={width / 2}
-            offsetY={-5}
+            offsetY={height / 2 + 5}
           />
         )}
       </Group>

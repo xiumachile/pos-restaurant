@@ -1202,5 +1202,43 @@
   },
   "navigation": {
     "floor_plan": "餐厅平面图"
+  },
+  "table_management": {
+    "create_table": "创建桌子",
+    "edit_table": "编辑桌子",
+    "table_number": "桌子编号",
+    "table_number_placeholder": "例如: M-01, VIP-1, T-03",
+    "area": "区域",
+    "capacity": "容量（人数）",
+    "cancel": "取消",
+    "save": "保存",
+    "saving": "保存中...",
+    "save_success": "桌子保存成功",
+    "save_error": "保存桌子时出错",
+    "delete_success": "桌子删除成功",
+    "delete_error": "删除桌子时出错",
+    "delete_confirm": "确定要删除桌子 {number} 吗？\n\n此操作无法撤销。"
+  },
+  "areas": {
+    "MAIN": "主厅",
+    "TERRAZA": "露台",
+    "BAR": "酒吧",
+    "VIP": "贵宾",
+    "PATIO": "庭院"
+  },
+  "operational": {
+    "status": {
+      "available": "空闲",
+      "occupied": "已占用",
+      "reserved": "已预订",
+      "maintenance": "维护中",
+      "blocked": "已阻止"
+    },
+    "time_elapsed": "时间: {time}",
+    "waiter": "服务员: {name}",
+    "total": "总计: ${amount}",
+    "guests": "{count} 人",
+    "no_active_order": "没有活动订单",
+    "pending_items": "待处理项目: {count}"
   }
 }

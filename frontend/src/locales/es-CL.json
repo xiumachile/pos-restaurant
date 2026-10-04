@@ -1202,5 +1202,43 @@
   },
   "navigation": {
     "floor_plan": "Plano del Restaurante"
+  },
+  "table_management": {
+    "create_table": "Crear Mesa",
+    "edit_table": "Editar Mesa",
+    "table_number": "Número de Mesa",
+    "table_number_placeholder": "Ej: M-01, VIP-1, T-03",
+    "area": "Área / Zona",
+    "capacity": "Capacidad (personas)",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "saving": "Guardando...",
+    "save_success": "Mesa guardada correctamente",
+    "save_error": "Error al guardar la mesa",
+    "delete_success": "Mesa eliminada correctamente",
+    "delete_error": "Error al eliminar la mesa",
+    "delete_confirm": "¿Estás seguro de eliminar la mesa {number}?\n\nEsta acción no se puede deshacer."
+  },
+  "areas": {
+    "MAIN": "Salón Principal",
+    "TERRAZA": "Terraza",
+    "BAR": "Bar",
+    "VIP": "VIP",
+    "PATIO": "Patio"
+  },
+  "operational": {
+    "status": {
+      "available": "Libre",
+      "occupied": "Ocupada",
+      "reserved": "Reservada",
+      "maintenance": "Mantenimiento",
+      "blocked": "Bloqueada"
+    },
+    "time_elapsed": "Tiempo: {time}",
+    "waiter": "Garzón: {name}",
+    "total": "Total: ${amount}",
+    "guests": "{count} personas",
+    "no_active_order": "Sin pedido activo",
+    "pending_items": "Items pendientes: {count}"
   }
 }

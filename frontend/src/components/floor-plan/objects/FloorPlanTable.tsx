@@ -3,19 +3,21 @@ import { Group, Rect, Circle, Ellipse, Text, Transformer } from 'react-konva';
 import type { FloorPlanObject, TableProperties } from '@/types/floor-plan/floorPlan.types';
 import { FloorPlanChair } from './FloorPlanChair';
 import { useFloorPlanStore } from '@/stores/floor-plan/floorPlanStore';
+import type { OperationalTableData } from '@/hooks/floor-plan/useOperationalTableData';
 
 interface FloorPlanTableProps {
   object: FloorPlanObject;
   isSelected: boolean;
   isEditMode?: boolean;
   onOperationalClick?: (tableUuid: string, tableNumber: string) => void;
+  operationalData?: OperationalTableData | null;
 }
 
 /**
  * Renderiza una mesa con sus sillas.
  * Incluye Transformer para rotar/redimensionar cuando está seleccionada.
  */
-export function FloorPlanTable({ object, isSelected, isEditMode = true, onOperationalClick }: FloorPlanTableProps) {
+export function FloorPlanTable({ object, isSelected, isEditMode = true, onOperationalClick, operationalData }: FloorPlanTableProps) {
   const groupRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
   const { selectObject, moveObject, updateObject, currentPlan, pushHistory } = useFloorPlanStore();
@@ -100,11 +102,34 @@ export function FloorPlanTable({ object, isSelected, isEditMode = true, onOperat
     });
   };
 
+  // Color de borde según estado operativo (solo en modo operativo)
+  const getStrokeColor = () => {
+    if (isEditMode) return isSelected ? '#3B82F6' : '#1F2937';
+    if (!operationalData) return '#1F2937';
+    
+    switch (operationalData.status) {
+      case 'available': return '#10b981'; // verde
+      case 'occupied': return '#ef4444'; // rojo
+      case 'reserved': return '#f59e0b'; // ámbar
+      case 'maintenance':
+      case 'blocked': return '#6b7280'; // gris
+      default: return '#1F2937';
+    }
+  };
+
+
+  const formatTimeElapsed = (minutes: number): string => {
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h${mins > 0 ? ` ${mins}m` : ''}`;
+  };
+
   const renderTableSurface = () => {
     const commonProps = {
       fill: color,
-      stroke: '#1F2937',
-      strokeWidth: 2,
+      stroke: getStrokeColor(),
+      strokeWidth: isEditMode ? 2 : 4,
       shadowColor: 'black',
       shadowBlur: 4,
       shadowOpacity: 0.4,

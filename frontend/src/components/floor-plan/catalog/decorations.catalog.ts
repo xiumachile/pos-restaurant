@@ -14,7 +14,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '🌱',
     defaultWidth: 40,
     defaultHeight: 40,
-    defaultProperties: { variant: 'small', color: '#22c55e' },
+    defaultProperties: { variant: 'small', color: '#22c55e', emoji: '🌱' },
   },
   {
     type: 'plant',
@@ -23,7 +23,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '🌿',
     defaultWidth: 70,
     defaultHeight: 70,
-    defaultProperties: { variant: 'large', color: '#16a34a' },
+    defaultProperties: { variant: 'large', color: '#16a34a', emoji: '🌿' },
   },
   {
     type: 'plant',
@@ -32,7 +32,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '🌳',
     defaultWidth: 90,
     defaultHeight: 90,
-    defaultProperties: { variant: 'tree', color: '#15803d' },
+    defaultProperties: { variant: 'tree', color: '#15803d', emoji: '🌳' },
   },
   {
     type: 'plant',
@@ -41,7 +41,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '🪴',
     defaultWidth: 50,
     defaultHeight: 50,
-    defaultProperties: { variant: 'pot', color: '#a16207' },
+    defaultProperties: { variant: 'pot', color: '#a16207', emoji: '🪴' },
   },
 
   // DECORACIÓN
@@ -52,7 +52,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '🖼️',
     defaultWidth: 60,
     defaultHeight: 40,
-    defaultProperties: { variant: 'painting', color: '#854d0e' },
+    defaultProperties: { variant: 'painting', color: '#854d0e', emoji: '🖼️' },
   },
   {
     type: 'decoration',
@@ -61,7 +61,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '🪞',
     defaultWidth: 60,
     defaultHeight: 40,
-    defaultProperties: { variant: 'mirror', color: '#e0e7ff' },
+    defaultProperties: { variant: 'mirror', color: '#e0e7ff', emoji: '🪞' },
   },
   {
     type: 'decoration',
@@ -70,7 +70,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '💡',
     defaultWidth: 40,
     defaultHeight: 40,
-    defaultProperties: { variant: 'lamp', color: '#fbbf24' },
+    defaultProperties: { variant: 'lamp', color: '#fbbf24', emoji: '💡' },
   },
   {
     type: 'decoration',
@@ -79,7 +79,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '⛲',
     defaultWidth: 80,
     defaultHeight: 80,
-    defaultProperties: { variant: 'fountain', color: '#3b82f6' },
+    defaultProperties: { variant: 'fountain', color: '#3b82f6', emoji: '⛲' },
   },
 
   // MOBILIARIO
@@ -90,7 +90,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '🛋️',
     defaultWidth: 120,
     defaultHeight: 60,
-    defaultProperties: { variant: 'sofa', color: '#7c3aed' },
+    defaultProperties: { variant: 'sofa', color: '#7c3aed', emoji: '🛋️' },
   },
   {
     type: 'furniture',
@@ -99,7 +99,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '💺',
     defaultWidth: 70,
     defaultHeight: 70,
-    defaultProperties: { variant: 'armchair', color: '#7c3aed' },
+    defaultProperties: { variant: 'armchair', color: '#7c3aed', emoji: '💺' },
   },
   {
     type: 'furniture',
@@ -108,7 +108,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '🪑',
     defaultWidth: 100,
     defaultHeight: 40,
-    defaultProperties: { variant: 'bench', color: '#78350f' },
+    defaultProperties: { variant: 'bench', color: '#78350f', emoji: '🪑' },
   },
   {
     type: 'furniture',
@@ -117,7 +117,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '🪑',
     defaultWidth: 35,
     defaultHeight: 35,
-    defaultProperties: { variant: 'stool', color: '#78350f' },
+    defaultProperties: { variant: 'stool', color: '#78350f', emoji: '🪑' },
   },
 
   // ARQUITECTURA
@@ -128,7 +128,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '🏛️',
     defaultWidth: 50,
     defaultHeight: 50,
-    defaultProperties: { variant: 'column', color: '#6b7280' },
+    defaultProperties: { variant: 'column', color: '#6b7280', emoji: '🏛️' },
   },
   {
     type: 'wall',
@@ -137,7 +137,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '🧱',
     defaultWidth: 200,
     defaultHeight: 20,
-    defaultProperties: { variant: 'wall', color: '#44403c' },
+    defaultProperties: { variant: 'wall', color: '#44403c', emoji: '🧱' },
   },
   {
     type: 'window',
@@ -146,7 +146,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '🪟',
     defaultWidth: 120,
     defaultHeight: 15,
-    defaultProperties: { variant: 'window', color: '#67e8f9' },
+    defaultProperties: { variant: 'window', color: '#67e8f9', emoji: '🪟' },
   },
   {
     type: 'door',
@@ -155,7 +155,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '🚪',
     defaultWidth: 80,
     defaultHeight: 15,
-    defaultProperties: { variant: 'door', color: '#a16207' },
+    defaultProperties: { variant: 'door', color: '#a16207', emoji: '🚪' },
   },
 
   // SEPARACIÓN
@@ -166,7 +166,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '🎭',
     defaultWidth: 150,
     defaultHeight: 15,
-    defaultProperties: { variant: 'screen', color: '#d97706' },
+    defaultProperties: { variant: 'screen', color: '#d97706', emoji: '🎭' },
   },
   {
     type: 'separator',
@@ -175,7 +175,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '🪜',
     defaultWidth: 150,
     defaultHeight: 15,
-    defaultProperties: { variant: 'lattice', color: '#ca8a04' },
+    defaultProperties: { variant: 'lattice', color: '#ca8a04', emoji: '🪜' },
   },
   {
     type: 'separator',
@@ -184,7 +184,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '🪧',
     defaultWidth: 150,
     defaultHeight: 15,
-    defaultProperties: { variant: 'panel', color: '#a3a3a3' },
+    defaultProperties: { variant: 'panel', color: '#a3a3a3', emoji: '🪧' },
   },
 
   // SERVICIO
@@ -195,7 +195,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '🍸',
     defaultWidth: 250,
     defaultHeight: 80,
-    defaultProperties: { variant: 'bar', color: '#7c2d12' },
+    defaultProperties: { variant: 'bar', color: '#7c2d12', emoji: '🍸' },
   },
   {
     type: 'service',
@@ -204,7 +204,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '📋',
     defaultWidth: 80,
     defaultHeight: 60,
-    defaultProperties: { variant: 'waiter-station', color: '#525252' },
+    defaultProperties: { variant: 'waiter-station', color: '#525252', emoji: '📋' },
   },
   {
     type: 'service',
@@ -213,7 +213,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '🍹',
     defaultWidth: 100,
     defaultHeight: 70,
-    defaultProperties: { variant: 'drink-station', color: '#be123c' },
+    defaultProperties: { variant: 'drink-station', color: '#be123c', emoji: '🍹' },
   },
 
   // INFRAESTRUCTURA
@@ -224,7 +224,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '🪜',
     defaultWidth: 120,
     defaultHeight: 80,
-    defaultProperties: { variant: 'stairs', color: '#78716c' },
+    defaultProperties: { variant: 'stairs', color: '#78716c', emoji: '🪜' },
   },
   {
     type: 'infrastructure',
@@ -233,7 +233,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '🚪',
     defaultWidth: 100,
     defaultHeight: 20,
-    defaultProperties: { variant: 'entrance', color: '#16a34a' },
+    defaultProperties: { variant: 'entrance', color: '#16a34a', emoji: '🚪' },
   },
   {
     type: 'infrastructure',
@@ -242,7 +242,7 @@ export const decorationsCatalog: CatalogItem[] = [
     icon: '🚨',
     defaultWidth: 80,
     defaultHeight: 20,
-    defaultProperties: { variant: 'emergency-exit', color: '#dc2626' },
+    defaultProperties: { variant: 'emergency-exit', color: '#dc2626', emoji: '🚨' },
   },
 ];
 

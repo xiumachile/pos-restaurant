@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react';
 import { Stage, Layer, Rect, Line, Text } from 'react-konva';
 import { useFloorPlanStore } from '@/stores/floor-plan/floorPlanStore';
+import { useOperationalTableData } from '@/hooks/floor-plan/useOperationalTableData';
 import { FloorPlanTable } from '../objects/FloorPlanTable';
 import { FloorPlanDecoration } from '../objects/FloorPlanDecoration';
 import type { CatalogItem, FloorPlanObject } from '@/types/floor-plan/floorPlan.types';
@@ -14,6 +15,7 @@ interface FloorPlanCanvasProps {
 
 export function FloorPlanCanvas({ width, height, isEditMode = true, onTableClick }: FloorPlanCanvasProps) {
   const stageRef = useRef<any>(null);
+  const { operationalDataMap } = useOperationalTableData();
   const containerRef = useRef<HTMLDivElement>(null);
   const {
     currentPlan,
@@ -187,6 +189,7 @@ export function FloorPlanCanvas({ width, height, isEditMode = true, onTableClick
           {[...objects].sort((a, b) => (a.z_index ?? 0) - (b.z_index ?? 0)).map((obj) => {
             const isSelected = editor.selectedObjectIds.includes(obj.uuid);
             if (obj.object_type === 'table') {
+              const opData = obj.object_key ? operationalDataMap.get(obj.object_key) : null;
               return (
                 <FloorPlanTable
                   key={obj.uuid}
@@ -194,6 +197,7 @@ export function FloorPlanCanvas({ width, height, isEditMode = true, onTableClick
                   isSelected={isSelected}
                   isEditMode={isEditMode}
                   onOperationalClick={onTableClick}
+                  operationalData={opData}
                 />
               );
             }
