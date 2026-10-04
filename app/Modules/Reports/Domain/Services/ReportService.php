@@ -12,13 +12,14 @@ class ReportService
      */
     public function getDashboardKPIs(int $companyId, int $branchId): array
     {
-        $today = Carbon::today();
+        $todayStart = Carbon::today()->startOfDay();
+        $todayEnd = Carbon::today()->endOfDay();
 
         $ordersToday = DB::table('orders')
             ->where('company_id', $companyId)
             ->where('branch_id', $branchId)
             ->whereIn('status', ['paid', 'confirmed'])
-            ->whereDate('paid_at', $today)
+            ->whereBetween('paid_at', [$todayStart, $todayEnd])
             ->get();
 
         $todaySales = $ordersToday->sum('total');
@@ -31,7 +32,7 @@ class ReportService
             ->where('company_id', $companyId)
             ->where('branch_id', $branchId)
             ->where('status', 'completed')
-            ->whereDate('paid_at', $today)
+            ->whereBetween('paid_at', [$todayStart, $todayEnd])
             ->sum('tip_amount');
 
         return [
