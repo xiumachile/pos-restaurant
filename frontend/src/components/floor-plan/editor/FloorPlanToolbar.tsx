@@ -18,6 +18,8 @@ interface FloorPlanToolbarProps {
   isSaving?: boolean;
   hasChanges?: boolean;
   lastSavedAt?: string | null;
+  isEditMode?: boolean;
+  onToggleEditMode?: () => void;
 }
 
 export function FloorPlanToolbar({
@@ -25,6 +27,8 @@ export function FloorPlanToolbar({
   isSaving = false,
   hasChanges = false,
   lastSavedAt = null,
+  isEditMode = true,
+  onToggleEditMode,
 }: FloorPlanToolbarProps) {
   const { t } = useTranslation();
   const {
@@ -83,7 +87,30 @@ export function FloorPlanToolbar({
 
       {/* Herramientas */}
       <div className="flex items-center gap-2">
-        {/* Modo de interacción */}
+        {/* Toggle modo edición / operativo */}
+        {onToggleEditMode && (
+          <button
+            onClick={onToggleEditMode}
+            className={`flex items-center gap-2 px-4 py-2 rounded font-medium transition-colors ${
+              isEditMode
+                ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50'
+                : 'bg-blue-500 text-white hover:bg-blue-600'
+            }`}
+            title={isEditMode
+              ? t('floor_plan.toolbar.switch_to_operational', 'Cambiar a vista operativa')
+              : t('floor_plan.toolbar.switch_to_editor', 'Cambiar a modo edición')}
+          >
+            {isEditMode ? '👁️' : '✏️'}
+            <span className="text-sm">
+              {isEditMode
+                ? t('floor_plan.toolbar.view_mode', 'Ver plano')
+                : t('floor_plan.toolbar.edit_mode', 'Editar plano')}
+            </span>
+          </button>
+        )}
+
+        {/* Modo de interacción (solo en edición) */}
+        {isEditMode && (
         <div className="flex items-center gap-1 border-r border-gray-200 dark:border-slate-700 pr-2 mr-2">
           <button
             onClick={() => setEditorMode('select')}
@@ -108,6 +135,7 @@ export function FloorPlanToolbar({
             <Hand size={18} />
           </button>
         </div>
+        )}
 
         {/* Zoom */}
         <div className="flex items-center gap-1 border-r border-gray-200 dark:border-slate-700 pr-2 mr-2">
@@ -137,7 +165,8 @@ export function FloorPlanToolbar({
           </button>
         </div>
 
-        {/* Historial */}
+        {/* Historial (solo en edición) */}
+        {isEditMode && (
         <div className="flex items-center gap-1 border-r border-gray-200 dark:border-slate-700 pr-2 mr-2">
           <button
             onClick={undo}
@@ -156,8 +185,10 @@ export function FloorPlanToolbar({
             <Redo2 size={18} />
           </button>
         </div>
+        )}
 
-        {/* Guardar */}
+        {/* Guardar (solo en edición) */}
+        {isEditMode && (
         <button
           onClick={onSave}
           disabled={isSaving || !hasChanges}
@@ -173,6 +204,7 @@ export function FloorPlanToolbar({
           )}
           <span>{t('floor_plan.toolbar.save', 'Guardar')}</span>
         </button>
+        )}
       </div>
     </div>
   );

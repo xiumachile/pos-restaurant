@@ -7,13 +7,15 @@ import { useFloorPlanStore } from '@/stores/floor-plan/floorPlanStore';
 interface FloorPlanTableProps {
   object: FloorPlanObject;
   isSelected: boolean;
+  isEditMode?: boolean;
+  onOperationalClick?: (tableUuid: string, tableNumber: string) => void;
 }
 
 /**
  * Renderiza una mesa con sus sillas.
  * Incluye Transformer para rotar/redimensionar cuando está seleccionada.
  */
-export function FloorPlanTable({ object, isSelected }: FloorPlanTableProps) {
+export function FloorPlanTable({ object, isSelected, isEditMode = true, onOperationalClick }: FloorPlanTableProps) {
   const groupRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
   const { selectObject, moveObject, updateObject, currentPlan, pushHistory } = useFloorPlanStore();
@@ -34,7 +36,15 @@ export function FloorPlanTable({ object, isSelected }: FloorPlanTableProps) {
 
   const handleClick = (e: any) => {
     e.cancelBubble = true;
-    selectObject(object.uuid, e.evt?.shiftKey);
+    if (isEditMode) {
+      selectObject(object.uuid, e.evt?.shiftKey);
+    } else if (onOperationalClick && object.object_key) {
+      const props = object.properties as any;
+      onOperationalClick(object.object_key, props?.label || '');
+    } else {
+      // En modo operativo, seleccionar para mostrar info
+      selectObject(object.uuid, false);
+    }
   };
 
   const handleDragStart = () => {

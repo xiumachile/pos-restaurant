@@ -1095,7 +1095,11 @@
       "save_changes": "保存更改 (Ctrl+S)",
       "no_changes": "没有要保存的更改",
       "save_success": "平面图保存成功",
-      "save_error": "保存平面图时出错"
+      "save_error": "保存平面图时出错",
+      "view_mode": "查看平面图",
+      "edit_mode": "编辑平面图",
+      "switch_to_operational": "切换到操作视图",
+      "switch_to_editor": "切换到编辑模式"
     },
     "properties": {
       "title": "属性",
@@ -1132,7 +1136,15 @@
       "identification": "标识",
       "label": "标签",
       "label_placeholder": "例如: 角落的植物",
-      "reference_placeholder": "例如: 靠近门"
+      "reference_placeholder": "例如: 靠近门",
+      "capacity_title": "容量",
+      "capacity_label": "最大人数",
+      "capacity_help": "定义这张桌子可以坐多少人。",
+      "decrease": "减少",
+      "increase": "增加",
+      "current_chairs": "当前椅子:",
+      "remove_all_chairs": "移除所有椅子",
+      "remove_all_chairs_confirm": "移除所有椅子吗?"
     },
     "chair_position": {
       "top": "上",
@@ -1157,6 +1169,24 @@
       "service": "服务",
       "infrastructure": "基础设施",
       "chair": "椅子"
+    },
+    "operational": {
+      "table": "桌子",
+      "capacity": "容量",
+      "people": "人",
+      "connected": "已连接",
+      "table_not_found": "系统中找不到该真实桌子。",
+      "not_connected": "这张桌子没有与餐厅的真实桌子连接。",
+      "open_order": "打开订单",
+      "view_order": "查看订单",
+      "view_reservation": "查看预订",
+      "status": {
+        "available": "空闲",
+        "occupied": "已占用",
+        "reserved": "已预订",
+        "blocked": "已阻止",
+        "maintenance": "维护中"
+      }
     }
   },
   "navigation": {

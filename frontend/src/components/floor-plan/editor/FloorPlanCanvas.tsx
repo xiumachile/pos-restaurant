@@ -8,9 +8,11 @@ import type { CatalogItem, FloorPlanObject } from '@/types/floor-plan/floorPlan.
 interface FloorPlanCanvasProps {
   width: number;
   height: number;
+  isEditMode?: boolean;
+  onTableClick?: (tableUuid: string, tableNumber: string) => void;
 }
 
-export function FloorPlanCanvas({ width, height }: FloorPlanCanvasProps) {
+export function FloorPlanCanvas({ width, height, isEditMode = true, onTableClick }: FloorPlanCanvasProps) {
   const stageRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const {
@@ -185,7 +187,15 @@ export function FloorPlanCanvas({ width, height }: FloorPlanCanvasProps) {
           {[...objects].sort((a, b) => (a.z_index ?? 0) - (b.z_index ?? 0)).map((obj) => {
             const isSelected = editor.selectedObjectIds.includes(obj.uuid);
             if (obj.object_type === 'table') {
-              return <FloorPlanTable key={obj.uuid} object={obj} isSelected={isSelected} />;
+              return (
+                <FloorPlanTable
+                  key={obj.uuid}
+                  object={obj}
+                  isSelected={isSelected}
+                  isEditMode={isEditMode}
+                  onOperationalClick={onTableClick}
+                />
+              );
             }
             return <FloorPlanDecoration key={obj.uuid} object={obj} isSelected={isSelected} />;
           })}

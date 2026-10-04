@@ -1095,7 +1095,11 @@
       "save_changes": "Guardar cambios (Ctrl+S)",
       "no_changes": "No hay cambios para guardar",
       "save_success": "Plano guardado correctamente",
-      "save_error": "Error al guardar el plano"
+      "save_error": "Error al guardar el plano",
+      "view_mode": "Ver plano",
+      "edit_mode": "Editar plano",
+      "switch_to_operational": "Cambiar a vista operativa",
+      "switch_to_editor": "Cambiar a modo edición"
     },
     "properties": {
       "title": "Propiedades",
@@ -1132,7 +1136,15 @@
       "identification": "Identificación",
       "label": "Etiqueta",
       "label_placeholder": "Ej: Planta del rincón",
-      "reference_placeholder": "Ej: Junto a la puerta"
+      "reference_placeholder": "Ej: Junto a la puerta",
+      "capacity_title": "Capacidad",
+      "capacity_label": "Número máximo de personas",
+      "capacity_help": "Define cuántas personas pueden sentarse en esta mesa.",
+      "decrease": "Disminuir",
+      "increase": "Aumentar",
+      "current_chairs": "Sillas actuales:",
+      "remove_all_chairs": "Quitar todas las sillas",
+      "remove_all_chairs_confirm": "¿Quitar todas las sillas?"
     },
     "chair_position": {
       "top": "Arriba",
@@ -1157,6 +1169,24 @@
       "service": "Servicio",
       "infrastructure": "Infraestructura",
       "chair": "Silla"
+    },
+    "operational": {
+      "table": "Mesa",
+      "capacity": "Capacidad",
+      "people": "personas",
+      "connected": "Conectada con",
+      "table_not_found": "Mesa real no encontrada en el sistema.",
+      "not_connected": "Esta mesa no está conectada con una mesa real del restaurante.",
+      "open_order": "Abrir pedido",
+      "view_order": "Ver pedido",
+      "view_reservation": "Ver reserva",
+      "status": {
+        "available": "Libre",
+        "occupied": "Ocupada",
+        "reserved": "Reservada",
+        "blocked": "Bloqueada",
+        "maintenance": "Mantenimiento"
+      }
     }
   },
   "navigation": {

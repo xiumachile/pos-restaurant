@@ -287,6 +287,59 @@ export function FloorPlanProperties() {
           </section>
         )}
 
+
+        {/* ===== CAPACIDAD ===== */}
+        {isTable && tableProps && (
+          <section>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300 mb-2 uppercase tracking-wide">
+              {t('floor_plan.properties.capacity_title', 'Capacidad')}
+            </h3>
+            <div>
+              <label className="block text-xs text-gray-600 dark:text-slate-400 mb-1">
+                {t('floor_plan.properties.capacity_label', 'Número máximo de personas')}
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const newCapacity = Math.max(1, (tableProps.capacity ?? 2) - 1);
+                    handleUpdateTableProps({ capacity: newCapacity });
+                  }}
+                  className="w-10 h-10 rounded bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300 font-bold text-lg"
+                  title={t('floor_plan.properties.decrease', 'Disminuir')}
+                >
+                  −
+                </button>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={tableProps.capacity ?? 2}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    if (!isNaN(val) && val >= 1 && val <= 20) {
+                      handleUpdateTableProps({ capacity: val });
+                    }
+                  }}
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-slate-700 rounded text-center text-lg font-bold bg-white dark:bg-slate-800 text-gray-900 dark:text-white"
+                />
+                <button
+                  onClick={() => {
+                    const newCapacity = Math.min(20, (tableProps.capacity ?? 2) + 1);
+                    handleUpdateTableProps({ capacity: newCapacity });
+                  }}
+                  className="w-10 h-10 rounded bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300 font-bold text-lg"
+                  title={t('floor_plan.properties.increase', 'Aumentar')}
+                >
+                  +
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-slate-500 mt-1">
+                {t('floor_plan.properties.capacity_help', 'Define cuántas personas pueden sentarse en esta mesa.')}
+              </p>
+            </div>
+          </section>
+        )}
+
         {/* ===== POSICIÓN Y TAMAÑO ===== */}
         <section>
           <h3 className="text-sm font-semibold text-gray-700 dark:text-slate-300 mb-2 uppercase tracking-wide">
@@ -392,31 +445,46 @@ export function FloorPlanProperties() {
                   key={pos}
                   onClick={() => addChair(pos)}
                   className="text-xs px-1 py-1.5 border border-gray-200 dark:border-slate-700 rounded hover:bg-gray-50 dark:hover:bg-slate-800 capitalize text-gray-700 dark:text-slate-300 transition-colors"
-                  title={t('floor_plan.properties.add_chair', 'Agregar silla {{position}}', { position: pos })}
+                  title={String(t('floor_plan.properties.add_chair', { position: pos }))}
                 >
-                  {t(`floor_plan.chair_position.${pos}`, pos.replace('-', ' '))}
+                  {String(t(`floor_plan.chair_position.${pos}`, pos.replace('-', ' ')))}
                 </button>
               ))}
             </div>
             {tableProps.chairs.length > 0 && (
-              <div className="space-y-1 max-h-40 overflow-y-auto">
-                {tableProps.chairs.map((chair, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between text-xs bg-gray-50 dark:bg-slate-800 px-2 py-1.5 rounded"
-                  >
-                    <span className="capitalize text-gray-700 dark:text-slate-300">
-                      {t(`floor_plan.chair_position.${chair.position}`, chair.position.replace('-', ' '))}
-                    </span>
-                    <button
-                      onClick={() => removeChairAt(idx)}
-                      className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                      title={t('floor_plan.properties.remove_chair', 'Quitar silla')}
+              <div className="mt-2">
+                <p className="text-xs text-gray-600 dark:text-slate-400 mb-1.5">
+                  {t('floor_plan.properties.current_chairs', 'Sillas actuales:')}
+                </p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {tableProps.chairs.map((chair, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between text-xs bg-gray-50 dark:bg-slate-800 px-2 py-1.5 rounded border border-gray-200 dark:border-slate-700"
                     >
-                      ✕
-                    </button>
-                  </div>
-                ))}
+                      <span className="capitalize text-gray-700 dark:text-slate-300 truncate pr-1">
+                        {String(t(`floor_plan.chair_position.${chair.position}`, chair.position.replace('-', ' ')))}
+                      </span>
+                      <button
+                        onClick={() => removeChairAt(idx)}
+                        className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/60 transition-colors"
+                        title={t('floor_plan.properties.remove_chair', 'Quitar silla')}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => {
+                    if (confirm(t('floor_plan.properties.remove_all_chairs_confirm', '¿Quitar todas las sillas?'))) {
+                      handleUpdateTableProps({ chairs: [], capacity: 0 });
+                    }
+                  }}
+                  className="mt-2 w-full text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 py-1"
+                >
+                  {t('floor_plan.properties.remove_all_chairs', 'Quitar todas las sillas')}
+                </button>
               </div>
             )}
           </section>
