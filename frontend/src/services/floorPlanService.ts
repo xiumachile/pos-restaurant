@@ -120,9 +120,59 @@ export const floorPlanService = {
   /**
    * Obtiene las mesas operativas del módulo Tables (Sección 8.2)
    * Estas son las mesas REALES con pedidos, no los objetos gráficos
+   * 
+   * NOTA: El endpoint /tables devuelve áreas agrupadas con mesas anidadas:
+   * [{area_code, area_name, tables: [...]}, ...]
+   * Esta función aplana la estructura para devolver solo las mesas.
    */
   async getOperationalTables(): Promise<OperationalTable[]> {
-    const response = await apiClient.get('/tables');
-    return response.data?.data ?? response.data ?? [];
+    try {
+      const response = await apiClient.get('/tables');
+      const data = response.data?.data ?? response.data ?? [];
+      
+      // Si es un array vacío, retornar vacío
+      if (!Array.isArray(data) || data.length === 0) {
+        return [];
+      }
+      
+      // Verificar si es estructura agrupada (tiene 'area_code' y 'tables')
+      const isGrouped = data[0]?.area_code !== undefined && Array.isArray(data[0]?.tables);
+      
+      if (isGrouped) {
+        // Aplanar: extraer todas las mesas de todas las áreas
+        const allTables: OperationalTable[] = [];
+        
+        for (const area of data) {
+          if (area.tables && Array.isArray(area.tables)) {
+            for (const table of area.tables) {
+              // Validar que la mesa tenga uuid
+              if (table.uuid) {
+                allTables.push({
+                  uuid: table.uuid,
+                  table_number: table.table_number,
+                  capacity: table.capacity,
+                  status: table.status,
+                  area_code: area.area_code,
+                  area_name_translations: { es: area.area_name },
+                  current_order_id: table.current_order_id ?? null,
+                });
+              } else {
+                console.warn('[floorPlanService] Mesa sin uuid encontrada:', table);
+              }
+            }
+          }
+        }
+        
+        console.log('[floorPlanService] Mesas operativas cargadas:', allTables.length);
+        return allTables;
+      } else {
+        // Estructura ya es plana (fallback)
+        console.log('[floorPlanService] Estructura de mesas ya es plana');
+        return data;
+      }
+    } catch (error) {
+      console.error('[floorPlanService] Error al cargar mesas operativas:', error);
+      throw error;
+    }
   },
 };
