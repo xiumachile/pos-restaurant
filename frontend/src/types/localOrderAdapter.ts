@@ -54,6 +54,9 @@ export function adaptLocalOrder(
     order_number: order.order_number || `TEMP-${order.local_uuid.slice(0, 8)}`,
     type: (order.order_type as OrderType) || "dine_in",
     type_label: order.order_type === "dine_in" ? "En mesa" : order.order_type || "dine_in",
+    fulfillment_channel: (order.order_type as any) || "dine_in",
+    customer_name: null,
+    customer_phone: null,
     status: (isValidLocalStatus(order.status) 
       ? (order.status as OrderStatus) 
       : "confirmed"),
