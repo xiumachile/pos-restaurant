@@ -45,7 +45,8 @@ export function TakeawayOrderPage() {
     );
   }
 
-  const channelLabel = CHANNEL_LABELS[cart.channel];
+  // Fallback defensivo: si el canal no está en CHANNEL_LABELS, usar valores por defecto
+  const channelLabel = CHANNEL_LABELS[cart.channel] ?? { icon: "📦" };
 
   const handleAddProduct = (product: Product) => {
     addItem(cartKey, product);
