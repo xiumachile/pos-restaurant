@@ -25,7 +25,6 @@ const SyncQueuePage = lazy(() => import("@/pages/SyncQueuePage").then(m => ({ de
 const PrinterSettingsPage = lazy(() => import("@/pages/settings/PrinterSettingsPage").then(m => ({ default: m.PrinterSettingsPage })));
 const UsersPage = lazy(() => import("@/pages/settings/UsersPage").then(m => ({ default: m.UsersPage })));
 const GeneralSettingsPage = lazy(() => import("@/pages/settings/GeneralSettingsPage").then(m => ({ default: m.GeneralSettingsPage })));
-const OrderNumberingSettingsPage = lazy(() => import("@/pages/settings/OrderNumberingSettingsPage").then(m => ({ default: m.OrderNumberingSettingsPage })));
 const DefaultNotesPage = lazy(() => import("@/pages/catalog/DefaultNotesPage").then(m => ({ default: m.DefaultNotesPage })));
 const InventoryPage = lazy(() => import("@/pages/InventoryPage").then(m => ({ default: m.InventoryPage })));
 
@@ -88,13 +87,7 @@ function SettingsPage() {
       title: t("settings.default_notes_title"),
       description: t("settings.default_notes_desc"),
     },
-    {
-      to: "/settings/order-numbering",
-      icon: "🔢",
-      title: t("settings.order_numbering_title", "Numeración de Pedidos"),
-      description: t("settings.order_numbering_desc", "Configura el formato de números de orden"),
-    },
-  ];
+    ];
 
   return (
     <div>
