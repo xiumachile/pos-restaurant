@@ -2,7 +2,7 @@
 
 namespace Modules\Orders\Domain\Entities;
 
-use App\Shared\Infrastructure\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Modules\Identity\Domain\Entities\Branch;
 
