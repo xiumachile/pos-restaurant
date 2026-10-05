@@ -17,13 +17,6 @@ export const ordersService = {
     const response = await apiClient.post<OrderResponse>("/orders", payload);
     return response.data.data;
 
-    // Invalidar queries de mesas para actualizar estado
-    // Esto asegura que el estado de la mesa se actualice inmediatamente
-    setTimeout(() => {
-      const queryClient = useQueryClient();
-      queryClient.invalidateQueries({ queryKey: ['restaurant-tables'] });
-      queryClient.invalidateQueries({ queryKey: ['all-active-orders'] });
-    }, 500);
   },
 
   /**

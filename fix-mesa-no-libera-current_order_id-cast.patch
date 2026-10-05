@@ -1,0 +1,16 @@
+diff --git a/app/Modules/Tables/Domain/Entities/RestaurantTable.php b/app/Modules/Tables/Domain/Entities/RestaurantTable.php
+index 79e8bf9..be1209f 100644
+--- a/app/Modules/Tables/Domain/Entities/RestaurantTable.php
++++ b/app/Modules/Tables/Domain/Entities/RestaurantTable.php
+@@ -53,6 +53,11 @@ class RestaurantTable extends Model
+         'width' => 'integer',
+         'height' => 'integer',
+         'status' => TableStatus::class,
++        // FIX: sin este cast, PDO_PGSQL devuelve el valor como string y las
++        // comparaciones estrictas (!==) contra $order->id (int) en
++        // ReleaseTableOnOrderPaid/Close/Cancel fallan siempre, dejando la
++        // mesa "atascada" en occupied. Ver tests/Feature/OrderTableIntegrationTest.php.
++        'current_order_id' => 'integer',
+     ];
+ 
+     protected array $translatableFields = ['area_name_translations'];

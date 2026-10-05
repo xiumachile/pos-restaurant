@@ -39,6 +39,7 @@ class RestaurantTable extends Model
         'area_name_translations' => 'array',
         'capacity' => 'integer',
         'status' => TableStatus::class,
+        'current_order_id' => 'integer', // FIX: cast para evitar mismatch de tipos string/int con PDO_PGSQL (mesa no se libera al pagar)
     ];
 
     protected array $translatableFields = ['area_name_translations'];
