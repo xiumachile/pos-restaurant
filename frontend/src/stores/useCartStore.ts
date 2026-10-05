@@ -91,6 +91,7 @@ export const useCartStore = create<CartState>()(
                 tableNumber,
                 areaName,
                 channel,
+                editingOrderId,
                 items: [],
                 createdAt: new Date().toISOString(),
               },

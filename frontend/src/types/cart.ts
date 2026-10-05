@@ -27,6 +27,8 @@ export interface TableCart {
   areaName?: string;
   /** Canal de venta fijado al crear el pedido (H5 - fase 2) */
   channel: ChannelType;
+  /** ID de pedido existente que se está editando (modo edición) */
+  editingOrderId?: string;
   /** Items del pedido */
   items: CartItem[];
   /** Timestamp de creación */
