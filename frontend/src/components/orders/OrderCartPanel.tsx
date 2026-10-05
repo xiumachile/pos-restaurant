@@ -72,10 +72,14 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
 
     try {
       // 1. Crear pedido (operación crítica)
+      // REGLA DE DOMINIO: Si hay mesa (tableId), el pedido SIEMPRE es dine_in
+      // No puede existir un pedido delivery/takeout con mesa asignada
+      const orderType = tableId ? 'dine_in' : channelToOrderType(cart.channel);
+      
       const order = await OrderRepository.createWithItems(
         mergeAuthContext({
           table_id: tableId,
-          order_type: channelToOrderType(cart.channel),
+          order_type: orderType,
         }),
         items.map(item => ({
           product_id: item.product.uuid,
