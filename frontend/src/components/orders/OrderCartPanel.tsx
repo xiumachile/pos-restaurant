@@ -69,6 +69,10 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
   const handleSendOrder = async () => {
     if (items.length === 0 || !user) return;
 
+    // Detectar modo edición: agregar items a pedido existente
+    const isEditing = !!cart?.editingOrderId;
+    const editingOrderId = cart?.editingOrderId;
+
     setFeedback({ type: "loading", message: `💾 ${t("orders.sending")} ${items.length} items...` });
 
     try {
