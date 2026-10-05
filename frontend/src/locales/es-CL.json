@@ -146,7 +146,11 @@
       "picked_up": "Retirado",
       "dispatched": "En Camino",
       "served": "Servido"
-    }
+    },
+    "items": "items",
+    "items_detail": "Detalle de Items",
+    "tax": "Impuestos",
+    "discount": "Descuento"
   },
   "sync": {
     "sync_status": "Estado de sincronización",

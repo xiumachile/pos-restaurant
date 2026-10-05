@@ -11,19 +11,39 @@ export function OrdersPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [activeChannel, setActiveChannel] = useState<ChannelFilter>('all');
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const { data: orders = [], isLoading } = useActiveOrders(activeChannel);
 
   const handleAddItems = (order: Order) => {
     if (order.table) {
+      // Pedido con mesa: navegar a la vista de toma de pedido de mesa
       navigate(`/tables/${order.table.uuid}`);
     } else {
-      navigate(`/orders/takeaway/${order.uuid}`);
+      // Pedido sin mesa: verificar si el cart existe en el store
+      // Si no existe, mostrar mensaje (el cart puede haber expirado)
+      const cartStore = useCartStore.getState();
+      const cartKey = order.uuid;
+      
+      if (cartStore.carts[cartKey]) {
+        // Cart existe, navegar
+        navigate(`/orders/takeaway/${cartKey}`);
+      } else {
+        // Cart no existe, crear uno nuevo con los datos del pedido
+        // Esto permite agregar más items a pedidos existentes
+        const newCartKey = cartStore.initOrder({
+          tableUuid: null,
+          channel: order.fulfillment_channel as 'delivery' | 'takeout',
+        });
+        
+        // TODO: Copiar items del pedido al nuevo cart
+        // Por ahora, navegar al cart vacío
+        navigate(`/orders/takeaway/${newCartKey}`);
+      }
     }
   };
 
   const handleViewDetails = (order: Order) => {
-    // TODO: Implementar modal de detalles del pedido
-    console.log('View order details:', order.uuid);
+    setSelectedOrder(order);
   };
 
   return (
@@ -66,6 +86,13 @@ export function OrdersPage() {
           </div>
         )}
       </div>
+
+      {/* Modal de detalles del pedido */}
+      <OrderDetailsModal
+        order={selectedOrder}
+        isOpen={!!selectedOrder}
+        onClose={() => setSelectedOrder(null)}
+      />
     </div>
   );
 }

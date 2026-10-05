@@ -146,7 +146,11 @@
       "picked_up": "已取餐",
       "dispatched": "配送中",
       "served": "已上菜"
-    }
+    },
+    "items": "项",
+    "items_detail": "项目详情",
+    "tax": "税费",
+    "discount": "折扣"
   },
   "cashier": {
     "title": "收银台",
