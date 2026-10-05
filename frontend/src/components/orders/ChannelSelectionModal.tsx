@@ -22,7 +22,6 @@ export function ChannelSelectionModal({ open, onSelect, onClose }: ChannelSelect
   if (!open) return null;
 
   // Solo canales relevantes para toma manual (excluye uber_eats/rappi)
-  const channels: ChannelType[] = ["dine_in", "delivery", "takeout"];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
