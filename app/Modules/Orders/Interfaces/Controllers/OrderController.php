@@ -9,6 +9,7 @@ use Modules\Orders\Domain\Services\OrderService;
 use Modules\Orders\Interfaces\Requests\CreateOrderRequest;
 use Modules\Orders\Interfaces\Requests\UpdateOrderRequest;
 use Modules\Orders\Interfaces\Resources\OrderResource;
+use Modules\Orders\Domain\Entities\Order;
 use Modules\Orders\Domain\Exceptions\OrderNotModifiableException;
 
 class OrderController extends Controller
