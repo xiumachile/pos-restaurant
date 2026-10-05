@@ -51,6 +51,12 @@ export function Sidebar() {
     () => [
       { to: "/", label: t("tables.title"), icon: LayoutGrid, end: true, allowedRoles: ROLES.ALL },
       {
+        to: "/orders/new",
+        label: t("orders.new_order", "Nuevo Pedido"),
+        icon: UtensilsCrossed,
+        allowedRoles: ROLES.FRONT_OF_HOUSE,
+      },
+      {
         to: "/kitchen",
         label: t("kitchen.title"),
         icon: ChefHat,

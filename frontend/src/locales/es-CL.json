@@ -57,7 +57,7 @@
     "area": "Área / Zona"
   },
   "orders": {
-    "new_order": "Nueva Cuenta",
+    "new_order": "Nuevo Pedido",
     "add_item": "Agregar Producto",
     "split_bill": "Dividir Cuenta",
     "title": "Pedidos",
@@ -73,7 +73,7 @@
     "loading": "Cargando pedidos...",
     "no_orders": "No hay pedidos",
     "no_orders_desc": "Los pedidos que crees aparecerán aquí",
-    "dine_in": "Mesa",
+    "dine_in": "Comedor",
     "takeaway": "Para llevar",
     "total_label": "Total:",
     "waiter": "Mesero:",
@@ -115,7 +115,12 @@
     "menu_load_error": "Error al cargar la carta",
     "menu_load_error_hint": "Verifica tu conexión e intenta nuevamente.",
     "no_active_menu": "No hay carta activa para {{icon}} {{channel}}",
-    "no_active_menu_hint": "Configura una carta default o una regla de activación para este canal desde Administración → Cartas."
+    "no_active_menu_hint": "Configura una carta default o una regla de activación para este canal desde Administración → Cartas.",
+    "select_channel": "Seleccionar Canal",
+    "delivery": "Delivery",
+    "takeout": "Para Llevar",
+    "uber_eats": "Uber Eats",
+    "rappi": "Rappi"
   },
   "sync": {
     "sync_status": "Estado de sincronización",

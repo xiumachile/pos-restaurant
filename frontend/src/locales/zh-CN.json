@@ -57,7 +57,7 @@
     "area": "区域"
   },
   "orders": {
-    "new_order": "新账单",
+    "new_order": "新订单",
     "add_item": "添加商品",
     "split_bill": "分单",
     "title": "订单",
@@ -115,7 +115,12 @@
     "menu_load_error": "加载菜单错误",
     "menu_load_error_hint": "请检查您的连接并重试。",
     "no_active_menu": "{{icon}} {{channel}} 没有活动菜单",
-    "no_active_menu_hint": "请从管理 → 菜单中为此渠道配置默认菜单或激活规则。"
+    "no_active_menu_hint": "请从管理 → 菜单中为此渠道配置默认菜单或激活规则。",
+    "select_channel": "选择渠道",
+    "delivery": "外卖",
+    "takeout": "带走",
+    "uber_eats": "Uber Eats",
+    "rappi": "Rappi"
   },
   "cashier": {
     "title": "收银台",
