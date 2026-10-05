@@ -1104,7 +1104,10 @@
       "view_mode": "查看平面图",
       "edit_mode": "编辑平面图",
       "switch_to_operational": "切换到操作视图",
-      "switch_to_editor": "切换到编辑模式"
+      "switch_to_editor": "切换到编辑模式",
+      "operational_mode": "操作模式 - 点击桌子下单",
+      "edit_mode_short": "编辑",
+      "view_mode_short": "查看"
     },
     "properties": {
       "title": "属性",

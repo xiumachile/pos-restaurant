@@ -38,7 +38,6 @@ export function TablesPage() {
         addToast('error', t('tables.invalid_link_message', 'Esta mesa tiene un vínculo corrupto. Edita el plano y vuelve a vincularla.'));
         return;
       }
-      // Solo navegar, NO resetear el store
       navigate(`/tables/${tableUuid}`);
     }
   };

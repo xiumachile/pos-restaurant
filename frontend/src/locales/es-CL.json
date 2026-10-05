@@ -1104,7 +1104,10 @@
       "view_mode": "Ver plano",
       "edit_mode": "Editar plano",
       "switch_to_operational": "Cambiar a vista operativa",
-      "switch_to_editor": "Cambiar a modo edición"
+      "switch_to_editor": "Cambiar a modo edición",
+      "operational_mode": "Modo operativo - Click en mesa para tomar pedido",
+      "edit_mode_short": "Editar",
+      "view_mode_short": "Ver"
     },
     "properties": {
       "title": "Propiedades",

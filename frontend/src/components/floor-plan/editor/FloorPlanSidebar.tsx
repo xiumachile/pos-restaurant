@@ -123,6 +123,13 @@ export function FloorPlanSidebar() {
           <Armchair size={18} />
           Biblioteca
         </h2>
+        <button
+          onClick={onToggleEditMode}
+          className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded text-sm font-medium transition-colors"
+        >
+          👁️ {t('floor_plan.toolbar.view_mode', 'Ver plano (Salir de edición)')}
+        </button>
+
         
 
         <p className="text-xs text-gray-500 mt-1">

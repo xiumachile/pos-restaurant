@@ -5,6 +5,7 @@ import { FloorPlanToolbar } from './editor/FloorPlanToolbar';
 import { FloorPlanSidebar } from './editor/FloorPlanSidebar';
 import { FloorPlanProperties } from './editor/FloorPlanProperties';
 import { OperationalModeOverlay } from './operational/OperationalModeOverlay';
+import { EditModeFAB } from './operational/EditModeFAB';
 import { useFloorPlanKeyboard } from '@/hooks/floor-plan/useFloorPlanKeyboard';
 import { useFloorPlanPersistence } from '@/hooks/floor-plan/useFloorPlanPersistence';
 import { localStorageService } from '@/services/floor-plan/localStorageService';
@@ -106,7 +107,7 @@ export function FloorPlanView({ isEditMode, onToggleEditMode, onTableClick, show
         onToggleEditMode={showModeToggle ? onToggleEditMode : undefined}
       />
       <div className="flex flex-1 overflow-hidden relative">
-        {isEditMode && <FloorPlanSidebar />}
+        {isEditMode && <FloorPlanSidebar onToggleEditMode={showModeToggle ? onToggleEditMode : undefined} />}
         <FloorPlanCanvas
           width={canvasSize.width}
           height={canvasSize.height}
@@ -116,6 +117,13 @@ export function FloorPlanView({ isEditMode, onToggleEditMode, onTableClick, show
         {isEditMode && hasSelection && <FloorPlanProperties />}
         {!isEditMode && <OperationalModeOverlay onTableClick={onTableClick} />}
       </div>
+    
+      {/* FAB flotante para alternar modo */}
+      <EditModeFAB
+        isEditMode={isEditMode}
+        onToggleEditMode={showModeToggle ? onToggleEditMode : undefined}
+      />
+
     </div>
   );
 }
