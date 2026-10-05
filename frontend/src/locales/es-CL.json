@@ -150,7 +150,9 @@
     "items": "items",
     "items_detail": "Detalle de Items",
     "tax": "Impuestos",
-    "discount": "Descuento"
+    "discount": "Descuento",
+    "adding_items": "Agregando",
+    "edit_order": "Editar pedido"
   },
   "sync": {
     "sync_status": "Estado de sincronización",

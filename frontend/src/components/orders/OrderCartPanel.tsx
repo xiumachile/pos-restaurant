@@ -18,6 +18,7 @@ import { OrderRepository } from "@/db/repositories/OrderRepository";
 import { Plus, Minus, Trash2, Send, ShoppingCart, Loader2, CheckCircle2, AlertCircle, WifiOff } from "lucide-react";
 import { ActiveOrderItems } from "./ActiveOrderItems";
 import { mergeAuthContext } from "@/services/authContext";
+import { orderItemsService, type AddItemPayload } from "@/services/orderItemsService";
 import { channelToOrderType } from "@/stores/useActiveChannelStore";
 
 interface OrderCartPanelProps {
@@ -97,9 +98,11 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
       // 3. Mostrar feedback de éxito
       setFeedback({
         type: "success",
-        message: syncStatus === "offline"
-          ? "✓ Pedido guardado offline. Sincronizará al reconectar."
-          : "✓ Pedido enviado a cocina",
+        message: isEditing
+          ? `✓ ${items.length} items agregados al pedido`
+          : (syncStatus === "offline"
+            ? "✓ Pedido guardado offline. Sincronizará al reconectar."
+            : "✓ Pedido enviado a cocina"),
       });
 
       // 4. Invalidar cache (operación no crítica, no debe fallar el flujo)

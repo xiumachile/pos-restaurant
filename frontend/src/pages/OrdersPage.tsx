@@ -17,30 +17,27 @@ export function OrdersPage() {
   const { data: orders = [], isLoading } = useActiveOrders(activeChannel);
 
   const handleAddItems = (order: Order) => {
+    const cartStore = useCartStore.getState();
+    
     if (order.table) {
-      // Pedido con mesa: navegar a la vista de toma de pedido de mesa
+      // Pedido con mesa (dine_in): navegar a la vista de mesa
+      // La mesa ya tiene su propio flujo de agregar items
       navigate(`/tables/${order.table.uuid}`);
     } else {
-      // Pedido sin mesa: verificar si el cart existe en el store
-      // Si no existe, mostrar mensaje (el cart puede haber expirado)
-      const cartStore = useCartStore.getState();
-      const cartKey = order.uuid;
+      // Pedido sin mesa (takeout/delivery): modo edición
+      // Crear nuevo cart marcándolo como "edición de pedido existente"
+      const cartKey = cartStore.initOrder({
+        tableUuid: null,
+        channel: order.fulfillment_channel as 'delivery' | 'takeout',
+        editingOrderId: order.uuid,  // ← MODO EDICIÓN
+      });
       
-      if (cartStore.carts[cartKey]) {
-        // Cart existe, navegar
-        navigate(`/orders/takeaway/${cartKey}`);
-      } else {
-        // Cart no existe, crear uno nuevo con los datos del pedido
-        // Esto permite agregar más items a pedidos existentes
-        const newCartKey = cartStore.initOrder({
-          tableUuid: null,
-          channel: order.fulfillment_channel as 'delivery' | 'takeout',
-        });
-        
-        // TODO: Copiar items del pedido al nuevo cart
-        // Por ahora, navegar al cart vacío
-        navigate(`/orders/takeaway/${newCartKey}`);
-      }
+      console.log(`[OrdersPage] 📝 Modo edición activado para pedido ${order.uuid}`);
+      console.log(`[OrdersPage] 🛒 Cart creado: ${cartKey}`);
+      
+      // Navegar a la vista de toma de pedido (TakeawayOrderPage)
+      // OrderCartPanel detectará editingOrderId y usará POST /orders/{uuid}/items
+      navigate(`/orders/takeaway/${cartKey}`);
     }
   };
 
