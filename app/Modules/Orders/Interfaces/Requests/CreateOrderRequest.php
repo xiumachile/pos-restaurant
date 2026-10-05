@@ -83,10 +83,12 @@ class CreateOrderRequest extends FormRequest
             // pickup_at debe ser futuro si se proporciona
             $rules['pickup_at'] = ['nullable', 'date', 'after_or_equal:now'];
         } elseif ($type === 'delivery') {
-            // delivery requiere datos del cliente y dirección
-            $rules['customer_name'] = ['required', 'string', 'max:200'];
-            $rules['customer_phone'] = ['required', 'string', 'max:30'];
-            $rules['delivery_address'] = ['required', 'string', 'max:500'];
+            // delivery: datos del cliente y dirección RECOMENDADOS pero no obligatorios
+            // El flujo rápido del POS permite crear pedidos sin estos datos
+            // y completarlos después desde la vista de Pedidos Activos
+            $rules['customer_name'] = ['nullable', 'string', 'max:200'];
+            $rules['customer_phone'] = ['nullable', 'string', 'max:30'];
+            $rules['delivery_address'] = ['nullable', 'string', 'max:500'];
         }
 
         return $rules;
