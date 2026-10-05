@@ -33,6 +33,9 @@ export interface Order {
   order_number: string;
   type: OrderType;
   type_label: string;
+  fulfillment_channel: 'dine_in' | 'delivery' | 'takeout' | 'uber_eats' | 'rappi';
+  customer_name: string | null;
+  customer_phone: string | null;
   status: OrderStatus;
   is_editable: boolean;
   is_active: boolean;
