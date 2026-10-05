@@ -31,15 +31,14 @@ class ReleaseTableOnOrderPaid
             return;
         }
 
-        if ($table->current_order_id !== $order->id) {
-            Log::warning('ReleaseTableOnOrderPaid: current_order_id no coincide (posible type mismatch)', [
+        // DEFENSA EN PROFUNDIDAD: Cast explícito a int
+        // El modelo ya castea current_order_id a integer, pero forzamos el cast
+        // aquí para evitar edge cases con PDO_PGSQL y comparaciones estrictas.
+        if ((int) $table->current_order_id !== (int) $order->id) {
+            Log::warning('ReleaseTableOnOrderPaid: current_order_id no coincide', [
                 'order_id' => $order->id,
-                'order_id_type' => gettype($order->id),
                 'table_id' => $table->id,
                 'table_current_order_id' => $table->current_order_id,
-                'table_current_order_id_type' => gettype($table->current_order_id),
-                'strict_compare_result' => ($table->current_order_id !== $order->id),
-                'loose_compare_result' => ($table->current_order_id != $order->id),
             ]);
             return;
         }
