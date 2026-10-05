@@ -201,14 +201,20 @@ class OrderService
      */
     public function generateOrderNumber(int $branchId): string
     {
-        $date = now()->format('Ymd');
-        $lastOrder = Order::where('branch_id', $branchId)
-            ->whereDate('created_at', today())
-            ->orderBy('id', 'desc')
-            ->first();
+        // Obtener configuración de numeración
+        $config = \Modules\Orders\Domain\Entities\OrderNumberingConfig::where('branch_id', $branchId)->first();
 
-        $seq = $lastOrder ? (intval(substr($lastOrder->order_number, -4)) + 1) : 1;
+        if (!$config) {
+            // Fallback: crear configuración por defecto
+            $config = \Modules\Orders\Domain\Entities\OrderNumberingConfig::create([
+                'branch_id' => $branchId,
+                'is_enabled' => false,
+                'prefix' => 'ORD',
+                'reset_frequency' => 'daily',
+                'current_sequence' => 1,
+            ]);
+        }
 
-        return sprintf('ORD-%03d-%s-%04d', $branchId, $date, $seq);
+        return $config->generateNextNumber();
     }
 }

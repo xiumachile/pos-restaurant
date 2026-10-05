@@ -49,3 +49,10 @@ Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class, 'id
     Route::post('/orders/{uuid}/close', [OrderTransitionController::class, 'close'])->name('orders.close');
     Route::post('/orders/{uuid}/cancel', [OrderTransitionController::class, 'cancel'])->name('orders.cancel');
 });
+
+// Configuración de numeración de pedidos
+Route::middleware(['auth:api'])->group(function () {
+    Route::get('/settings/order-numbering', [\Modules\Orders\Interfaces\Controllers\OrderNumberingSettingsController::class, 'show']);
+    Route::put('/settings/order-numbering', [\Modules\Orders\Interfaces\Controllers\OrderNumberingSettingsController::class, 'update']);
+    Route::post('/settings/order-numbering/reset', [\Modules\Orders\Interfaces\Controllers\OrderNumberingSettingsController::class, 'resetSequence']);
+});

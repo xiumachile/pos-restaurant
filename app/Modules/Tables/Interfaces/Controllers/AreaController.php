@@ -2,13 +2,13 @@
 
 namespace Modules\Tables\Interfaces\Controllers;
 
-use App\Shared\Interfaces\Http\Controller;
+use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\Tables\Domain\Entities\Area;
 use Illuminate\Support\Str;
 
-class AreaController extends Controller
+class AreaController extends BaseController
 {
     public function index(Request $request): JsonResponse
     {

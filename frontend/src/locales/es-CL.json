@@ -232,7 +232,28 @@
     "preview_title": "Vista Previa",
     "preview_enabled": "El popup se mostrará cuando haya vuelto al cobrar",
     "preview_auto_close": "Se cerrará automáticamente en {seconds} segundos",
-    "preview_disabled": "El popup no se mostrará al cobrar"
+    "preview_disabled": "El popup no se mostrará al cobrar",
+    "order_numbering": {
+      "title": "Numeración de Pedidos",
+      "description": "Configura el formato y comportamiento de los números de orden",
+      "enable": "Numeración Personalizada",
+      "enabled_desc": "Usando formato personalizado",
+      "disabled_desc": "Usando formato por defecto: ORD-{branchId}-{YYYYMMDD}-{####}",
+      "prefix": "Prefijo",
+      "prefix_help": "Solo letras mayúsculas y números (máx. 10 caracteres)",
+      "reset_frequency": "Frecuencia de Reset",
+      "daily": "Diario",
+      "daily_desc": "Formato: {PREFIX}-{YYYYMMDD}-{####}",
+      "monthly": "Mensual",
+      "monthly_desc": "Formato: {PREFIX}-{YYYYMM}-{####}",
+      "preview": "Vista Previa",
+      "current_sequence": "Secuencia actual",
+      "last_reset": "Último reset",
+      "reset_sequence": "Resetear Secuencia",
+      "confirm_reset": "¿Estás seguro de resetear la secuencia a 1?",
+      "note_title": "Nota importante",
+      "note_content": "Los cambios en la configuración solo afectan a nuevos pedidos. Los pedidos existentes mantendrán su número original."
+    }
   },
   "kitchen": {
     "title": "Cocina",

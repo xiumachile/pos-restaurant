@@ -232,7 +232,28 @@
     "preview_title": "预览",
     "preview_enabled": "有找零时将显示弹窗",
     "preview_auto_close": "将在 {seconds} 秒后自动关闭",
-    "preview_disabled": "收款时不显示弹窗"
+    "preview_disabled": "收款时不显示弹窗",
+    "order_numbering": {
+      "title": "订单编号",
+      "description": "配置订单号的格式和行为",
+      "enable": "自定义编号",
+      "enabled_desc": "使用自定义格式",
+      "disabled_desc": "使用默认格式: ORD-{branchId}-{YYYYMMDD}-{####}",
+      "prefix": "前缀",
+      "prefix_help": "仅大写字母和数字（最多10个字符）",
+      "reset_frequency": "重置频率",
+      "daily": "每日",
+      "daily_desc": "格式: {PREFIX}-{YYYYMMDD}-{####}",
+      "monthly": "每月",
+      "monthly_desc": "格式: {PREFIX}-{YYYYMM}-{####}",
+      "preview": "预览",
+      "current_sequence": "当前序列",
+      "last_reset": "上次重置",
+      "reset_sequence": "重置序列",
+      "confirm_reset": "确定要将序列重置为1吗？",
+      "note_title": "重要提示",
+      "note_content": "配置更改仅影响新订单。现有订单将保留其原始编号。"
+    }
   },
   "kitchen": {
     "title": "厨房",
