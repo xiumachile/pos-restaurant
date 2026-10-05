@@ -72,6 +72,12 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
     // Detectar modo edición: agregar items a pedido existente
     const isEditing = !!cart?.editingOrderId;
     const editingOrderId = cart?.editingOrderId;
+    
+    console.log("[OrderCartPanel] 🔍 handleSendOrder llamado");
+    console.log("[OrderCartPanel] 📦 Items a enviar:", items.length);
+    console.log("[OrderCartPanel] 🔄 Modo edición:", isEditing);
+    console.log("[OrderCartPanel] 🆔 editingOrderId:", editingOrderId);
+    console.log("[OrderCartPanel] 🛒 Cart completo:", cart);
 
     setFeedback({ type: "loading", message: `💾 ${t("orders.sending")} ${items.length} items...` });
 

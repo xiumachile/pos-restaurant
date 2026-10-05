@@ -19,18 +19,28 @@ export function OrdersPage() {
   const handleAddItems = (order: Order) => {
     const cartStore = useCartStore.getState();
     
+    console.log("[OrdersPage] 🔍 handleAddItems llamado");
+    console.log("[OrdersPage] 📋 Order:", order.order_number, order.uuid);
+    console.log("[OrdersPage] 🏷️ Tipo:", order.type);
+    console.log("[OrdersPage] 🪑 Mesa:", order.table?.uuid || "Sin mesa");
+    
     if (order.table) {
       // Pedido con mesa (dine_in): navegar a la vista de mesa
-      // La mesa ya tiene su propio flujo de agregar items
+      console.log("[OrdersPage] ➡️ Navegando a vista de mesa");
       navigate(`/tables/${order.table.uuid}`);
     } else {
       // Pedido sin mesa (takeout/delivery): modo edición
-      // Crear nuevo cart marcándolo como "edición de pedido existente"
+      console.log("[OrdersPage] ➡️ Creando cart en modo edición");
+      console.log("[OrdersPage] 🆔 editingOrderId:", order.uuid);
+      
       const cartKey = cartStore.initOrder({
         tableUuid: null,
         channel: order.fulfillment_channel as 'delivery' | 'takeout',
         editingOrderId: order.uuid,  // ← MODO EDICIÓN
       });
+      
+      console.log("[OrdersPage] 🛒 Cart creado con key:", cartKey);
+      console.log("[OrdersPage] 📦 Cart completo:", cartStore.carts[cartKey]);
       
       console.log(`[OrdersPage] 📝 Modo edición activado para pedido ${order.uuid}`);
       console.log(`[OrdersPage] 🛒 Cart creado: ${cartKey}`);
