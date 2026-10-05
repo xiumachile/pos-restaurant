@@ -19,6 +19,11 @@ export function OrdersPage() {
   const { data: catalog = [], isLoading: isLoadingCatalog } = useProducts({});
 
   const handleAddItems = async (order: Order) => {
+    console.log("[OrdersPage] 🔍 handleAddItems llamado");
+    console.log("[OrdersPage] 📋 Order:", order.order_number, order.uuid);
+    console.log("[OrdersPage] 🏷️ Canal:", order.fulfillment_channel);
+    console.log("[OrdersPage] 📦 Items del pedido:", order.items?.length || 0);
+    
     const cartStore = useCartStore.getState();
     
     if (order.table) {
