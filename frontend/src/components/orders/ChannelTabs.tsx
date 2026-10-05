@@ -9,12 +9,14 @@ interface ChannelTabsProps {
 
 // NOTA: dine_in NO está aquí porque tiene su propia vista: Mesas
 // Pedidos Activos es solo para canales SIN mesa (delivery, takeout, etc.)
+// Canales disponibles en BD:
+// - dine_in → onsite (vista de Mesas, no está aquí)
+// - takeout → pickup
+// - delivery → delivery (incluye uber_eats y rappi mapeados)
 const CHANNELS: { value: ChannelFilter; icon: string; labelKey: string }[] = [
   { value: 'all', icon: '📋', labelKey: 'orders.channels.all' },
   { value: 'delivery', icon: '🚗', labelKey: 'orders.channels.delivery' },
   { value: 'takeout', icon: '🥡', labelKey: 'orders.channels.takeout' },
-  { value: 'uber_eats', icon: '🛵', labelKey: 'orders.channels.uber_eats' },
-  { value: 'rappi', icon: '📱', labelKey: 'orders.channels.rappi' },
 ];
 
 export function ChannelTabs({ activeChannel, onChannelChange, counts }: ChannelTabsProps) {

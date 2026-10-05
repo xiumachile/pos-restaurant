@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/services/apiClient';
 import type { Order } from '@/types/orders';
 
-export type ChannelFilter = 'all' | 'dine_in' | 'delivery' | 'takeout' | 'uber_eats' | 'rappi';
+export type ChannelFilter = 'all' | 'delivery' | 'takeout';
 
 interface ActiveOrdersResponse {
   data: Order[];
