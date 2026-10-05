@@ -146,9 +146,11 @@ class OrderController extends Controller
             ])
             ->orderBy('created_at', 'desc');
 
-        // Filtro opcional por canal de fulfillment
+        // Filtro opcional por tipo de pedido (OrderType)
+        // Mapeo: frontend envía OrderType (dine_in, takeout, delivery)
+        // Backend filtra por columna 'type' que almacena OrderType
         if ($channel) {
-            $query->where('fulfillment_channel', $channel);
+            $query->where('type', $channel);
         }
 
         $orders = $query->get();

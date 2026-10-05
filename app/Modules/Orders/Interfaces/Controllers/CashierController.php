@@ -21,9 +21,9 @@ class CashierController extends Controller
             ->awaitingPayment()
             ->orderBy('served_at', 'asc');
 
-        // Filtro opcional por canal de fulfillment
+        // Filtro opcional por tipo de pedido (OrderType)
         if ($channel) {
-            $query->where('fulfillment_channel', $channel);
+            $query->where('type', $channel);
         }
 
         $orders = $query->get();
