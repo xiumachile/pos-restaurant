@@ -192,7 +192,7 @@ describe("mergeAuthContext", () => {
     const result = mergeAuthContext({
       company_id: "999",
       branch_id: "888",
-      order_type: "take_out",
+      order_type: "takeout",
     });
 
     // ADR-013: Estos campos SIEMPRE vienen del contexto autenticado
@@ -201,7 +201,7 @@ describe("mergeAuthContext", () => {
     expect(result.user_id).toBe("user-merge-test");  // ❌ NO respeta override
     
     // Pero campos de negocio sí se preservan
-    expect(result.order_type).toBe("take_out");
+    expect(result.order_type).toBe("takeout");
   });
 
 
@@ -217,7 +217,7 @@ describe("mergeAuthContext", () => {
     mergeAuthContext({
       company_id: "malicious-company",
       branch_id: "malicious-branch",
-      order_type: "take_out",
+      order_type: "takeout",
     });
 
     expect(consoleSpy).toHaveBeenCalledWith(

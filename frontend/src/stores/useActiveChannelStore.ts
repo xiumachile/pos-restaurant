@@ -46,19 +46,17 @@ export const useActiveChannelStore = create<ActiveChannelState>((set) => ({
  * Convierte un ChannelType (canal de venta/menú) al OrderType que espera
  * el backend al crear una orden.
  * 
- * NOTA: Existe inconsistencia histórica en el código:
- * - ChannelType usa "takeout" (convención MenuActivation del backend)
- * - CreateOrderPayload.order_type usa "take_out" (convención Orders del backend)
- * Este mapper aísla esa inconsistencia en un solo lugar.
+ * NOTA: Backend espera "takeout" (sin guion) en CreateOrderRequest.
+ * Este mapper asegura que el frontend envíe el valor correcto.
  */
-export function channelToOrderType(channel: ChannelType): "dine_in" | "take_out" | "delivery" {
+export function channelToOrderType(channel: ChannelType): "dine_in" | "takeout" | "delivery" {
   switch (channel) {
     case "dine_in":
       return "dine_in";
     case "delivery":
       return "delivery";
     case "takeout":
-      return "take_out";
+      return "takeout";
     default:
       return "delivery";
   }

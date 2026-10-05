@@ -15,7 +15,7 @@ export interface LocalOrder {
   terminal_id: string | null;
   table_id: string | null;
   order_number: string;
-  order_type: "dine_in" | "take_out" | "delivery";
+  order_type: "dine_in" | "takeout" | "delivery";
   status: 
     | "draft"              // Borrador (no confirmado aún)
     | "confirmed"          // Confirmado por garzón
@@ -78,7 +78,7 @@ export interface CreateOrderPayload {
   branch_id: string;
   terminal_id?: string;
   table_id?: string | null;
-  order_type?: "dine_in" | "take_out" | "delivery";
+  order_type?: "dine_in" | "takeout" | "delivery";
   waiter_id?: string;
   waiter_name?: string;
   guest_count?: number;
