@@ -31,9 +31,16 @@ export function OrdersPage() {
       navigate(`/tables/${order.table.uuid}`);
     } else {
       // Pedido sin mesa: crear NUEVO cart del mismo canal
+      // IMPORTANTE: usar order.type (OrderType: takeout/delivery) NO order.fulfillment_channel
+      // order.fulfillment_channel es pickup/onsite/delivery (FulfillmentChannel del backend)
+      // order.type es takeout/delivery (OrderType, lo que necesita el cart)
+      const orderChannel = order.type as 'delivery' | 'takeout';
+      console.log("[OrdersPage] 🏷️ Tipo del pedido:", order.type);
+      console.log("[OrdersPage] 📦 Canal del cart:", orderChannel);
+      
       const cartKey = cartStore.initOrder({
         tableUuid: null,
-        channel: order.fulfillment_channel as 'delivery' | 'takeout',
+        channel: orderChannel,
       });
       
       // PRECARGAR items del pedido existente en el nuevo cart
