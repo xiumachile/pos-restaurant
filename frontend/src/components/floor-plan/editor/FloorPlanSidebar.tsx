@@ -28,7 +28,11 @@ const Z_INDEX_MAP: Record<string, number> = {
 /**
  * Panel izquierdo con biblioteca completa: mesas + decoración + arquitectura
  */
-export function FloorPlanSidebar() {
+interface FloorPlanSidebarProps {
+  onToggleEditMode?: () => void;
+}
+
+export function FloorPlanSidebar({ onToggleEditMode }: FloorPlanSidebarProps) {
   const [showAreaModal, setShowAreaModal] = useState(false);
   const { t } = useTranslation();
   const tableManagement = useTableManagement();

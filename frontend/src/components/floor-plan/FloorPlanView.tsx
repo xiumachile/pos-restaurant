@@ -104,7 +104,6 @@ export function FloorPlanView({ isEditMode, onToggleEditMode, onTableClick, show
         hasChanges={hasChanges}
         lastSavedAt={lastSavedAt}
         isEditMode={isEditMode}
-        onToggleEditMode={showModeToggle ? onToggleEditMode : undefined}
       />
       <div className="flex flex-1 overflow-hidden relative">
         {isEditMode && <FloorPlanSidebar onToggleEditMode={showModeToggle ? onToggleEditMode : undefined} />}
