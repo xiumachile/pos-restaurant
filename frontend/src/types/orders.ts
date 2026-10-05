@@ -19,7 +19,8 @@ export type OrderType = "dine_in" | "takeout" | "delivery";
 
 export interface OrderItem {
   uuid: string;
-  menu_item_uuid: string;
+  menu_item_uuid: string | null;
+  product_uuid?: string | null;
   name: string;
   unit_price: number;
   quantity: number;
