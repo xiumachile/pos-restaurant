@@ -29,8 +29,16 @@ export function useRestaurantTables() {
     }
   };
 
+  // Cargar mesas al montar y hacer polling cada 5 segundos
+  // Esto asegura que los cambios de estado se reflejen en tiempo real
   useEffect(() => {
     loadTables();
+    
+    const interval = setInterval(() => {
+      loadTables();
+    }, 5000); // Polling cada 5 segundos
+    
+    return () => clearInterval(interval);
   }, []);
 
   // UUIDs de mesas ya vinculadas a objetos gráficos

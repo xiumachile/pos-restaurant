@@ -190,17 +190,7 @@ export function FloorPlanTable({ object, isSelected, isEditMode = true, onOperat
         />
 
   
-      {/* Indicador de vinculación operativa (F5) */}
-      {object.object_key && (
-        <Circle
-          x={width / 2 - 8}
-          y={-height / 2 + 8}
-          radius={6}
-          fill="#10b981"
-          stroke="white"
-          strokeWidth={2}
-        />
-      )}
+
 
       {/* Indicador de capacidad */}
         <Text
@@ -224,6 +214,18 @@ export function FloorPlanTable({ object, isSelected, isEditMode = true, onOperat
             strokeWidth={2}
             dash={[5, 3]}
             cornerRadius={8}
+          />
+        )}
+
+        {/* Indicador de items pendientes (rojo, esquina superior derecha) */}
+        {!isEditMode && operationalData?.hasPendingItems && (
+          <Circle
+            x={width / 2 - 5}
+            y={-height / 2 + 5}
+            radius={8}
+            fill="#dc2626"
+            stroke="white"
+            strokeWidth={2}
           />
         )}
       </Group>
