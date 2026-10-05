@@ -120,7 +120,9 @@
     "delivery": "Delivery",
     "takeout": "Para Llevar",
     "uber_eats": "Uber Eats",
-    "rappi": "Rappi"
+    "rappi": "Rappi",
+    "new_order_without_table": "Nuevo pedido sin mesa",
+    "dine_in_hint": "Para pedidos en mesa, selecciona una mesa desde el plano"
   },
   "sync": {
     "sync_status": "Estado de sincronización",

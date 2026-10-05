@@ -120,7 +120,9 @@
     "delivery": "外卖",
     "takeout": "带走",
     "uber_eats": "Uber Eats",
-    "rappi": "Rappi"
+    "rappi": "Rappi",
+    "new_order_without_table": "无桌新订单",
+    "dine_in_hint": "如需堂食，请从平面图选择桌子"
   },
   "cashier": {
     "title": "收银台",
