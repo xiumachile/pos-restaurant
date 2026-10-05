@@ -13,6 +13,7 @@ use App\Shared\Http\Middleware\IdempotencyKeyMiddleware;
 // ============================================
 Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class])->group(function () {
     Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
+    Route::get('/orders/active', [OrderController::class, 'active'])->name('orders.active');
     Route::get('/orders/{uuid}', [OrderController::class, 'show'])->name('orders.show');
     Route::get('/cashier/active', [CashierController::class, 'active'])->name('cashier.active');
 });

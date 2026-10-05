@@ -114,4 +114,45 @@ class OrderController extends Controller
 
         return response()->json(['message' => 'Pedido eliminado correctamente.']);
     }
+
+    /**
+     * GET /api/v1/orders/active
+     * Lista pedidos activos con filtro opcional por canal de fulfillment
+     * 
+     * Estados considerados activos:
+     * - draft, confirmed, preparing, ready (estados base)
+     * - ready_for_pickup, picked_up, dispatched (takeout/delivery)
+     * - served (dine_in)
+     * 
+     * NO incluye: paid, closed, cancelled
+     */
+    public function active(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $channel = $request->input('channel'); // dine_in, delivery, takeout, uber_eats, rappi
+
+        $query = Order::with(['items', 'table', 'waiter'])
+            ->where('branch_id', $user->branch_id)
+            ->whereIn('status', [
+                'draft',
+                'confirmed',
+                'preparing',
+                'ready',
+                'ready_for_pickup',
+                'picked_up',
+                'dispatched',
+                'served',
+            ])
+            ->orderBy('created_at', 'desc');
+
+        // Filtro opcional por canal de fulfillment
+        if ($channel) {
+            $query->where('fulfillment_channel', $channel);
+        }
+
+        $orders = $query->get();
+
+        return OrderResource::collection($orders)->response();
+    }
+
 }
