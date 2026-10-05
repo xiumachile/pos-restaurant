@@ -81,7 +81,7 @@ export function TakeawayOrderPage() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold flex items-center gap-3">
-                <span className="text-2xl">{channelLabel.icon}</span>
+                <span className="text-2xl">{(channelLabel?.icon ?? "📦")}</span>
                 {t(`orders.channel_${cart.channel}`)}
               </h1>
               <span className="text-xs px-2.5 py-1 rounded-full border border-blue-500/50 bg-blue-500/10 text-blue-400">

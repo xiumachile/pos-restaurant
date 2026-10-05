@@ -79,7 +79,7 @@ export function OrderCatalogPanel({ onAddProduct, channel }: OrderCatalogPanelPr
     return counts;
   }, [products]);
 
-  const channelLabel = CHANNEL_LABELS[channel];
+  const channelLabel = CHANNEL_LABELS[channel] ?? { icon: "📦", label: "Otro" };
 
   // ESTADO: cargando carta
   if (loadingMenu) {
@@ -118,7 +118,7 @@ export function OrderCatalogPanel({ onAddProduct, channel }: OrderCatalogPanelPr
             <BookOpen className="mx-auto text-slate-500 mb-3" size={48} />
             <p className="text-slate-300 font-medium mb-2">
               {t("orders.no_active_menu", {
-                icon: channelLabel.icon,
+                icon: (channelLabel?.icon ?? "📦"),
                 channel: t(`orders.channel_${channel}`),
               })}
             </p>
@@ -264,7 +264,7 @@ function CatalogContextBadge({
   return (
     <div className="mb-3 bg-slate-800/80 border border-slate-700 rounded-lg p-3 flex items-center gap-3 shadow-sm">
       <div className="flex items-center gap-2 text-sm">
-        <span className="text-2xl">{channelLabel.icon}</span>
+        <span className="text-2xl">{(channelLabel?.icon ?? "📦")}</span>
         <span className="font-semibold text-white">
           {t(`orders.channel_${channel}`)}
         </span>
