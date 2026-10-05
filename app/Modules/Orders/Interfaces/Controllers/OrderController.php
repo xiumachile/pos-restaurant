@@ -127,13 +127,23 @@ class OrderController extends Controller
      * 
      * NO incluye: paid, closed, cancelled
      */
+    /**
+     * GET /api/v1/orders/active
+     * Lista pedidos activos de canales SIN MESA (takeout, delivery).
+     * 
+     * dine_in NO se incluye porque tiene su propia vista (Mesas).
+     * 
+     * @param string|null $channel Filtro opcional: takeout, delivery. Si es null, muestra ambos.
+     */
     public function active(Request $request): JsonResponse
     {
         $user = $request->user();
-        $channel = $request->input('channel'); // dine_in, delivery, takeout, uber_eats, rappi
+        $channel = $request->input('channel'); // takeout, delivery (dine_in NO se usa aquí)
 
         $query = Order::with(['items', 'table', 'waiter'])
             ->where('branch_id', $user->branch_id)
+            // Excluir dine_in por defecto (tiene su propia vista: Mesas)
+            ->whereNotIn('type', ['dine_in'])
             ->whereIn('status', [
                 'draft',
                 'confirmed',
@@ -147,8 +157,6 @@ class OrderController extends Controller
             ->orderBy('created_at', 'desc');
 
         // Filtro opcional por tipo de pedido (OrderType)
-        // Mapeo: frontend envía OrderType (dine_in, takeout, delivery)
-        // Backend filtra por columna 'type' que almacena OrderType
         if ($channel) {
             $query->where('type', $channel);
         }
