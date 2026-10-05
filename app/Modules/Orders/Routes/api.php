@@ -50,9 +50,14 @@ Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class, 'id
     Route::post('/orders/{uuid}/cancel', [OrderTransitionController::class, 'cancel'])->name('orders.cancel');
 });
 
-// Configuración de numeración de pedidos
-Route::middleware(['auth:api'])->group(function () {
-    Route::get('/settings/order-numbering', [\Modules\Orders\Interfaces\Controllers\OrderNumberingSettingsController::class, 'show']);
-    Route::put('/settings/order-numbering', [\Modules\Orders\Interfaces\Controllers\OrderNumberingSettingsController::class, 'update']);
-    Route::post('/settings/order-numbering/reset', [\Modules\Orders\Interfaces\Controllers\OrderNumberingSettingsController::class, 'resetSequence']);
+// ============================================
+// Settings - Numeración de pedidos (Fase: numeración configurable)
+// ============================================
+Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class])->group(function () {
+    Route::get('/settings/order-numbering', [\Modules\Orders\Interfaces\Controllers\OrderNumberingSettingsController::class, 'show'])
+        ->name('settings.order-numbering.show');
+    Route::put('/settings/order-numbering', [\Modules\Orders\Interfaces\Controllers\OrderNumberingSettingsController::class, 'update'])
+        ->name('settings.order-numbering.update');
+    Route::post('/settings/order-numbering/reset', [\Modules\Orders\Interfaces\Controllers\OrderNumberingSettingsController::class, 'resetSequence'])
+        ->name('settings.order-numbering.reset');
 });
