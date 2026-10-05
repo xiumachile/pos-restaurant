@@ -57,6 +57,10 @@ export function channelToOrderType(channel: ChannelType): "dine_in" | "takeout" 
       return "delivery";
     case "takeout":
       return "takeout";
+    case "uber_eats":
+      return "delivery"; // Uber Eats es un servicio de delivery
+    case "rappi":
+      return "delivery"; // Rappi es un servicio de delivery
     default:
       return "delivery";
   }
