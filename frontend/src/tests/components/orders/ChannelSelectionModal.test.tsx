@@ -29,7 +29,7 @@ describe("ChannelSelectionModal", () => {
     const onSelect = vi.fn();
     const onClose = vi.fn();
 
-    render(<ChannelSelectionModal open={true} onSelect={onSelect} onClose={onClose} />);
+    render(<ChannelSelectionModal isOpen={true} onSelect={onSelect} onClose={onClose} />);
 
     expect(screen.getByText("Comedor")).toBeDefined();
     expect(screen.getByText("Delivery")).toBeDefined();
@@ -40,7 +40,7 @@ describe("ChannelSelectionModal", () => {
     const onSelect = vi.fn();
     const onClose = vi.fn();
 
-    render(<ChannelSelectionModal open={true} onSelect={onSelect} onClose={onClose} />);
+    render(<ChannelSelectionModal isOpen={true} onSelect={onSelect} onClose={onClose} />);
 
     expect(screen.queryByText(/uber_eats/i)).toBeNull();
     expect(screen.queryByText(/rappi/i)).toBeNull();
@@ -50,7 +50,7 @@ describe("ChannelSelectionModal", () => {
     const onSelect = vi.fn();
     const onClose = vi.fn();
 
-    render(<ChannelSelectionModal open={true} onSelect={onSelect} onClose={onClose} />);
+    render(<ChannelSelectionModal isOpen={true} onSelect={onSelect} onClose={onClose} />);
 
     fireEvent.click(screen.getByText("Delivery"));
     expect(onSelect).toHaveBeenCalledWith("delivery");
@@ -61,7 +61,7 @@ describe("ChannelSelectionModal", () => {
     const onSelect = vi.fn();
     const onClose = vi.fn();
 
-    render(<ChannelSelectionModal open={true} onSelect={onSelect} onClose={onClose} />);
+    render(<ChannelSelectionModal isOpen={true} onSelect={onSelect} onClose={onClose} />);
 
     fireEvent.click(screen.getByText("Cancelar"));
     expect(onClose).toHaveBeenCalled();
@@ -73,7 +73,7 @@ describe("ChannelSelectionModal", () => {
     const onClose = vi.fn();
 
     const { container } = render(
-      <ChannelSelectionModal open={false} onSelect={onSelect} onClose={onClose} />
+      <ChannelSelectionModal isOpen={false} onSelect={onSelect} onClose={onClose} />
     );
 
     expect(container.innerHTML).toBe("");

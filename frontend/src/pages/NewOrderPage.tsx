@@ -80,7 +80,7 @@ export function NewOrderPage() {
       </div>
 
       <ChannelSelectionModal
-        open={modalOpen}
+        isOpen={modalOpen}
         onSelect={handleSelectChannel}
         onClose={handleClose}
       />
