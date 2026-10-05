@@ -122,7 +122,31 @@
     "uber_eats": "Uber Eats",
     "rappi": "Rappi",
     "new_order_without_table": "无桌新订单",
-    "dine_in_hint": "如需堂食，请从平面图选择桌子"
+    "dine_in_hint": "如需堂食，请从平面图选择桌子",
+    "active_orders": "活跃订单",
+    "active_orders_desc": "按渠道管理进行中的订单",
+    "no_active_orders": "没有活跃订单",
+    "add_items": "添加",
+    "view_details": "查看",
+    "no_customer": "无客户",
+    "channels": {
+      "all": "全部",
+      "dine_in": "堂食",
+      "delivery": "外卖",
+      "takeout": "带走",
+      "uber_eats": "Uber Eats",
+      "rappi": "Rappi"
+    },
+    "status": {
+      "draft": "草稿",
+      "confirmed": "已确认",
+      "preparing": "准备中",
+      "ready": "已完成",
+      "ready_for_pickup": "待取餐",
+      "picked_up": "已取餐",
+      "dispatched": "配送中",
+      "served": "已上菜"
+    }
   },
   "cashier": {
     "title": "收银台",

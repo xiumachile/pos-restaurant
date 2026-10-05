@@ -122,7 +122,31 @@
     "uber_eats": "Uber Eats",
     "rappi": "Rappi",
     "new_order_without_table": "Nuevo pedido sin mesa",
-    "dine_in_hint": "Para pedidos en mesa, selecciona una mesa desde el plano"
+    "dine_in_hint": "Para pedidos en mesa, selecciona una mesa desde el plano",
+    "active_orders": "Pedidos Activos",
+    "active_orders_desc": "Gestiona pedidos en curso por canal",
+    "no_active_orders": "No hay pedidos activos",
+    "add_items": "Agregar",
+    "view_details": "Ver",
+    "no_customer": "Sin cliente",
+    "channels": {
+      "all": "Todos",
+      "dine_in": "Comedor",
+      "delivery": "Delivery",
+      "takeout": "Para Llevar",
+      "uber_eats": "Uber Eats",
+      "rappi": "Rappi"
+    },
+    "status": {
+      "draft": "Borrador",
+      "confirmed": "Confirmado",
+      "preparing": "Preparando",
+      "ready": "Listo",
+      "ready_for_pickup": "Listo para Retirar",
+      "picked_up": "Retirado",
+      "dispatched": "En Camino",
+      "served": "Servido"
+    }
   },
   "sync": {
     "sync_status": "Estado de sincronización",

@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { ChannelTabs } from "@/components/orders/ChannelTabs";
+import type { ChannelFilter } from "@/hooks/useActiveOrders";
 import { useTranslation } from 'react-i18next';
 import {
   useCashierDashboard,
@@ -30,6 +32,7 @@ export function CashierPage() {
   const { data: dashboard, isLoading: loadingDashboard } = useCashierDashboard();
   const { data: tablesWithBills = [], isLoading: loadingTables } = useTablesWithBills();
   const [selectedTableUuid, setSelectedTableUuid] = useState<string | null>(null);
+  const [activeChannel, setActiveChannel] = useState<ChannelFilter>('all');
   const invalidateCashier = useInvalidateCashier();
 
   // FIX: Forzar invalidateCashier al montar la página.
