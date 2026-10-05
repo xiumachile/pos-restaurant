@@ -6,6 +6,8 @@ import { ChannelTabs } from '@/components/orders/ChannelTabs';
 import { OrderCard } from '@/components/orders/OrderCard';
 import { Loader2, Package } from 'lucide-react';
 import type { Order } from '@/types/orders';
+import { useCartStore } from '@/stores/useCartStore';
+import { OrderDetailsModal } from '@/components/orders/OrderDetailsModal';
 
 export function OrdersPage() {
   const { t } = useTranslation();
