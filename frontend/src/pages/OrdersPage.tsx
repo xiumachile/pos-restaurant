@@ -8,6 +8,7 @@ import { OrderDetailsModal } from '@/components/orders/OrderDetailsModal';
 import { Loader2, Package } from 'lucide-react';
 import type { Order } from '@/types/orders';
 import { useCartStore } from '@/stores/useCartStore';
+import { useProducts } from '@/hooks/useCatalog';
 
 export function OrdersPage() {
   const { t } = useTranslation();
@@ -15,8 +16,9 @@ export function OrdersPage() {
   const [activeChannel, setActiveChannel] = useState<ChannelFilter>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const { data: orders = [], isLoading } = useActiveOrders(activeChannel);
+  const { data: catalog = [], isLoading: isLoadingCatalog } = useProducts({});
 
-  const handleAddItems = (order: Order) => {
+  const handleAddItems = async (order: Order) => {
     const cartStore = useCartStore.getState();
     
     if (order.table) {
@@ -28,6 +30,24 @@ export function OrdersPage() {
         tableUuid: null,
         channel: order.fulfillment_channel as 'delivery' | 'takeout',
       });
+      
+      // PRECARGAR items del pedido existente en el nuevo cart
+      if (order.items && order.items.length > 0 && catalog.length > 0) {
+        console.log(`[OrdersPage] 📥 Precargando ${order.items.length} items del pedido ${order.order_number}`);
+        
+        for (const item of order.items) {
+          // Buscar el producto en el catálogo por UUID
+          const product = catalog.find((p: any) => p.uuid === item.menu_item_uuid);
+          
+          if (product) {
+            // Agregar al cart con la cantidad original
+            cartStore.addItem(cartKey, product, item.quantity);
+            console.log(`[OrdersPage] ✅ Item precargado: ${item.name} x${item.quantity}`);
+          } else {
+            console.warn(`[OrdersPage] ⚠️ Producto no encontrado en catálogo: ${item.menu_item_uuid}`);
+          }
+        }
+      }
       
       navigate(`/orders/takeaway/${cartKey}`);
     }
