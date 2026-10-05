@@ -4,10 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { useActiveOrders, type ChannelFilter } from '@/hooks/useActiveOrders';
 import { ChannelTabs } from '@/components/orders/ChannelTabs';
 import { OrderCard } from '@/components/orders/OrderCard';
+import { OrderDetailsModal } from '@/components/orders/OrderDetailsModal';
 import { Loader2, Package } from 'lucide-react';
 import type { Order } from '@/types/orders';
 import { useCartStore } from '@/stores/useCartStore';
-import { OrderDetailsModal } from '@/components/orders/OrderDetailsModal';
 
 export function OrdersPage() {
   const { t } = useTranslation();
@@ -19,34 +19,16 @@ export function OrdersPage() {
   const handleAddItems = (order: Order) => {
     const cartStore = useCartStore.getState();
     
-    console.log("[OrdersPage] 🔍 handleAddItems llamado");
-    console.log("[OrdersPage] 📋 Order:", order.order_number, order.uuid);
-    console.log("[OrdersPage] 🏷️ Tipo:", order.type);
-    console.log("[OrdersPage] 🪑 Mesa:", order.table?.uuid || "Sin mesa");
-    
     if (order.table) {
-      // Pedido con mesa (dine_in): navegar a la vista de mesa
-      console.log("[OrdersPage] ➡️ Navegando a vista de mesa");
+      // Pedido con mesa: navegar a vista de mesa
       navigate(`/tables/${order.table.uuid}`);
     } else {
-      // Pedido sin mesa (takeout/delivery): modo edición
-      console.log("[OrdersPage] ➡️ Creando cart en modo edición");
-      console.log("[OrdersPage] 🆔 editingOrderId:", order.uuid);
-      
+      // Pedido sin mesa: crear NUEVO cart del mismo canal
       const cartKey = cartStore.initOrder({
         tableUuid: null,
         channel: order.fulfillment_channel as 'delivery' | 'takeout',
-        editingOrderId: order.uuid,  // ← MODO EDICIÓN
       });
       
-      console.log("[OrdersPage] 🛒 Cart creado con key:", cartKey);
-      console.log("[OrdersPage] 📦 Cart completo:", cartStore.carts[cartKey]);
-      
-      console.log(`[OrdersPage] 📝 Modo edición activado para pedido ${order.uuid}`);
-      console.log(`[OrdersPage] 🛒 Cart creado: ${cartKey}`);
-      
-      // Navegar a la vista de toma de pedido (TakeawayOrderPage)
-      // OrderCartPanel detectará editingOrderId y usará POST /orders/{uuid}/items
       navigate(`/orders/takeaway/${cartKey}`);
     }
   };
@@ -57,19 +39,16 @@ export function OrdersPage() {
 
   return (
     <div className="flex flex-col h-full gap-4 p-4 md:p-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-white mb-1">{t('orders.active_orders', 'Pedidos Activos')}</h1>
         <p className="text-sm text-slate-400">{t('orders.active_orders_desc', 'Gestiona pedidos en curso por canal')}</p>
       </div>
 
-      {/* Channel Tabs */}
       <ChannelTabs
         activeChannel={activeChannel}
         onChannelChange={setActiveChannel}
       />
 
-      {/* Orders Grid */}
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
@@ -96,7 +75,6 @@ export function OrdersPage() {
         )}
       </div>
 
-      {/* Modal de detalles del pedido */}
       <OrderDetailsModal
         order={selectedOrder}
         isOpen={!!selectedOrder}

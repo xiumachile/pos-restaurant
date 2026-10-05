@@ -18,7 +18,6 @@ import { OrderRepository } from "@/db/repositories/OrderRepository";
 import { Plus, Minus, Trash2, Send, ShoppingCart, Loader2, CheckCircle2, AlertCircle, WifiOff } from "lucide-react";
 import { ActiveOrderItems } from "./ActiveOrderItems";
 import { mergeAuthContext } from "@/services/authContext";
-import { orderItemsService, type AddItemPayload } from "@/services/orderItemsService";
 import { channelToOrderType } from "@/stores/useActiveChannelStore";
 
 interface OrderCartPanelProps {
@@ -69,16 +68,6 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
   const handleSendOrder = async () => {
     if (items.length === 0 || !user) return;
 
-    // Detectar modo edición: agregar items a pedido existente
-    const isEditing = !!cart?.editingOrderId;
-    const editingOrderId = cart?.editingOrderId;
-    
-    console.log("[OrderCartPanel] 🔍 handleSendOrder llamado");
-    console.log("[OrderCartPanel] 📦 Items a enviar:", items.length);
-    console.log("[OrderCartPanel] 🔄 Modo edición:", isEditing);
-    console.log("[OrderCartPanel] 🆔 editingOrderId:", editingOrderId);
-    console.log("[OrderCartPanel] 🛒 Cart completo:", cart);
-
     setFeedback({ type: "loading", message: `💾 ${t("orders.sending")} ${items.length} items...` });
 
     try {
@@ -108,11 +97,9 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
       // 3. Mostrar feedback de éxito
       setFeedback({
         type: "success",
-        message: isEditing
-          ? `✓ ${items.length} items agregados al pedido`
-          : (syncStatus === "offline"
-            ? "✓ Pedido guardado offline. Sincronizará al reconectar."
-            : "✓ Pedido enviado a cocina"),
+        message: syncStatus === "offline"
+          ? "✓ Pedido guardado offline. Sincronizará al reconectar."
+          : "✓ Pedido enviado a cocina",
       });
 
       // 4. Invalidar cache (operación no crítica, no debe fallar el flujo)

@@ -26,8 +26,6 @@ export interface InitOrderParams {
   tableNumber?: string;
   areaName?: string;
   channel: ChannelType;
-  /** ID de pedido existente para agregar items (modo edición) */
-  editingOrderId?: string;
 }
 
 interface CartState {
@@ -77,7 +75,7 @@ export const useCartStore = create<CartState>()(
       carts: {},
 
       initOrder: (params) => {
-        const { tableUuid, tableNumber = "", areaName, channel, editingOrderId } = params;
+        const { tableUuid, tableNumber = "", areaName, channel } = params;
         const cartKey = tableUuid ?? `takeaway-${generateUUID()}`;
 
         set((state) => {
@@ -91,7 +89,6 @@ export const useCartStore = create<CartState>()(
                 tableNumber,
                 areaName,
                 channel,
-                editingOrderId,
                 items: [],
                 createdAt: new Date().toISOString(),
               },
