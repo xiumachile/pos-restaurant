@@ -63,8 +63,26 @@ class ReconcileStuckTables extends Command
                 continue;
             }
             
-            if (in_array($order->status->value, ['paid', 'closed', 'cancelled'])) {
-                $this->info("  🔧 Mesa {$table->table_number}: pedido {$order->order_number} está '{$order->status->value}'");
+            // Estados que liberan la mesa por defecto
+            $stuckStatuses = ['paid', 'closed', 'cancelled'];
+            
+            // Opcionalmente incluir 'served' como atascado
+            if ($this->option('include-served')) {
+                $stuckStatuses[] = 'served';
+            }
+            
+            // Filtro por antigüedad
+            $olderThan = $this->option('older-than');
+            $isOldEnough = true;
+            if ($olderThan && is_numeric($olderThan)) {
+                $hours = (int) $olderThan;
+                $orderAge = now()->diffInHours($order->created_at);
+                $isOldEnough = $orderAge >= $hours;
+            }
+            
+            if (in_array($order->status->value, $stuckStatuses) && $isOldEnough) {
+                $orderAge = now()->diffInHours($order->created_at);
+                $this->info("  🔧 Mesa {$table->table_number}: pedido {$order->order_number} está '{$order->status->value}' (antigüedad: {$orderAge}h)");
                 if (!$dryRun) {
                     $table->current_order_id = null;
                     $table->status = TableStatus::Available;
