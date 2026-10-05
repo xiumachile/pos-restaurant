@@ -57,6 +57,12 @@ export function Sidebar() {
         allowedRoles: ROLES.FRONT_OF_HOUSE,
       },
       {
+        to: "/orders",
+        label: t("orders.active_orders", "Pedidos Activos"),
+        icon: ListOrdered,
+        allowedRoles: ROLES.FRONT_OF_HOUSE,
+      },
+      {
         to: "/kitchen",
         label: t("kitchen.title"),
         icon: ChefHat,
