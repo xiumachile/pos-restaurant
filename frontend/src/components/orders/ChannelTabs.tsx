@@ -7,9 +7,10 @@ interface ChannelTabsProps {
   counts?: Partial<Record<ChannelFilter, number>>;
 }
 
+// NOTA: dine_in NO está aquí porque tiene su propia vista: Mesas
+// Pedidos Activos es solo para canales SIN mesa (delivery, takeout, etc.)
 const CHANNELS: { value: ChannelFilter; icon: string; labelKey: string }[] = [
   { value: 'all', icon: '📋', labelKey: 'orders.channels.all' },
-  { value: 'dine_in', icon: '🍽️', labelKey: 'orders.channels.dine_in' },
   { value: 'delivery', icon: '🚗', labelKey: 'orders.channels.delivery' },
   { value: 'takeout', icon: '🥡', labelKey: 'orders.channels.takeout' },
   { value: 'uber_eats', icon: '🛵', labelKey: 'orders.channels.uber_eats' },
@@ -20,7 +21,7 @@ export function ChannelTabs({ activeChannel, onChannelChange, counts }: ChannelT
   const { t } = useTranslation();
 
   return (
-    <div className="flex gap-2 overflow-x-auto pb-2">
+    <div className="flex gap-2 overflow-x-auto pb-3 mb-4">
       {CHANNELS.map((channel) => {
         const isActive = activeChannel === channel.value;
         const count = counts?.[channel.value];
