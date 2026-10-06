@@ -126,7 +126,10 @@ enum OrderStatus: string
 
     public function isEditable(): bool
     {
-        return $this === self::DRAFT;
+        return match($this) {
+            self::DRAFT, self::CONFIRMED => true,
+            default => false,
+        };
     }
 
     public function isActive(): bool

@@ -175,9 +175,13 @@ class Order extends Model
     // Métodos de negocio
     // ============================================
 
+    /**
+     * Determina si el pedido puede ser modificado (agregar/quitar items).
+     * Permite modificaciones en estados DRAFT y CONFIRMED.
+     */
     public function isEditable(): bool
     {
-        return $this->status === OrderStatus::DRAFT;
+        return $this->status->isEditable();
     }
 
     public function isActive(): bool
