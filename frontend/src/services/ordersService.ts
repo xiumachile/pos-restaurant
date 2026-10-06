@@ -60,6 +60,12 @@ export const ordersService = {
    * Lista pedidos de una mesa específica
    */
   async listTableOrders(tableUuid: string): Promise<Order[]> {
+    // Validación defensiva: prevenir llamadas con "null" (cadena)
+    if (!tableUuid || tableUuid === "null") {
+      console.warn("[ordersService] listTableOrders llamado con tableUuid inválido:", tableUuid);
+      return [];
+    }
+    
     const response = await apiClient.get<{ data: Order[] }>(`/tables/${tableUuid}/orders`);
     return response.data.data;
   },
