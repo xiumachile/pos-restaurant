@@ -49,6 +49,9 @@ export function TakeawayOrderPage() {
   const channelLabel = CHANNEL_LABELS[cart.channel] ?? { icon: "📦" };
 
   const handleAddProduct = (product: Product) => {
+    console.log("[TakeawayOrderPage] 🛒 handleAddProduct llamado");
+    console.log("[TakeawayOrderPage] 🏷️ product.uuid:", product?.uuid);
+    console.log("[TakeawayOrderPage] 📝 product.name:", product?.name_translations?.es || product?.name_translations?.en);
     addItem(cartKey, product);
     addToast(
       "success",

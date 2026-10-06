@@ -109,6 +109,13 @@ export const useCartStore = create<CartState>()(
       },
 
       addItem: (cartKey, product, quantity = 1) => {
+        console.log("[useCartStore] 🛒 addItem llamado");
+        console.log("[useCartStore] 📦 cartKey:", cartKey);
+        console.log("[useCartStore] 🏷️ product.uuid:", product?.uuid);
+        console.log("[useCartStore] 🆔 product.id:", product?.id);
+        console.log("[useCartStore] 📝 product.name:", product?.name_translations?.es || product?.name_translations?.en);
+        console.log("[useCartStore] 🔢 quantity:", quantity);
+        
         set((state) => {
           const cart = state.carts[cartKey];
           if (!cart) return state;

@@ -208,7 +208,8 @@ export function OrderCatalogPanel({ onAddProduct, channel }: OrderCatalogPanelPr
               <button
                 key={product.uuid}
                 onClick={() => {
-                  onAddProduct(product);
+                  console.log("[OrderCatalogPanel] 🖱️ Click en producto:", product.uuid, product.name_translations?.es || product.name_translations?.en);
+        onAddProduct(product);
                   addToast(
                     "success",
                     t("orders.product_added", {
