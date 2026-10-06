@@ -89,7 +89,16 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
           notes: item.notes || null,
         }));
         
-        await addItemsToOrder(cart.editingOrderId, itemsToAdd);
+        console.log("[OrderCartPanel] 📤 Payload de itemsToAdd:", JSON.stringify(itemsToAdd, null, 2));
+        
+        try {
+          await addItemsToOrder(cart.editingOrderId, itemsToAdd);
+        } catch (apiError: any) {
+          console.error("[OrderCartPanel] ❌ Error de API al agregar items:");
+          console.error("[OrderCartPanel] Status:", apiError?.response?.status);
+          console.error("[OrderCartPanel] Data:", JSON.stringify(apiError?.response?.data, null, 2));
+          throw apiError;
+        }
         
         setFeedback({ 
           type: "success", 
