@@ -41,6 +41,7 @@ export function OrdersPage() {
       const cartKey = cartStore.initOrder({
         tableUuid: null,
         channel: orderChannel,
+        editingOrderId: order.uuid,
       });
       
       // PRECARGAR items del pedido existente en el nuevo cart

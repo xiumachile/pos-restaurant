@@ -19,6 +19,8 @@ export interface CartItem {
  * Esto garantiza que el canal de un pedido no se filtra a otro.
  */
 export interface TableCart {
+  /** ID del pedido existente que se está editando (null si es nuevo) */
+  editingOrderId?: string | null;
   /** UUID de la mesa, o null si es pedido fuera de mesa */
   tableUuid: string | null;
   /** Número de mesa (display). Vacío para pedidos fuera de mesa */

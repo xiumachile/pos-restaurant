@@ -15,6 +15,7 @@ import { useDefaultNotes } from "@/hooks/useDefaultNotes";
 import { getDefaultNoteText } from "@/types/defaultNotes";
 import { useSyncStore } from "@/store/useSyncStore";
 import { OrderRepository } from "@/db/repositories/OrderRepository";
+import { addItemsToOrder } from "@/services/orderItemsService";
 import { Plus, Minus, Trash2, Send, ShoppingCart, Loader2, CheckCircle2, AlertCircle, WifiOff } from "lucide-react";
 import { ActiveOrderItems } from "./ActiveOrderItems";
 import { mergeAuthContext } from "@/services/authContext";
@@ -68,12 +69,46 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
   const handleSendOrder = async () => {
     if (items.length === 0 || !user) return;
 
-    setFeedback({ type: "loading", message: `💾 ${t("orders.sending")} ${items.length} items...` });
+    const isEditing = !!cart?.editingOrderId;
+    
+    setFeedback({ 
+      type: "loading", 
+      message: isEditing 
+        ? `➕ ${t("orders.adding_items", "Agregando")} ${items.length} items...`
+        : `💾 ${t("orders.sending")} ${items.length} items...` 
+    });
 
     try {
-      // 1. Crear pedido (operación crítica)
+      // MODO EDICIÓN: Agregar items a pedido existente
+      if (isEditing && cart.editingOrderId) {
+        console.log("[OrderCartPanel] 🔄 Modo edición: agregando items a pedido", cart.editingOrderId);
+        
+        const itemsToAdd = items.map(item => ({
+          product_uuid: item.product.uuid,
+          quantity: item.quantity,
+          notes: item.notes || null,
+        }));
+        
+        await addItemsToOrder(cart.editingOrderId, itemsToAdd);
+        
+        setFeedback({ 
+          type: "success", 
+          message: `✓ ${items.length} item(s) agregado(s) al pedido` 
+        });
+        
+        // Limpiar cart y regresar a Pedidos Activos
+        clearCart(cartKey);
+        refetchActiveOrders();
+        
+        setTimeout(() => {
+          navigate('/orders');
+        }, 1000);
+        
+        return;
+      }
+      
+      // MODO NORMAL: Crear pedido nuevo
       // REGLA DE DOMINIO: Si hay mesa (tableId), el pedido SIEMPRE es dine_in
-      // No puede existir un pedido delivery/takeout con mesa asignada
       const orderType = tableId ? 'dine_in' : channelToOrderType(cart.channel);
       
       const order = await OrderRepository.createWithItems(
