@@ -114,7 +114,6 @@ export const useCartStore = create<CartState>()(
         console.log("[useCartStore] 🛒 addItem llamado");
         console.log("[useCartStore] 📦 cartKey:", cartKey);
         console.log("[useCartStore] 🏷️ product.uuid:", product?.uuid);
-        console.log("[useCartStore] 🆔 product.id:", product?.id);
         console.log("[useCartStore] 📝 product.name:", product?.name_translations?.es || product?.name_translations?.en);
         console.log("[useCartStore] 🔢 quantity:", quantity);
         
@@ -122,11 +121,13 @@ export const useCartStore = create<CartState>()(
           const cart = state.carts[cartKey];
           if (!cart) return state;
 
-          const existing = cart.items.find((i) => i.product.id === product.id);
+          // IMPORTANTE: usar product.uuid (único) en lugar de product.id
+          // product.id puede ser 0 o undefined en productos del catálogo
+          const existing = cart.items.find((i) => i.product.uuid === product.uuid);
 
           const items = existing
             ? cart.items.map((i) =>
-                i.product.id === product.id
+                i.product.uuid === product.uuid
                   ? { ...i, quantity: i.quantity + quantity }
                   : i
               )
