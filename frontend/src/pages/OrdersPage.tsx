@@ -44,52 +44,10 @@ export function OrdersPage() {
         editingOrderId: order.uuid,
       });
       
-      // PRECARGAR items del pedido existente en el nuevo cart
-      if (order.items && order.items.length > 0 && catalog.length > 0) {
-        console.log(`[OrdersPage] 📥 Precargando ${order.items.length} items del pedido ${order.order_number}`);
-        
-        for (const item of order.items) {
-          console.log("[OrdersPage] 🔎 Item completo:", JSON.stringify(item, null, 2));
-          
-          // Buscar el producto en el catálogo con cascada de fallbacks:
-          // 1. product_uuid (más confiable, viene del Product)
-          // 2. menu_item_uuid (fallback, si hay MenuItem asociado)
-          // 3. nombre del producto (último recurso, búsqueda por texto)
-          let product = null;
-          let matchMethod = '';
-          
-          if (item.product_uuid) {
-            product = catalog.find((p: any) => p.uuid === item.product_uuid);
-            if (product) matchMethod = 'product_uuid';
-          }
-          
-          if (!product && item.menu_item_uuid) {
-            product = catalog.find((p: any) => p.uuid === item.menu_item_uuid);
-            if (product) matchMethod = 'menu_item_uuid';
-          }
-          
-          if (!product) {
-            // Fallback por nombre (coincidencia exacta)
-            product = catalog.find((p: any) => {
-              const translatedName = (p.name_translations?.es || p.name_translations?.en || '').toLowerCase();
-              return translatedName === item.name.toLowerCase();
-            });
-            if (product) matchMethod = 'nombre';
-          }
-          
-          if (product) {
-            // Agregar al cart con la cantidad original
-            cartStore.addItem(cartKey, product, item.quantity);
-            console.log(`[OrdersPage] ✅ Item precargado (${matchMethod}): ${item.name} x${item.quantity}`);
-          } else {
-            console.warn(`[OrdersPage] ⚠️ Producto no encontrado en catálogo:`, {
-              product_uuid: item.product_uuid,
-              menu_item_uuid: item.menu_item_uuid,
-              name: item.name
-            });
-          }
-        }
-      }
+      // IMPORTANTE: NO precargar items existentes en el cart
+      // El cart empieza vacío. El usuario solo agrega items NUEVOS.
+      // Al enviar, solo los items nuevos se agregan al pedido existente.
+      console.log("[OrdersPage] 📝 Cart vacío creado. Usuario agregará items NUEVOS.");
       
       navigate(`/orders/takeaway/${cartKey}`);
     }

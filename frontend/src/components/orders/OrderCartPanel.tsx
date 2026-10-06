@@ -346,7 +346,7 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
         ) : (
           <>
             <div className="flex justify-between text-sm">
-              <span className="text-slate-400">{t("orders.net_amount", "Neto")}</span>
+              <span className="text-slate-400">{t("orders.subtotal_net_amount", "Subtotal (neto)")}</span>
               <span>{formatPrice(totals.subtotal)}</span>
             </div>
             <div className="flex justify-between text-sm">

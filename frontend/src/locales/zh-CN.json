@@ -152,7 +152,9 @@
     "tax": "税费",
     "discount": "折扣",
     "adding_items": "添加中",
-    "edit_order": "编辑订单"
+    "edit_order": "编辑订单",
+    "subtotal_net": "小计（净额）",
+    "iva_included": "价格已含税"
   },
   "cashier": {
     "title": "收银台",

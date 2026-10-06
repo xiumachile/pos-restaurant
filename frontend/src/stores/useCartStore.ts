@@ -229,13 +229,16 @@ export const useCartStore = create<CartState>()(
           return { subtotal: 0, tax: 0, total: 0, itemCount: 0 };
         }
 
-        const subtotal = cart.items.reduce((sum, item) => {
+        // En Chile, base_price YA incluye IVA (precio bruto)
+        const total = cart.items.reduce((sum, item) => {
           const price = parsePrice(item.product.base_price);
           return sum + price * item.quantity;
         }, 0);
 
-        const tax = calculateTax(subtotal, IVA_RATE);
-        const total = subtotal + tax;
+        // Extraer neto e IVA del precio bruto
+        // Fórmula: net = total / 1.19, tax = total - net
+        const subtotal = Math.round(total / (1 + IVA_RATE));
+        const tax = total - subtotal;
         const itemCount = cart.items.reduce((sum, i) => sum + i.quantity, 0);
 
         return { subtotal, tax, total, itemCount };

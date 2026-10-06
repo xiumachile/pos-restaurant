@@ -1,82 +1,74 @@
-import apiClient from "./apiClient";
-import type {
-  Order,
-  CreateOrderPayload,
-  AddItemPayload,
-} from "@/types/orders";
+import apiClient from '@/services/apiClient';
+import type { Order } from '@/types/orders';
 
-interface OrderResponse {
-  data: Order;
+export interface CreateOrderPayload {
+  table_id?: string | null;
+  order_type: string;
+  items: Array<{
+    product_id: string;
+    product_name: string;
+    quantity: number;
+    unit_price: number;
+    notes?: string | null;
+  }>;
 }
 
+export interface AddItemPayload {
+  product_uuid?: string;
+  menu_item_uuid?: string;
+  quantity: number;
+  notes?: string | null;
+}
+
+/**
+ * Servicio para operaciones de pedidos vía API
+ */
 export const ordersService = {
   /**
-   * Crea un nuevo pedido en estado DRAFT.
+   * Obtiene un pedido por su UUID
+   */
+  async getByUuid(uuid: string): Promise<Order> {
+    const response = await apiClient.get<{ data: Order }>(`/orders/${uuid}`);
+    return response.data.data;
+  },
+
+  /**
+   * Crea un nuevo pedido con items
    */
   async create(payload: CreateOrderPayload): Promise<Order> {
-    const response = await apiClient.post<OrderResponse>("/orders", payload);
+    const response = await apiClient.post<{ data: Order }>('/orders', payload);
     return response.data.data;
-
   },
 
   /**
-   * Agrega un item al pedido (solo permitido en estado DRAFT).
+   * Agrega un item a un pedido existente
    */
   async addItem(orderUuid: string, payload: AddItemPayload): Promise<Order> {
-    const response = await apiClient.post<OrderResponse>(
-      `/orders/${orderUuid}/items`,
-      payload
-    );
+    const response = await apiClient.post<{ data: Order }>(`/orders/${orderUuid}/items`, payload);
     return response.data.data;
   },
 
   /**
-   * Confirma el pedido. Dispara eventos:
-   * - Reserva de stock
-   * - Impresión de comanda en cocina
-   * - Descuento de recetas
+   * Lista pedidos activos
    */
-  async confirm(orderUuid: string): Promise<Order> {
-    const response = await apiClient.post<OrderResponse>(
-      `/orders/${orderUuid}/confirm`
-    );
+  async listActive(): Promise<Order[]> {
+    const response = await apiClient.get<{ data: Order[] }>('/orders/active');
     return response.data.data;
   },
 
   /**
-   * Cancela el pedido.
-   */
-  async cancel(orderUuid: string, reason?: string): Promise<Order> {
-    const response = await apiClient.post<OrderResponse>(
-      `/orders/${orderUuid}/cancel`,
-      { reason }
-    );
-    return response.data.data;
-  },
-
-  /**
-   * Elimina un pedido (solo en estado DRAFT).
-   */
-  async delete(orderUuid: string): Promise<void> {
-    await apiClient.delete(`/orders/${orderUuid}`);
-  },
-
-  /**
-   * Obtiene un pedido por UUID.
-   */
-  async show(orderUuid: string): Promise<Order> {
-    const response = await apiClient.get<OrderResponse>(`/orders/${orderUuid}`);
-    return response.data.data;
-  },
-
-  /**
-   * Lista pedidos activos de una mesa (no closed, no cancelled).
+   * Lista pedidos de una mesa específica
    */
   async listTableOrders(tableUuid: string): Promise<Order[]> {
-    const response = await apiClient.get<{ data: Order[] }>(
-      `/tables/${tableUuid}/orders`
-    );
-    const data = response.data as any;
-    return Array.isArray(data?.data) ? data.data : [];
+    const response = await apiClient.get<{ data: Order[] }>(`/tables/${tableUuid}/orders`);
+    return response.data.data;
+  },
+
+  /**
+   * Confirma un pedido (transición de estado)
+   */
+  async confirm(orderUuid: string): Promise<Order> {
+    const response = await apiClient.post<{ data: Order }>(`/orders/${orderUuid}/confirm`);
+    return response.data.data;
   },
 };
