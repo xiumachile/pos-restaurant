@@ -38,7 +38,7 @@ export function OrderCatalogPanel({ onAddProduct, channel }: OrderCatalogPanelPr
     return activeMenu.items.map((item) => {
       const category = categories.find((c) => c.id === item.category_id);
       return {
-        id: 0,
+        id: item.product_uuid,  // Usar UUID como ID (identidad única)
         uuid: item.product_uuid,
         company_id: 0,
         branch_id: 0,
