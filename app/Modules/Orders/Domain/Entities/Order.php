@@ -20,6 +20,33 @@ use Modules\Tables\Domain\Entities\RestaurantTable;
 class Order extends Model
 {
 
+    /**
+     * Fuentes válidas de pedidos.
+     * manual: pedido tomado directamente (teléfono/mostrador)
+     * rappi, uber_eats, pedidos_ya, didifood: pedidos vía apps externas
+     */
+    public const SOURCE_MANUAL = 'manual';
+    public const SOURCE_RAPPI = 'rappi';
+    public const SOURCE_UBER_EATS = 'uber_eats';
+    public const SOURCE_PEDIDOS_YA = 'pedidos_ya';
+    public const SOURCE_DIDI_FOOD = 'didifood';
+    
+    public const VALID_SOURCES = [
+        self::SOURCE_MANUAL,
+        self::SOURCE_RAPPI,
+        self::SOURCE_UBER_EATS,
+        self::SOURCE_PEDIDOS_YA,
+        self::SOURCE_DIDI_FOOD,
+    ];
+    
+    /**
+     * Determina si el pedido es de una plataforma externa.
+     */
+    public function isPlatformOrder(): bool
+    {
+        return $this->source !== self::SOURCE_MANUAL;
+    }
+
     protected $casts = [
         'subtotal' => 'integer',
         'tax_amount' => 'integer',
@@ -48,6 +75,9 @@ class Order extends Model
         'assigned_cook_id',
         'priority',
         'cashier_id',
+        'customer_id',
+        'source',
+        'platform_order_code',
         'subtotal',
         'subtotal_gross',
         'net_amount',
@@ -136,6 +166,15 @@ class Order extends Model
         return $this->belongsTo(User::class, 'cashier_id');
     }
 
+    /**
+     * Cliente asociado al pedido (CRM).
+     * Null para pedidos sin cliente identificado.
+     */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(\Modules\Customers\Domain\Entities\Customer::class);
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);
@@ -182,6 +221,15 @@ class Order extends Model
     public function isEditable(): bool
     {
         return $this->status->isEditable();
+    }
+
+    /**
+     * Determina si el pedido puede ser eliminado completamente.
+     * Solo permite eliminación en estado DRAFT.
+     */
+    public function canBeDeleted(): bool
+    {
+        return $this->status->canBeDeleted();
     }
 
     public function isActive(): bool

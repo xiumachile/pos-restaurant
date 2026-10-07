@@ -157,7 +157,7 @@ test('DELETE /api/v1/orders/{uuid}/items/{itemUuid} quita item', function () {
     expect((int) $response->json('data.subtotal'))->toBe(0);  // ADR-018
 });
 
-test('deniega agregar items a pedido confirmado', function () {
+test('permite agregar items a pedido confirmado (regla de dominio actualizada)', function () {
     $createResponse = $this->withHeaders(headers())
         ->postJson('/api/v1/orders', ['type' => 'takeout']);
     
@@ -174,7 +174,7 @@ test('deniega agregar items a pedido confirmado', function () {
             'quantity' => 1,
         ]);
 
-    $response->assertStatus(422);
+    $response->assertStatus(201);
 });
 
 test('deniega agregar item con quantity invalida', function () {

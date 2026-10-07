@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { CartItem, CartTotals, TableCart } from "@/types/cart";
+import type { CartItem, CartTotals, TableCart, CustomerData } from "@/types/cart";
 import type { Product } from "@/types/catalog";
 import type { ChannelType } from "@/stores/useActiveChannelStore";
 import { parsePrice } from "@/types/catalog";
@@ -68,6 +68,10 @@ interface CartState {
 
   /** Calcula totales */
   getTotals: (cartKey: string) => CartTotals;
+
+  /** Actualiza los datos del cliente (solo para delivery) */
+  setCustomerData: (cartKey: string, data: CustomerData | null) => void;
+
 }
 
 export const useCartStore = create<CartState>()(
@@ -222,6 +226,36 @@ export const useCartStore = create<CartState>()(
 
       getCart: (cartKey) => {
         return get().carts[cartKey] || null;
+      },
+
+
+      setCustomerData: (cartKey, data) => {
+        set((state) => {
+          const cart = state.carts[cartKey];
+          if (!cart) return state;
+          
+          // Comparar con datos actuales para evitar re-renders innecesarios
+          const current = cart.customerData;
+          const next = data || undefined;
+          
+          if (current === next) return state;
+          if (current && next) {
+            const same = current.customer_id === next.customer_id &&
+                         current.customer_name === next.customer_name &&
+                         current.customer_phone === next.customer_phone &&
+                         current.delivery_address === next.delivery_address &&
+                         current.commune === next.commune &&
+                         current.address_reference === next.address_reference;
+            if (same) return state;
+          }
+          
+          return {
+            carts: {
+              ...state.carts,
+              [cartKey]: { ...cart, customerData: next },
+            },
+          };
+        });
       },
 
       getTotals: (cartKey) => {

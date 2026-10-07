@@ -20,6 +20,12 @@ export class SyncStrategies {
           type: payload.order_type || payload.type,
           table_uuid: payload.table_id || payload.table_uuid,
           notes: payload.notes || null,
+          // Campos de cliente (solo para delivery, backend los valida)
+          customer_id: payload.customer_id || null,
+          customer_name: payload.customer_name || null,
+          customer_phone: payload.customer_phone || null,
+          delivery_address: payload.delivery_address || null,
+          delivery_notes: payload.delivery_notes || null,
         };
 
         console.log(`[SyncEngine] 📤 Creando orden (items: ${orderItems.length})...`);

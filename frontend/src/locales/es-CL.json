@@ -154,7 +154,18 @@
     "adding_items": "Agregando",
     "edit_order": "Editar pedido",
     "subtotal_net": "Subtotal (neto)",
-    "iva_included": "IVA incluido en el precio"
+    "iva_included": "IVA incluido en el precio",
+    "customer_info": "Datos del cliente",
+    "customer_phone": "Teléfono",
+    "customer_name": "Nombre",
+    "customer_address": "Dirección de entrega",
+    "customer_commune": "Comuna",
+    "customer_reference": "Referencia",
+    "customer_notes": "Notas del cliente",
+    "customer_found": "Cliente encontrado",
+    "customer_new": "Nuevo cliente",
+    "customer_search": "Buscar por teléfono",
+    "customer_required": "Datos del cliente requeridos para delivery"
   },
   "sync": {
     "sync_status": "Estado de sincronización",

@@ -23,3 +23,11 @@ Route::get('/v1/public/branches', function () {
             ->get(['id', 'name', 'code'])
     ]);
 });
+
+// ═══════════════════════════════════════════
+// Customers (CRM básico)
+// ═══════════════════════════════════════════
+Route::middleware(['auth:api', \App\Shared\Http\Middleware\TenantContextMiddleware::class])->prefix('v1')->group(function () {
+    Route::get('/customers/search', [\Modules\Customers\Interfaces\Controllers\CustomerController::class, 'search']);
+    Route::apiResource('customers', \Modules\Customers\Interfaces\Controllers\CustomerController::class);
+});

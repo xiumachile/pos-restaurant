@@ -11,6 +11,7 @@ use Modules\Orders\Domain\ValueObjects\FulfillmentChannel;
 use Modules\Orders\Domain\ValueObjects\OrderType;
 use Modules\Tables\Domain\Entities\RestaurantTable;
 use Modules\Orders\Domain\Exceptions\OrderNotModifiableException;
+use Modules\Customers\Domain\Entities\Customer;
 
 /**
  * Servicio de gestión de pedidos.
@@ -216,5 +217,57 @@ class OrderService
         }
 
         return $config->generateNextNumber();
+    }
+
+    /**
+     * Buscar o crear cliente para pedidos delivery.
+     * 
+     * Si viene customer_id → usar ese (validar que pertenezca a la empresa)
+     * Si no viene customer_id pero sí datos → crear nuevo cliente
+     */
+    private function findOrCreateCustomer(int $companyId, ?int $branchId, array $data): ?int
+    {
+        // Si viene customer_id, validar y retornar
+        if (!empty($data['customer_id'])) {
+            $customer = \Modules\Customers\Domain\Entities\Customer::where('uuid', $data['customer_id'])
+                ->where('company_id', $companyId)
+                ->first();
+            
+            if (!$customer) {
+                throw new \InvalidArgumentException('El cliente especificado no existe o no pertenece a esta empresa.');
+            }
+            
+            return $customer->id;
+        }
+        
+        // Si no hay datos de cliente, retornar null (pedido sin cliente identificado)
+        if (empty($data['customer_phone']) && empty($data['customer_name'])) {
+            return null;
+        }
+        
+        // Buscar por teléfono primero
+        if (!empty($data['customer_phone'])) {
+            $existing = \Modules\Customers\Domain\Entities\Customer::findByPhone(
+                $data['customer_phone'],
+                $companyId
+            );
+            
+            if ($existing) {
+                return $existing->id;
+            }
+        }
+        
+        // Crear nuevo cliente
+        $customer = \Modules\Customers\Domain\Entities\Customer::create([
+            'company_id' => $companyId,
+            'branch_id' => $branchId,
+            'phone' => $data['customer_phone'] ?? '',
+            'name' => $data['customer_name'] ?? 'Cliente sin nombre',
+            'address' => $data['delivery_address'] ?? null,
+            'commune' => $data['commune'] ?? null,
+            'address_reference' => $data['address_reference'] ?? null,
+        ]);
+        
+        return $customer->id;
     }
 }

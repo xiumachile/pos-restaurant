@@ -132,6 +132,15 @@ enum OrderStatus: string
         };
     }
 
+    /**
+     * Determina si el pedido puede ser eliminado completamente.
+     * Solo permite eliminación en estado DRAFT.
+     */
+    public function canBeDeleted(): bool
+    {
+        return $this === self::DRAFT;
+    }
+
     public function isActive(): bool
     {
         return !in_array($this, [self::CLOSED, self::CANCELLED]);

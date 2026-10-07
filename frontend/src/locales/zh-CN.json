@@ -154,7 +154,18 @@
     "adding_items": "添加中",
     "edit_order": "编辑订单",
     "subtotal_net": "小计（净额）",
-    "iva_included": "价格已含税"
+    "iva_included": "价格已含税",
+    "customer_info": "客户信息",
+    "customer_phone": "电话",
+    "customer_name": "姓名",
+    "customer_address": "送货地址",
+    "customer_commune": "区域",
+    "customer_reference": "地址参考",
+    "customer_notes": "客户备注",
+    "customer_found": "已找到客户",
+    "customer_new": "新客户",
+    "customer_search": "按电话搜索",
+    "customer_required": "外送订单需要客户信息"
   },
   "cashier": {
     "title": "收银台",

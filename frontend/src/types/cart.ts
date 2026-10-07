@@ -9,6 +9,19 @@ export interface CartItem {
 }
 
 /**
+ * Datos del cliente para pedidos de delivery.
+ * Opcional: solo aplica cuando channel === 'delivery'.
+ */
+export interface CustomerData {
+  customer_id?: string;
+  customer_name: string;
+  customer_phone: string;
+  delivery_address: string;
+  commune?: string;
+  address_reference?: string;
+}
+
+/**
  * Carrito de un pedido específico.
  * 
  * Clave (key) en el objeto carts:
@@ -29,6 +42,8 @@ export interface TableCart {
   areaName?: string;
   /** Canal de venta fijado al crear el pedido (H5 - fase 2) */
   channel: ChannelType;
+  /** Datos del cliente (solo para delivery) */
+  customerData?: CustomerData;
   /** Items del pedido */
   items: CartItem[];
   /** Timestamp de creación */

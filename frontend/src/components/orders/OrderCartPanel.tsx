@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from 'react-i18next';
 import { useCartStore } from "@/stores/useCartStore";
@@ -18,6 +18,8 @@ import { OrderRepository } from "@/db/repositories/OrderRepository";
 import { addItemsToOrder } from "@/services/orderItemsService";
 import { Plus, Minus, Trash2, Send, ShoppingCart, Loader2, CheckCircle2, AlertCircle, WifiOff } from "lucide-react";
 import { ActiveOrderItems } from "./ActiveOrderItems";
+import { CustomerForm } from "@/components/customers/CustomerForm";
+import type { CustomerData } from "@/types/cart";
 import { mergeAuthContext } from "@/services/authContext";
 import { channelToOrderType } from "@/stores/useActiveChannelStore";
 
@@ -46,6 +48,7 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
   const updateItemNotes = useCartStore((s) => s.updateItemNotes);
   const removeItem = useCartStore((s) => s.removeItem);
   const clearCart = useCartStore((s) => s.clearCart);
+  const setCustomerData = useCartStore((s) => s.setCustomerData);
   const getTotals = useCartStore((s) => s.getTotals);
   const invalidateTables = useInvalidateTables();
   const invalidateCashier = useInvalidateCashier();
@@ -58,6 +61,28 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
   const [noteEditingId, setNoteEditingId] = useState<string | null>(null);
   const [noteInput, setNoteInput] = useState("");
   const { notes: defaultNotes, isLoading: isLoadingNotes } = useDefaultNotes();
+
+
+  const isDelivery = cart?.channel === 'delivery';
+
+  const handleCustomerChange = useCallback((data: {
+    customer_id?: string;
+    customer_name: string;
+    customer_phone: string;
+    delivery_address: string;
+    commune?: string;
+    address_reference?: string;
+  }) => {
+    console.log('[OrderCartPanel] 📝 handleCustomerChange recibió:', JSON.stringify(data, null, 2));
+    // Solo actualizar si es delivery y hay datos mínimos
+    if (isDelivery && data.customer_phone && data.customer_name && data.delivery_address) {
+      console.log('[OrderCartPanel] ✅ Guardando customerData en cart');
+      setCustomerData(cartKey, data);
+    } else if (isDelivery) {
+      // Si faltan datos requeridos, limpiar customerData
+      setCustomerData(cartKey, null);
+    }
+  }, [isDelivery, cartKey, setCustomerData]);
 
   const totals = getTotals(cartKey);
   const items = cart?.items ?? [];
@@ -120,10 +145,18 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
       // REGLA DE DOMINIO: Si hay mesa (tableId), el pedido SIEMPRE es dine_in
       const orderType = tableId ? 'dine_in' : channelToOrderType(cart.channel);
       
+      console.log('[OrderCartPanel] 📦 ANTES de createWithItems:');
+      
       const order = await OrderRepository.createWithItems(
         mergeAuthContext({
           table_id: tableId,
           order_type: orderType,
+          // Pasamos datos del cliente (solo aplica para delivery)
+          customer_id: cart?.customerData?.customer_id || undefined,
+          customer_name: cart?.customerData?.customer_name || undefined,
+          customer_phone: cart?.customerData?.customer_phone || undefined,
+          delivery_address: cart?.customerData?.delivery_address || undefined,
+          delivery_notes: cart?.customerData?.address_reference || undefined,
         }),
         items.map(item => ({
           product_id: item.product.uuid,
@@ -202,6 +235,21 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
 
       {/* Scroll container */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
+
+        {/* Datos del cliente (solo para delivery) */}
+        {isDelivery && (
+          <div className="bg-slate-800 rounded-lg p-3 border border-orange-500/30">
+            <h3 className="font-semibold text-orange-400 mb-2 flex items-center gap-2">
+              <span>👤</span>
+              {t("orders.customer_info", "Datos del cliente")}
+            </h3>
+            <CustomerForm
+              initialData={cart?.customerData}
+              onChange={handleCustomerChange}
+            />
+          </div>
+        )}
+
         <ActiveOrderItems orders={activeOrders} />
 
         {hasActiveOrders && items.length > 0 && (

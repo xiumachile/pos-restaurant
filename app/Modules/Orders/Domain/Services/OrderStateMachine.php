@@ -110,7 +110,11 @@ class OrderStateMachine
 
     public function canModifyItems(Order $order): bool
     {
-        return $order->isEditable();
+        // Solo se pueden modificar items en estados tempranos
+        // DRAFT: aún no confirmado, editable
+        // CONFIRMED: ya enviado a cocina, NO editable
+        // PREPARING/READY/SERVED: en proceso o completado, NO editable
+        return $order->status === OrderStatus::DRAFT;
     }
 
     /**

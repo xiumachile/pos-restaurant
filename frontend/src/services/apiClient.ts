@@ -5,9 +5,26 @@ import { getItemSync, updateSyncCache, setItem } from './secureStorage';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
+/**
+ * Serializador de query params que codifica correctamente caracteres especiales.
+ * Codifica '+' como '%2B' (no como espacio) para que el backend lo reciba correctamente.
+ * Ejemplo: {phone: "+56912345678"} -> "phone=%2B56912345678"
+ */
+function phoneSafeParamsSerializer(params: Record<string, any>): string {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      // URLSearchParams.append codifica '+' como '%2B' automáticamente
+      searchParams.append(key, String(value));
+    }
+  });
+  return searchParams.toString();
+}
+
 const apiClient = axios.create({
   baseURL: API_URL,
   timeout: 30000,
+  paramsSerializer: phoneSafeParamsSerializer,
   headers: {
     'Content-Type': 'application/json',
   },

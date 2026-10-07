@@ -104,7 +104,7 @@ class OrderController extends Controller
 
         $this->authorize('delete', $order);
 
-        if (!$order->isEditable()) {
+        if (!$order->canBeDeleted()) {
             return response()->json([
                 'error' => 'order_not_modifiable',
                 'message' => 'Solo se pueden eliminar pedidos en estado draft.',
