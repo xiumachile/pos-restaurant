@@ -5,6 +5,7 @@ namespace Modules\Orders\Domain\Entities;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Modules\Identity\Domain\Entities\Branch;
+use Illuminate\Support\Facades\DB;
 
 class OrderNumberingConfig extends Model
 {
@@ -57,36 +58,53 @@ class OrderNumberingConfig extends Model
      */
     public function generateNextNumber(): string
     {
-        if (!$this->is_enabled) {
-            // Formato legacy: ORD-{branchId}-{YYYYMMDD}-{####}
-            $date = now()->format('Ymd');
-            $lastOrder = Order::where('branch_id', $this->branch_id)
-                ->whereDate('created_at', today())
-                ->orderBy('id', 'desc')
+        // P1-011: Usar transacción + lockForUpdate para prevenir race conditions
+        return DB::transaction(function () {
+            if (!$this->is_enabled) {
+                // Formato legacy: ORD-{branchId}-{YYYYMMDD}-{####}
+                $date = now()->format('Ymd');
+                $lastOrder = Order::where('branch_id', $this->branch_id)
+                    ->whereDate('created_at', today())
+                    ->orderBy('id', 'desc')
+                    ->lockForUpdate()
+                    ->first();
+
+                $seq = $lastOrder ? (intval(substr($lastOrder->order_number, -4)) + 1) : 1;
+
+                return sprintf('ORD-%03d-%s-%04d', $this->branch_id, $date, $seq);
+            }
+
+            // Recargar con lockForUpdate para prevenir race conditions
+            $lockedConfig = self::where('branch_id', $this->branch_id)
+                ->lockForUpdate()
                 ->first();
 
-            $seq = $lastOrder ? (intval(substr($lastOrder->order_number, -4)) + 1) : 1;
+            if (!$lockedConfig) {
+                throw new \RuntimeException("OrderNumberingConfig not found for branch {$this->branch_id}");
+            }
 
-            return sprintf('ORD-%03d-%s-%04d', $this->branch_id, $date, $seq);
-        }
+            // Resetear si es necesario
+            if ($lockedConfig->shouldReset()) {
+                $lockedConfig->current_sequence = 1;
+                $lockedConfig->last_reset_date = now();
+            } else {
+                $lockedConfig->current_sequence++;
+            }
 
-        // Resetear si es necesario
-        if ($this->shouldReset()) {
-            $this->current_sequence = 1;
-            $this->last_reset_date = now();
-        } else {
-            $this->current_sequence++;
-        }
+            $lockedConfig->save();
 
-        $this->save();
+            // Actualizar la instancia actual
+            $this->current_sequence = $lockedConfig->current_sequence;
+            $this->last_reset_date = $lockedConfig->last_reset_date;
 
-        // Formato personalizado: {PREFIX}-{YYYYMM}-{####} o {PREFIX}-{YYYYMMDD}-{####}
-        if ($this->reset_frequency === 'daily') {
-            $date = now()->format('Ymd');
-            return sprintf('%s-%s-%04d', $this->prefix, $date, $this->current_sequence);
-        }
+            // Formato personalizado
+            if ($lockedConfig->reset_frequency === 'daily') {
+                $date = now()->format('Ymd');
+                return sprintf('%s-%s-%04d', $lockedConfig->prefix, $date, $lockedConfig->current_sequence);
+            }
 
-        $date = now()->format('Ym');
-        return sprintf('%s-%s-%04d', $this->prefix, $date, $this->current_sequence);
+            $date = now()->format('Ym');
+            return sprintf('%s-%s-%04d', $lockedConfig->prefix, $date, $lockedConfig->current_sequence);
+        });
     }
 }
