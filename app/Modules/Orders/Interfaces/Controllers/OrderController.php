@@ -9,8 +9,8 @@ use Modules\Orders\Domain\Services\OrderService;
 use Modules\Orders\Interfaces\Requests\CreateOrderRequest;
 use Modules\Orders\Interfaces\Requests\UpdateOrderRequest;
 use Modules\Orders\Interfaces\Resources\OrderResource;
-use Modules\Orders\Domain\Entities\Order;
 use Modules\Orders\Domain\Exceptions\OrderNotModifiableException;
+use Modules\Orders\Domain\Exceptions\OrderConflictException;
 
 class OrderController extends Controller
 {
@@ -76,6 +76,8 @@ class OrderController extends Controller
             return OrderResource::make($order)->response();
         } catch (OrderNotModifiableException $e) {
             return $e->render();
+        } catch (OrderConflictException $e) {
+            return $e->render();
         }
     }
 
@@ -115,55 +117,4 @@ class OrderController extends Controller
 
         return response()->json(['message' => 'Pedido eliminado correctamente.']);
     }
-
-    /**
-     * GET /api/v1/orders/active
-     * Lista pedidos activos con filtro opcional por canal de fulfillment
-     * 
-     * Estados considerados activos:
-     * - draft, confirmed, preparing, ready (estados base)
-     * - ready_for_pickup, picked_up, dispatched (takeout/delivery)
-     * - served (dine_in)
-     * 
-     * NO incluye: paid, closed, cancelled
-     */
-    /**
-     * GET /api/v1/orders/active
-     * Lista pedidos activos de canales SIN MESA (takeout, delivery).
-     * 
-     * dine_in NO se incluye porque tiene su propia vista (Mesas).
-     * 
-     * @param string|null $channel Filtro opcional: takeout, delivery. Si es null, muestra ambos.
-     */
-    public function active(Request $request): JsonResponse
-    {
-        $user = $request->user();
-        $channel = $request->input('channel'); // takeout, delivery (dine_in NO se usa aquí)
-
-        $query = Order::with(['items', 'table', 'waiter'])
-            ->where('branch_id', $user->branch_id)
-            // Excluir dine_in por defecto (tiene su propia vista: Mesas)
-            ->whereNotIn('type', ['dine_in'])
-            ->whereIn('status', [
-                'draft',
-                'confirmed',
-                'preparing',
-                'ready',
-                'ready_for_pickup',
-                'picked_up',
-                'dispatched',
-                'served',
-            ])
-            ->orderBy('created_at', 'desc');
-
-        // Filtro opcional por tipo de pedido (OrderType)
-        if ($channel) {
-            $query->where('type', $channel);
-        }
-
-        $orders = $query->get();
-
-        return OrderResource::collection($orders)->response();
-    }
-
 }

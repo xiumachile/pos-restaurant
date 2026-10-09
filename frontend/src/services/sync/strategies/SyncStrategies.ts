@@ -3,6 +3,7 @@ import { localDb } from "../../../db/localDb";
 import { SyncQueueRepository } from "../../../db/repositories/SyncQueueRepository";
 import { syncApi } from "../../syncApi";
 import { useToastStore } from "../../../store/useToastStore";
+import { queryClient } from "../../../queryClient";
 
 
 export class SyncStrategies {
@@ -73,6 +74,18 @@ export class SyncStrategies {
               throw new Error(`No se pudo agregar item ${orderItem.product_name}: ${itemError?.response?.data?.message || itemError?.message}`);
             }
           }
+
+          // ⚡ INVALIDACIÓN INMEDIATA después de agregar items
+          // Para que los cambios aparezcan instantáneamente incluso antes de confirmar
+          try {
+            await queryClient.invalidateQueries({ 
+              queryKey: ["orders", "active"],
+              refetchType: "all"
+            });
+            console.log("[SyncEngine] ⚡ Queries invalidadas tras agregar items");
+          } catch (e) {
+            // No crítico
+          }
         }
 
         // IMPORTANTE: Confirmar pedido vía transición de dominio DESPUÉS de agregar items
@@ -94,6 +107,31 @@ export class SyncStrategies {
           try {
             await syncApi.confirmOrder(String(cloudId));
             console.log(`[SyncEngine] ✅ Pedido confirmado vía transición de dominio (${itemsAdded} items)`);
+
+            // ⚡ REFETCH INMEDIATO DE QUERIES
+            // refetchQueries SÍ fuerza fetch inmediato (invalidateQueries no lo hace con staleTime > 0)
+            // Esto hace que el pedido aparezca instantáneamente en:
+            // - Pedidos Activos (useActiveOrders)
+            // - Caja (tablesWithBills)
+            // - Dashboard de Caja
+            try {
+              await queryClient.refetchQueries({ 
+                queryKey: ["orders", "active"],
+                type: "all"
+              });
+              await queryClient.refetchQueries({ 
+                queryKey: ["cashier", "tables-with-bills"],
+                type: "all"
+              });
+              await queryClient.refetchQueries({ 
+                queryKey: ["cashier", "dashboard"],
+                type: "all"
+              });
+              console.log("[SyncEngine] ⚡ Queries refrescadas: pedidos aparecerán instantáneamente");
+            } catch (refetchError: any) {
+              // No crítico: si falla el refetch, el refetchInterval lo hará en 10s
+              console.warn("[SyncEngine] ⚠️ No se pudieron refrescar queries:", refetchError?.message);
+            }
 
             // FASE 5: RECONCILIACIÓN INMEDIATA DE MUTACIÓN DE MESA
             // El backend ya disparó OrderConfirmed → OccupyTableOnOrderConfirm,
@@ -194,7 +232,12 @@ export class SyncStrategies {
 
         // Update normal de metadata (status, notes, guest_count)
         // P1-010: Usar item.id como Idempotency-Key estable para reintentos
-        await syncApi.updateOrder(order.cloud_id, payload, item.id);
+        // P1-OCC: Incluir version para Optimistic Concurrency Control
+        const updatePayload = {
+          ...payload,
+          version: order.version,
+        };
+        await syncApi.updateOrder(order.cloud_id, updatePayload, item.id);
         return order.cloud_id;
       }
       case "delete": {

@@ -1,6 +1,7 @@
 import { localDb } from "../../db/localDb";
 import { SyncQueueRepository, type SyncQueueItem } from "../../db/repositories/SyncQueueRepository";
 import { syncApi } from "../syncApi";
+import { OrderConflictError } from "../apiClient";
 import { pullEngine } from "./PullEngine";
 import { useSyncStore } from "../../store/useSyncStore";
 import { useAuthStore } from "../../store/useAuthStore";
@@ -78,6 +79,13 @@ export class SyncEngine {
             stats.success++;
           }
         } catch (error: any) {
+          // P1-OCC: Manejo específico de conflictos de versión
+          if (error instanceof OrderConflictError) {
+            await this.handleConflict(item, error);
+            stats.failed++;
+            continue;
+          }
+
           console.error(`[SyncEngine] Error procesando ${item.id}:`, error);
           
           // [AUDIT FIX] ADR-014: Fail-secure en errores 4xx para evitar cola infinita
@@ -322,6 +330,61 @@ export class SyncEngine {
    */
 
 
+
+  /**
+   * Maneja conflicto de versión (409 Conflict):
+   * 1. Usa los datos actuales retornados por el servidor (currentData)
+   * 2. Actualiza la entidad local en SQLite con la versión del servidor
+   * 3. Marca el item de sync como failed con razón de conflicto
+   */
+  private async handleConflict(item: SyncQueueItem, error: OrderConflictError): Promise<void> {
+    console.warn(`[SyncEngine] ⚠️ Conflict detected for ${item.entity_type} ${item.entity_cloud_id}`, {
+      expectedVersion: error.expectedVersion,
+      currentVersion: error.currentVersion,
+    });
+
+    try {
+      const entityType = item.entity_type;
+      const cloudId = item.entity_cloud_id;
+
+      // Actualizar versión local con datos del servidor
+      if (error.currentData && cloudId) {
+        if (entityType === "order" || entityType === "orders") {
+          // Refetch del order actualizado desde servidor
+          const freshOrder = await syncApi.getOrder(cloudId);
+          // Actualizar en SQLite local (ajustar según tu esquema)
+          try {
+            await localDb.orders.update(cloudId, {
+              version: freshOrder.version,
+            });
+            console.log(`[SyncEngine] ✅ Updated local order version to ${freshOrder.version}`);
+          } catch (updateErr) {
+            console.warn(`[SyncEngine] ⚠️ Could not update local order:`, updateErr);
+          }
+        }
+      }
+
+      // Marcar el item como failed con razón específica
+      await SyncQueueRepository.markAsFailed(
+        item.id,
+        `Conflict: server version ${error.currentVersion} vs expected ${error.expectedVersion}`
+      );
+
+      // Notificar al usuario del conflicto
+      useToastStore.getState().showToast({
+        type: "warning",
+        title: "Conflicto de sincronización",
+        message: "La orden fue modificada por otro terminal. Refresca para ver los cambios.",
+      });
+
+      console.log(`[SyncEngine] 🔄 Item ${item.id} marked as failed (conflict)`);
+    } catch (refetchError) {
+      console.error(`[SyncEngine] ❌ Failed to handle conflict:`, refetchError);
+      await SyncQueueRepository.markAsFailed(item.id, `Conflict handling failed: ${refetchError}`);
+    }
+  }
+
 }
+
 
 export const syncEngine = new SyncEngine();

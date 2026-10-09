@@ -98,7 +98,7 @@ export class SyncApiClient {
   }
   
 
-  async updateOrder(uuid: string, payload: Partial<OrderPayload>, idempotencyKey?: string): Promise<any> {
+  async updateOrder(uuid: string, payload: Partial<OrderPayload> & { version?: number }, idempotencyKey?: string): Promise<any> {
     const response = await apiClient.put(`/orders/${uuid}`, payload, {
       headers: { "Idempotency-Key": idempotencyKey || uuidv4() },
     });

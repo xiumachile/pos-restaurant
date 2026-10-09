@@ -11,6 +11,7 @@ use Modules\Orders\Domain\ValueObjects\FulfillmentChannel;
 use Modules\Orders\Domain\ValueObjects\OrderType;
 use Modules\Tables\Domain\Entities\RestaurantTable;
 use Modules\Orders\Domain\Exceptions\OrderNotModifiableException;
+use Modules\Orders\Domain\Exceptions\OrderConflictException;
 use Modules\Customers\Domain\Entities\Customer;
 
 /**
@@ -104,9 +105,9 @@ class OrderService
             $tableId = $table->id;
         }
 
-        $status = isset($data['status'])
-            ? OrderStatus::from($data['status'])
-            : OrderStatus::DRAFT;
+        // La máquina de estados es la única autoridad para transiciones.
+            // El cliente no puede dictar el estado inicial; siempre inicia como DRAFT.
+            $status = OrderStatus::DRAFT;
 
         // Resolver fulfillment_channel:
         // - Si viene explícito en data, usarlo (ya validado en request)
@@ -149,15 +150,45 @@ class OrderService
      * 
      * @throws \Symfony\Component\HttpKernel\Exception\HttpException
      */
-    public function updateOrder(string $uuid, int $companyId, array $data): Order
+        public function updateOrder(string $uuid, int $companyId, array $data): Order
     {
         $order = Order::where('uuid', $uuid)
             ->where('company_id', $companyId)
             ->firstOrFail();
 
+        // ===== OPTIMISTIC CONCURRENCY CONTROL =====
+        if (!isset($data['version'])) {
+            throw new \InvalidArgumentException('El campo version es requerido para control de concurrencia');
+        }
+        
+        $expectedVersion = (int) $data['version'];
+        $currentVersion = (int) ($order->version ?? 1);
+        
+        if ($currentVersion !== $expectedVersion) {
+            throw new OrderConflictException(
+                $order->toArray(),
+                $currentVersion
+            );
+        }
+        // ==========================================
+
         if (!$order->isEditable()) {
             throw new OrderNotModifiableException();
         }
+        // ===== OPTIMISTIC CONCURRENCY CONTROL (después del tenant lookup) =====
+        // La validación se hace DESPUÉS de verificar tenant para no revelar existencia
+        // a atacantes cross-tenant (ellos reciben 404 antes de llegar aquí)
+        $expectedVersion = isset($data['version']) ? (int) $data['version'] : null;
+        $currentVersion = (int) ($order->version ?? 1);
+        
+        if ($expectedVersion !== null && $currentVersion !== $expectedVersion) {
+            throw new OrderConflictException(
+                $order->toArray(),
+                $currentVersion
+            );
+        }
+        // =====================================================================
+
 
         // Actualizar mesa si se proporcionó
         if (array_key_exists('table_uuid', $data)) {
@@ -172,15 +203,14 @@ class OrderService
         if (isset($data['status'])) {
             $order->status = OrderStatus::from($data['status']);
 
-        // Si el pedido se confirma, verificar si la empresa tiene kitchen_display habilitado
-        if ($order->status === OrderStatus::CONFIRMED) {
-            $company = \Modules\Companies\Domain\Entities\Company::find($companyId);
-            if (!$company->hasCapability('has_kitchen_display')) {
-                // Si no tiene kitchen_display, marcar como ready directamente
-                // (para barras, mostradores de café, etc.)
-                $order->status = OrderStatus::READY;
+            // Si el pedido se confirma, verificar si la empresa tiene kitchen_display habilitado
+            if ($order->status === OrderStatus::CONFIRMED) {
+                $company = \Modules\Companies\Domain\Entities\Company::find($companyId);
+                if (!$company->hasCapability('has_kitchen_display')) {
+                    // Si no tiene kitchen_display, marcar como ready directamente
+                    $order->status = OrderStatus::READY;
+                }
             }
-        }
         }
 
         if (isset($data['notes'])) {
@@ -191,8 +221,13 @@ class OrderService
             $order->guest_count = $data['guest_count'];
         }
 
+        // Incrementar version ANTES de guardar (optimistic concurrency)
+        $order->version = $currentVersion + 1;
+        
         $order->save();
-        $order->load(['items', 'table', 'waiter']);
+        // Incrementar version para optimistic concurrency
+        $order->version = $currentVersion + 1;
+
 
         return $order;
     }

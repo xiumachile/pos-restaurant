@@ -21,6 +21,23 @@ function phoneSafeParamsSerializer(params: Record<string, any>): string {
   return searchParams.toString();
 }
 
+
+/**
+ * Error lanzado cuando el backend detecta conflicto de versión (409 Conflict).
+ * El SyncEngine debe capturar este error, hacer refetch de la entidad y reintentar.
+ */
+export class OrderConflictError extends Error {
+  constructor(
+    public readonly url: string,
+    public readonly currentVersion: number,
+    public readonly expectedVersion: number,
+    public readonly currentData?: any
+  ) {
+    super(`Order conflict at ${url}: server version ${currentVersion}, expected ${expectedVersion}`);
+    this.name = "OrderConflictError";
+  }
+}
+
 const apiClient = axios.create({
   baseURL: API_URL,
   timeout: 30000,
@@ -126,6 +143,26 @@ apiClient.interceptors.response.use(
     return validateResponseMoney(response);
   },
   async (error: AxiosError) => {
+    // P1-OCC: Detectar conflicto de versión (409 Conflict)
+    if (error.response?.status === 409) {
+      const responseData = error.response.data as any;
+      const currentVersion = responseData?.current_version ?? 0;
+      const currentData = responseData?.current_data;
+      const url = error.config?.url ?? "unknown";
+      
+      let expectedVersion = 0;
+      try {
+        const originalData = error.config?.data ? JSON.parse(error.config.data) : {};
+        expectedVersion = originalData.version ?? 0;
+      } catch (e) {
+        // payload no es JSON válido
+      }
+      
+      console.warn(`[apiClient] ⚠️ Order conflict detected: ${url}`, { currentVersion, expectedVersion });
+      
+      throw new OrderConflictError(url, currentVersion, expectedVersion, currentData);
+    }
+
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean;
     };
