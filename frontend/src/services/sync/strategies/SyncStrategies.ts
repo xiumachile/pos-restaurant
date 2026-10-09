@@ -235,7 +235,7 @@ export class SyncStrategies {
         // P1-OCC: Incluir version para Optimistic Concurrency Control
         const updatePayload = {
           ...payload,
-          version: order.version,
+          version: (order as any).version,
         };
         await syncApi.updateOrder(order.cloud_id, updatePayload, item.id);
         return order.cloud_id;
