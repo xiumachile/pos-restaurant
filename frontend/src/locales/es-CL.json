@@ -135,7 +135,8 @@
       "delivery": "Delivery",
       "takeout": "Para Llevar",
       "uber_eats": "Uber Eats",
-      "rappi": "Rappi"
+      "rappi": "Rappi",
+      "tables": "Mesas"
     },
     "status": {
       "draft": "Borrador",
@@ -1325,5 +1326,32 @@
     "guests": "{count} personas",
     "no_active_order": "Sin pedido activo",
     "pending_items": "Items pendientes: {count}"
+  },
+  "order_payment": {
+    "charge_order": "💳 Cobrar Pedido",
+    "order_number": "Pedido #{{number}}",
+    "customer": "Cliente",
+    "no_customer": "Sin nombre",
+    "items": "Ítems",
+    "subtotal": "Subtotal",
+    "tax": "IVA (19%)",
+    "tip": "Propina",
+    "total": "Total",
+    "total_with_tip": "Total con propina",
+    "select_payment_method": "Método de pago",
+    "select_tip": "Propina",
+    "no_tip": "Sin propina",
+    "tip_manual": "Manual",
+    "received": "Recibido",
+    "change": "Vuelto",
+    "cancel": "Cancelar",
+    "charge": "Cobrar",
+    "processing": "Procesando...",
+    "delivery": "🚗 Delivery",
+    "takeout": "🥡 Takeout",
+    "error_select_method": "Selecciona un método de pago",
+    "error_insufficient_cash": "Efectivo insuficiente",
+    "payment_success": "Pedido cobrado exitosamente",
+    "payment_error": "Error al procesar el pago"
   }
 }

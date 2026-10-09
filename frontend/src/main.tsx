@@ -1,21 +1,13 @@
 import './i18n';
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "./queryClient";
 import App from "./App";
 import "./index.css";
 import "./i18n";
 import { preloadAuthToken } from "@/services/secureStorage";
 import { useAuthStore } from "@/store/useAuthStore";
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 2,
-      staleTime: 10000,
-    },
-  },
-});
 
 // Inicialización asíncrona para restaurar el token de forma segura antes de renderizar
 async function initializeApp() {

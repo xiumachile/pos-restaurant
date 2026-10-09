@@ -222,6 +222,8 @@ test('pedido salta directo a READY si has_kitchen_display OFF', function () {
         'Content-Type' => 'application/json',
     ])->putJson("/api/v1/orders/{$order->uuid}", [
         'status' => 'confirmed',
+        'version' => $order->version,
+
     ]);
 
     $response->assertOk();
@@ -277,6 +279,8 @@ test('pedido pasa por CONFIRMED si has_kitchen_display ON', function () {
         'Content-Type' => 'application/json',
     ])->putJson("/api/v1/orders/{$order->uuid}", [
         'status' => 'confirmed',
+        'version' => $order->version,
+
     ]);
 
     $response->assertOk();

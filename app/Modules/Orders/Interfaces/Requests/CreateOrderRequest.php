@@ -27,7 +27,6 @@ class CreateOrderRequest extends FormRequest
             'delivery_address' => ['nullable', 'string', 'max:500'],
             'delivery_notes' => ['nullable', 'string', 'max:1000'],
             'notes' => ['nullable', 'string', 'max:1000'],
-            'status' => ['nullable', Rule::in(['draft', 'confirmed', 'preparing', 'ready', 'served'])],
         ];
 
         // Validaciones específicas por tipo
@@ -60,7 +59,6 @@ class CreateOrderRequest extends FormRequest
             'table_uuid.required' => 'validation.order.table_required',
             'table_uuid.exists' => 'validation.order.table_not_found',
             'table_uuid.uuid' => 'validation.order.table_uuid_invalid',
-            'status.in' => 'validation.order.status_invalid',
             'customer_name.required' => 'validation.order.customer_name_required',
             'customer_phone.required' => 'validation.order.customer_phone_required',
             'delivery_address.required' => 'validation.order.delivery_address_required',

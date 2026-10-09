@@ -1,13 +1,22 @@
 import { localDb } from "../../db/localDb";
 import { SyncQueueRepository, type SyncQueueItem } from "../../db/repositories/SyncQueueRepository";
 import { syncApi } from "../syncApi";
-import { OrderConflictError } from "../apiClient";
 import { pullEngine } from "./PullEngine";
 import { useSyncStore } from "../../store/useSyncStore";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useToastStore } from "../../store/useToastStore";
 import { validateContext } from "../authContext";
 import { SyncStrategies } from "./strategies/SyncStrategies";
+
+// Interface para OrderConflictError (evita importar la clase en tests)
+interface OrderConflictErrorLike {
+  name: string;
+  currentVersion: number;
+  expectedVersion: number;
+  currentData?: any;
+}
+
+
 
 /**
  * SyncEngine: Orquesta la sincronización bidireccional entre
@@ -80,7 +89,8 @@ export class SyncEngine {
           }
         } catch (error: any) {
           // P1-OCC: Manejo específico de conflictos de versión
-          if (error instanceof OrderConflictError) {
+          if (error?.name === "OrderConflictError" || error?.constructor?.name === "OrderConflictError") {
+          const conflictError = error as OrderConflictErrorLike;
             await this.handleConflict(item, error);
             stats.failed++;
             continue;
@@ -337,7 +347,7 @@ export class SyncEngine {
    * 2. Actualiza la entidad local en SQLite con la versión del servidor
    * 3. Marca el item de sync como failed con razón de conflicto
    */
-  private async handleConflict(item: SyncQueueItem, error: OrderConflictError): Promise<void> {
+  private async handleConflict(item: SyncQueueItem, error: OrderConflictErrorLike): Promise<void> {
     console.warn(`[SyncEngine] ⚠️ Conflict for ${item.entity_type} ${item.entity_cloud_id}`, {
       expected: error.expectedVersion,
       current: error.currentVersion,

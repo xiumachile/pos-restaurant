@@ -47,6 +47,7 @@ Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class, 'id
     Route::post('/orders/{uuid}/dispatch', [OrderTransitionController::class, 'dispatch'])->name('orders.dispatch');
     Route::post('/orders/{uuid}/deliver', [OrderTransitionController::class, 'deliver'])->name('orders.deliver');
     Route::post('/orders/{uuid}/pay', [OrderTransitionController::class, 'pay'])->name('orders.pay');
+    Route::post('/orders/{uuid}/checkout', [OrderTransitionController::class, 'checkout'])->name('orders.checkout');
     Route::post('/orders/{uuid}/close', [OrderTransitionController::class, 'close'])->name('orders.close');
     Route::post('/orders/{uuid}/cancel', [OrderTransitionController::class, 'cancel'])->name('orders.cancel');
 });

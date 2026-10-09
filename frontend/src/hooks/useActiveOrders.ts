@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/services/apiClient';
 import type { Order } from '@/types/orders';
 
-export type ChannelFilter = 'all' | 'delivery' | 'takeout';
+export type ChannelFilter = 'all' | 'tables' | 'delivery' | 'takeout';
 
 interface ActiveOrdersResponse {
   data: Order[];
@@ -17,6 +17,6 @@ export function useActiveOrders(channel: ChannelFilter = 'all') {
       return response.data.data;
     },
     refetchInterval: 10000, // Actualizar cada 10 segundos
-    staleTime: 5000,
+    staleTime: 0, // Siempre stale para refetch inmediato
   });
 }

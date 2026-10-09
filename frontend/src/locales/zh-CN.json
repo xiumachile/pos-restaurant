@@ -135,7 +135,8 @@
       "delivery": "外卖",
       "takeout": "带走",
       "uber_eats": "Uber Eats",
-      "rappi": "Rappi"
+      "rappi": "Rappi",
+      "tables": "桌位"
     },
     "status": {
       "draft": "草稿",
@@ -1325,5 +1326,32 @@
     "guests": "{count} 人",
     "no_active_order": "没有活动订单",
     "pending_items": "待处理项目: {count}"
+  },
+  "order_payment": {
+    "charge_order": "💳 收取订单",
+    "order_number": "订单 #{{number}}",
+    "customer": "顾客",
+    "no_customer": "无姓名",
+    "items": "项目",
+    "subtotal": "小计",
+    "tax": "增值税 (19%)",
+    "tip": "小费",
+    "total": "总计",
+    "total_with_tip": "含小费总计",
+    "select_payment_method": "支付方式",
+    "select_tip": "小费",
+    "no_tip": "无小费",
+    "tip_manual": "手动",
+    "received": "已收",
+    "change": "找零",
+    "cancel": "取消",
+    "charge": "收款",
+    "processing": "处理中...",
+    "delivery": "🚗 外卖",
+    "takeout": "🥡 自取",
+    "error_select_method": "请选择支付方式",
+    "error_insufficient_cash": "现金不足",
+    "payment_success": "订单支付成功",
+    "payment_error": "支付处理错误"
   }
 }

@@ -67,6 +67,7 @@ export function OrdersPage() {
       <ChannelTabs
         activeChannel={activeChannel}
         onChannelChange={setActiveChannel}
+        excludeChannels={['tables']}
       />
 
       <div className="flex-1 overflow-y-auto">

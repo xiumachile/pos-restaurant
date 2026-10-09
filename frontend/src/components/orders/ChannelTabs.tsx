@@ -5,26 +5,37 @@ interface ChannelTabsProps {
   activeChannel: ChannelFilter;
   onChannelChange: (channel: ChannelFilter) => void;
   counts?: Partial<Record<ChannelFilter, number>>;
+  excludeChannels?: ChannelFilter[]; // Canales a ocultar (ej: ['tables'] en Pedidos Activos)
 }
 
-// NOTA: dine_in NO está aquí porque tiene su propia vista: Mesas
-// Pedidos Activos es solo para canales SIN mesa (delivery, takeout, etc.)
-// Canales disponibles en BD:
-// - dine_in → onsite (vista de Mesas, no está aquí)
-// - takeout → pickup
-// - delivery → delivery (incluye uber_eats y rappi mapeados)
+// Canales disponibles:
+// - all → Todos los pedidos
+// - tables → Mesas con cuenta (dine_in) - solo en Caja
+// - delivery → Delivery (incluye uber_eats y rappi mapeados)
+// - takeout → Takeout/pickup
 const CHANNELS: { value: ChannelFilter; icon: string; labelKey: string }[] = [
   { value: 'all', icon: '📋', labelKey: 'orders.channels.all' },
+  { value: 'tables', icon: '🪑', labelKey: 'orders.channels.tables' },
   { value: 'delivery', icon: '🚗', labelKey: 'orders.channels.delivery' },
   { value: 'takeout', icon: '🥡', labelKey: 'orders.channels.takeout' },
 ];
 
-export function ChannelTabs({ activeChannel, onChannelChange, counts }: ChannelTabsProps) {
+export function ChannelTabs({ 
+  activeChannel, 
+  onChannelChange, 
+  counts,
+  excludeChannels = []
+}: ChannelTabsProps) {
   const { t } = useTranslation();
+
+  // Filtrar canales excluidos
+  const visibleChannels = CHANNELS.filter(
+    (channel) => !excludeChannels.includes(channel.value)
+  );
 
   return (
     <div className="flex gap-2 overflow-x-auto pb-3 mb-4">
-      {CHANNELS.map((channel) => {
+      {visibleChannels.map((channel) => {
         const isActive = activeChannel === channel.value;
         const count = counts?.[channel.value];
 
