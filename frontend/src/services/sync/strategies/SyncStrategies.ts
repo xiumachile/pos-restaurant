@@ -3,7 +3,7 @@ import { localDb } from "../../../db/localDb";
 import { SyncQueueRepository } from "../../../db/repositories/SyncQueueRepository";
 import { syncApi } from "../../syncApi";
 import { useToastStore } from "../../../store/useToastStore";
-import { queryClient } from "../../../queryClient";
+import { queryClient } from '../../../queryClient';
 
 
 export class SyncStrategies {

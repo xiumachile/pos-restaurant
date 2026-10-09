@@ -156,21 +156,20 @@ class OrderService
             ->where('company_id', $companyId)
             ->firstOrFail();
 
-        // ===== OPTIMISTIC CONCURRENCY CONTROL =====
-        if (!isset($data['version'])) {
-            throw new \InvalidArgumentException('El campo version es requerido para control de concurrencia');
-        }
-        
-        $expectedVersion = (int) $data['version'];
+        // ===== OPTIMISTIC CONCURRENCY CONTROL (TOLERANTE) =====
+        // Version es OPCIONAL para backward compatibility con clientes legacy
+        // Si no se envía version, se salta la validación de concurrencia
+        $expectedVersion = isset($data['version']) ? (int) $data['version'] : null;
         $currentVersion = (int) ($order->version ?? 1);
         
-        if ($currentVersion !== $expectedVersion) {
+        // Solo validar concurrencia si el cliente envió version explícitamente
+        if ($expectedVersion !== null && $currentVersion !== $expectedVersion) {
             throw new OrderConflictException(
                 $order->toArray(),
                 $currentVersion
             );
         }
-        // ==========================================
+        // ===================================================
 
         if (!$order->isEditable()) {
             throw new OrderNotModifiableException();
