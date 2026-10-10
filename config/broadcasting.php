@@ -13,19 +13,32 @@ return [
     |
     | Supported: "reverb", "pusher", "ably", "redis", "log", "null"
     |
+    | HALLAZGO 09: Lógica inteligente para default:
+    | - Testing: siempre 'null' (no conectar a WebSocket real)
+    | - Con credenciales Reverb: usar 'reverb' (producción/desarrollo)
+    | - Sin credenciales: fallback a 'log' (seguro, no falla)
+    |
     */
 
-    'default' => env('BROADCAST_CONNECTION', 'null'),
+    'default' => env('BROADCAST_CONNECTION') ?: (function() {
+        // Testing siempre usa null
+        if (env('APP_ENV') === 'testing') {
+            return 'null';
+        }
+        
+        // Si hay credenciales de Reverb, usar Reverb
+        if (env('REVERB_APP_KEY') && env('REVERB_APP_SECRET') && env('REVERB_APP_ID')) {
+            return 'reverb';
+        }
+        
+        // Fallback seguro: log (registra eventos pero no transmite)
+        return 'log';
+    })(),
 
     /*
     |--------------------------------------------------------------------------
     | Broadcast Connections
     |--------------------------------------------------------------------------
-    |
-    | Here you may define all of the broadcast connections that will be used
-    | to broadcast events to other systems or over WebSockets. Samples of
-    | each available type of connection are provided inside this array.
-    |
     */
 
     'connections' => [
@@ -42,7 +55,7 @@ return [
                 'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
             ],
             'client_options' => [
-                // Guzzle client options: https://docs.guzzlephp.org/en/stable/request-options.html
+                // Guzzle client options
             ],
         ],
 
@@ -60,7 +73,7 @@ return [
                 'useTLS' => env('PUSHER_SCHEME', 'https') === 'https',
             ],
             'client_options' => [
-                // Guzzle client options: https://docs.guzzlephp.org/en/stable/request-options.html
+                // Guzzle client options
             ],
         ],
 
