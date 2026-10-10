@@ -3,13 +3,36 @@
 namespace Modules\Orders\Interfaces\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Modules\Orders\Domain\Entities\Order;
 
 class UpdateOrderRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        // HALLAZGO 11: Autorización centralizada en OrderPolicy
+        $order = Order::where('uuid', $this->route('uuid') ?? $this->route('order'))->first();
+        
+        if (!$order) {
+            return true; // Dejar que el controlador maneje 404
+        }
+        
+        // Validar si el user puede hacer CUALQUIER acción sobre el order
+        // El service layer validará qué transiciones específicas puede hacer
+        $allowedActions = [
+            'update', 'confirm', 'cancel', 'pay', 'close',
+            'prepare', 'ready', 'readyForPickup', 'pickup',
+            'dispatch', 'deliver', 'serve'
+        ];
+        
+        foreach ($allowedActions as $action) {
+            if (Gate::allows($action, $order)) {
+                return true;
+            }
+        }
+        
+        return false;
     }
 
     public function rules(): array

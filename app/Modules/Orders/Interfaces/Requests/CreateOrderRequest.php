@@ -3,13 +3,18 @@
 namespace Modules\Orders\Interfaces\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Modules\Orders\Domain\Entities\Order;
 
 class CreateOrderRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        // HALLAZGO 11: Autorización centralizada en OrderPolicy
+        // Solo waiter, cashier, manager, admin pueden crear pedidos
+        // Usamos Gate::allows() directamente para evitar recursión infinita
+        return Gate::allows('create', Order::class);
     }
 
     public function rules(): array
