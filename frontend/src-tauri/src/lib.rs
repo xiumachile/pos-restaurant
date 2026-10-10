@@ -2,6 +2,34 @@ use serde::{Deserialize, Serialize};
 use std::net::{TcpStream, SocketAddr};
 use std::time::Duration;
 
+// ============================================
+// HALLAZGO 12: Configuración de SQLite para resiliencia offline
+// ============================================
+// Estas configuraciones deben aplicarse al inicializar la base de datos SQLite local
+// para garantizar consistencia y rendimiento en modo offline.
+
+/// Configuración de SQLite para modo offline robusto.
+/// Debe ejecutarse al inicializar la conexión a la base de datos local.
+pub fn configure_sqlite_for_offline(conn: &rusqlite::Connection) -> Result<(), rusqlite::Error> {
+    // WAL (Write-Ahead Logging) para mejor concurrencia y rendimiento
+    conn.execute_batch("PRAGMA journal_mode = WAL;")?;
+    
+    // Timeout de busy para evitar bloqueos en operaciones concurrentes
+    conn.execute_batch("PRAGMA busy_timeout = 5000;")?;
+    
+    // Foreign keys habilitadas para integridad referencial
+    conn.execute_batch("PRAGMA foreign_keys = ON;")?;
+    
+    // Synchronous en NORMAL para balance entre seguridad y rendimiento
+    conn.execute_batch("PRAGMA synchronous = NORMAL;")?;
+    
+    Ok(())
+}
+
+// ============================================
+// HALLAZGO C-03: Impresión térmica con confirmación de entrega
+// ============================================
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PrintJob {
     pub uuid: String,
@@ -102,7 +130,6 @@ pub fn print_raw(ip: String, port: u16, data: String) -> Result<PrintResult, Str
     }
     
     // Éxito: Datos entregados al buffer de red de la impresora.
-    // (La confirmación física de impresión depende de los sensores de la impresora o reporte del usuario).
     Ok(PrintResult {
         success: true,
         message_es: "Datos enviados correctamente a la impresora.".to_string(),
