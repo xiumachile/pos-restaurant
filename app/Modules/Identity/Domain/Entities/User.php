@@ -90,6 +90,33 @@ class User extends Authenticatable implements JWTSubject
         return in_array($this->role, ['admin', 'manager']);
     }
 
+    /**
+     * HALLAZGO 10: Indica si el usuario tiene alcance company-wide.
+     * 
+     * Los usuarios company-wide ven datos de todas las sucursales de su empresa.
+     * BranchScope hace bypass para ellos, pero CompanyScope sigue activo.
+     * 
+     * Roles company-wide: admin, manager
+     */
+    public function isCompanyWide(): bool
+    {
+        return in_array($this->role, ['admin', 'manager'], true);
+    }
+
+    /**
+     * HALLAZGO 10: Indica si el usuario tiene alcance branch-wide.
+     * 
+     * Los usuarios branch-wide solo ven datos de su propia sucursal.
+     * BranchScope aplica normalmente para ellos.
+     * 
+     * Roles branch-wide: waiter, cashier, kitchen
+     */
+    public function isBranchWide(): bool
+    {
+        return !$this->isCompanyWide();
+    }
+
+
     public function verifyPosPin(string $pin): bool
     {
         if (empty($this->pos_pin_hash)) {
