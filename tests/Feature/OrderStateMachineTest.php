@@ -94,7 +94,7 @@ test('permite transicion de draft a confirmed', function () {
         'waiter_id' => $this->user->id,
     ]);
 
-    $result = $this->stateMachine->transition($order, OrderStatus::CONFIRMED);
+    $result =  $order = $this->stateMachine->transition($order, OrderStatus::CONFIRMED);
 
     expect($result->status)->toBe(OrderStatus::CONFIRMED);
     expect($result->confirmed_at)->not->toBeNull();
@@ -109,7 +109,7 @@ test('permite transicion de confirmed a preparing', function () {
         'confirmed_at' => now(),
     ]);
 
-    $result = $this->stateMachine->transition($order, OrderStatus::PREPARING);
+    $result =  $order = $this->stateMachine->transition($order, OrderStatus::PREPARING);
 
     expect($result->status)->toBe(OrderStatus::PREPARING);
 });
@@ -122,7 +122,7 @@ test('permite transicion de preparing a ready', function () {
         'status' => OrderStatus::PREPARING,
     ]);
 
-    $result = $this->stateMachine->transition($order, OrderStatus::READY);
+    $result =  $order = $this->stateMachine->transition($order, OrderStatus::READY);
 
     expect($result->status)->toBe(OrderStatus::READY);
 });
@@ -135,7 +135,7 @@ test('permite transicion de ready a served', function () {
         'status' => OrderStatus::READY,
     ]);
 
-    $result = $this->stateMachine->transition($order, OrderStatus::SERVED);
+    $result =  $order = $this->stateMachine->transition($order, OrderStatus::SERVED);
 
     expect($result->status)->toBe(OrderStatus::SERVED);
     expect($result->served_at)->not->toBeNull();
@@ -149,7 +149,7 @@ test('permite transicion de served a paid', function () {
         'status' => OrderStatus::SERVED,
     ]);
 
-    $result = $this->stateMachine->transition($order, OrderStatus::PAID);
+    $result =  $order = $this->stateMachine->transition($order, OrderStatus::PAID);
 
     expect($result->status)->toBe(OrderStatus::PAID);
     expect($result->paid_at)->not->toBeNull();
@@ -163,7 +163,7 @@ test('permite transicion de paid a closed', function () {
         'status' => OrderStatus::PAID,
     ]);
 
-    $result = $this->stateMachine->transition($order, OrderStatus::CLOSED);
+    $result =  $order = $this->stateMachine->transition($order, OrderStatus::CLOSED);
 
     expect($result->status)->toBe(OrderStatus::CLOSED);
     expect($result->closed_at)->not->toBeNull();
@@ -177,27 +177,27 @@ test('el ciclo completo de un pedido funciona correctamente', function () {
     ]);
 
     // draft → confirmed
-    $this->stateMachine->transition($order, OrderStatus::CONFIRMED);
+     $order = $this->stateMachine->transition($order, OrderStatus::CONFIRMED);
     expect($order->status)->toBe(OrderStatus::CONFIRMED);
 
     // confirmed → preparing
-    $this->stateMachine->transition($order, OrderStatus::PREPARING);
+     $order = $this->stateMachine->transition($order, OrderStatus::PREPARING);
     expect($order->status)->toBe(OrderStatus::PREPARING);
 
     // preparing → ready
-    $this->stateMachine->transition($order, OrderStatus::READY);
+     $order = $this->stateMachine->transition($order, OrderStatus::READY);
     expect($order->status)->toBe(OrderStatus::READY);
 
     // ready → served
-    $this->stateMachine->transition($order, OrderStatus::SERVED);
+     $order = $this->stateMachine->transition($order, OrderStatus::SERVED);
     expect($order->status)->toBe(OrderStatus::SERVED);
 
     // served → paid
-    $this->stateMachine->transition($order, OrderStatus::PAID);
+     $order = $this->stateMachine->transition($order, OrderStatus::PAID);
     expect($order->status)->toBe(OrderStatus::PAID);
 
     // paid → closed
-    $this->stateMachine->transition($order, OrderStatus::CLOSED);
+     $order = $this->stateMachine->transition($order, OrderStatus::CLOSED);
     expect($order->status)->toBe(OrderStatus::CLOSED);
 });
 
@@ -212,7 +212,7 @@ test('deniega transicion directa de draft a preparing', function () {
         'waiter_id' => $this->user->id,
     ]);
 
-    expect(fn () => $this->stateMachine->transition($order, OrderStatus::PREPARING))
+    expect(fn () =>  $order = $this->stateMachine->transition($order, OrderStatus::PREPARING))
         ->toThrow(InvalidOrderTransitionException::class);
 });
 
@@ -224,7 +224,7 @@ test('deniega transicion de confirmed a ready', function () {
         'status' => OrderStatus::CONFIRMED,
     ]);
 
-    expect(fn () => $this->stateMachine->transition($order, OrderStatus::READY))
+    expect(fn () =>  $order = $this->stateMachine->transition($order, OrderStatus::READY))
         ->toThrow(InvalidOrderTransitionException::class);
 });
 
@@ -236,7 +236,7 @@ test('deniega transicion de served a closed', function () {
         'status' => OrderStatus::SERVED,
     ]);
 
-    expect(fn () => $this->stateMachine->transition($order, OrderStatus::CLOSED))
+    expect(fn () =>  $order = $this->stateMachine->transition($order, OrderStatus::CLOSED))
         ->toThrow(InvalidOrderTransitionException::class);
 });
 
@@ -249,7 +249,7 @@ test('deniega transicion desde closed a cualquier estado', function () {
     ]);
 
     foreach ([OrderStatus::DRAFT, OrderStatus::CONFIRMED, OrderStatus::CANCELLED] as $invalidStatus) {
-        expect(fn () => $this->stateMachine->transition($order, $invalidStatus))
+        expect(fn () =>  $order = $this->stateMachine->transition($order, $invalidStatus))
             ->toThrow(InvalidOrderTransitionException::class);
     }
 });
@@ -265,7 +265,7 @@ test('permite cancelar un pedido en draft con razon', function () {
         'waiter_id' => $this->user->id,
     ]);
 
-    $result = $this->stateMachine->transition($order, OrderStatus::CANCELLED, 'Cliente cambió de opinión');
+    $result =  $order = $this->stateMachine->transition($order, OrderStatus::CANCELLED, 'Cliente cambió de opinión');
 
     expect($result->status)->toBe(OrderStatus::CANCELLED);
     expect($result->cancellation_reason)->toBe('Cliente cambió de opinión');
@@ -279,7 +279,7 @@ test('deniega cancelar sin razon', function () {
         'waiter_id' => $this->user->id,
     ]);
 
-    expect(fn () => $this->stateMachine->transition($order, OrderStatus::CANCELLED))
+    expect(fn () =>  $order = $this->stateMachine->transition($order, OrderStatus::CANCELLED))
         ->toThrow(InvalidOrderTransitionException::class);
 });
 
@@ -291,7 +291,7 @@ test('deniega cancelar un pedido cerrado', function () {
         'status' => OrderStatus::CLOSED,
     ]);
 
-    expect(fn () => $this->stateMachine->transition($order, OrderStatus::CANCELLED, 'Error'))
+    expect(fn () =>  $order = $this->stateMachine->transition($order, OrderStatus::CANCELLED, 'Error'))
         ->toThrow(InvalidOrderTransitionException::class);
 });
 
