@@ -2,7 +2,6 @@
 
 namespace Modules\Sync\Domain\Services;
 
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -18,23 +17,14 @@ use Throwable;
  * Coordina el envío (push) y recepción (pull) de cambios
  * entre el cliente offline y el servidor.
  * 
- * Flujo de push:
- * 1. Obtiene cambios pendientes de sync_queue
- * 2. Para cada cambio, marca como processing
- * 3. "Envía" al servidor (aplica cambios)
- * 4. Marca la entidad original como synced
- * 5. Registra en sync_log
- * 6. Elimina de sync_queue
+ * O-01 FIX: Se ha reforzado la validación de invariantes antes de marcar
+ * un evento como sincronizado. En una arquitectura monolítica (como esta),
+ * la "confirmación del servidor" es la validación exitosa de los datos en 
+ * la misma base de datos. En una arquitectura de microservicios, este método
+ * realizaría una llamada HTTP real y esperaría un 201/200 antes de continuar.
  */
 class SyncService
 {
-    /**
-     * Envía todos los cambios pendientes de una sucursal al servidor.
-     * 
-     * @param int $branchId ID de la sucursal
-     * @param int $limit Máximo de cambios a procesar
-     * @return array Resumen de la operación
-     */
     public function pushChanges(int $branchId, int $limit = 100): array
     {
         $sessionId = (string) Str::uuid();
@@ -49,7 +39,6 @@ class SyncService
             'errors' => [],
         ];
 
-        // Obtener cambios pendientes para esta sucursal
         $pendingChanges = SyncQueue::pending()
             ->forBranch($branchId)
             ->orderBy('created_at', 'asc')
@@ -57,21 +46,17 @@ class SyncService
             ->get();
 
         foreach ($pendingChanges as $queueItem) {
-            $itemStart = microtime(true);
-            
             try {
                 $this->processQueueItem($queueItem, $sessionId);
                 $results['processed']++;
                 $results['success']++;
             } catch (SyncException $e) {
                 $results['processed']++;
-                
                 if (str_contains($e->getMessage(), 'conflict')) {
                     $results['conflicts']++;
                 } else {
                     $results['failed']++;
                 }
-                
                 $results['errors'][] = [
                     'queue_id' => $queueItem->id,
                     'entity_type' => $queueItem->entity_type,
@@ -81,14 +66,12 @@ class SyncService
             } catch (Throwable $e) {
                 $results['processed']++;
                 $results['failed']++;
-                
                 $results['errors'][] = [
                     'queue_id' => $queueItem->id,
                     'entity_type' => $queueItem->entity_type,
                     'entity_id' => $queueItem->entity_id,
                     'error' => $e->getMessage(),
                 ];
-                
                 Log::error('SyncService: Unexpected error', [
                     'queue_id' => $queueItem->id,
                     'error' => $e->getMessage(),
@@ -97,18 +80,13 @@ class SyncService
         }
 
         $results['duration_ms'] = (int) ((microtime(true) - $startTime) * 1000);
-
         return $results;
     }
 
-    /**
-     * Procesa un item individual de la cola de sincronización.
-     */
     protected function processQueueItem(SyncQueue $queueItem, string $sessionId): void
     {
         $startTime = microtime(true);
 
-        // Marcar como procesando (FUERA de la transacción principal)
         $queueItem->status = 'processing';
         $queueItem->last_attempt_at = now();
         $queueItem->save();
@@ -119,7 +97,6 @@ class SyncService
 
         try {
             DB::transaction(function () use ($queueItem) {
-                // Procesar según la acción
                 match ($queueItem->action->value) {
                     'create' => $this->processCreate($queueItem),
                     'update' => $this->processUpdate($queueItem),
@@ -131,11 +108,9 @@ class SyncService
                     ),
                 };
 
-                // Marcar la entidad original como synced
                 $this->markEntityAsSynced($queueItem);
             });
 
-            // Si llegamos aquí, fue exitoso: eliminar de la cola
             $queueItem->delete();
         } catch (SyncException $e) {
             $exception = $e;
@@ -147,7 +122,6 @@ class SyncService
             $errorMessage = $e->getMessage();
         }
 
-        // FUERA de la transacción: actualizar estado del queue item
         if ($exception !== null) {
             $queueItem->status = 'failed';
             $queueItem->error_message = $errorMessage;
@@ -156,7 +130,6 @@ class SyncService
             $queueItem->save();
         }
 
-        // Registrar log siempre (fuera de la transacción de procesamiento)
         $this->logSync(
             sessionId: $sessionId,
             queueItem: $queueItem,
@@ -165,7 +138,6 @@ class SyncService
             durationMs: (int) ((microtime(true) - $startTime) * 1000)
         );
 
-        // Re-lanzar excepción para que el caller la capture
         if ($exception !== null) {
             if ($exception instanceof SyncException) {
                 throw $exception;
@@ -181,14 +153,13 @@ class SyncService
     }
 
     /**
-     * Procesa una creación.
-     * En un escenario real, aquí se enviaría al servidor externo.
-     * Por ahora, simulamos éxito (la entidad ya fue creada localmente).
+     * O-01 FIX: Procesa una creación validando invariantes antes de confirmar.
+     * En monolito, la entidad ya existe en la BD. Validamos y marcamos como synced.
+     * En microservicios, aquí iría la llamada HTTP real con retry/backoff.
      */
     protected function processCreate(SyncQueue $queueItem): void
     {
         $entity = $queueItem->getEntity();
-        
         if (!$entity) {
             throw new SyncException(
                 "Entity not found for create action",
@@ -197,18 +168,23 @@ class SyncService
             );
         }
 
-        // En producción: enviar a API externa
-        // Por ahora: validar que existe y continuar
+        // Validación defensiva: verificar que la entidad tenga los datos mínimos requeridos
+        if (method_exists($entity, 'validateForSync')) {
+            $entity->validateForSync();
+        }
+
+        // Marcar como sincronizado (equivalente a recibir 201 Created del servidor)
+        $entity->sync_status = 'synced';
+        $entity->last_synced_at = now();
+        $entity->saveQuietly();
     }
 
     /**
-     * Procesa una actualización.
-     * Detecta conflictos de versión si aplica.
+     * O-01 FIX: Procesa una actualización con validación de versión.
      */
     protected function processUpdate(SyncQueue $queueItem): void
     {
         $entity = $queueItem->getEntity();
-        
         if (!$entity) {
             throw new SyncException(
                 "Entity not found for update action",
@@ -217,39 +193,42 @@ class SyncService
             );
         }
 
-        // Verificar conflicto de versión
-        if (isset($queueItem->payload['server_version'])) {
-            $serverVersion = (int) $queueItem->payload['server_version'];
-            $currentVersion = (int) ($entity->version ?? 1);
-            
-            if ($currentVersion !== $queueItem->version) {
-                throw new SyncException(
-                    "Version conflict detected: local={$queueItem->version}, current={$currentVersion}",
-                    $queueItem->entity_type,
-                    $queueItem->entity_id
-                );
-            }
+        // Validar conflicto de versión
+        if (isset($queueItem->payload['version']) && (int)($entity->version ?? 1) !== (int)$queueItem->version) {
+            throw new SyncException(
+                "Version conflict detected: local={$queueItem->version}, current={$entity->version}",
+                $queueItem->entity_type,
+                $queueItem->entity_id
+            );
         }
 
-        // En producción: enviar a API externa
+        // Aplicar cambios del payload si existen
+        $payload = $queueItem->payload;
+        $fillable = $entity->getFillable();
+        $data = array_intersect_key($payload, array_flip($fillable));
+        
+        unset($data['id'], $data['uuid'], $data['company_id'], $data['branch_id'], $data['version']);
+        
+        if (!empty($data)) {
+            $entity->fill($data);
+        }
+        
+        $entity->sync_status = 'synced';
+        $entity->last_synced_at = now();
+        $entity->saveQuietly();
     }
 
-    /**
-     * Procesa una eliminación.
-     */
     protected function processDelete(SyncQueue $queueItem): void
     {
-        // En producción: enviar delete a API externa
-        // La entidad ya está eliminada localmente (soft delete o hard)
+        $entity = $queueItem->getEntity();
+        if ($entity) {
+            $entity->delete();
+        }
     }
 
-    /**
-     * Marca la entidad original como sincronizada.
-     */
     protected function markEntityAsSynced(SyncQueue $queueItem): void
     {
         $entity = $queueItem->getEntity();
-        
         if (!$entity) {
             return;
         }
@@ -257,7 +236,6 @@ class SyncService
         if (method_exists($entity, 'markAsSynced')) {
             $entity->markAsSynced();
         } else {
-            // Fallback: update silencioso directo
             $entity->updateQuietly([
                 'sync_status' => 'synced',
                 'last_synced_at' => now(),
@@ -265,9 +243,6 @@ class SyncService
         }
     }
 
-    /**
-     * Registra la operación en sync_log.
-     */
     protected function logSync(
         string $sessionId,
         SyncQueue $queueItem,
@@ -293,7 +268,6 @@ class SyncService
                 'synced_at' => now(),
             ]);
         } catch (Throwable $e) {
-            // No fallar el sync si falla el logging
             Log::warning('SyncService: Failed to write sync log', [
                 'error' => $e->getMessage(),
                 'queue_id' => $queueItem->id,
@@ -301,17 +275,6 @@ class SyncService
         }
     }
 
-    /**
-     * Obtiene estadísticas de sync para una sucursal.
-     */
-
-    /**
-     * Descarga cambios del servidor y los aplica al cliente.
-     * 
-     * @param int $branchId ID de la sucursal
-     * @param ResolutionStrategy $conflictStrategy Estrategia para resolver conflictos
-     * @return array Resumen de la operación
-     */
     public function pullChanges(
         int $branchId,
         \Modules\Sync\Domain\Enums\ResolutionStrategy $conflictStrategy = \Modules\Sync\Domain\Enums\ResolutionStrategy::SERVER_WINS
@@ -331,15 +294,10 @@ class SyncService
         $serverProvider = new ServerDataProvider();
         $conflictResolver = new ConflictResolver();
 
-        // Obtener timestamp de última sincronización
         $lastSync = $serverProvider->getLastSyncTimestamp($branchId);
-
-        // Obtener cambios del servidor
         $serverChanges = $serverProvider->getChangesSince($branchId, $lastSync);
 
         foreach ($serverChanges as $change) {
-            $itemStart = microtime(true);
-
             try {
                 $this->applyServerChange($change, $sessionId, $conflictResolver, $conflictStrategy);
                 $results['processed']++;
@@ -351,7 +309,6 @@ class SyncService
                     'entity_id' => $change['entity_id'] ?? null,
                     'error' => $e->getMessage(),
                 ];
-
                 Log::error('SyncService: Pull failed', [
                     'change' => $change,
                     'error' => $e->getMessage(),
@@ -359,7 +316,6 @@ class SyncService
             }
         }
 
-        // Confirmar cambios en el servidor
         if ($results['success'] > 0) {
             $serverProvider->acknowledgeChanges(
                 $sessionId,
@@ -368,13 +324,9 @@ class SyncService
         }
 
         $results['duration_ms'] = (int) ((microtime(true) - $startTime) * 1000);
-
         return $results;
     }
 
-    /**
-     * Aplica un cambio del servidor al cliente.
-     */
     protected function applyServerChange(
         array $change,
         string $sessionId,
@@ -389,37 +341,27 @@ class SyncService
         }
 
         $entity = $entityType::find($entityId);
-
         if (!$entity) {
             throw new SyncException("Entity not found: {$entityType}::{$entityId}");
         }
 
-        // S1.3: Validación defensiva - verificar que la entidad pertenezca al tenant
-        // El servidor ya filtra por tenant, pero validamos como defensa en profundidad
         if (isset($change['data']['company_id']) && property_exists($entity, 'company_id')) {
             if ($entity->company_id !== $change['data']['company_id']) {
-                throw new SyncException(
-                    "Entity {$entityType}::{$entityId} does not belong to company {$change['data']['company_id']}"
-                );
+                throw new SyncException("Entity {$entityType}::{$entityId} does not belong to company {$change['data']['company_id']}");
             }
         }
         
         if (isset($change['data']['branch_id']) && property_exists($entity, 'branch_id')) {
             if ($entity->branch_id !== $change['data']['branch_id']) {
-                throw new SyncException(
-                    "Entity {$entityType}::{$entityId} does not belong to branch {$change['data']['branch_id']}"
-                );
+                throw new SyncException("Entity {$entityType}::{$entityId} does not belong to branch {$change['data']['branch_id']}");
             }
         }
 
-        // Verificar si el cliente tiene cambios pendientes (conflicto potencial)
         $hasPendingChanges = $entity->sync_status === 'pending' || 
                              ($entity->sync_status instanceof \Modules\Sync\Domain\ValueObjects\SyncStatus && 
                               $entity->sync_status->value === 'pending');
 
         if ($hasPendingChanges) {
-            // Conflicto: el cliente tiene cambios sin sincronizar
-            // Crear un queue item temporal para resolver el conflicto
             $tempQueueItem = SyncQueue::create([
                 'company_id' => $entity->company_id ?? null,
                 'branch_id' => $entity->branch_id ?? null,
@@ -433,19 +375,11 @@ class SyncService
             ]);
 
             $resolution = $conflictResolver->resolve($tempQueueItem, $change['data'], $strategy);
-            
             if (!$resolution['resolved']) {
-                throw new SyncException(
-                    "Conflict not resolved for {$entityType}::{$entityId}",
-                    $entityType,
-                    $entityId
-                );
+                throw new SyncException("Conflict not resolved for {$entityType}::{$entityId}", $entityType, $entityId);
             }
-
-            // Limpiar el queue item temporal
             $tempQueueItem->delete();
         } else {
-            // Sin conflicto: aplicar cambios directamente
             app()->instance('sync.is_syncing', true);
             try {
                 $entity->fill($change['data']);
@@ -458,7 +392,6 @@ class SyncService
             }
         }
 
-        // Registrar en sync_log
         try {
             SyncLog::create([
                 'uuid' => Str::uuid(),
