@@ -38,6 +38,7 @@ class Payment extends Model
         'reference_code',
         'status',
         'idempotency_key',
+        'payload_hash',
         'notes',
         'paid_at',
     ];

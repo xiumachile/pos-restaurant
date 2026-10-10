@@ -1,9 +1,9 @@
 <?php
 
 namespace Modules\Payments\Domain\Services;
-use Illuminate\Support\Facades\Log;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Modules\Orders\Domain\Entities\Order;
 use Modules\Payments\Domain\Entities\Bill;
 use Modules\Payments\Domain\Entities\CashSession;
@@ -23,60 +23,80 @@ class PaymentService
     public function registerPayment(
         Order $order,
         PaymentMethod $paymentMethod,
-        int $amount,  // ADR-011: integer CLP
+        int $amount,
         string $idempotencyKey,
         ?Bill $bill = null,
         ?CashSession $cashSession = null,
         int $userId = 0,
-        int $tipAmount = 0,  // ADR-011: integer CLP
+        int $tipAmount = 0,
         ?string $referenceCode = null,
         ?string $notes = null
     ): Payment {
         Account::seedDefaultsFor($order->company_id, $order->branch_id);
 
+        $this->validateTenantInvariants($order, $paymentMethod, $bill, $cashSession);
+
+        // HALLAZGO CA-01: Hash del payload para detectar reutilización maliciosa o errónea
+        $payloadHash = hash('sha256', json_encode([
+            'order_id' => $order->id,
+            'bill_id' => $bill?->id,
+            'payment_method_id' => $paymentMethod->id,
+            'amount' => $amount,
+            'tip_amount' => $tipAmount,
+        ]));
+
         return DB::transaction(function () use (
-            $order, $paymentMethod, $amount, $idempotencyKey,
+            $order, $paymentMethod, $amount, $idempotencyKey, $payloadHash,
             $bill, $cashSession, $userId, $tipAmount, $referenceCode, $notes
         ) {
-            $order = Order::lockForUpdate()->find($order->id);
+            // HALLAZGO CA-01: Bloquear el pedido y la cuenta (si existe) para evitar race conditions
+            // en el cálculo del saldo disponible y prevención de doble cobro.
+            $lockedOrder = Order::where('id', $order->id)
+                ->where('company_id', $order->company_id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
+            $lockedBill = null;
+            if ($bill) {
+                $lockedBill = Bill::where('id', $bill->id)
+                    ->where('company_id', $bill->company_id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+            }
 
             Log::info('Payment registration started', [
-                'order_id' => $order->id,
+                'order_id' => $lockedOrder->id,
                 'payment_method' => $paymentMethod->code,
                 'amount' => $amount,
-                'tip_amount' => $tipAmount ?? 0,
+                'tip_amount' => $tipAmount,
                 'idempotency_key' => $idempotencyKey,
             ]);
 
-            // DEFENSE-IN-DEPTH: Fast-path de idempotencia a nivel de dominio.
-            // 
-            // CAPA 1 (Middleware HTTP): Patrón INSERT-first previene race conditions
-            // entre requests concurrentes. Si un request llega aquí, normalmente
-            // ya tiene el "claim" de la idempotency_key.
-            //
-            // CAPA 2 (Service/Domain): Este fast-path protege contra:
-            // - Llamadas directas al service (tests, jobs, commands)
-            // - Retries legítimos cuando la respuesta se perdió en red
-            // - Casos donde el middleware no se aplica (ej: workers internos)
-            //
-            // Principio: El service es idempotente por sí mismo, independiente
-            // de la capa HTTP. El middleware es una optimización, no un requisito.
-            $existing = Payment::where('company_id', $order->company_id)
-                ->where('branch_id', $order->branch_id)
+            // HALLAZGO CA-01: Verificación de idempotencia con validación de payload
+            $existing = Payment::where('company_id', $lockedOrder->company_id)
+                ->where('branch_id', $lockedOrder->branch_id)
                 ->where('idempotency_key', $idempotencyKey)
                 ->first();
 
             if ($existing) {
-                Log::info('PaymentService: Idempotency fast-path (defense-in-depth)', [
-                    'payment_id' => $existing->id,
-                    'idempotency_key' => $idempotencyKey,
-                    'order_id' => $order->id,
-                ]);
-                return $existing;
+                if ($existing->payload_hash === $payloadHash) {
+                    Log::info('PaymentService: Idempotency match, returning existing payment', [
+                        'payment_id' => $existing->id,
+                        'idempotency_key' => $idempotencyKey,
+                    ]);
+                    return $existing;
+                } else {
+                    Log::warning('PaymentService: Idempotency key reused with different payload', [
+                        'payment_id' => $existing->id,
+                        'idempotency_key' => $idempotencyKey,
+                        'expected_hash' => $payloadHash,
+                        'actual_hash' => $existing->payload_hash,
+                    ]);
+                    throw PaymentException::idempotencyKeyMismatch($idempotencyKey);
+                }
             }
 
-            if (!$this->isOrderPayable($order)) {
+            if (!$this->isOrderPayable($lockedOrder)) {
                 throw PaymentException::orderNotPayable();
             }
 
@@ -88,32 +108,56 @@ class PaymentService
                 throw PaymentException::invalidPaymentMethod();
             }
 
-            $available = $this->getAvailableAmount($order, $bill);
-            if ($amount > $available) {  // ADR-011: integer comparison
+            $available = $this->getAvailableAmount($lockedOrder, $lockedBill);
+            if ($amount > $available) {
                 throw PaymentException::insufficientAmount($amount, $available);
             }
 
             $totalAmount = Payment::calculateTotal($amount, $tipAmount);
 
-            $payment = Payment::create([
-                'company_id' => $order->company_id,
-                'branch_id' => $order->branch_id,
-                'order_id' => $order->id,
-                'bill_id' => $bill?->id,
-                'cash_session_id' => $cashSession?->id,
-                'payment_method_id' => $paymentMethod->id,
-                'user_id' => $userId,
-                'payment_number' => Payment::generatePaymentNumber($order->branch->code),
-                'method_code' => $paymentMethod->code,
-                'amount' => $amount,
-                'tip_amount' => $tipAmount,
-                'total_amount' => $totalAmount,
-                'reference_code' => $referenceCode,
-                'status' => PaymentStatus::COMPLETED,
-                'idempotency_key' => $idempotencyKey,
-                'notes' => $notes,
-                'paid_at' => now(),
-            ]);
+            try {
+                $payment = Payment::create([
+                    'company_id' => $lockedOrder->company_id,
+                    'branch_id' => $lockedOrder->branch_id,
+                    'order_id' => $lockedOrder->id,
+                    'bill_id' => $lockedBill?->id,
+                    'cash_session_id' => $cashSession?->id,
+                    'payment_method_id' => $paymentMethod->id,
+                    'user_id' => $userId,
+                    'payment_number' => Payment::generatePaymentNumber($lockedOrder->branch->code, $lockedOrder->branch_id),
+                    'method_code' => $paymentMethod->code,
+                    'amount' => $amount,
+                    'tip_amount' => $tipAmount,
+                    'total_amount' => $totalAmount,
+                    'reference_code' => $referenceCode,
+                    'status' => PaymentStatus::COMPLETED,
+                    'idempotency_key' => $idempotencyKey,
+                    'payload_hash' => $payloadHash,
+                    'notes' => $notes,
+                    'paid_at' => now(),
+                ]);
+            } catch (\Illuminate\Database\QueryException $e) {
+                // HALLAZGO 13 / CA-01: Manejar violación de restricción única (race condition)
+                if (str_contains($e->getMessage(), '23505') || str_contains($e->getMessage(), 'payments_tenant_idempotency_unique')) {
+                    Log::warning('Idempotency race condition caught at DB level', [
+                        'idempotency_key' => $idempotencyKey,
+                        'order_id' => $lockedOrder->id,
+                    ]);
+                    
+                    $existingPayment = Payment::where('company_id', $lockedOrder->company_id)
+                        ->where('branch_id', $lockedOrder->branch_id)
+                        ->where('idempotency_key', $idempotencyKey)
+                        ->first();
+                        
+                    if ($existingPayment) {
+                        if ($existingPayment->payload_hash === $payloadHash) {
+                            return $existingPayment;
+                        }
+                        throw PaymentException::idempotencyKeyMismatch($idempotencyKey);
+                    }
+                }
+                throw $e;
+            }
 
             try {
                 $this->paymentLedgerService->recordPayment($payment);
@@ -121,11 +165,11 @@ class PaymentService
                 throw PaymentException::ledgerRecordingFailed($e->getMessage());
             }
 
-            if ($bill) {
-                $bill->registerPaymentAmount($amount);
+            if ($lockedBill) {
+                $lockedBill->registerPaymentAmount($amount);
             }
 
-            $this->updateOrderPaymentStatus($order);
+            $this->updateOrderPaymentStatus($lockedOrder);
 
             return $payment;
         });
@@ -136,31 +180,18 @@ class PaymentService
         return $order->status->isChargeable();
     }
 
-    /**
-     * Calcula monto disponible para pago.
-     * 
-     * Soporta ambos modelos:
-     * - BRUTO (ADR-011): amount_due = grand_total + tip_amount
-     * - Legacy: total = grand_total, tip_amount separado
-     * 
-     * Disponible = total_a_pagar - (pagos_venta + pagos_propina)
-     */
-    private function getAvailableAmount(Order $order, ?Bill $bill): int  // ADR-011: integer CLP
+    private function getAvailableAmount(Order $order, ?Bill $bill): int
     {
         if ($bill) {
             return (int) $bill->remaining_amount;
         }
 
-        // Calcular el total a pagar (venta + propina)
         $amountDue = (int) $order->amount_due;
         
-        // Si amount_due no está calculado (0), usar modelo legacy
-        // Fallback: total (legacy grand_total) + tip_amount
-        if ($amountDue < 1) {  // ADR-011: integer comparison
+        if ($amountDue < 1) {
             $amountDue = (int) $order->total + (int) ($order->tip_amount ?? 0);
         }
 
-        // Sumar pagos completados (venta + propina por separado)
         $paidAmount = (int) Payment::where('order_id', $order->id)
             ->completed()
             ->sum('amount');
@@ -174,16 +205,12 @@ class PaymentService
 
     private function updateOrderPaymentStatus(Order $order): void
     {
-        // ADR-018: Comparar contra amount_due (venta + propina)
-        // amount_due = grand_total + tip_amount
         $amountDue = (int) $order->amount_due;
         
-        // Si amount_due no está calculado, usar fallback
         if ($amountDue < 1) {
             $amountDue = (int) $order->total + (int) ($order->tip_amount ?? 0);
         }
 
-        // Sumar pagos completados (venta + propina)
         $paidAmount = (int) Payment::where('order_id', $order->id)
             ->completed()
             ->sum('amount');
@@ -194,7 +221,6 @@ class PaymentService
 
         $totalPaid = $paidAmount + $paidTips;
 
-        // Marcar como PAID solo cuando se pagó venta + propina completa
         if ($totalPaid >= $amountDue && $order->status->isChargeable()) {
             $order->paid_at = now();
             $order->status = \Modules\Orders\Domain\ValueObjects\OrderStatus::PAID;
@@ -203,6 +229,43 @@ class PaymentService
 
             if (class_exists(\Modules\Orders\Domain\Events\OrderPaid::class)) {
                 event(new \Modules\Orders\Domain\Events\OrderPaid($order));
+            }
+        }
+    }
+
+    private function validateTenantInvariants(
+        Order $order,
+        PaymentMethod $paymentMethod,
+        ?Bill $bill = null,
+        ?CashSession $cashSession = null
+    ): void {
+        if ($paymentMethod->company_id !== $order->company_id) {
+            throw PaymentException::tenantMismatch('payment_method.company_id', 'order.company_id');
+        }
+        
+        if ($paymentMethod->branch_id !== null && $paymentMethod->branch_id !== $order->branch_id) {
+            throw PaymentException::tenantMismatch('payment_method.branch_id', 'order.branch_id');
+        }
+        
+        if ($bill !== null) {
+            if ($bill->company_id !== $order->company_id) {
+                throw PaymentException::tenantMismatch('bill.company_id', 'order.company_id');
+            }
+            if ($bill->branch_id !== $order->branch_id) {
+                throw PaymentException::tenantMismatch('bill.branch_id', 'order.branch_id');
+            }
+        }
+        
+        if ($cashSession !== null) {
+            if ($cashSession->company_id !== $order->company_id) {
+                throw PaymentException::tenantMismatch('cash_session.company_id', 'order.company_id');
+            }
+            if ($cashSession->branch_id !== $order->branch_id) {
+                throw PaymentException::tenantMismatch('cash_session.branch_id', 'order.branch_id');
+            }
+            
+            if (!$cashSession->canReceivePayments()) {
+                throw PaymentException::cashSessionNotOpen();
             }
         }
     }

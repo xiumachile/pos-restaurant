@@ -44,9 +44,6 @@ class PaymentException extends Exception
         );
     }
 
-    /**
-     * Excepción cuando hay propinas pendientes de entregar al cerrar caja.
-     */
     public static function tipsNotDelivered(float $pending): self
     {
         return new self(
@@ -70,4 +67,20 @@ class PaymentException extends Exception
         return new self("No se pudo registrar el asiento contable del pago: {$reason}");
     }
 
+    public static function tenantMismatch(string $entity1, string $entity2): self
+    {
+        return new self(
+            "Invariante de tenant violada: {$entity1} y {$entity2} no pertenecen al mismo tenant. " .
+            "Esto indica un error en la capa de autorización o un intento de acceso cruzado.",
+            403
+        );
+    }
+
+    /**
+     * HALLAZGO CA-01: La clave de idempotencia existe pero el payload difiere.
+     */
+    public static function idempotencyKeyMismatch(string $idempotencyKey): self
+    {
+        return new self("Conflicto de idempotencia: La clave '{$idempotencyKey}' ya existe con un payload diferente (monto, método o pedido distinto).");
+    }
 }
