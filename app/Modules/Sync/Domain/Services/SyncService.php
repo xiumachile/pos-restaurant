@@ -11,15 +11,10 @@ use Modules\Sync\Domain\Exceptions\SyncException;
 use Modules\Sync\Domain\Services\ServerDataProvider;
 use Throwable;
 
-/**
- * Servicio principal de sincronización.
- * 
- * O-02 FIX: Se ignora cualquier company_id o branch_id presente en el payload
- * del cliente, forzando el uso de los valores del SyncQueue (que ya fueron validados
- * contra el contexto del usuario autenticado).
- */
 class SyncService
 {
+    protected const LEASE_DURATION_MINUTES = 5;
+
     public function pushChanges(int $branchId, int $limit = 100): array
     {
         $sessionId = (string) Str::uuid();
@@ -83,12 +78,15 @@ class SyncService
         $startTime = microtime(true);
 
         $queueItem->status = 'processing';
+        $queueItem->processing_started_at = now();
+        $queueItem->lease_expires_at = now()->addMinutes(self::LEASE_DURATION_MINUTES);
         $queueItem->last_attempt_at = now();
         $queueItem->save();
 
         $exception = null;
         $result = 'success';
         $errorMessage = null;
+        $errorCode = null;
 
         try {
             DB::transaction(function () use ($queueItem) {
@@ -111,17 +109,22 @@ class SyncService
             $exception = $e;
             $result = 'error';
             $errorMessage = $e->getMessage();
+            $errorCode = class_basename($e);
         } catch (\Throwable $e) {
             $exception = $e;
             $result = 'error';
             $errorMessage = $e->getMessage();
+            $errorCode = 'UnexpectedError';
         }
 
         if ($exception !== null) {
             $queueItem->status = 'failed';
             $queueItem->error_message = $errorMessage;
+            $queueItem->last_error_code = $errorCode;
             $queueItem->attempts++;
             $queueItem->next_attempt_at = now()->addMinutes($queueItem->attempts * 5);
+            $queueItem->processing_started_at = null;
+            $queueItem->lease_expires_at = null;
             $queueItem->save();
         }
 
@@ -147,19 +150,11 @@ class SyncService
         }
     }
 
-    /**
-     * O-02 FIX: Procesa una creación forzando company_id y branch_id del contexto,
-     * ignorando cualquier intento de escalada de privilegios en el payload.
-     */
     protected function processCreate(SyncQueue $queueItem): void
     {
         $entity = $queueItem->getEntity();
         if (!$entity) {
-            throw new SyncException(
-                "Entity not found for create action",
-                $queueItem->entity_type,
-                $queueItem->entity_id
-            );
+            throw new SyncException("Entity not found for create action", $queueItem->entity_type, $queueItem->entity_id);
         }
 
         if (method_exists($entity, 'validateForSync')) {
@@ -171,33 +166,21 @@ class SyncService
         $entity->saveQuietly();
     }
 
-    /**
-     * O-02 FIX: Procesa una actualización ignorando company_id y branch_id del payload.
-     */
     protected function processUpdate(SyncQueue $queueItem): void
     {
         $entity = $queueItem->getEntity();
         if (!$entity) {
-            throw new SyncException(
-                "Entity not found for update action",
-                $queueItem->entity_type,
-                $queueItem->entity_id
-            );
+            throw new SyncException("Entity not found for update action", $queueItem->entity_type, $queueItem->entity_id);
         }
 
         if (isset($queueItem->payload['version']) && (int)($entity->version ?? 1) !== (int)$queueItem->version) {
-            throw new SyncException(
-                "Version conflict detected: local={$queueItem->version}, current={$entity->version}",
-                $queueItem->entity_type,
-                $queueItem->entity_id
-            );
+            throw new SyncException("Version conflict detected", $queueItem->entity_type, $queueItem->entity_id);
         }
 
         $payload = $queueItem->payload;
         $fillable = $entity->getFillable();
         $data = array_intersect_key($payload, array_flip($fillable));
         
-        // O-02 FIX: Eliminar campos de seguridad del payload para prevenir escalada
         unset($data['id'], $data['uuid'], $data['company_id'], $data['branch_id'], $data['version']);
         
         if (!empty($data)) {
@@ -264,6 +247,45 @@ class SyncService
                 'queue_id' => $queueItem->id,
             ]);
         }
+    }
+
+    public function recoverStuckJobs(int $branchId): array
+    {
+        $recovered = 0;
+        $errors = [];
+
+        $stuckJobs = SyncQueue::stuck()
+            ->forBranch($branchId)
+            ->where('attempts', '<', 5)
+            ->get();
+
+        foreach ($stuckJobs as $job) {
+            try {
+                DB::transaction(function () use ($job) {
+                    $job->status = 'pending';
+                    $job->processing_started_at = null;
+                    $job->lease_expires_at = null;
+                    $job->error_message = 'Job recovered from stuck state / 作业从卡住状态恢复';
+                    $job->last_error_code = 'StuckJobRecovered';
+                    $job->save();
+                });
+                $recovered++;
+            } catch (Throwable $e) {
+                $errors[] = [
+                    'queue_id' => $job->id,
+                    'error' => $e->getMessage(),
+                ];
+                Log::error('SyncService: Failed to recover stuck job', [
+                    'queue_id' => $job->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return [
+            'recovered' => $recovered,
+            'errors' => $errors,
+        ];
     }
 
     public function pullChanges(
@@ -338,13 +360,13 @@ class SyncService
 
         if (isset($change['data']['company_id']) && property_exists($entity, 'company_id')) {
             if ($entity->company_id !== $change['data']['company_id']) {
-                throw new SyncException("Entity {$entityType}::{$entityId} does not belong to company {$change['data']['company_id']}");
+                throw new SyncException("Entity does not belong to company");
             }
         }
         
         if (isset($change['data']['branch_id']) && property_exists($entity, 'branch_id')) {
             if ($entity->branch_id !== $change['data']['branch_id']) {
-                throw new SyncException("Entity {$entityType}::{$entityId} does not belong to branch {$change['data']['branch_id']}");
+                throw new SyncException("Entity does not belong to branch");
             }
         }
 
@@ -367,13 +389,18 @@ class SyncService
 
             $resolution = $conflictResolver->resolve($tempQueueItem, $change['data'], $strategy);
             if (!$resolution['resolved']) {
-                throw new SyncException("Conflict not resolved for {$entityType}::{$entityId}", $entityType, $entityId);
+                throw new SyncException("Conflict not resolved", $entityType, $entityId);
             }
             $tempQueueItem->delete();
         } else {
             app()->instance('sync.is_syncing', true);
             try {
-                $entity->fill($change['data']);
+                $fillable = $entity->getFillable();
+                $data = array_intersect_key($change['data'], array_flip($fillable));
+                unset($data['id'], $data['uuid'], $data['company_id'], $data['branch_id'], $data['version'], $data['created_at'], $data['updated_at']);
+                if (!empty($data)) {
+                    $entity->fill($data);
+                }
                 $entity->sync_status = 'synced';
                 $entity->version = $change['version'] ?? ($entity->version + 1);
                 $entity->last_synced_at = now();
@@ -383,6 +410,7 @@ class SyncService
             }
         }
 
+        // O-03 FIX: Registrar log de pull
         try {
             SyncLog::create([
                 'uuid' => Str::uuid(),
@@ -398,7 +426,7 @@ class SyncService
                 'synced_at' => now(),
             ]);
         } catch (\Throwable $e) {
-            Log::warning('SyncService: Failed to log pull', ['error' => $e->getMessage()]);
+            Log::warning('SyncService: Failed to log pull / 记录拉取日志失败', ['error' => $e->getMessage()]);
         }
     }
 
@@ -406,9 +434,8 @@ class SyncService
     {
         return [
             'pending' => SyncQueue::pending()->forBranch($branchId)->count(),
-            'processing' => SyncQueue::where('branch_id', $branchId)
-                ->where('status', 'processing')
-                ->count(),
+            'processing' => SyncQueue::processing()->forBranch($branchId)->count(),
+            'stuck' => SyncQueue::stuck()->forBranch($branchId)->count(),
             'failed' => SyncQueue::failed()->forBranch($branchId)->count(),
             'last_push' => SyncLog::pushes()
                 ->where('branch_id', $branchId)

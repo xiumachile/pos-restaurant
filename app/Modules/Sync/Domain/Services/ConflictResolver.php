@@ -212,7 +212,7 @@ class ConflictResolver
     protected function markForManualReview(SyncQueue $queueItem, array $conflicts): void
     {
         $queueItem->status = 'conflict';
-        $queueItem->error_message = 'Conflicto detectado, requiere revisión manual';
+        $queueItem->error_message = 'Conflicto detectado, requiere revisión manual / 检测到冲突，需要人工审核';
         $queueItem->conflict_data = $conflicts;
         $queueItem->save();
     }
