@@ -20,13 +20,7 @@ export interface CreatePaymentOfflinePayload {
   tipAmount?: number;
   referenceCode?: string;
   notes?: string;
-  autoCreateBill?: boolean; // default: true
-  /**
-   * P0-1 FIX: UUID de bill específico a pagar.
-   * Si se provee, se usa esta bill explícitamente.
-   * Si NO se provee y hay múltiples bills (split bill), lanza error
-   * para prevenir ambigüedad (pagar la bill equivocada).
-   */
+  autoCreateBill?: boolean;
   billLocalUuid?: string;
 }
 
@@ -38,13 +32,8 @@ export interface CreatePaymentOfflineResult {
   tableReleased: boolean;
 }
 
-// Estados del order en los que es válido cobrar
 const PAYABLE_STATUSES: LocalOrder["status"][] = [
-  "served",
-  "ready",
-  "ready_for_pickup",
-  "dispatched",
-  "delivered",
+  "served", "ready", "ready_for_pickup", "dispatched", "delivered",
 ];
 
 export class OfflinePaymentError extends Error {
@@ -54,136 +43,66 @@ export class OfflinePaymentError extends Error {
   }
 }
 
-/**
- * Servicio para crear pagos offline de forma atómica.
- *
- * Flujo:
- * 1. Valida que el order existe y está en estado pagable
- * 2. Busca o crea una bill local asociada al order
- * 3. Registra el pago en la bill (actualizando paid/remaining/status)
- * 4. Crea el LocalPayment con referencia al order y bill
- * 5. Si la bill queda 100% pagada:
- *    - Marca el order como 'paid'
- *    - Libera la mesa (status = 'available') si existe
- * 6. Todo dentro de una transacción local (atomicidad)
- * 7. Todos los cambios se encolan automáticamente en SyncQueue
- */
 export const offlinePaymentService = {
-  /**
-   * Crea un pago offline de forma atómica.
-   *
-   * @throws OfflinePaymentError si el order no existe, no es pagable, o amount inválido
-   */
-  async createPaymentOffline(
-    payload: CreatePaymentOfflinePayload
-  ): Promise<CreatePaymentOfflineResult> {
-    const {
-      orderLocalUuid,
-      paymentMethod,
-      amount,
-      tipAmount = 0,
-      referenceCode,
-      notes,
-      autoCreateBill = true,
-      billLocalUuid,
-    } = payload;
+  async createPaymentOffline(payload: CreatePaymentOfflinePayload): Promise<CreatePaymentOfflineResult> {
+    const { orderLocalUuid, paymentMethod, amount, tipAmount = 0, referenceCode, notes, autoCreateBill = true, billLocalUuid } = payload;
 
-    // ═══════════════════════════════════════════════════════
-    // VALIDACIONES PRE-TRANSACCIÓN
-    // ═══════════════════════════════════════════════════════
-
+    // CA-04: Validaciones con mensajes bilingües (ES/ZH)
     if (!Number.isSafeInteger(amount) || amount <= 0) {
-      throw new OfflinePaymentError(
-        "INVALID_AMOUNT",
-        `amount must be positive, got ${amount}`
-      );
+      throw new OfflinePaymentError("INVALID_AMOUNT", `El monto debe ser positivo / 金额必须为正数: ${amount}`);
     }
 
     if (!Number.isSafeInteger(tipAmount) || tipAmount < 0) {
-      throw new OfflinePaymentError(
-        "INVALID_TIP",
-        `tipAmount must be non-negative, got ${tipAmount}`
-      );
+      throw new OfflinePaymentError("INVALID_TIP", `La propina debe ser no negativa / 小费必须为非负数: ${tipAmount}`);
     }
 
     let order = await OrderRepository.findByLocalUuid(orderLocalUuid);
     if (!order) {
-      throw new OfflinePaymentError(
-        "ORDER_NOT_FOUND",
-        `Order ${orderLocalUuid} not found`
-      );
+      throw new OfflinePaymentError("ORDER_NOT_FOUND", `Pedido no encontrado / 未找到订单: ${orderLocalUuid}`);
     }
 
     if (!PAYABLE_STATUSES.includes(order.status)) {
       throw new OfflinePaymentError(
         "ORDER_NOT_PAYABLE",
-        `Order ${orderLocalUuid} is in status '${order.status}', expected one of: ${PAYABLE_STATUSES.join(", ")}`
+        `El pedido está en estado '${order.status}' / 订单处于状态 '${order.status}', 预期为: ${PAYABLE_STATUSES.join(", ")}`
       );
     }
 
-    // ═══════════════════════════════════════════════════════
-    // TRANSACCIÓN ATÓMICA
-    // ═══════════════════════════════════════════════════════
-
     return await localDb.transaction(async (db) => {
-      // 1. Buscar bill existente del order
-      // P0-1 FIX: Lógica defensiva para split bill
       const existingBills = await BillRepository.findByOrder(orderLocalUuid);
       let bill: LocalBill | null;
 
       if (billLocalUuid) {
-        // Búsqueda explícita por billLocalUuid (preferido en split bill)
         bill = existingBills.find(b => b.local_uuid === billLocalUuid) ?? null;
         if (!bill && !autoCreateBill) {
-          throw new OfflinePaymentError(
-            "BILL_NOT_FOUND",
-            `Bill ${billLocalUuid} not found for order ${orderLocalUuid}`
-          );
+          throw new OfflinePaymentError("BILL_NOT_FOUND", `Cuenta no encontrada / 未找到账单: ${billLocalUuid}`);
         }
       } else if (existingBills.length > 1) {
-        // P0-1 FIX: Rechazar ambigüedad en split bill
-        // Si hay múltiples bills y no se especifica cuál pagar, fallar explícitamente
         throw new OfflinePaymentError(
           "MULTIPLE_BILLS_FOUND",
-          `Order ${orderLocalUuid} has ${existingBills.length} bills. ` +
-            `Please specify billLocalUuid to indicate which bill to pay. ` +
-            `Available bills: ${existingBills.map(b => b.local_uuid).join(", ")}`
+          `El pedido tiene ${existingBills.length} cuentas. Especifique billLocalUuid / 订单有 ${existingBills.length} 个账单。请指定 billLocalUuid`
         );
       } else {
-        // Comportamiento original: 0 o 1 bill
         bill = existingBills[0] ?? null;
       }
 
-      // 2. Si no existe bill y autoCreateBill=true, crear una
       if (!bill) {
         if (!autoCreateBill) {
-          throw new OfflinePaymentError(
-            "NO_BILL_FOUND",
-            `Order ${orderLocalUuid} has no bill and autoCreateBill=false`
-          );
+          throw new OfflinePaymentError("NO_BILL_FOUND", `El pedido no tiene cuenta / 订单没有账单`);
         }
 
-        // 🔒 ADR-011: Si el payload incluye tipAmount, actualizar order primero
-        // Esto garantiza consistencia Order ↔ Bill ↔ Payment
         const effectiveTipAmount = tipAmount > 0 ? tipAmount : order.tip_amount;
-        
-        // Usar variable local para evitar problemas de tipo con reasignación
         let effectiveOrder = order;
         
         if (effectiveTipAmount !== order.tip_amount) {
           await OrderRepository.updateTipAmount(orderLocalUuid, effectiveTipAmount);
-          // Recargar order con el nuevo tip_amount
           const updatedOrder = await OrderRepository.findByLocalUuid(orderLocalUuid);
           if (!updatedOrder) {
-            throw new OfflinePaymentError(
-              "ORDER_UPDATE_FAILED",
-              `Failed to update order tip_amount for ${orderLocalUuid}`
-            );
+            throw new OfflinePaymentError("ORDER_UPDATE_FAILED", `Error al actualizar propina / 更新小费失败: ${orderLocalUuid}`);
           }
           effectiveOrder = updatedOrder;
         }
 
-        // 🔒 Propagar company/branch/terminal desde el order (IDs garantizados)
         bill = await BillRepository.create({
           company_id: effectiveOrder.company_id,
           branch_id: effectiveOrder.branch_id,
@@ -194,132 +113,72 @@ export const offlinePaymentService = {
           subtotal: effectiveOrder.subtotal,
           discount_total: effectiveOrder.discount_total,
           tax_total: effectiveOrder.tax_total,
-          tip_amount: effectiveOrder.tip_amount,  // ✅ Usa effectiveOrder.tip_amount (ya actualizado)
+          tip_amount: effectiveOrder.tip_amount,
           grand_total: effectiveOrder.grand_total,
         });
       }
 
-      // 3. Validar que amount <= remaining_amount
+      // CA-04 FIX: Validar contra remaining_amount (que ahora incluye la propina en amount_due)
       if (amount > bill.remaining_amount) {
         throw new OfflinePaymentError(
           "AMOUNT_EXCEEDS_REMAINING",
-          `amount ${amount} exceeds remaining ${bill.remaining_amount}`
+          `El monto excede el saldo restante / 金额超过剩余余额: ${amount} > ${bill.remaining_amount}`
         );
       }
 
-      // 4. Validar que bill no esté paid/cancelled
       if (bill.status === "paid") {
-        throw new OfflinePaymentError(
-          "BILL_ALREADY_PAID",
-          `Bill ${bill.local_uuid} is already paid`
-        );
+        throw new OfflinePaymentError("BILL_ALREADY_PAID", `La cuenta ya está pagada / 账单已支付: ${bill.local_uuid}`);
       }
       if (bill.status === "cancelled") {
-        throw new OfflinePaymentError(
-          "BILL_CANCELLED",
-          `Bill ${bill.local_uuid} is cancelled`
-        );
+        throw new OfflinePaymentError("BILL_CANCELLED", `La cuenta está cancelada / 账单已取消: ${bill.local_uuid}`);
       }
 
-      // 5. Registrar pago en la bill (actualiza paid/remaining/status)
-      const updatedBill = await BillRepository.registerPayment(
-        bill.local_uuid,
-        amount,
-        db // <-- Pasar contexto de transacción
-      );
+      const updatedBill = await BillRepository.registerPayment(bill.local_uuid, amount, db);
 
-      // 6. Crear el LocalPayment (propaga company/branch desde el order)
-      // 🔒 ADR-011: Usar order.tip_amount (no payload.tipAmount) para consistencia
-      // 🔗 ADR-019: Vincular payment a bill si existe (preserva estructura de split bill en sync)
       const payment = await PaymentRepository.create({
         company_id: order.company_id,
         branch_id: order.branch_id,
         order_local_uuid: order.local_uuid,
         order_cloud_id: order.cloud_id || undefined,
-        bill_local_uuid: bill?.local_uuid,  // null si pago directo a order (sin bill)
+        bill_local_uuid: bill?.local_uuid,
         payment_method: paymentMethod,
         amount,
-        tip_amount: tipAmount ?? order.tip_amount,  // [AUDIT FIX] Usar tipAmount del payload, fallback a order.tip_amount
+        tip_amount: tipAmount ?? order.tip_amount,
         reference_code: referenceCode,
         notes,
-      }, db); // <-- Pasar contexto de transacción
+      }, db);
 
-      // 7. Si es pago en efectivo y hay sesión abierta, registrar movimiento de caja
-      //
-      // POLÍTICA DE ATOMICIDAD (fix de integridad financiera):
-      // - Si hay sesión de caja abierta → movimiento ATÓMICO con el pago
-      //   (si falla registerCashPayment, propaga → ROLLBACK de toda la transacción)
-      // - Si no hay sesión de caja → pago válido pero sin movimiento (warning)
-      //   (permite delivery/takeout o cajero que no abrió caja)
-      // - Métodos card/transfer → sin requerimientos de caja
-      //
-      // Esto previene el escenario crítico:
-      //   Venta: $50.000 / Pago: $50.000 / Caja: $0 (movimiento no registrado)
       if (paymentMethod === "cash") {
         const ctx = getCashierContextSafe();
         if (ctx) {
-          const session = await CashSessionRepository.findActive(
-            order.company_id,
-            order.branch_id,
-            ctx.user_id,  // ✅ UUID del cajero actual (no waiter_id)
-            ctx.terminal_id
-          );
-          
+          const session = await CashSessionRepository.findActive(order.company_id, order.branch_id, ctx.user_id, ctx.terminal_id);
           if (session) {
-            // 🔒 ATÓMICO: si falla, propaga → ROLLBACK automático de la transacción
-            // No se crea payment "huérfano" sin movimiento de caja
-            await this.registerCashPayment(
-              session.local_uuid,
-              amount,
-              payment.local_uuid,
-              payment.cloud_id || undefined,
-              notes
-            );
-            console.log(`[offlinePaymentService] ✅ Movimiento de caja registrado: ${amount} por ${ctx.user_name}`);
+            await this.registerCashPayment(session.local_uuid, amount, payment.local_uuid, payment.cloud_id || undefined, notes);
+            console.log(`[offlinePaymentService] ✅ Movimiento de caja registrado / 已记录现金变动: ${amount}`);
           } else {
-            // Sin sesión abierta: pago válido pero sin registro en caja
-            // Legítimo para delivery, takeout o cajero que no abrió caja
-            console.warn(
-              "[offlinePaymentService] ⚠️ Sin sesión de caja abierta para cajero " +
-              `${ctx.user_name} (${ctx.user_id}). Pago en efectivo registrado sin movimiento de caja.`
-            );
+            console.warn(`[offlinePaymentService] ⚠️ Sin sesión de caja abierta / 没有打开的收银会话`);
           }
-        } else {
-          // Sin contexto de cajero: pago válido (puede ser auto-cobro o contexto perdido)
-          console.warn(
-            "[offlinePaymentService] ⚠️ Sin contexto de cajero. " +
-            "Pago en efectivo registrado sin movimiento de caja."
-          );
         }
       }
 
-      // 7. Si bill está completamente pagada → actualizar order + liberar mesa
       let orderStatusUpdated = false;
       let tableReleased = false;
 
       if (updatedBill.status === "paid") {
-        // Marcar order como paid
-        await OrderRepository.updateStatus(order.local_uuid, "paid"); // <-- Pasar contexto de transacción
+        await OrderRepository.updateStatus(order.local_uuid, "paid");
         orderStatusUpdated = true;
 
-        // Liberar mesa si existe
         if (order.table_id) {
           await this.releaseTableOffline(order.table_id);
           tableReleased = true;
         }
       }
 
-      // 8. Encolar impresión automática del ticket (si bill está pagada)
       if (updatedBill.status === "paid") {
         try {
           const ctx = (await import("./authContext")).getCashierContextSafe();
           if (ctx) {
-            // Obtener items del order para construir el receipt completo
-            const items = orderLocalUuid
-              ? await OrderRepository.findItemsByOrderLocalUuid(orderLocalUuid)
-              : [];
-
-            // Construir ReceiptData con todos los campos necesarios
+            const items = orderLocalUuid ? await OrderRepository.findItemsByOrderLocalUuid(orderLocalUuid) : [];
             const receiptData: ReceiptData = {
               billNumber: updatedBill.bill_number,
               items: items.map((item) => ({
@@ -340,9 +199,7 @@ export const offlinePaymentService = {
               createdAt: new Date(),
             };
 
-            // Generar bytes ESC/POS como base64 (100% offline)
             const escposBase64 = ticketToBase64.receipt(receiptData);
-
             await LocalPrintJobRepository.create({
               job_type: "receipt",
               entity_type: "bill",
@@ -356,124 +213,45 @@ export const offlinePaymentService = {
               terminal_id: ctx.terminal_id,
               user_id: ctx.user_id,
               user_name: ctx.user_name || undefined,
-              reference_number: `Cuenta #${updatedBill.bill_number}`,
+              reference_number: `Cuenta #${updatedBill.bill_number} / 账单 #${updatedBill.bill_number}`,
             });
-            console.log(`[offlinePaymentService] 🖨️  Ticket de pago encolado (${escposBase64.length} bytes base64)`);
+            console.log(`[offlinePaymentService] 🖨️ Ticket encolado / 票据已加入队列`);
           }
         } catch (printErr: any) {
-          // No crítico: si falla encolar impresión, el pago sigue siendo válido
-          console.warn("[offlinePaymentService] ⚠️ No se pudo encolar impresión:", printErr?.message);
+          console.warn(`[offlinePaymentService] ⚠️ Error al encolar impresión / 打印队列错误:`, printErr?.message);
         }
       }
 
-      return {
-        payment,
-        bill: updatedBill,
-        orderPaid: updatedBill.status === "paid",
-        orderStatusUpdated,
-        tableReleased,
-      };
+      return { payment, bill: updatedBill, orderPaid: updatedBill.status === "paid", orderStatusUpdated, tableReleased };
     });
   },
 
-  /**
-   * Libera una mesa offline: actualiza status + encola sync.
-   *
-   * Similar a localTablesService.markAvailable() pero:
-   * - No elimina mutaciones pendientes (porque las preserva para auditoría)
-   * - Encola 'table_status' en SyncQueue para sincronización
-   */
   async releaseTableOffline(tableUuid: string): Promise<void> {
-    // 1. Actualizar local_tables
     await localDb.execute(
-      `UPDATE local_tables 
-       SET status = 'available', 
-           current_order_uuid = NULL, 
-           last_updated = CURRENT_TIMESTAMP 
-       WHERE uuid = ?`,
+      `UPDATE local_tables SET status = 'available', current_order_uuid = NULL, last_updated = CURRENT_TIMESTAMP WHERE uuid = ?`,
       [tableUuid]
     );
-
-    // 2. Obtener branch_id y company_id de la mesa
-    const tables = await localDb.select<{
-      company_id: string;
-      branch_id: string;
-    }>(
-      "SELECT company_id, branch_id FROM local_tables WHERE uuid = ?",
-      [tableUuid]
-    );
-
+    const tables = await localDb.select<{ company_id: string; branch_id: string }>("SELECT company_id, branch_id FROM local_tables WHERE uuid = ?", [tableUuid]);
     if (tables.length === 0) return;
-
     const { company_id, branch_id } = tables[0];
-
-    // 3. Encolar en SyncQueue para sincronización
     await SyncQueueRepository.enqueue({
-      company_id,
-      branch_id,
-      entity_type: "table_status",
-      entity_local_uuid: tableUuid,
-      action: "update",
-      payload: {
-        status: "available",
-        current_order_uuid: null,
-      },
+      company_id, branch_id, entity_type: "table_status", entity_local_uuid: tableUuid, action: "update", payload: { status: "available", current_order_uuid: null },
     });
   },
 
-  /**
-   * Registra un pago en efectivo como movimiento de caja.
-   * 
-   * Usado cuando el método de pago es 'cash' y hay una sesión abierta.
-   * Crea un movimiento local de tipo 'payment' con balance_after calculado.
-   */
-  async registerCashPayment(
-    cashSessionLocalUuid: string,
-    amount: number,
-    referenceLocalUuid: string,
-    referenceCloudId?: string,
-    notes?: string
-  ): Promise<any> {
+  async registerCashPayment(cashSessionLocalUuid: string, amount: number, referenceLocalUuid: string, referenceCloudId?: string, notes?: string): Promise<any> {
     return await CashMovementRepository.create(cashSessionLocalUuid, {
-      type: "payment",
-      amount,
-      reason: "Pago en efectivo",
-      notes,
-      reference_type: "payment",
-      reference_local_uuid: referenceLocalUuid,
-      reference_cloud_id: referenceCloudId,
+      type: "payment", amount, reason: "Pago en efectivo / 现金支付", notes, reference_type: "payment", reference_local_uuid: referenceLocalUuid, reference_cloud_id: referenceCloudId,
     });
   },
 
-  /**
-   * Lista bills abiertas de una branch (wrapper sobre BillRepository).
-   */
   async listOpenBillsByBranch(branchId: string): Promise<LocalBill[]> {
     return BillRepository.findOpenByBranch(branchId);
   },
 
-  /**
-   * Obtiene el estado de pago completo de un order.
-   */
-  async getOrderPaymentStatus(orderLocalUuid: string): Promise<{
-    order: LocalOrder | null;
-    bills: LocalBill[];
-    payments: LocalPayment[];
-    totalPaid: number;
-    totalRemaining: number;
-    isPaid: boolean;
-  }> {
-    let order = await OrderRepository.findByLocalUuid(orderLocalUuid);
-    if (!order) {
-      return {
-        order: null,
-        bills: [],
-        payments: [],
-        totalPaid: 0,
-        totalRemaining: 0,
-        isPaid: false,
-      };
-    }
+  async getOrderPaymentStatus(orderLocalUuid: string): Promise<{ order: LocalOrder | null; bills: LocalBill[]; payments: LocalPayment[]; totalPaid: number; totalRemaining: number; isPaid: boolean; }> {
+    const order = await OrderRepository.findByLocalUuid(orderLocalUuid);
+    if (!order) return { order: null, bills: [], payments: [], totalPaid: 0, totalRemaining: 0, isPaid: false };
 
     const bills = await BillRepository.findByOrder(orderLocalUuid);
     const payments = await PaymentRepository.findByOrderLocalUuid(orderLocalUuid);
@@ -481,13 +259,6 @@ export const offlinePaymentService = {
     const totalPaid = bills.reduce((sum, b) => sum + b.paid_amount, 0);
     const totalRemaining = bills.reduce((sum, b) => sum + b.remaining_amount, 0);
 
-    return {
-      order,
-      bills,
-      payments,
-      totalPaid,
-      totalRemaining,
-      isPaid: totalRemaining <= 0 && bills.length > 0,
-    };
+    return { order, bills, payments, totalPaid, totalRemaining, isPaid: totalRemaining <= 0 && bills.length > 0 };
   },
 };

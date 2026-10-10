@@ -15,16 +15,15 @@ export interface LocalBill {
   order_local_uuid: string | null;
   order_cloud_id: string | null;
   bill_number: string;
-  // ADR-011: Semántica chilena
-  subtotal: number;        // subtotal_gross
+  subtotal: number;
   discount_total: number;
   net_amount: number;
   tax_total: number;
   tip_amount: number;
-  grand_total: number;     // total venta IVA incluido
-  amount_due: number;      // grand_total + tip_amount
+  grand_total: number;
+  amount_due: number;      // CA-04: Total real a pagar (venta + propina) / 实际应付总额 (销售 + 小费)
   paid_amount: number;
-  remaining_amount: number;
+  remaining_amount: number; // CA-04: Saldo real restante / 实际剩余余额
   status: BillStatus;
   idempotency_key: string;
   sync_status: BillSyncStatus;
@@ -50,23 +49,23 @@ export interface CreateBillPayload {
 
 export class BillRepository {
   /**
-   * Crea una bill local y la encola automáticamente para sincronización.
-   * El paid_amount inicia en 0, remaining_amount = grand_total (venta sin propina).
+   * CA-04 FIX: Crea una bill local. remaining_amount inicia en amount_due (venta + propina).
+   * 创建本地账单。remaining_amount 初始化为 amount_due (销售 + 小费)。
    */
   static async create(payload: CreateBillPayload): Promise<LocalBill> {
-    // P2-003: Local Money Guard
     validateLocalMoneyPayload(payload as unknown as Record<string, unknown>, 'bill');
     const local_uuid = uuidv4();
     const idempotency_key = uuidv4();
     const now = new Date().toISOString();
 
-    // ADR-011: Calcular desglose tributario (IVA incluido en precios)
     const subtotal = payload.subtotal;
     const discount_total = payload.discount_total ?? 0;
     const tip_amount = payload.tip_amount ?? 0;
     const net_amount = Math.round(subtotal / 1.19);
     const tax_total = subtotal - net_amount;
     const grand_total = subtotal - discount_total;
+    
+    // CA-04: Total a pagar incluye la propina / 应付总额包含小费
     const amount_due = grand_total + tip_amount;
 
     await localDb.execute(
@@ -92,7 +91,7 @@ export class BillRepository {
         tip_amount,
         grand_total,
         amount_due,
-        grand_total, // remaining_amount = grand_total (venta sin propina)
+        amount_due, // CA-04 FIX: remaining_amount = amount_due
         idempotency_key,
         payload.notes || null,
         now,
@@ -101,99 +100,60 @@ export class BillRepository {
 
     const bill = (await this.findByLocalUuid(local_uuid)) as LocalBill;
 
-    // ADR-020: Las bills AHORA son entidades sincronizables.
-    // Encolar para sincronización con el backend (endpoint POST /api/v1/bills).
     await SyncQueueRepository.enqueue({
       company_id: payload.company_id,
       branch_id: payload.branch_id,
       entity_type: "bill",
       entity_local_uuid: local_uuid,
       action: "create",
-      payload: {
-        ...bill,
-        order_local_uuid: payload.order_local_uuid || null,
-        order_cloud_id: payload.order_cloud_id || null,
-        idempotency_key,
-      },
+      payload: { ...bill, order_local_uuid: payload.order_local_uuid || null, order_cloud_id: payload.order_cloud_id || null, idempotency_key },
     });
 
-    console.log(`[BillRepository] 📤 Bill encolada para sync: ${local_uuid}`);
+    console.log(`[BillRepository] 📤 Bill encolada para sync / 账单已加入同步队列: ${local_uuid}`);
     return bill;
   }
 
-  /**
-   * Busca bill por local_uuid.
-   */
   static async findByLocalUuid(localUuid: string): Promise<LocalBill | null> {
-    const results = await localDb.select<LocalBill>(
-      "SELECT * FROM local_bills WHERE local_uuid = ?",
-      [localUuid]
-    );
+    const results = await localDb.select<LocalBill>("SELECT * FROM local_bills WHERE local_uuid = ?", [localUuid]);
     return results[0] || null;
   }
 
-  /**
-   * Busca bill por cloud_id (ID del backend).
-   */
   static async findByCloudId(cloudId: string): Promise<LocalBill | null> {
-    const results = await localDb.select<LocalBill>(
-      "SELECT * FROM local_bills WHERE cloud_id = ?",
-      [cloudId]
-    );
+    const results = await localDb.select<LocalBill>("SELECT * FROM local_bills WHERE cloud_id = ?", [cloudId]);
     return results[0] || null;
   }
 
-  /**
-   * Lista todas las bills de un order.
-   */
   static async findByOrder(orderLocalUuid: string): Promise<LocalBill[]> {
-    return await localDb.select<LocalBill>(
-      "SELECT * FROM local_bills WHERE order_local_uuid = ? ORDER BY created_at ASC",
-      [orderLocalUuid]
-    );
+    return await localDb.select<LocalBill>("SELECT * FROM local_bills WHERE order_local_uuid = ? ORDER BY created_at ASC", [orderLocalUuid]);
   }
 
-  /**
-   * Lista todas las bills de una branch.
-   */
   static async findByBranch(branchId: string): Promise<LocalBill[]> {
-    return await localDb.select<LocalBill>(
-      "SELECT * FROM local_bills WHERE branch_id = ? ORDER BY created_at DESC",
-      [branchId]
-    );
+    return await localDb.select<LocalBill>("SELECT * FROM local_bills WHERE branch_id = ? ORDER BY created_at DESC", [branchId]);
   }
 
-  /**
-   * Lista bills por status.
-   */
   static async findByStatus(status: BillStatus): Promise<LocalBill[]> {
-    return await localDb.select<LocalBill>(
-      "SELECT * FROM local_bills WHERE status = ? ORDER BY created_at DESC",
-      [status]
-    );
+    return await localDb.select<LocalBill>("SELECT * FROM local_bills WHERE status = ? ORDER BY created_at DESC", [status]);
   }
 
   /**
-   * Registra un pago en la bill: actualiza paid_amount, remaining_amount y status.
-   * Si remaining_amount llega a 0, status cambia a 'paid'.
+   * CA-04 FIX: Registra un pago basado en amount_due (venta + propina).
+   * 基于 amount_due (销售 + 小费) 记录付款。
    */
   static async registerPayment(localUuid: string, amount: number, txDb?: any): Promise<LocalBill> {
     const bill = await this.findByLocalUuid(localUuid);
     if (!bill) {
-      throw new Error(`Bill ${localUuid} not found`);
+      throw new Error(`Bill ${localUuid} not found / 未找到账单`);
     }
 
     if (bill.status === "paid" || bill.status === "cancelled") {
-      throw new Error(`Bill ${localUuid} is ${bill.status}, cannot receive payment`);
+      throw new Error(`Bill ${localUuid} is ${bill.status}, cannot receive payment / 账单状态为 ${bill.status}，无法收款`);
     }
 
-    // ADR-011 + ADR-018: Bill representa solo la VENTA (sin propina)
-    // La propina se maneja a nivel de Payment (Payment.tip_amount)
-    // Backend: Bill.total = grand_total (venta sin propina)
+    // CA-04: El pago reduce el amount_due (que ya incluye la propina)
+    // 付款减少 amount_due (已包含小费)
     const newPaidAmount = bill.paid_amount + amount;
-    const newRemainingAmount = Math.max(0, bill.grand_total - newPaidAmount);
-    const newStatus: BillStatus =
-      newRemainingAmount === 0 ? "paid" : newPaidAmount > 0 ? "partial" : "open";
+    const newRemainingAmount = Math.max(0, bill.amount_due - newPaidAmount);
+    const newStatus: BillStatus = newRemainingAmount === 0 ? "paid" : newPaidAmount > 0 ? "partial" : "open";
 
     const dbToUse = txDb || localDb;
     await (txDb ? (txDb as any) : localDb).execute(
@@ -204,10 +164,7 @@ export class BillRepository {
       [newPaidAmount, newRemainingAmount, newStatus, localUuid]
     );
 
-    // NOTA (ADR-009): Las bills NO se sincronizan como entidades independientes.
-    // Construimos el objeto actualizado en memoria para evitar lecturas obsoletas 
-    // dentro de la misma transacción antes del commit.
-    const updatedBill: LocalBill = {
+    return {
       ...bill,
       paid_amount: newPaidAmount,
       remaining_amount: newRemainingAmount,
@@ -215,84 +172,34 @@ export class BillRepository {
       sync_status: 'pending',
       sync_error: null,
     };
-
-    return updatedBill;
   }
 
-  /**
-   * Marca la bill como cancelada.
-   */
   static async cancel(localUuid: string, reason?: string): Promise<LocalBill> {
     const bill = await this.findByLocalUuid(localUuid);
-    if (!bill) {
-      throw new Error(`Bill ${localUuid} not found`);
-    }
+    if (!bill) throw new Error(`Bill ${localUuid} not found / 未找到账单`);
 
-    // Si hay reason, usarlo; si no, preservar notes actual
     const finalNotes = reason || bill.notes || null;
-
     await localDb.execute(
-      `UPDATE local_bills
-       SET status = 'cancelled',
-           notes = ?,
-           sync_status = 'pending',
-           sync_error = NULL
-       WHERE local_uuid = ?`,
+      `UPDATE local_bills SET status = 'cancelled', notes = ?, sync_status = 'pending', sync_error = NULL WHERE local_uuid = ?`,
       [finalNotes, localUuid]
     );
-
-    // NOTA (ADR-009): Las bills NO se sincronizan como entidades independientes.
-    // NOTA (ADR-009): Las bills NO se sincronizan como entidades independientes.
-    // El backend reconstruye bills desde order + payments sincronizados.
-    const updated = await this.findByLocalUuid(localUuid);
-
-    return updated!;
+    return (await this.findByLocalUuid(localUuid))!;
   }
 
-  /**
-   * Actualiza cloud_id y marca como sync_status = 'synced'.
-   * Llamado después de sincronización exitosa con el backend.
-   */
   static async markAsSynced(localUuid: string, cloudId: string): Promise<void> {
-    await localDb.execute(
-      `UPDATE local_bills
-       SET cloud_id = ?, sync_status = 'synced', sync_error = NULL
-       WHERE local_uuid = ?`,
-      [cloudId, localUuid]
-    );
+    await localDb.execute(`UPDATE local_bills SET cloud_id = ?, sync_status = 'synced', sync_error = NULL WHERE local_uuid = ?`, [cloudId, localUuid]);
   }
 
-  /**
-   * Marca la bill con error de sincronización.
-   */
   static async markAsFailed(localUuid: string, error: string): Promise<void> {
-    await localDb.execute(
-      `UPDATE local_bills
-       SET sync_status = 'failed', sync_error = ?
-       WHERE local_uuid = ?`,
-      [error, localUuid]
-    );
+    await localDb.execute(`UPDATE local_bills SET sync_status = 'failed', sync_error = ? WHERE local_uuid = ?`, [error, localUuid]);
   }
 
-  /**
-   * Lista bills pendientes de sincronización.
-   */
   static async findPendingSync(): Promise<LocalBill[]> {
-    return await localDb.select<LocalBill>(
-      "SELECT * FROM local_bills WHERE sync_status IN ('pending', 'failed') ORDER BY created_at ASC"
-    );
+    return await localDb.select<LocalBill>("SELECT * FROM local_bills WHERE sync_status IN ('pending', 'failed') ORDER BY created_at ASC");
   }
 
-  /**
-   * Lista bills abiertas (status = 'open' o 'partial') de una branch.
-   */
   static async findOpenByBranch(branchId: string): Promise<LocalBill[]> {
-    const allBills = await localDb.select<LocalBill>(
-      `SELECT * FROM local_bills WHERE branch_id = ? ORDER BY created_at ASC`,
-      [branchId]
-    );
-    
-    // Filtrar en JavaScript: solo open o partial
+    const allBills = await localDb.select<LocalBill>("SELECT * FROM local_bills WHERE branch_id = ? ORDER BY created_at ASC", [branchId]);
     return allBills.filter(b => b.status === "open" || b.status === "partial");
   }
 }
