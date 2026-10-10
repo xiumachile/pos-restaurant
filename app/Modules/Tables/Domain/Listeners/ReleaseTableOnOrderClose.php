@@ -23,7 +23,8 @@ class ReleaseTableOnOrderClose
             return;
         }
 
-        if ($table->current_order_id !== $order->id) {
+        // DEFENSA EN PROFUNDIDAD: Cast explícito a int (evita type mismatch PDO_PGSQL)
+        if ((int) $table->current_order_id !== (int) $order->id) {
             return;
         }
 

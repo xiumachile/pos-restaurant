@@ -31,16 +31,34 @@ class SyncManagementService
     ) {
     }
 
-    /**
-     * Valida que el usuario tenga acceso a una sucursal.
-     * Admin puede acceder a cualquier sucursal.
+        /**
+     * Valida que el usuario tenga acceso a una sucursal de SU PROPIA empresa.
+     * 
+     * Reglas de acceso:
+     * - Usuario normal: solo puede acceder a su propia sucursal asignada
+     * - Admin: puede acceder a CUALQUIER sucursal de SU empresa (no de otras empresas)
      *
-     * @throws \DomainException Si el usuario no tiene acceso
+     * @throws \DomainException Si el usuario no tiene acceso o la sucursal no existe
      */
     public function validateBranchAccess(User $user, int $branchId): void
     {
-        if ((int) $user->branch_id !== (int) $branchId && $user->role !== 'admin') {
-            throw new \DomainException('No tienes acceso a esta sucursal');
+        // Usuario normal: solo puede acceder a su propia sucursal
+        if ($user->role !== 'admin') {
+            if ((int) $user->branch_id !== (int) $branchId) {
+                throw new \DomainException('No tienes acceso a esta sucursal');
+            }
+            return;
+        }
+
+        // Admin: puede acceder a cualquier sucursal, pero SOLO de su propia empresa
+        // Esto previene ataques cross-tenant incluso si los global scopes fallan
+        $branch = Branch::query()
+            ->where('id', $branchId)
+            ->where('company_id', $user->company_id)
+            ->first();
+
+        if (!$branch) {
+            throw new \DomainException('No tienes acceso a esta sucursal o no existe en tu empresa');
         }
     }
 

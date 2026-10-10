@@ -116,9 +116,29 @@ class Payment extends Model
     /**
      * Genera un número de pago único.
      */
-    public static function generatePaymentNumber(string $branchCode): string
+    /**
+     * HALLAZGO 14: Reemplazar uniqid() por secuencia transaccional diaria
+     * Formato: PAY-{BRANCH_CODE}-{YYYYMMDD}-{000000}
+     * 
+     * @param string $branchCode Código de la sucursal
+     * @param int|null $branchId ID de la sucursal (opcional para retrocompatibilidad)
+     */
+    public static function generatePaymentNumber(string $branchCode, ?int $branchId = null): string
     {
-        return sprintf('PAY-%s-%s', strtoupper($branchCode), date('Ymd') . '-' . strtoupper(substr(uniqid(), -6)));
+        $datePrefix = date('Ymd');
+        
+        // Contar pagos del día para generar número secuencial
+        if ($branchId !== null) {
+            // Conteo específico por sucursal (recomendado en producción)
+            $dailyCount = self::where('branch_id', $branchId)
+                ->whereDate('created_at', now())
+                ->count() + 1;
+        } else {
+            // Fallback para retrocompatibilidad (tests antiguos)
+            $dailyCount = self::whereDate('created_at', now())->count() + 1;
+        }
+            
+        return sprintf('PAY-%s-%s-%06d', strtoupper($branchCode), $datePrefix, $dailyCount);
     }
 
     public function refunds(): HasMany

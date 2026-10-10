@@ -25,15 +25,18 @@
     "axios": "^1.7.9",
     "clsx": "^2.1.1",
     "i18next": "^26.4.2",
+    "konva": "^10.7.0",
     "lucide-react": "^1.31.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-i18next": "^17.0.15",
+    "react-konva": "^19.3.0",
     "react-router-dom": "^7.18.2",
     "recharts": "^3.10.1",
     "tailwind-merge": "^3.7.0",
     "uuid": "^14.0.2",
-    "zustand": "^5.0.3"
+    "zod": "^4.6.5",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

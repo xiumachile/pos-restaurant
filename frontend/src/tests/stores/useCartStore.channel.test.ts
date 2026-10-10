@@ -145,7 +145,7 @@ describe("useCartStore - canal por pedido", () => {
 
       // Agregar items a ambos
       const fakeProduct = {
-        id: 1, uuid: "p-1", company_id: 1, branch_id: 1,
+        id: "test-uuid-1", uuid: "p-1", company_id: 0, branch_id: 0,
         category_id: 1, sku: "SKU1",
         name_translations: { es: "Producto" },
         description_translations: null,

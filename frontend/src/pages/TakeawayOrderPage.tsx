@@ -3,6 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Loader2, Package, Trash2 } from "lucide-react";
 import { useCartStore } from "@/stores/useCartStore";
+import { useQuery } from "@tanstack/react-query";
+import { ordersService } from "@/services/ordersService";
 import { OrderCatalogPanel } from "@/components/orders/OrderCatalogPanel";
 import { OrderCartPanel } from "@/components/orders/OrderCartPanel";
 import { CHANNEL_LABELS } from "@/stores/useActiveChannelStore";
@@ -27,6 +29,14 @@ export function TakeawayOrderPage() {
   const addToast = useToastStore((s) => s.addToast);
 
   const cart = useCartStore((s) => (cartKey ? s.carts[cartKey] : undefined));
+  
+  // Obtener el pedido existente si estamos en modo edición
+  const editingOrderId = cart?.editingOrderId;
+  const { data: existingOrder } = useQuery({
+    queryKey: ['orders', 'existing', editingOrderId],
+    queryFn: () => ordersService.getByUuid(editingOrderId!),
+    enabled: !!editingOrderId,
+  });
   const addItem = useCartStore((s) => s.addItem);
   const clearCart = useCartStore((s) => s.clearCart);
 
@@ -45,9 +55,13 @@ export function TakeawayOrderPage() {
     );
   }
 
-  const channelLabel = CHANNEL_LABELS[cart.channel];
+  // Fallback defensivo: si el canal no está en CHANNEL_LABELS, usar valores por defecto
+  const channelLabel = CHANNEL_LABELS[cart.channel] ?? { icon: "📦" };
 
   const handleAddProduct = (product: Product) => {
+    console.log("[TakeawayOrderPage] 🛒 handleAddProduct llamado");
+    console.log("[TakeawayOrderPage] 🏷️ product.uuid:", product?.uuid);
+    console.log("[TakeawayOrderPage] 📝 product.name:", product?.name_translations?.es || product?.name_translations?.en);
     addItem(cartKey, product);
     addToast(
       "success",
@@ -80,7 +94,7 @@ export function TakeawayOrderPage() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold flex items-center gap-3">
-                <span className="text-2xl">{channelLabel.icon}</span>
+                <span className="text-2xl">{(channelLabel?.icon ?? "📦")}</span>
                 {t(`orders.channel_${cart.channel}`)}
               </h1>
               <span className="text-xs px-2.5 py-1 rounded-full border border-blue-500/50 bg-blue-500/10 text-blue-400">
@@ -104,6 +118,25 @@ export function TakeawayOrderPage() {
           {t("orders.discard")}
         </button>
       </div>
+
+      {/* Indicador de items existentes (solo lectura) */}
+      {editingOrderId && existingOrder && existingOrder.items.length > 0 && (
+        <div className="mb-3 bg-blue-900/20 border border-blue-700/50 rounded-lg p-3">
+          <p className="text-sm font-medium text-blue-200 mb-2">
+            📋 Items existentes en {existingOrder.order_number}:
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {existingOrder.items.map((item: any) => (
+              <span key={item.uuid} className="text-xs bg-blue-800/50 text-blue-100 px-2 py-1 rounded">
+                {item.name} x{item.quantity}
+              </span>
+            ))}
+          </div>
+          <p className="text-xs text-blue-300 mt-2 italic">
+            ℹ️ Los items nuevos que agregues se añadirán a este pedido
+          </p>
+        </div>
+      )}
 
       {/* Panel de catálogo + carrito */}
       <div className="flex-1 flex gap-4 overflow-hidden">

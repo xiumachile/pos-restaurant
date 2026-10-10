@@ -70,4 +70,18 @@ class PaymentException extends Exception
         return new self("No se pudo registrar el asiento contable del pago: {$reason}");
     }
 
+    /**
+     * Excepción cuando entidades de diferentes tenants se mezclan.
+     * Defense-in-depth: el Domain Service debe validar invariantes
+     * aunque las capas HTTP ya lo hayan hecho.
+     */
+    public static function tenantMismatch(string $entity1, string $entity2): self
+    {
+        return new self(
+            "Invariante de tenant violada: {$entity1} y {$entity2} no pertenecen al mismo tenant. " .
+            "Esto indica un error en la capa de autorización o un intento de acceso cruzado.",
+            403
+        );
+    }
+
 }

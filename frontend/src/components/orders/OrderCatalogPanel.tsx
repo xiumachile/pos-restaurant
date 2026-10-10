@@ -38,7 +38,7 @@ export function OrderCatalogPanel({ onAddProduct, channel }: OrderCatalogPanelPr
     return activeMenu.items.map((item) => {
       const category = categories.find((c) => c.id === item.category_id);
       return {
-        id: 0,
+        id: item.product_uuid,  // Usar UUID como ID (identidad única)
         uuid: item.product_uuid,
         company_id: 0,
         branch_id: 0,
@@ -79,7 +79,7 @@ export function OrderCatalogPanel({ onAddProduct, channel }: OrderCatalogPanelPr
     return counts;
   }, [products]);
 
-  const channelLabel = CHANNEL_LABELS[channel];
+  const channelLabel = CHANNEL_LABELS[channel] ?? { icon: "📦", label: "Otro" };
 
   // ESTADO: cargando carta
   if (loadingMenu) {
@@ -118,7 +118,7 @@ export function OrderCatalogPanel({ onAddProduct, channel }: OrderCatalogPanelPr
             <BookOpen className="mx-auto text-slate-500 mb-3" size={48} />
             <p className="text-slate-300 font-medium mb-2">
               {t("orders.no_active_menu", {
-                icon: channelLabel.icon,
+                icon: (channelLabel?.icon ?? "📦"),
                 channel: t(`orders.channel_${channel}`),
               })}
             </p>
@@ -208,7 +208,8 @@ export function OrderCatalogPanel({ onAddProduct, channel }: OrderCatalogPanelPr
               <button
                 key={product.uuid}
                 onClick={() => {
-                  onAddProduct(product);
+                  console.log("[OrderCatalogPanel] 🖱️ Click en producto:", product.uuid, product.name_translations?.es || product.name_translations?.en);
+        onAddProduct(product);
                   addToast(
                     "success",
                     t("orders.product_added", {
@@ -264,7 +265,7 @@ function CatalogContextBadge({
   return (
     <div className="mb-3 bg-slate-800/80 border border-slate-700 rounded-lg p-3 flex items-center gap-3 shadow-sm">
       <div className="flex items-center gap-2 text-sm">
-        <span className="text-2xl">{channelLabel.icon}</span>
+        <span className="text-2xl">{(channelLabel?.icon ?? "📦")}</span>
         <span className="font-semibold text-white">
           {t(`orders.channel_${channel}`)}
         </span>

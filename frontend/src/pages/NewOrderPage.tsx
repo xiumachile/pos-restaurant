@@ -7,13 +7,17 @@ import { ChannelSelectionModal } from "@/components/orders/ChannelSelectionModal
 import type { ChannelType } from "@/stores/useActiveChannelStore";
 
 /**
- * Página de entrada para iniciar un pedido nuevo fuera de mesa.
+ * Página de entrada para iniciar un pedido nuevo SIN MESA.
+ *
+ * DOMINIO:
+ *   - CON MESA (dine_in): Se inicia desde el plano de mesas (click en mesa)
+ *   - SIN MESA: Se inicia desde aquí (delivery, takeout, uber_eats, rappi)
  *
  * Flujo:
- *   1. Usuario llega a esta página desde el botón "+ Pedido nuevo" en TablesPage
- *   2. Se abre automáticamente el modal de selección de canal
- *   3. Al elegir un canal, se crea el cart con initOrder() y se navega al flujo
- *      de toma de pedido en /orders/takeaway/:cartKey
+ *   1. Usuario llega desde "Nuevo Pedido" en el sidebar
+ *   2. Se abre modal con canales SIN mesa (delivery, takeout, etc)
+ *   3. Al elegir canal, se crea cart con initOrder({ tableUuid: null, channel })
+ *   4. Navega a /orders/takeaway/:cartKey para toma de pedido
  *
  * Si el usuario cancela, vuelve a la página de mesas.
  */
@@ -76,7 +80,7 @@ export function NewOrderPage() {
       </div>
 
       <ChannelSelectionModal
-        open={modalOpen}
+        isOpen={modalOpen}
         onSelect={handleSelectChannel}
         onClose={handleClose}
       />

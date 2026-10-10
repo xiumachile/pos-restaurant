@@ -10,6 +10,7 @@ use Modules\Orders\Interfaces\Requests\CreateOrderRequest;
 use Modules\Orders\Interfaces\Requests\UpdateOrderRequest;
 use Modules\Orders\Interfaces\Resources\OrderResource;
 use Modules\Orders\Domain\Exceptions\OrderNotModifiableException;
+use Modules\Orders\Domain\Exceptions\OrderConflictException;
 
 class OrderController extends Controller
 {
@@ -75,6 +76,8 @@ class OrderController extends Controller
             return OrderResource::make($order)->response();
         } catch (OrderNotModifiableException $e) {
             return $e->render();
+        } catch (OrderConflictException $e) {
+            return $e->render();
         }
     }
 
@@ -103,7 +106,7 @@ class OrderController extends Controller
 
         $this->authorize('delete', $order);
 
-        if (!$order->isEditable()) {
+        if (!$order->canBeDeleted()) {
             return response()->json([
                 'error' => 'order_not_modifiable',
                 'message' => 'Solo se pueden eliminar pedidos en estado draft.',

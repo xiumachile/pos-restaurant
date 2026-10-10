@@ -3,54 +3,63 @@
 namespace Modules\Orders\Domain\Services;
 
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Modules\Orders\Domain\Entities\Order;
 use Modules\Orders\Domain\Events\OrderCancelled;
-use Modules\Orders\Domain\Events\OrderDiscountApplied;
 use Modules\Orders\Domain\Events\OrderClosed;
 use Modules\Orders\Domain\Events\OrderConfirmed;
+use Modules\Orders\Domain\Events\OrderDiscountApplied;
 use Modules\Orders\Domain\Events\OrderPaid;
+use Modules\Orders\Domain\Events\OrderPreparationStarted;
 use Modules\Orders\Domain\Events\OrderReady;
+use Modules\Orders\Domain\Events\OrderServed;
 use Modules\Orders\Domain\Exceptions\InvalidOrderTransitionException;
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
 
-/**
- * Máquina de estados de pedidos.
- *
- * Gestiona las transiciones de estado de un pedido considerando el canal
- * de fulfillment (onsite, pickup, delivery) para aplicar reglas específicas.
- */
 class OrderStateMachine
 {
     /**
-     * Ejecuta una transición de estado con validación condicional por canal.
+     * HALLAZGO C-02: Protección contra transiciones concurrentes.
+     * Utiliza bloqueo pesimista (lockForUpdate) para garantizar que dos cocineros
+     * no procesen la misma transición simultáneamente sobre un estado desactualizado.
      */
     public function transition(Order $order, OrderStatus $newStatus, ?string $reason = null): Order
     {
-        $this->assertCanTransitionForOrder($order, $newStatus);
+        return DB::transaction(function () use ($order, $newStatus, $reason) {
+            // 1. Bloquear la fila del pedido para lectura/escritura exclusiva
+            // Se incluye company_id para mantener el aislamiento de tenant incluso en el lock
+            $lockedOrder = Order::where('id', $order->id)
+                ->where('company_id', $order->company_id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        if ($newStatus === OrderStatus::CANCELLED && empty($reason)) {
-            throw InvalidOrderTransitionException::requiresReason();
-        }
+            // 2. Validar la transición con el estado REAL y actualizado de la base de datos
+            // Si otro proceso ya cambió el estado, esta validación fallará de forma controlada
+            $this->assertCanTransitionForOrder($lockedOrder, $newStatus);
 
-        $order->status = $newStatus;
-        $this->updateTimestamp($order, $newStatus);
+            if ($newStatus === OrderStatus::CANCELLED && empty($reason)) {
+                throw InvalidOrderTransitionException::requiresReason();
+            }
 
-        if ($newStatus === OrderStatus::CANCELLED) {
-            $order->cancellation_reason = $reason;
-        }
+            // 3. Aplicar cambios
+            $lockedOrder->status = $newStatus;
+            $this->updateTimestamp($lockedOrder, $newStatus);
 
-        $order->save();
+            if ($newStatus === OrderStatus::CANCELLED) {
+                $lockedOrder->cancellation_reason = $reason;
+            }
 
-        $this->dispatchEvent($order, $newStatus);
+            $lockedOrder->save();
 
-        return $order;
+            // 4. Despachar eventos solo si el commit es exitoso (Hallazgo M-03)
+            DB::afterCommit(function () use ($lockedOrder, $newStatus) {
+                $this->dispatchEvent($lockedOrder, $newStatus);
+            });
+
+            return $lockedOrder;
+        });
     }
 
-    /**
-     * Valida si una transición es posible (legacy, sin contexto del pedido).
-     *
-     * @deprecated Usar assertCanTransitionForOrder() cuando se tenga el Order.
-     */
     public function assertCanTransition(OrderStatus $from, OrderStatus $to): void
     {
         if (!$from->canTransitionTo($to)) {
@@ -58,10 +67,6 @@ class OrderStateMachine
         }
     }
 
-    /**
-     * Valida si una transición es posible CON contexto del pedido.
-     * Usa allowedTransitionsFor() para aplicar reglas específicas por canal.
-     */
     public function assertCanTransitionForOrder(Order $order, OrderStatus $to): void
     {
         if (!$order->status->canTransitionToFor($to, $order)) {
@@ -69,21 +74,18 @@ class OrderStateMachine
         }
     }
 
-    /**
-     * Actualiza el timestamp correspondiente al nuevo estado.
-     */
     protected function updateTimestamp(Order $order, OrderStatus $status): void
     {
         $now = Carbon::now();
 
         match($status) {
             OrderStatus::CONFIRMED => $order->confirmed_at = $now,
+            OrderStatus::PREPARING => $order->preparing_at = $now,
+            OrderStatus::READY => $order->ready_at = $now,
             OrderStatus::SERVED => $order->served_at = $now,
-            // Nuevos timestamps específicos por canal (Fase 4)
             OrderStatus::PICKED_UP => $order->picked_up_at = $now,
             OrderStatus::DISPATCHED => $order->dispatched_at = $now,
             OrderStatus::DELIVERED => $order->delivered_at = $now,
-            // Timestamps compartidos
             OrderStatus::PAID => $order->paid_at = $now,
             OrderStatus::CLOSED => $order->closed_at = $now,
             OrderStatus::CANCELLED => $order->cancelled_at = $now,
@@ -91,46 +93,35 @@ class OrderStateMachine
         };
     }
 
-    /**
-     * Despacha eventos de dominio según el nuevo estado.
-     */
     protected function dispatchEvent(Order $order, OrderStatus $status): void
     {
-        match($status) {
-            OrderStatus::CONFIRMED => OrderConfirmed::dispatch($order),
-            OrderStatus::READY => OrderReady::dispatch($order),
-            OrderStatus::PAID => OrderPaid::dispatch($order),
-            OrderStatus::CLOSED => OrderClosed::dispatch($order),
-            OrderStatus::CANCELLED => OrderCancelled::dispatch($order),
-            // PICKED_UP, DISPATCHED, DELIVERED, SERVED no disparan eventos
-            // (se pueden agregar en el futuro si se requiere)
+        $event = match($status) {
+            OrderStatus::CONFIRMED => new OrderConfirmed($order),
+            OrderStatus::PREPARING => new OrderPreparationStarted($order),
+            OrderStatus::READY => new OrderReady($order),
+            OrderStatus::SERVED => new OrderServed($order),
+            OrderStatus::PAID => new OrderPaid($order),
+            OrderStatus::CLOSED => new OrderClosed($order),
+            OrderStatus::CANCELLED => new OrderCancelled($order),
             default => null,
         };
+
+        if ($event) {
+            event($event);
+        }
     }
 
     public function canModifyItems(Order $order): bool
     {
-        return $order->isEditable();
+        return $order->status === OrderStatus::DRAFT;
     }
 
-    /**
-     * Aplica un descuento a un pedido y dispara el evento para auditoría.
-     * 
-     * Validaciones:
-     * - amount debe ser positivo
-     * - discount no puede exceder el subtotal (previene total negativo)
-     * 
-     * Comportamiento:
-     * - Si hay items: recalcula totales desde items
-     * - Si no hay items: preserva subtotal/tax y solo actualiza discount/total
-     */
     public function applyDiscount(Order $order, float $amount, string $reason): Order
     {
         if ($amount <= 0) {
             throw InvalidOrderTransitionException::fromTo($order->status, $order->status);
         }
 
-        // Validación de negocio: discount no puede exceder subtotal
         $currentSubtotal = $order->subtotal_gross ?? $order->subtotal ?? 0;
         if ($amount > $currentSubtotal) {
             throw new \InvalidArgumentException(
@@ -138,22 +129,24 @@ class OrderStateMachine
             );
         }
 
-        $order->discount_amount = (int) $amount;
+        return DB::transaction(function () use ($order, $amount, $reason) {
+            $order->discount_amount = (int) $amount;
 
-        // Si hay items, recalcular desde ellos (fuente de verdad)
-        if ($order->items()->count() > 0 && method_exists($order, 'recalculateTotals')) {
-            $order->recalculateTotals();
-        } else {
-            // Sin items: preservar subtotal/tax, solo actualizar discount y total
-            $order->total = ($order->subtotal ?? 0) + ($order->tax_amount ?? 0) - (int) $amount;
-            $order->amount_due = $order->total + ($order->tip_amount ?? 0);
-        }
+            if ($order->items()->count() > 0 && method_exists($order, 'recalculateTotals')) {
+                $order->recalculateTotals();
+            } else {
+                $order->total = ($order->subtotal ?? 0) + ($order->tax_amount ?? 0) - (int) $amount;
+                $order->amount_due = $order->total + ($order->tip_amount ?? 0);
+            }
 
-        $order->save();
+            $order->save();
 
-        OrderDiscountApplied::dispatch($order, (int) $amount, $reason);
+            DB::afterCommit(function () use ($order, $amount, $reason) {
+                event(new OrderDiscountApplied($order, (int) $amount, $reason));
+            });
 
-        return $order;
+            return $order;
+        });
     }
 
     public function canCancel(Order $order): bool

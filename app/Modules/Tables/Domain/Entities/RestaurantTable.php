@@ -8,13 +8,12 @@ use App\Shared\Domain\Traits\HasUuid;
 use App\Shared\Domain\Traits\Syncable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Modules\Tables\Domain\Entities\Area;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Modules\Branches\Domain\Entities\Branch;
 use Modules\Companies\Domain\Entities\Company;
 use Modules\Tables\Domain\Exceptions\InvalidTableStatusTransition;
 use Modules\Tables\Domain\Services\TableStateMachine;
-use Modules\Tables\Domain\Entities\DiningZone;
-use Modules\Tables\Domain\ValueObjects\TableShape;
 use Modules\Tables\Domain\ValueObjects\TableStatus;
 
 class RestaurantTable extends Model
@@ -28,17 +27,10 @@ class RestaurantTable extends Model
     protected $fillable = [
         'company_id',
         'branch_id',
-        'zone_id',
         'area_code',
         'area_name_translations',
         'table_number',
         'capacity',
-        'position_x',
-        'position_y',
-        'rotation',
-        'shape',
-        'width',
-        'height',
         'status',
         'current_order_id',
     ];
@@ -46,13 +38,8 @@ class RestaurantTable extends Model
     protected $casts = [
         'area_name_translations' => 'array',
         'capacity' => 'integer',
-        'position_x' => 'integer',
-        'position_y' => 'integer',
-        'rotation' => 'integer',
-        'shape' => TableShape::class,
-        'width' => 'integer',
-        'height' => 'integer',
         'status' => TableStatus::class,
+        'current_order_id' => 'integer', // FIX: cast para evitar mismatch de tipos string/int con PDO_PGSQL (mesa no se libera al pagar)
     ];
 
     protected array $translatableFields = ['area_name_translations'];
@@ -82,13 +69,6 @@ public function branch(): BelongsTo
         return $this->belongsTo(Branch::class);
     }
 
-    /**
-     * Zona del floor plan a la que pertenece esta mesa.
-     */
-    public function zone(): BelongsTo
-    {
-        return $this->belongsTo(DiningZone::class, 'zone_id');
-    }
 
     /**
      * Pedido actual (se activará en Fase 5 cuando exista el modelo Order).
@@ -118,10 +98,6 @@ public function scopeInArea($query, string $areaCode)
         return $query->where('area_code', $areaCode);
     }
 
-    public function scopeInZone($query, int $zoneId)
-    {
-        return $query->where('zone_id', $zoneId);
-    }
 
     public function scopeOrdered($query)
     {
@@ -238,4 +214,11 @@ public function scopeInArea($query, string $areaCode)
     {
         return $this->hasMany(\Modules\Orders\Domain\Entities\Order::class, 'table_id');
     }
+
+
+    public function area(): BelongsTo
+    {
+        return $this->belongsTo(Area::class);
+    }
+
 }

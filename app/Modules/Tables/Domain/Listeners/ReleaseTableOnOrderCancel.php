@@ -24,7 +24,8 @@ class ReleaseTableOnOrderCancel
         }
 
         // Solo liberar si esta mesa tiene este pedido como actual
-        if ($table->current_order_id !== $order->id) {
+        // DEFENSA EN PROFUNDIDAD: Cast explícito a int (evita type mismatch PDO_PGSQL)
+        if ((int) $table->current_order_id !== (int) $order->id) {
             return;
         }
 

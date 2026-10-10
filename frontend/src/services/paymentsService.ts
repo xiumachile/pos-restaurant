@@ -349,4 +349,31 @@ export const paymentsService = {
     );
     return (response.data as any).data;
   },
+
+
+  /**
+   * Checkout universal para pedidos sin mesa (delivery/takeout)
+   * Crea bill automáticamente y procesa el pago
+   */
+  async payOrder(
+    orderUuid: string,
+    payload: {
+      payment_method_uuid: string;
+      tip_amount?: number;
+      reference_code?: string;
+      notes?: string;
+      idempotency_key: string;
+    }
+  ): Promise<{ data: any; bill: any; message: string }> {
+    const response = await apiClient.post(
+      `/orders/${orderUuid}/checkout`,
+      payload,
+      {
+        headers: {
+          'Idempotency-Key': payload.idempotency_key,
+        },
+      }
+    );
+    return response.data;
+  },
 };

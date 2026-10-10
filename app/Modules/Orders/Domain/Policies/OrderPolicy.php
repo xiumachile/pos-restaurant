@@ -34,6 +34,24 @@ class OrderPolicy
         return $order->company_id === $user->company_id;
     }
 
+    /**
+     * Crear un nuevo pedido.
+     * 
+     * HALLAZGO 11: Solo ciertos roles pueden crear pedidos.
+     * - admin, manager: pueden crear pedidos (supervisión)
+     * - waiter: puede crear pedidos (toma de pedidos en mesa)
+     * - cashier: puede crear pedidos (takeout, pickup)
+     * - kitchen: NO puede crear pedidos (solo procesa existentes)
+     * 
+     * Este método se usa con authorize('create', Order::class) en FormRequests.
+     */
+    public function create(User $user): bool
+    {
+        return in_array($user->role, ['admin', 'manager', 'waiter', 'cashier'], true);
+    }
+
+
+
     public function view(User $user, Order $order): bool
     {
         if (!$this->belongsToUserCompany($user, $order)) {

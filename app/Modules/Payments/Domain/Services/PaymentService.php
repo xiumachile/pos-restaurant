@@ -34,6 +34,9 @@ class PaymentService
     ): Payment {
         Account::seedDefaultsFor($order->company_id, $order->branch_id);
 
+                // Hallazgo 07: Validación defensiva de invariantes de tenant
+        $this->validateTenantInvariants($order, $paymentMethod, $bill, $cashSession);
+
         return DB::transaction(function () use (
             $order, $paymentMethod, $amount, $idempotencyKey,
             $bill, $cashSession, $userId, $tipAmount, $referenceCode, $notes
@@ -95,7 +98,8 @@ class PaymentService
 
             $totalAmount = Payment::calculateTotal($amount, $tipAmount);
 
-            $payment = Payment::create([
+            try {
+                $payment = Payment::create([
                 'company_id' => $order->company_id,
                 'branch_id' => $order->branch_id,
                 'order_id' => $order->id,
@@ -103,7 +107,7 @@ class PaymentService
                 'cash_session_id' => $cashSession?->id,
                 'payment_method_id' => $paymentMethod->id,
                 'user_id' => $userId,
-                'payment_number' => Payment::generatePaymentNumber($order->branch->code),
+                'payment_number' => Payment::generatePaymentNumber($order->branch->code, $order->branch_id),
                 'method_code' => $paymentMethod->code,
                 'amount' => $amount,
                 'tip_amount' => $tipAmount,
@@ -114,6 +118,26 @@ class PaymentService
                 'notes' => $notes,
                 'paid_at' => now(),
             ]);
+            } catch (\Illuminate\Database\QueryException $e) {
+                // HALLAZGO 13: Manejar violación de restricción única (race condition)
+                // SQLSTATE 23505 es unique_violation en PostgreSQL
+                if (str_contains($e->getMessage(), '23505') || str_contains($e->getMessage(), 'payments_tenant_idempotency_unique')) {
+                    \Illuminate\Support\Facades\Log::warning('Idempotency race condition caught, returning existing payment', [
+                        'idempotency_key' => $idempotencyKey,
+                        'order_id' => $order->id,
+                    ]);
+                    
+                    $existingPayment = Payment::where('company_id', $order->company_id)
+                        ->where('branch_id', $order->branch_id)
+                        ->where('idempotency_key', $idempotencyKey)
+                        ->first();
+                        
+                    if ($existingPayment) {
+                        return $existingPayment;
+                    }
+                }
+                throw $e;
+            }
 
             try {
                 $this->paymentLedgerService->recordPayment($payment);
@@ -206,4 +230,79 @@ class PaymentService
             }
         }
     }
+    /**
+     * ═══════════════════════════════════════════════════════════════════════
+     * VALIDACIÓN DEFENSIVA DE INVARIANTES (Hallazgo 07 - P1)
+     * ═══════════════════════════════════════════════════════════════════════
+     * 
+     * Defense-in-depth: el Domain Service verifica invariantes críticas
+     * ANTES de procesar el pago, sin confiar en las capas HTTP externas.
+     * 
+     * Esto protege contra:
+     * - Llamadas directas al service (tests, jobs, commands)
+     * - Bugs en capas superiores que olviden validaciones
+     * - Intentos de acceso cruzado entre tenants
+     */
+    private function validateTenantInvariants(
+        Order $order,
+        PaymentMethod $paymentMethod,
+        ?Bill $bill = null,
+        ?CashSession $cashSession = null
+    ): void {
+        // 1. PaymentMethod debe ser de la misma compañía
+        if ($paymentMethod->company_id !== $order->company_id) {
+            throw PaymentException::tenantMismatch(
+                'payment_method.company_id',
+                'order.company_id'
+            );
+        }
+        
+        // 2. Si PaymentMethod tiene branch_id, debe coincidir con order
+        if ($paymentMethod->branch_id !== null && 
+            $paymentMethod->branch_id !== $order->branch_id) {
+            throw PaymentException::tenantMismatch(
+                'payment_method.branch_id',
+                'order.branch_id'
+            );
+        }
+        
+        // 3. Bill (si existe) debe ser de la misma compañía/sucursal
+        if ($bill !== null) {
+            if ($bill->company_id !== $order->company_id) {
+                throw PaymentException::tenantMismatch(
+                    'bill.company_id',
+                    'order.company_id'
+                );
+            }
+            if ($bill->branch_id !== $order->branch_id) {
+                throw PaymentException::tenantMismatch(
+                    'bill.branch_id',
+                    'order.branch_id'
+                );
+            }
+        }
+        
+        // 4. CashSession (si existe) debe ser de la misma compañía/sucursal
+        if ($cashSession !== null) {
+            if ($cashSession->company_id !== $order->company_id) {
+                throw PaymentException::tenantMismatch(
+                    'cash_session.company_id',
+                    'order.company_id'
+                );
+            }
+            if ($cashSession->branch_id !== $order->branch_id) {
+                throw PaymentException::tenantMismatch(
+                    'cash_session.branch_id',
+                    'order.branch_id'
+                );
+            }
+            
+            // 5. CashSession debe estar abierta
+            if (!$cashSession->canReceivePayments()) {
+                throw PaymentException::cashSessionNotOpen();
+            }
+        }
+    }
+
+
 }

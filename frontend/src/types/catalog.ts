@@ -13,7 +13,8 @@ export interface Category {
 }
 
 export interface Product {
-  id: number;
+  /** ID del producto (puede ser UUID o numérico según la fuente) */
+  id: string;
   uuid: string;
   company_id: number;
   branch_id: number;

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { CartItem, CartTotals, TableCart } from "@/types/cart";
+import type { CartItem, CartTotals, TableCart, CustomerData } from "@/types/cart";
 import type { Product } from "@/types/catalog";
 import type { ChannelType } from "@/stores/useActiveChannelStore";
 import { parsePrice } from "@/types/catalog";
@@ -26,6 +26,7 @@ export interface InitOrderParams {
   tableNumber?: string;
   areaName?: string;
   channel: ChannelType;
+  editingOrderId?: string | null;
 }
 
 interface CartState {
@@ -67,6 +68,10 @@ interface CartState {
 
   /** Calcula totales */
   getTotals: (cartKey: string) => CartTotals;
+
+  /** Actualiza los datos del cliente (solo para delivery) */
+  setCustomerData: (cartKey: string, data: CustomerData | null) => void;
+
 }
 
 export const useCartStore = create<CartState>()(
@@ -75,7 +80,7 @@ export const useCartStore = create<CartState>()(
       carts: {},
 
       initOrder: (params) => {
-        const { tableUuid, tableNumber = "", areaName, channel } = params;
+        const { tableUuid, tableNumber = "", areaName, channel, editingOrderId } = params;
         const cartKey = tableUuid ?? `takeaway-${generateUUID()}`;
 
         set((state) => {
@@ -89,6 +94,7 @@ export const useCartStore = create<CartState>()(
                 tableNumber,
                 areaName,
                 channel,
+                editingOrderId: editingOrderId || null,
                 items: [],
                 createdAt: new Date().toISOString(),
               },
@@ -109,15 +115,23 @@ export const useCartStore = create<CartState>()(
       },
 
       addItem: (cartKey, product, quantity = 1) => {
+        console.log("[useCartStore] 🛒 addItem llamado");
+        console.log("[useCartStore] 📦 cartKey:", cartKey);
+        console.log("[useCartStore] 🏷️ product.uuid:", product?.uuid);
+        console.log("[useCartStore] 📝 product.name:", product?.name_translations?.es || product?.name_translations?.en);
+        console.log("[useCartStore] 🔢 quantity:", quantity);
+        
         set((state) => {
           const cart = state.carts[cartKey];
           if (!cart) return state;
 
-          const existing = cart.items.find((i) => i.product.id === product.id);
+          // IMPORTANTE: usar product.uuid (único) en lugar de product.id
+          // product.id puede ser 0 o undefined en productos del catálogo
+          const existing = cart.items.find((i) => i.product.uuid === product.uuid);
 
           const items = existing
             ? cart.items.map((i) =>
-                i.product.id === product.id
+                i.product.uuid === product.uuid
                   ? { ...i, quantity: i.quantity + quantity }
                   : i
               )
@@ -214,19 +228,52 @@ export const useCartStore = create<CartState>()(
         return get().carts[cartKey] || null;
       },
 
+
+      setCustomerData: (cartKey, data) => {
+        set((state) => {
+          const cart = state.carts[cartKey];
+          if (!cart) return state;
+          
+          // Comparar con datos actuales para evitar re-renders innecesarios
+          const current = cart.customerData;
+          const next = data || undefined;
+          
+          if (current === next) return state;
+          if (current && next) {
+            const same = current.customer_id === next.customer_id &&
+                         current.customer_name === next.customer_name &&
+                         current.customer_phone === next.customer_phone &&
+                         current.delivery_address === next.delivery_address &&
+                         current.commune === next.commune &&
+                         current.address_reference === next.address_reference;
+            if (same) return state;
+          }
+          
+          return {
+            carts: {
+              ...state.carts,
+              [cartKey]: { ...cart, customerData: next },
+            },
+          };
+        });
+      },
+
       getTotals: (cartKey) => {
         const cart = get().carts[cartKey];
         if (!cart) {
           return { subtotal: 0, tax: 0, total: 0, itemCount: 0 };
         }
 
-        const subtotal = cart.items.reduce((sum, item) => {
+        // En Chile, base_price YA incluye IVA (precio bruto)
+        const total = cart.items.reduce((sum, item) => {
           const price = parsePrice(item.product.base_price);
           return sum + price * item.quantity;
         }, 0);
 
-        const tax = calculateTax(subtotal, IVA_RATE);
-        const total = subtotal + tax;
+        // Extraer neto e IVA del precio bruto
+        // Fórmula: net = total / 1.19, tax = total - net
+        const subtotal = Math.round(total / (1 + IVA_RATE));
+        const tax = total - subtotal;
         const itemCount = cart.items.reduce((sum, i) => sum + i.quantity, 0);
 
         return { subtotal, tax, total, itemCount };

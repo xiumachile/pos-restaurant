@@ -15,7 +15,7 @@ export interface LocalOrder {
   terminal_id: string | null;
   table_id: string | null;
   order_number: string;
-  order_type: "dine_in" | "take_out" | "delivery";
+  order_type: "dine_in" | "takeout" | "delivery";
   status: 
     | "draft"              // Borrador (no confirmado aún)
     | "confirmed"          // Confirmado por garzón
@@ -41,6 +41,12 @@ export interface LocalOrder {
   waiter_id: string | null;
   waiter_name: string | null;
   notes: string | null;
+  // Campos de cliente (solo para delivery)
+  customer_id: string | null;
+  customer_name: string | null;
+  customer_phone: string | null;
+  delivery_address: string | null;
+  delivery_notes: string | null;
   idempotency_key: string;
   sync_status: "pending" | "syncing" | "synced" | "failed";
   created_at: string;
@@ -78,11 +84,16 @@ export interface CreateOrderPayload {
   branch_id: string;
   terminal_id?: string;
   table_id?: string | null;
-  order_type?: "dine_in" | "take_out" | "delivery";
+  order_type?: "dine_in" | "takeout" | "delivery";
   waiter_id?: string;
   waiter_name?: string;
   guest_count?: number;
   notes?: string;
+  customer_id?: string;
+  customer_name?: string;
+  customer_phone?: string;
+  delivery_address?: string;
+  delivery_notes?: string;
 }
 
 export class OrderRepository {
@@ -122,14 +133,18 @@ export class OrderRepository {
           local_uuid, company_id, branch_id, terminal_id, table_id,
           order_number, order_type, status, subtotal, discount_total,
           net_amount, tax_total, tip_amount, grand_total, amount_due, guest_count,
-          waiter_id, waiter_name, notes, idempotency_key, sync_status,
+          waiter_id, waiter_name, notes, customer_id, customer_name, customer_phone,
+          delivery_address, delivery_notes, idempotency_key, sync_status,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
         [
           local_uuid, payload.company_id, payload.branch_id, payload.terminal_id || null,
           payload.table_id || null, order_number, payload.order_type || "dine_in", "confirmed",
           payload.guest_count || 1, payload.waiter_id || null, payload.waiter_name || null,
-          payload.notes || null, idempotency_key,
+          payload.notes || null, payload.customer_id || null,
+          payload.customer_name || null, payload.customer_phone || null,
+          payload.delivery_address || null, payload.delivery_notes || null,
+          idempotency_key,
         ]
       );
 
@@ -141,7 +156,13 @@ export class OrderRepository {
         subtotal: 0, discount_total: 0, tax_total: 0, tip_amount: 0, grand_total: 0,
         guest_count: payload.guest_count || 1, waiter_id: payload.waiter_id || null,
         waiter_name: payload.waiter_name || null, notes: payload.notes || null,
-        idempotency_key, items: []
+        idempotency_key,
+        customer_id: payload.customer_id || null,
+        customer_name: payload.customer_name || null,
+        customer_phone: payload.customer_phone || null,
+        delivery_address: payload.delivery_address || null,
+        delivery_notes: payload.delivery_notes || null,
+        items: []
       };
       
       await db.execute(
@@ -426,6 +447,7 @@ export class OrderRepository {
       menu_item_id?: string;
     }>
   ): Promise<LocalOrder> {
+    
     validateLocalMoneyPayload(payload as unknown as Record<string, unknown>, 'order');
     const local_uuid = uuidv4();
     const idempotency_key = uuidv4();
@@ -438,14 +460,18 @@ export class OrderRepository {
           local_uuid, company_id, branch_id, terminal_id, table_id,
           order_number, order_type, status, subtotal, discount_total,
           net_amount, tax_total, tip_amount, grand_total, amount_due, guest_count,
-          waiter_id, waiter_name, notes, idempotency_key, sync_status,
+          waiter_id, waiter_name, notes, customer_id, customer_name, customer_phone,
+          delivery_address, delivery_notes, idempotency_key, sync_status,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
         [
           local_uuid, payload.company_id, payload.branch_id, payload.terminal_id || null,
           payload.table_id || null, order_number, payload.order_type || "dine_in", "confirmed",
           payload.guest_count || 1, payload.waiter_id || null, payload.waiter_name || null,
-          payload.notes || null, idempotency_key,
+          payload.notes || null, payload.customer_id || null,
+          payload.customer_name || null, payload.customer_phone || null,
+          payload.delivery_address || null, payload.delivery_notes || null,
+          idempotency_key,
         ]
       );
 
@@ -478,9 +504,16 @@ export class OrderRepository {
         local_uuid, company_id: payload.company_id, branch_id: payload.branch_id,
         terminal_id: payload.terminal_id || null, table_id: payload.table_id || null,
         order_number, order_type: payload.order_type || "dine_in", status: 'confirmed',
+        subtotal: 0, discount_total: 0, tax_total: 0, tip_amount: 0, grand_total: 0,
         guest_count: payload.guest_count || 1, waiter_id: payload.waiter_id || null,
         waiter_name: payload.waiter_name || null, notes: payload.notes || null,
         idempotency_key,
+        customer_id: payload.customer_id || null,
+        customer_name: payload.customer_name || null,
+        customer_phone: payload.customer_phone || null,
+        delivery_address: payload.delivery_address || null,
+        delivery_notes: payload.delivery_notes || null,
+        items: []
       };
 
       // Usamos directamente execute de db para encolar en sync_queue

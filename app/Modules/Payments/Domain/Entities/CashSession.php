@@ -117,7 +117,7 @@ class CashSession extends Model
     private function calculateExpectedBalanceInternal(
         bool $includeMovements = true,
         bool $onlyCashTipsPaidOut = false
-    ): float {
+    ): int {  // Hallazgo 06: CLP siempre es int
         // ADR-011 FIX: Filtrar por method_code case-insensitive
         // Los payments se guardan con method_code = PaymentMethod.code (minúsculas)
         $cashSales = (int) $this->payments()  // ADR-018
@@ -150,7 +150,7 @@ class CashSession extends Model
                 ->sum(fn($m) => $m->balanceImpact());
         }
         
-        return (int) round($brutExpected - $tipsPaidOut + $movementsImpact);  // ADR-018: CLP entero
+        return (int) ($brutExpected - $tipsPaidOut + $movementsImpact);  // Hallazgo 06: sin round() innecesario
     }
 
     public function calculateExpectedAmount(): int  // ADR-018: CLP entero
@@ -206,15 +206,20 @@ class CashSession extends Model
             ->where('tip_amount', '>', 0)
             ->sum('tip_amount');
 
-        $paidOut = (int) \Modules\Cashier\Domain\Entities\TipPayout::where  // ADR-018('cash_session_id', $this->id)
+        $paidOut = (int) \Modules\Cashier\Domain\Entities\TipPayout::where('cash_session_id', $this->id)  // ADR-018
             ->valid()
             ->sum('amount');
 
-        return (int) round($totalTips - $paidOut);  // ADR-018: CLP entero
+        return (int) ($totalTips - $paidOut);  // Hallazgo 06: sin round()
     }
 
     /**
      * Calcula el balance actual de la sesión considerando movimientos.
+     *
+     * @deprecated Hallazgo 06: Usar getCashBalance() para efectivo físico
+     *             o getTotalSalesBalance() para total de ventas.
+     *             Este método mezcla todos los métodos de pago (cash/card/transfer)
+     *             lo que genera confusión sobre cuánto dinero FÍSICO hay en caja.
      */
     public function calculateCurrentBalance(): int  // ADR-018: CLP entero
     {
@@ -236,10 +241,127 @@ class CashSession extends Model
     /**
      * Verifica si se ha excedido el monto máximo (requiere retiro).
      */
-    public function exceedsMaxAmount(float $maxAmount = 500000.0): bool
+    public function exceedsMaxAmount(int $maxAmount = 500000): bool
     {
-        return $this->calculateCurrentBalance() > $maxAmount;
+        // Hallazgo 06: comparar contra EFECTIVO FÍSICO, no total de ventas
+        return $this->getCashBalance() > $maxAmount;
     }
+
+    /**
+     * ═══════════════════════════════════════════════════════════════════════
+     * MÉTODOS DE BALANCE INEQUÍVOCOS (Hallazgo 06 - P1)
+     * ═══════════════════════════════════════════════════════════════════════
+     * Separación clara entre efectivo físico y ventas totales.
+     * Nunca usar un método genérico para representar efectivo.
+     */
+
+    /**
+     * Ventas en EFECTIVO (amount + tip_amount, solo método cash).
+     * Representa dinero físico que entra a la caja.
+     */
+    public function getCashSales(): int
+    {
+        $cashAmount = (int) $this->payments()
+            ->where('status', 'completed')
+            ->whereRaw('LOWER(method_code) = ?', ['cash'])
+            ->sum('amount');
+
+        $cashTips = (int) $this->payments()
+            ->where('status', 'completed')
+            ->whereRaw('LOWER(method_code) = ?', ['cash'])
+            ->sum('tip_amount');
+
+        return $cashAmount + $cashTips;
+    }
+
+    /**
+     * Ventas con TARJETA (amount + tip_amount, métodos de tipo card).
+     * NO afecta el efectivo físico en caja.
+     */
+    public function getCardSales(): int
+    {
+        $cardAmount = (int) $this->payments()
+            ->where('status', 'completed')
+            ->whereRaw('LOWER(method_code) IN (?, ?, ?)', ['card', 'debit_card', 'credit_card'])
+            ->sum('amount');
+
+        $cardTips = (int) $this->payments()
+            ->where('status', 'completed')
+            ->whereRaw('LOWER(method_code) IN (?, ?, ?)', ['card', 'debit_card', 'credit_card'])
+            ->sum('tip_amount');
+
+        return $cardAmount + $cardTips;
+    }
+
+    /**
+     * Ventas por TRANSFERENCIA (amount + tip_amount).
+     * NO afecta el efectivo físico en caja.
+     */
+    public function getTransferSales(): int
+    {
+        $transferAmount = (int) $this->payments()
+            ->where('status', 'completed')
+            ->whereRaw('LOWER(method_code) IN (?, ?)', ['transfer', 'bank_transfer'])
+            ->sum('amount');
+
+        $transferTips = (int) $this->payments()
+            ->where('status', 'completed')
+            ->whereRaw('LOWER(method_code) IN (?, ?)', ['transfer', 'bank_transfer'])
+            ->sum('tip_amount');
+
+        return $transferAmount + $transferTips;
+    }
+
+    /**
+     * TOTAL de ventas (todos los métodos de pago).
+     * Informativo para dashboard, NO representa efectivo físico.
+     * Reemplaza semánticamente al ambiguo calculateCurrentBalance().
+     */
+    public function getTotalSalesBalance(): int
+    {
+        $opening = (int) $this->opening_amount;
+
+        $paymentsTotal = (int) $this->payments()
+            ->where('status', 'completed')
+            ->sum('total_amount');
+
+        $movementsImpact = $this->movements()
+            ->get()
+            ->sum(fn($m) => $m->balanceImpact());
+
+        return $opening + $paymentsTotal + $movementsImpact;
+    }
+
+    /**
+     * EFECTIVO FÍSICO REAL en caja.
+     *
+     * Este es el método correcto para arqueos y alertas de retiro.
+     * Solo incluye:
+     * - Apertura inicial
+     * - Ventas en efectivo (amount + tip)
+     * - Movimientos de caja (retiros/depósitos)
+     * - Propinas pagadas físicamente (descuento)
+     *
+     * NO incluye tarjeta/transferencia (ese dinero no está en la caja física).
+     */
+    public function getCashBalance(): int
+    {
+        $opening = (int) $this->opening_amount;
+        $cashSales = $this->getCashSales();
+
+        $movementsImpact = $this->movements()
+            ->get()
+            ->sum(fn($m) => $m->balanceImpact());
+
+        // Propinas pagadas físicamente (cash_payout o mixed con cash)
+        $cashTipsPaidOut = (int) \Modules\Cashier\Domain\Entities\TipPayout::where('cash_session_id', $this->id)
+            ->valid()
+            ->where('payment_method', 'cash')
+            ->sum('amount');
+
+        return $opening + $cashSales + $movementsImpact - $cashTipsPaidOut;
+    }
+
 
     /**
      * Calcula el balance esperado de efectivo considerando todos los factores.

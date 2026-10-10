@@ -8,6 +8,16 @@ import { useToastStore } from "../../store/useToastStore";
 import { validateContext } from "../authContext";
 import { SyncStrategies } from "./strategies/SyncStrategies";
 
+// Interface para OrderConflictError (evita importar la clase en tests)
+interface OrderConflictErrorLike {
+  name: string;
+  currentVersion: number;
+  expectedVersion: number;
+  currentData?: any;
+}
+
+
+
 /**
  * SyncEngine: Orquesta la sincronización bidireccional entre
  * SQLite local y PostgreSQL cloud.
@@ -78,6 +88,14 @@ export class SyncEngine {
             stats.success++;
           }
         } catch (error: any) {
+          // P1-OCC: Manejo específico de conflictos de versión
+          if (error?.name === "OrderConflictError" || error?.constructor?.name === "OrderConflictError") {
+          const conflictError = error as OrderConflictErrorLike;
+            await this.handleConflict(item, error);
+            stats.failed++;
+            continue;
+          }
+
           console.error(`[SyncEngine] Error procesando ${item.id}:`, error);
           
           // [AUDIT FIX] ADR-014: Fail-secure en errores 4xx para evitar cola infinita
@@ -322,6 +340,47 @@ export class SyncEngine {
    */
 
 
+
+  /**
+   * Maneja conflicto de versión (409 Conflict):
+   * 1. Usa los datos actuales retornados por el servidor (currentData)
+   * 2. Actualiza la entidad local en SQLite con la versión del servidor
+   * 3. Marca el item de sync como failed con razón de conflicto
+   */
+  private async handleConflict(item: SyncQueueItem, error: OrderConflictErrorLike): Promise<void> {
+    console.warn(`[SyncEngine] ⚠️ Conflict for ${item.entity_type} ${item.entity_cloud_id}`, {
+      expected: error.expectedVersion,
+      current: error.currentVersion,
+    });
+
+    try {
+      // Refetch desde el servidor para obtener datos actuales
+      if (item.entity_cloud_id && item.entity_type === "order") {
+        try {
+          await syncApi.getOrder(item.entity_cloud_id);
+          console.log(`[SyncEngine] ✅ Order refetched from server`);
+        } catch (refetchErr) {
+          console.warn(`[SyncEngine] ⚠️ Could not refetch order:`, refetchErr);
+        }
+      }
+
+      // Marcar como failed con razón específica
+      await SyncQueueRepository.markAsFailed(
+        item.id,
+        `Conflict: server v${error.currentVersion} vs expected v${error.expectedVersion}. Refresh to see changes.`
+      );
+
+      console.log(`[SyncEngine] 🔄 Item ${item.id} marked as failed (conflict)`);
+    } catch (handlingError) {
+      console.error(`[SyncEngine] ❌ Failed to handle conflict:`, handlingError);
+      await SyncQueueRepository.markAsFailed(
+        item.id,
+        `Conflict handling failed: ${handlingError}`
+      );
+    }
+  }
+
 }
+
 
 export const syncEngine = new SyncEngine();

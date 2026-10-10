@@ -9,6 +9,7 @@ use Modules\Tables\Application\Queries\GetActiveOrdersForTableQuery;
 use Modules\Tables\Application\Queries\GetAllTablesQuery;
 use Modules\Tables\Application\UseCases\ChangeTableStatusUseCase;
 use Modules\Tables\Application\UseCases\CreateTableUseCase;
+use Modules\Tables\Application\UseCases\DeleteTableUseCase;
 use Modules\Tables\Application\UseCases\UpdateTableUseCase;
 use Modules\Tables\Domain\Exceptions\InvalidTableStatusTransition;
 use Modules\Tables\Domain\ValueObjects\TableStatus;
@@ -37,6 +38,7 @@ class RestaurantTableController extends Controller
     public function __construct(
         private GetAllTablesQuery $getAllTablesQuery,
         private CreateTableUseCase $createTableUseCase,
+        private DeleteTableUseCase $deleteTableUseCase,
         private UpdateTableUseCase $updateTableUseCase,
         private ChangeTableStatusUseCase $changeTableStatusUseCase,
         private GetActiveOrdersForTableQuery $getActiveOrdersForTableQuery
@@ -113,4 +115,33 @@ class RestaurantTableController extends Controller
             ->response()
             ->setStatusCode(200);
     }
+
+
+    /**
+     * DELETE /api/v1/tables/{uuid}
+     * Elimina una mesa (soft delete)
+     */
+    public function destroy(string $uuid): JsonResponse
+    {
+        try {
+            $this->deleteTableUseCase->execute($uuid, auth()->user()->branch_id);
+            
+            return response()->json([
+                'message' => 'Mesa eliminada correctamente'
+            ], 200);
+            
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'error' => 'table_not_found',
+                'message' => 'La mesa no existe o no pertenece a esta sucursal'
+            ], 404);
+            
+        } catch (\DomainException $e) {
+            return response()->json([
+                'error' => 'table_has_active_orders',
+                'message' => $e->getMessage()
+            ], 422);
+        }
+    }
+
 }

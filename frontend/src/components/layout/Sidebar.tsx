@@ -7,11 +7,11 @@ import {
   CreditCard,
   ListOrdered,
   BarChart3,
-  Map,
   Settings,
   LogOut,
   Database,
   Package,
+  Map,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -29,7 +29,7 @@ interface NavItem {
   allowedRoles?: UserRole[];
 }
 
-// Definición de roles (estático, no depende de traducciones)
+// Definición de roles
 const ROLES = {
   ALL: ["admin", "manager", "waiter", "cashier", "kitchen"] as UserRole[],
   FRONT_OF_HOUSE: ["admin", "manager", "waiter", "cashier"] as UserRole[],
@@ -40,9 +40,6 @@ const ROLES = {
 
 /**
  * Sidebar principal de navegación.
- * - Navegación filtrada por rol + capabilities de la empresa.
- * - Footer: bloque de usuario + logout (fuente única de logout, revoca en servidor).
- * - Estado online: lo muestra SyncStatusIndicator en el Header (sin polling duplicado).
  */
 export function Sidebar() {
   const { t } = useTranslation();
@@ -52,26 +49,31 @@ export function Sidebar() {
 
   const NAV_ITEMS: NavItem[] = useMemo(
     () => [
-      // 1. Operación principal (Todos los roles operativos)
       { to: "/", label: t("tables.title"), icon: LayoutGrid, end: true, allowedRoles: ROLES.ALL },
-      
-      // 2. Áreas específicas por rol
+      {
+        to: "/orders/new",
+        label: t("orders.new_order", "Nuevo Pedido"),
+        icon: UtensilsCrossed,
+        allowedRoles: ROLES.FRONT_OF_HOUSE,
+      },
+      {
+        to: "/orders",
+        label: t("orders.active_orders", "Pedidos Activos"),
+        icon: ListOrdered,
+        allowedRoles: ROLES.FRONT_OF_HOUSE,
+      },
       {
         to: "/kitchen",
         label: t("kitchen.title"),
         icon: ChefHat,
-        allowedRoles: ROLES.BACK_OF_HOUSE, // kitchen, manager, admin
+        allowedRoles: ROLES.BACK_OF_HOUSE,
       },
-      { 
-        to: "/cashier", 
-        label: t("cashier.title"), 
-        icon: CreditCard, 
-        allowedRoles: ROLES.CASHIER_ONLY // cashier, manager, admin
+      {
+        to: "/cashier",
+        label: t("cashier.title"),
+        icon: CreditCard,
+        allowedRoles: ROLES.CASHIER_ONLY,
       },
-      
-      // 3. Gestión y Administración (Solo Management)
-      // Se eliminó "/catalog" del sidebar principal: los garzones usan el catálogo dentro de la toma de pedidos en Mesas.
-      // Se eliminó "/orders" del sidebar: era confuso porque mostraba estado de sync en lugar de historial de pedidos.
       {
         to: "/inventory",
         label: t("inventory.title", "Inventario"),
@@ -80,7 +82,12 @@ export function Sidebar() {
         requiresCapability: CapabilityKey.CAN_MANAGE_RECIPES,
       },
       { to: "/reports", label: t("reports.title"), icon: BarChart3, allowedRoles: ROLES.MANAGEMENT },
-      { to: "/floor-plan", label: t("navigation.floor_plan", "Plano del Restaurante"), icon: Map, allowedRoles: ROLES.MANAGEMENT },
+      {
+        to: "/floor-plan",
+        label: t("navigation.floor_plan", "Plano del Restaurante"),
+        icon: Map,
+        allowedRoles: ROLES.MANAGEMENT,
+      },
       {
         to: "/sync-queue",
         label: t("sidebar.sync"),
@@ -93,16 +100,22 @@ export function Sidebar() {
   );
 
   const visibleItems = NAV_ITEMS.filter((item) => {
-    // 1. Verificar rol del usuario
     if (item.allowedRoles && user && !item.allowedRoles.includes(user.role as UserRole)) {
       return false;
     }
-    // 2. Verificar capability de la empresa (si aplica)
     if (item.requiresCapability && !isEnabled(item.requiresCapability)) {
       return false;
     }
     return true;
   });
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error);
+    }
+  };
 
   return (
     <aside className="w-64 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-800 flex flex-col h-full transition-colors duration-200">
@@ -111,7 +124,9 @@ export function Sidebar() {
         <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">
           🍜 Wok & Mesa
         </h1>
-        <p className="text-xs text-gray-600 dark:text-slate-400 mt-1">{t("common.pos_system", "Sistema POS")}</p>
+        <p className="text-xs text-gray-600 dark:text-slate-400 mt-1">
+          {t("common.pos_system", "Sistema POS")}
+        </p>
       </div>
 
       {/* Navegación */}
@@ -138,7 +153,7 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Footer: usuario + logout (fuente única) */}
+      {/* Footer: usuario + logout */}
       <div className="p-4 border-t border-gray-200 dark:border-slate-800 space-y-3">
         {user && (
           <div className="flex items-center justify-between px-2">
@@ -151,19 +166,14 @@ export function Sidebar() {
               </p>
             </div>
             <button
-              onClick={() => void logout()}
-              className="p-2 text-gray-600 dark:text-slate-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-              title={t("auth.logout")}
-              aria-label={t("auth.logout")}
+              onClick={handleLogout}
+              className="p-2 text-gray-500 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+              title={t("auth.logout", "Cerrar sesión")}
             >
-              <LogOut size={16} />
+              <LogOut size={18} />
             </button>
           </div>
         )}
-
-        <p className="text-xs text-gray-400 dark:text-slate-600 text-center">
-          v0.1.0 · Wok & Mesa POS
-        </p>
       </div>
     </aside>
   );

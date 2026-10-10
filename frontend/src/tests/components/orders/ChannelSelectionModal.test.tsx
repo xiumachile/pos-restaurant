@@ -7,11 +7,14 @@ vi.mock("react-i18next", () => ({
     t: (key: string, params?: any) => {
       const translations: Record<string, string> = {
         "orders.new_order_title": "Nuevo pedido",
-        "orders.select_channel": "Selecciona el canal",
-        "orders.channel_dine_in": "Comedor",
-        "orders.channel_delivery": "Delivery",
-        "orders.channel_takeout": "Para llevar",
-        "orders.cancel": "Cancelar",
+        "orders.select_channel": "Seleccionar Canal",
+        "orders.new_order_without_table": "Nuevo pedido sin mesa",
+        "orders.delivery": "Delivery",
+        "orders.takeout": "Para Llevar",
+        "orders.uber_eats": "Uber Eats",
+        "orders.rappi": "Rappi",
+        "orders.dine_in_hint": "Para comer en el local, selecciona una mesa desde el plano",
+        "common.close": "Cerrar",
       };
       return translations[key] || key;
     },
@@ -19,61 +22,64 @@ vi.mock("react-i18next", () => ({
 }));
 
 /**
- * Tests del nuevo modal de selección de canal.
- * 
+ * Tests del modal de selección de canal.
+ *
  * Este modal es la entrada al flujo "Pedido nuevo fuera de mesa".
  * El usuario DEBE elegir un canal antes de entrar al catálogo.
  */
 describe("ChannelSelectionModal", () => {
-  it("muestra los 3 canales disponibles (dine_in, delivery, takeout)", () => {
+  it("muestra los 4 canales disponibles (delivery, takeout, uber_eats, rappi)", () => {
     const onSelect = vi.fn();
     const onClose = vi.fn();
 
-    render(<ChannelSelectionModal open={true} onSelect={onSelect} onClose={onClose} />);
+    render(<ChannelSelectionModal isOpen={true} onSelect={onSelect} onClose={onClose} />);
 
-    expect(screen.getByText("Comedor")).toBeDefined();
     expect(screen.getByText("Delivery")).toBeDefined();
-    expect(screen.getByText("Para llevar")).toBeDefined();
+    expect(screen.getByText("Para Llevar")).toBeDefined();
+    expect(screen.getByText("Uber Eats")).toBeDefined();
+    expect(screen.getByText("Rappi")).toBeDefined();
   });
 
-  it("NO muestra uber_eats ni rappi (son canales externos, no de toma manual)", () => {
+  it("NO muestra dine_in (se inicia desde el plano de mesas)", () => {
     const onSelect = vi.fn();
     const onClose = vi.fn();
 
-    render(<ChannelSelectionModal open={true} onSelect={onSelect} onClose={onClose} />);
+    render(<ChannelSelectionModal isOpen={true} onSelect={onSelect} onClose={onClose} />);
 
-    expect(screen.queryByText(/uber_eats/i)).toBeNull();
-    expect(screen.queryByText(/rappi/i)).toBeNull();
+    expect(screen.queryByText("Comedor")).toBeNull();
+    expect(screen.queryByText("Dine In")).toBeNull();
   });
 
   it("al seleccionar un canal, llama onSelect con ese canal", () => {
     const onSelect = vi.fn();
     const onClose = vi.fn();
 
-    render(<ChannelSelectionModal open={true} onSelect={onSelect} onClose={onClose} />);
+    render(<ChannelSelectionModal isOpen={true} onSelect={onSelect} onClose={onClose} />);
 
     fireEvent.click(screen.getByText("Delivery"));
     expect(onSelect).toHaveBeenCalledWith("delivery");
     expect(onSelect).toHaveBeenCalledTimes(1);
   });
 
-  it("al cancelar, llama onClose sin seleccionar canal", () => {
+  it("al cerrar (botón X), llama onClose sin seleccionar canal", () => {
     const onSelect = vi.fn();
     const onClose = vi.fn();
 
-    render(<ChannelSelectionModal open={true} onSelect={onSelect} onClose={onClose} />);
+    render(<ChannelSelectionModal isOpen={true} onSelect={onSelect} onClose={onClose} />);
 
-    fireEvent.click(screen.getByText("Cancelar"));
+    // El botón de cerrar tiene title="Cerrar"
+    const closeButton = screen.getByTitle("Cerrar");
+    fireEvent.click(closeButton);
     expect(onClose).toHaveBeenCalled();
     expect(onSelect).not.toHaveBeenCalled();
   });
 
-  it("no se renderiza cuando open=false", () => {
+  it("no se renderiza cuando isOpen=false", () => {
     const onSelect = vi.fn();
     const onClose = vi.fn();
 
     const { container } = render(
-      <ChannelSelectionModal open={false} onSelect={onSelect} onClose={onClose} />
+      <ChannelSelectionModal isOpen={false} onSelect={onSelect} onClose={onClose} />
     );
 
     expect(container.innerHTML).toBe("");

@@ -1,16 +1,106 @@
-/**
- * TODO: Futuro "Historial de Pedidos"
- * Actualmente esta ruta muestra el estado de sincronización.
- * En una versión futura, se debe crear una página real de historial de pedidos
- * para que garzones y managers puedan ver cuentas cerradas del día.
- * Por ahora, la gestión de sync se hace desde /sync-queue.
- */
-import { OrdersSyncList } from "@/components/orders/OrdersSyncList";
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
+import { useActiveOrders, type ChannelFilter } from '@/hooks/useActiveOrders';
+import { ChannelTabs } from '@/components/orders/ChannelTabs';
+import { OrderCard } from '@/components/orders/OrderCard';
+import { OrderDetailsModal } from '@/components/orders/OrderDetailsModal';
+import { Loader2, Package } from 'lucide-react';
+import type { Order } from '@/types/orders';
+import { useCartStore } from '@/stores/useCartStore';
+import { useProducts } from '@/hooks/useCatalog';
 
 export function OrdersPage() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [activeChannel, setActiveChannel] = useState<ChannelFilter>('all');
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const { data: orders = [], isLoading } = useActiveOrders(activeChannel);
+  const { data: catalog = [], isLoading: isLoadingCatalog } = useProducts({});
+
+  const handleAddItems = async (order: Order) => {
+    console.log("[OrdersPage] 🔍 handleAddItems llamado");
+    console.log("[OrdersPage] 📋 Order:", order.order_number, order.uuid);
+    console.log("[OrdersPage] 🏷️ Canal:", order.fulfillment_channel);
+    console.log("[OrdersPage] 📦 Items del pedido:", order.items?.length || 0);
+    
+    const cartStore = useCartStore.getState();
+    
+    if (order.table) {
+      // Pedido con mesa: navegar a vista de mesa
+      navigate(`/tables/${order.table.uuid}`);
+    } else {
+      // Pedido sin mesa: crear NUEVO cart del mismo canal
+      // IMPORTANTE: usar order.type (OrderType: takeout/delivery) NO order.fulfillment_channel
+      // order.fulfillment_channel es pickup/onsite/delivery (FulfillmentChannel del backend)
+      // order.type es takeout/delivery (OrderType, lo que necesita el cart)
+      const orderChannel = order.type as 'delivery' | 'takeout';
+      console.log("[OrdersPage] 🏷️ Tipo del pedido:", order.type);
+      console.log("[OrdersPage] 📦 Canal del cart:", orderChannel);
+      
+      const cartKey = cartStore.initOrder({
+        tableUuid: null,
+        channel: orderChannel,
+        editingOrderId: order.uuid,
+      });
+      
+      // IMPORTANTE: NO precargar items existentes en el cart
+      // El cart empieza vacío. El usuario solo agrega items NUEVOS.
+      // Al enviar, solo los items nuevos se agregan al pedido existente.
+      console.log("[OrdersPage] 📝 Cart vacío creado. Usuario agregará items NUEVOS.");
+      
+      navigate(`/orders/takeaway/${cartKey}`);
+    }
+  };
+
+  const handleViewDetails = (order: Order) => {
+    setSelectedOrder(order);
+  };
+
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
-      <OrdersSyncList />
+    <div className="flex flex-col h-full gap-4 p-4 md:p-6">
+      <div>
+        <h1 className="text-2xl font-bold text-white mb-1">{t('orders.active_orders', 'Pedidos Activos')}</h1>
+        <p className="text-sm text-slate-400">{t('orders.active_orders_desc', 'Gestiona pedidos en curso por canal')}</p>
+      </div>
+
+      <ChannelTabs
+        activeChannel={activeChannel}
+        onChannelChange={setActiveChannel}
+        excludeChannels={['tables']}
+      />
+
+      <div className="flex-1 overflow-y-auto">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="animate-spin text-orange-500" size={32} />
+          </div>
+        ) : orders.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-slate-400 bg-slate-800/30 rounded-xl border border-slate-700/50">
+            <div className="text-center py-12">
+              <Package size={48} className="mx-auto mb-3 opacity-30" />
+              <p>{t('orders.no_active_orders', 'No hay pedidos activos')}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {orders.map((order) => (
+              <OrderCard
+                key={order.uuid}
+                order={order}
+                onAddItems={handleAddItems}
+                onViewDetails={handleViewDetails}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <OrderDetailsModal
+        order={selectedOrder}
+        isOpen={!!selectedOrder}
+        onClose={() => setSelectedOrder(null)}
+      />
     </div>
   );
 }

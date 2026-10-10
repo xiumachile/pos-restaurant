@@ -19,6 +19,7 @@ import enforceIntegerMoneyMigration from "./migrations/017_enforce_integer_money
 import fixTableStatusMigration from "./migrations/019_fix_table_status_pending.sql?raw";
 import cleanTableMutationsMigration from "./migrations/020_clean_table_mutations.sql?raw";
 import enforceTableMutationSchemaMigration from "./migrations/021_enforce_table_mutation_schema.sql?raw";
+import customerFieldsMigration from "./migrations/023_add_customer_fields_to_local_orders.sql?raw";
 
 import { parseSqlStatements } from "./utils/sqlParser";
 import { applyMigration } from "./migrations/applyMigration";
@@ -82,12 +83,13 @@ export async function runMigrations(): Promise<void> {
   await applyMigration(db, "019", fixTableStatusMigration, applied);
   await applyMigration(db, "020", cleanTableMutationsMigration, applied);
   await applyMigration(db, "021", enforceTableMutationSchemaMigration, applied);
+  await applyMigration(db, "023", customerFieldsMigration, applied);
 
   // ═══════════════════════════════════════════════════════════════
   // VERIFICACIÓN DE INTEGRIDAD (independiente de migraciones)
   // ═══════════════════════════════════════════════════════════════
   const criticalSchemas = [
-    { table: "local_orders", required: ["terminal_id", "guest_count", "idempotency_key"] },
+    { table: "local_orders", required: ["terminal_id", "guest_count", "idempotency_key", "customer_id", "customer_name", "customer_phone", "delivery_address", "delivery_notes"] },
     { table: "local_bills", required: ["terminal_id"] },
     { table: "sync_queue", required: ["entity_type", "sync_status"] }
   ];

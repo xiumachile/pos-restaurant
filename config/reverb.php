@@ -6,11 +6,6 @@ return [
     |--------------------------------------------------------------------------
     | Default Reverb Server
     |--------------------------------------------------------------------------
-    |
-    | This option controls the default server used by Reverb to handle
-    | incoming messages as well as broadcasting message to all your
-    | connected clients. At this time only "reverb" is supported.
-    |
     */
 
     'default' => env('REVERB_SERVER', 'reverb'),
@@ -19,11 +14,6 @@ return [
     |--------------------------------------------------------------------------
     | Reverb Servers
     |--------------------------------------------------------------------------
-    |
-    | Here you may define details for each of the supported Reverb servers.
-    | Each server has its own configuration options that are defined in
-    | the array below. You should ensure all the options are present.
-    |
     */
 
     'servers' => [
@@ -61,9 +51,11 @@ return [
     | Reverb Applications
     |--------------------------------------------------------------------------
     |
-    | Here you may define how Reverb applications are managed. If you choose
-    | to use the "config" provider, you may define an array of apps which
-    | your server will support, including their connection credentials.
+    | HALLAZGO 09 - SEGURIDAD:
+    | - allowed_origins: Configurado desde BROADCAST_ALLOWED_ORIGINS
+    |   (NO usar '*' en producción)
+    | - rate_limiting: HABILITADO por defecto
+    | - max_connections: Limitado por defecto (1000)
     |
     */
 
@@ -82,14 +74,19 @@ return [
                     'scheme' => env('REVERB_SCHEME', 'https'),
                     'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
                 ],
-                'allowed_origins' => ['*'],
+                // HALLAZGO 09: Parsear desde env, sin wildcard por defecto
+                'allowed_origins' => array_filter(
+                    explode(',', env('BROADCAST_ALLOWED_ORIGINS', env('APP_URL', 'http://localhost')))
+                ),
                 'ping_interval' => env('REVERB_APP_PING_INTERVAL', 60),
                 'activity_timeout' => env('REVERB_APP_ACTIVITY_TIMEOUT', 30),
-                'max_connections' => env('REVERB_APP_MAX_CONNECTIONS'),
+                // HALLAZGO 09: Limitar conexiones por defecto
+                'max_connections' => (int) env('REVERB_APP_MAX_CONNECTIONS', 1000),
                 'max_message_size' => env('REVERB_APP_MAX_MESSAGE_SIZE', 10_000),
                 'accept_client_events_from' => env('REVERB_APP_ACCEPT_CLIENT_EVENTS_FROM', 'members'),
+                // HALLAZGO 09: Rate limiting HABILITADO por defecto
                 'rate_limiting' => [
-                    'enabled' => env('REVERB_APP_RATE_LIMITING_ENABLED', false),
+                    'enabled' => env('REVERB_APP_RATE_LIMITING_ENABLED', true),
                     'max_attempts' => env('REVERB_APP_RATE_LIMIT_MAX_ATTEMPTS', 60),
                     'decay_seconds' => env('REVERB_APP_RATE_LIMIT_DECAY_SECONDS', 60),
                     'terminate_on_limit' => env('REVERB_APP_RATE_LIMIT_TERMINATE', false),

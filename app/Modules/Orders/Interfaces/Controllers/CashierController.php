@@ -13,12 +13,20 @@ class CashierController extends Controller
      * GET /api/v1/cashier/active
      * Pedidos served esperando pago.
      */
-    public function active(): JsonResponse
+    public function active(Request $request): JsonResponse
     {
-        $orders = Order::with(['items', 'table', 'waiter'])
+        $channel = $request->input('channel'); // dine_in, delivery, takeout, uber_eats, rappi
+
+        $query = Order::with(['items', 'table', 'waiter'])
             ->awaitingPayment()
-            ->orderBy('served_at', 'asc')
-            ->get();
+            ->orderBy('served_at', 'asc');
+
+        // Filtro opcional por tipo de pedido (OrderType)
+        if ($channel) {
+            $query->where('type', $channel);
+        }
+
+        $orders = $query->get();
 
         return OrderResource::collection($orders)->response();
     }

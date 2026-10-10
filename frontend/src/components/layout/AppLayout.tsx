@@ -19,7 +19,7 @@ export function AppLayout() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-y-auto bg-white dark:bg-slate-800 transition-colors duration-200 p-4 md:p-6">
+        <main className="flex-1 overflow-y-auto bg-white dark:bg-slate-800 transition-colors duration-200 p-4 md:p-6 flex flex-col">
           <PopupProvider />
         <Outlet />
         </main>

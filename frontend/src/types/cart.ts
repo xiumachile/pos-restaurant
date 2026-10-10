@@ -9,6 +9,19 @@ export interface CartItem {
 }
 
 /**
+ * Datos del cliente para pedidos de delivery.
+ * Opcional: solo aplica cuando channel === 'delivery'.
+ */
+export interface CustomerData {
+  customer_id?: string;
+  customer_name: string;
+  customer_phone: string;
+  delivery_address: string;
+  commune?: string;
+  address_reference?: string;
+}
+
+/**
  * Carrito de un pedido específico.
  * 
  * Clave (key) en el objeto carts:
@@ -19,6 +32,8 @@ export interface CartItem {
  * Esto garantiza que el canal de un pedido no se filtra a otro.
  */
 export interface TableCart {
+  /** ID del pedido existente que se está editando (null si es nuevo) */
+  editingOrderId?: string | null;
   /** UUID de la mesa, o null si es pedido fuera de mesa */
   tableUuid: string | null;
   /** Número de mesa (display). Vacío para pedidos fuera de mesa */
@@ -27,6 +42,8 @@ export interface TableCart {
   areaName?: string;
   /** Canal de venta fijado al crear el pedido (H5 - fase 2) */
   channel: ChannelType;
+  /** Datos del cliente (solo para delivery) */
+  customerData?: CustomerData;
   /** Items del pedido */
   items: CartItem[];
   /** Timestamp de creación */

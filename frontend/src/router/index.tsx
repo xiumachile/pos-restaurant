@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { ReportsPage } from "@/pages/ReportsPage";
 import { FloorPlanPage } from "@/pages/FloorPlanPage";
+
 import { createBrowserRouter, Navigate, Outlet, Link } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -86,7 +87,7 @@ function SettingsPage() {
       title: t("settings.default_notes_title"),
       description: t("settings.default_notes_desc"),
     },
-  ];
+    ];
 
   return (
     <div>
@@ -266,7 +267,17 @@ export const router = createBrowserRouter([
           }
         ]
       },
-            // Floor Plan: Solo Management (Fase 4.1)
+{ 
+        path: "reports", 
+        element: <RoleProtectedRoute allowedRoles={ROLES.MANAGEMENT} />,
+        children: [
+          {
+            index: true,
+            element: <ReportsPage />
+          }
+        ]
+      },
+      // Floor Plan (Sesión 1B - Desarrollo)
       {
         path: "floor-plan",
         element: <RoleProtectedRoute allowedRoles={ROLES.MANAGEMENT} />,
@@ -281,16 +292,7 @@ export const router = createBrowserRouter([
           }
         ]
       },
-{ 
-        path: "reports", 
-        element: <RoleProtectedRoute allowedRoles={ROLES.MANAGEMENT} />,
-        children: [
-          {
-            index: true,
-            element: <ReportsPage />
-          }
-        ]
-      },
+
       // Ajustes: Solo Management
       { 
         path: "settings", 

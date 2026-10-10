@@ -17,12 +17,16 @@ const KEY = (tableUuid: string) => ["table-orders", tableUuid];
  * - Sin logs de debug
  */
 export function useTableOrders(tableUuid: string | null) {
+  // Validación defensiva: tratar "null" (cadena) como null (valor)
+  // Esto previene llamadas a /tables/null/orders cuando tableUuid es la cadena "null"
+  const validTableUuid = tableUuid === "null" ? null : tableUuid;
+  
   const [localOrders, setLocalOrders] = useState<OrderWithSource[]>([]);
   const previousSignatureRef = useRef<string>("");
 
   // useCallback estabiliza la referencia para evitar recreaciones
   const loadLocalOrders = useCallback(async () => {
-    if (!tableUuid) {
+    if (!validTableUuid) {
       if (previousSignatureRef.current !== "") {
         previousSignatureRef.current = "";
         setLocalOrders([]);
@@ -31,7 +35,7 @@ export function useTableOrders(tableUuid: string | null) {
     }
 
     try {
-      const pendingLocal = await OrderRepository.findPendingByTable(tableUuid);
+      const pendingLocal = await OrderRepository.findPendingByTable(validTableUuid);
       
       const adapted: OrderWithSource[] = [];
       for (const order of pendingLocal) {
@@ -50,10 +54,10 @@ export function useTableOrders(tableUuid: string | null) {
     } catch (error) {
       console.error("[useTableOrders] Error cargando pedidos locales:", error);
     }
-  }, [tableUuid]);
+  }, [validTableUuid]);
 
   useEffect(() => {
-    if (!tableUuid) {
+    if (!validTableUuid) {
       previousSignatureRef.current = "";
       setLocalOrders([]);
       return;
@@ -65,13 +69,13 @@ export function useTableOrders(tableUuid: string | null) {
     // Polling cada 10s (balance entre frescura y performance)
     const interval = setInterval(loadLocalOrders, 10000);
     return () => clearInterval(interval);
-  }, [tableUuid, loadLocalOrders]);
+  }, [validTableUuid, loadLocalOrders]);
 
   // Leer pedidos de la nube (React Query maneja cache y deduplicación)
   const cloudQuery = useQuery<Order[], Error>({
-    queryKey: tableUuid ? KEY(tableUuid) : ["table-orders", "disabled"],
-    queryFn: () => ordersService.listTableOrders(tableUuid!),
-    enabled: !!tableUuid,
+    queryKey: validTableUuid ? KEY(validTableUuid) : ["table-orders", "disabled"],
+    queryFn: () => ordersService.listTableOrders(validTableUuid!),
+    enabled: !!validTableUuid,
     refetchInterval: 15000, // Polling cada 15s (menos agresivo)
     staleTime: 5000,
   });

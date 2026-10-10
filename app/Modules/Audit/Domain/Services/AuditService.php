@@ -9,18 +9,15 @@ use Throwable;
 
 /**
  * Servicio central de auditoría.
- * 
+ *
  * Registra eventos de auditoría de forma inmutable.
  * Nunca debe fallar el flujo principal si el logging falla.
- * 
+ *
  * Principio arquitectónico #8: Todas las acciones críticas deben
  * registrarse de forma inmutable.
  */
 class AuditService
 {
-    /**
-     * Registra un evento de auditoría.
-     */
     public function log(
         string $action,
         string $entityType,
@@ -32,9 +29,7 @@ class AuditService
     ): ?AuditLog {
         try {
             $user = auth()->user();
-            
-            // Obtener company_id y branch_id del usuario autenticado
-            // (más confiable que TenantContext en tests)
+
             $companyId = $user?->company_id;
             $branchId = $user?->branch_id;
 
@@ -56,23 +51,16 @@ class AuditService
                 'occurred_at' => now(),
             ]);
         } catch (Throwable $e) {
-            // Nunca fallar el flujo principal por auditoría
             Log::error('AuditService: Failed to log event', [
                 'action' => $action,
                 'entity_type' => $entityType,
                 'entity_id' => $entityId,
                 'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
             ]);
-            
             return null;
         }
     }
 
-    /**
-     * Registra una cancelación de orden.
-     */
     public function logOrderCancellation($order, ?string $reason = null): ?AuditLog
     {
         return $this->log(
@@ -89,9 +77,6 @@ class AuditService
         );
     }
 
-    /**
-     * Registra un descuento aplicado.
-     */
     public function logDiscountApplied($order, float $amount, ?string $reason = null): ?AuditLog
     {
         return $this->log(
@@ -108,8 +93,33 @@ class AuditService
     }
 
     /**
-     * Registra una apertura de cajón.
+     * HALLAZGO M-04: Registra la eliminación de un item de un pedido.
      */
+    public function logOrderItemRemoved($order, $item, string $reason, int $userId): ?AuditLog
+    {
+        return $this->log(
+            action: 'order_item_removed',
+            entityType: get_class($item),
+            entityId: $item->id,
+            entityUuid: $item->uuid ?? null,
+            payload: [
+                'order_uuid' => $order->uuid,
+                'order_number' => $order->order_number,
+                'product_id' => $item->product_id,
+                'product_name' => $item->name_snapshot,
+                'quantity' => $item->quantity,
+                'unit_price' => $item->unit_price_snapshot,
+                'subtotal_affected' => $item->subtotal,
+                'user_id' => $userId,
+            ],
+            changes: [
+                'quantity' => ['before' => $item->quantity, 'after' => 0],
+                'status' => ['before' => 'active', 'after' => 'removed'],
+            ],
+            reason: $reason
+        );
+    }
+
     public function logDrawerOpened($cashRegister, ?string $reason = null): ?AuditLog
     {
         return $this->log(
@@ -125,9 +135,6 @@ class AuditService
         );
     }
 
-    /**
-     * Registra un cambio de precio.
-     */
     public function logPriceChanged($entity, float $oldPrice, float $newPrice, ?string $reason = null): ?AuditLog
     {
         return $this->log(

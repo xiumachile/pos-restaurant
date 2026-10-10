@@ -126,6 +126,18 @@ enum OrderStatus: string
 
     public function isEditable(): bool
     {
+        return match($this) {
+            self::DRAFT, self::CONFIRMED => true,
+            default => false,
+        };
+    }
+
+    /**
+     * Determina si el pedido puede ser eliminado completamente.
+     * Solo permite eliminación en estado DRAFT.
+     */
+    public function canBeDeleted(): bool
+    {
         return $this === self::DRAFT;
     }
 

@@ -13,6 +13,7 @@ use App\Shared\Http\Middleware\IdempotencyKeyMiddleware;
 // ============================================
 Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class])->group(function () {
     Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
+    Route::get('/orders/active', [OrderController::class, 'active'])->name('orders.active');
     Route::get('/orders/{uuid}', [OrderController::class, 'show'])->name('orders.show');
     Route::get('/cashier/active', [CashierController::class, 'active'])->name('cashier.active');
 });
@@ -46,6 +47,19 @@ Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class, 'id
     Route::post('/orders/{uuid}/dispatch', [OrderTransitionController::class, 'dispatch'])->name('orders.dispatch');
     Route::post('/orders/{uuid}/deliver', [OrderTransitionController::class, 'deliver'])->name('orders.deliver');
     Route::post('/orders/{uuid}/pay', [OrderTransitionController::class, 'pay'])->name('orders.pay');
+    Route::post('/orders/{uuid}/checkout', [OrderTransitionController::class, 'checkout'])->name('orders.checkout');
     Route::post('/orders/{uuid}/close', [OrderTransitionController::class, 'close'])->name('orders.close');
     Route::post('/orders/{uuid}/cancel', [OrderTransitionController::class, 'cancel'])->name('orders.cancel');
+});
+
+// ============================================
+// Settings - Numeración de pedidos (Fase: numeración configurable)
+// ============================================
+Route::prefix('v1')->middleware(['auth:api', TenantContextMiddleware::class])->group(function () {
+    Route::get('/settings/order-numbering', [\Modules\Orders\Interfaces\Controllers\OrderNumberingSettingsController::class, 'show'])
+        ->name('settings.order-numbering.show');
+    Route::put('/settings/order-numbering', [\Modules\Orders\Interfaces\Controllers\OrderNumberingSettingsController::class, 'update'])
+        ->name('settings.order-numbering.update');
+    Route::post('/settings/order-numbering/reset', [\Modules\Orders\Interfaces\Controllers\OrderNumberingSettingsController::class, 'resetSequence'])
+        ->name('settings.order-numbering.reset');
 });
