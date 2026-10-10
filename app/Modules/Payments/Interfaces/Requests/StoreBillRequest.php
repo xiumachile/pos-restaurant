@@ -10,30 +10,36 @@ use Illuminate\Validation\Rule;
 /**
  * StoreBillRequest: Valida payload para sincronización de bills desde frontend offline.
  * 
- * ADR-020: Bills sincronizables en flujo offline
+ * HALLAZGO CA-02: El cliente NO envía montos calculados (subtotal, total, etc.) como fuente de verdad.
+ * En su lugar, envía la INTENCIÓN de división (qué items, qué tipo), y el servidor recalcula todo.
+ * Los campos 'client_*' son solo para diagnóstico y logging de discrepancias.
  */
 class StoreBillRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return in_array($this->user()->role, ['cashier', 'admin', 'manager']);
+        return in_array($this->user()->role, ['cashier', 'admin', 'manager', 'waiter']);
     }
 
     public function rules(): array
     {
         return [
-            'order_uuid' => ['required', 'uuid', 'exists:orders,uuid'],
-            'bill_number' => ['required', 'string', 'max:20'],
-            'type' => ['required', 'string', Rule::in(['single', 'equal_split', 'by_items', 'custom_amount'])],
-            'subtotal' => ['required', 'integer', 'min:0'],
-            'tax_amount' => ['required', 'integer', 'min:0'],
-            'discount_amount' => ['required', 'integer', 'min:0'],
-            'tip_amount' => ['required', 'integer', 'min:0'],
-            'total' => ['required', 'integer', 'min:0'],
-            'paid_amount' => ['required', 'integer', 'min:0'],
-            'remaining_amount' => ['required', 'integer', 'min:0'],
-            'status' => ['required', 'string', Rule::in(['open', 'partial', 'paid', 'cancelled'])],
+            'order_uuid' => ['required', 'uuid'],
             'idempotency_key' => ['required', 'uuid'],
+            'type' => ['required', 'string', Rule::in(['single', 'by_items', 'custom_amount', 'equal_split'])],
+            
+            // Intención de división
+            'item_uuids' => ['nullable', 'array', 'required_if:type,by_items'],
+            'item_uuids.*' => ['string', 'uuid'],
+            
+            'parts' => ['nullable', 'integer', 'min:2', 'required_if:type,equal_split'],
+            
+            'client_amount' => ['nullable', 'integer', 'min:0', 'required_if:type,custom_amount'],
+            
+            // Campos de diagnóstico (opcionales, el servidor los ignora para el cálculo)
+            'client_subtotal' => ['nullable', 'integer'],
+            'client_total' => ['nullable', 'integer'],
+            'client_paid_amount' => ['nullable', 'integer'],
         ];
     }
 
@@ -41,41 +47,41 @@ class StoreBillRequest extends FormRequest
     {
         return [
             'order_uuid.required' => 'El UUID del pedido es requerido.',
-            'order_uuid.exists' => 'El pedido especificado no existe.',
-            'bill_number.required' => 'El número de cuenta es requerido.',
-            'type.in' => 'El tipo debe ser: single, equal_split, by_items o custom_amount.',
-            'subtotal.integer' => 'El subtotal debe ser entero (ADR-018).',
-            'total.integer' => 'El total debe ser entero (ADR-018).',
             'idempotency_key.required' => 'La llave de idempotencia es requerida.',
+            'type.in' => 'El tipo debe ser: single, by_items, custom_amount o equal_split.',
+            'item_uuids.required_if' => 'Los UUIDs de los items son requeridos para división por items.',
+            'parts.required_if' => 'El número de partes es requerido para división igual.',
+            'client_amount.required_if' => 'El monto es requerido para división por monto personalizado.',
         ];
     }
 
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
-            // Validar que order pertenece al tenant (company_id del usuario)
             $orderUuid = $this->input('order_uuid');
             $companyId = $this->user()->company_id;
 
             $order = \Modules\Orders\Domain\Entities\Order::where('uuid', $orderUuid)
                 ->where('company_id', $companyId)
+                ->with('items')
                 ->first();
 
             if (!$order) {
-                $validator->errors()->add('order_uuid', 'El pedido no pertenece a esta empresa.');
+                $validator->errors()->add('order_uuid', 'El pedido no existe o no pertenece a esta empresa.');
                 return;
             }
 
-            // Validar invariante: paid_amount + remaining_amount = total
-            $paidAmount = (int) $this->input('paid_amount');
-            $remainingAmount = (int) $this->input('remaining_amount');
-            $total = (int) $this->input('total');
-
-            if ($paidAmount + $remainingAmount !== $total) {
-                $validator->errors()->add(
-                    'remaining_amount',
-                    'Invariante violada: paid_amount + remaining_amount debe ser igual a total'
-                );
+            // Validar que los item_uuids proporcionados realmente pertenezcan a este order
+            if ($this->input('type') === 'by_items' && $this->has('item_uuids')) {
+                $orderItemUuids = $order->items->pluck('uuid')->toArray();
+                $invalidItems = array_diff($this->input('item_uuids'), $orderItemUuids);
+                
+                if (!empty($invalidItems)) {
+                    $validator->errors()->add(
+                        'item_uuids',
+                        'Uno o más items no pertenecen a este pedido: ' . implode(', ', $invalidItems)
+                    );
+                }
             }
         });
     }

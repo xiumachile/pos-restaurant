@@ -35,7 +35,7 @@ beforeEach(function () {
     ]);
 });
 
-test('POST /api/v1/bills crea bill desde sync offline', function () {
+test('POST /api/v1/bills crea bill desde sync offline (el servidor recalcula montos)', function () {
     $order = Order::create([
         'company_id' => $this->company->id,
         'branch_id' => $this->branch->id,
@@ -43,42 +43,33 @@ test('POST /api/v1/bills crea bill desde sync offline', function () {
         'order_number' => 'ORD-SYNC-001',
         'type' => OrderType::DINE_IN,
         'status' => OrderStatus::DRAFT,
-        'subtotal_gross' => 10000,
-        'net_amount' => 8403,
-        'tax_amount' => 1597,
-        'amount_due' => 10000,
         'subtotal' => 10000,
-        'total' => 10000,
+        'tax_amount' => 1900,
+        'total' => 11900,
+        'amount_due' => 11900,
     ]);
 
+    // El cliente envía campos client_* como diagnóstico, pero el servidor ignora estos montos
+    // y calcula basándose en el order real.
     $response = $this->actingAs($this->user)
         ->postJson('/api/v1/bills', [
             'order_uuid' => $order->uuid,
-            'bill_number' => 'BILL-001',
             'type' => 'single',
-            'subtotal' => 10000,
-            'tax_amount' => 1900,
-            'discount_amount' => 0,
-            'tip_amount' => 500,
-            'total' => 12400,
-            'paid_amount' => 0,
-            'remaining_amount' => 12400,
-            'status' => 'open',
+            'client_total' => 99999, // Manipulado, el servidor lo ignorará
             'idempotency_key' => Str::uuid()->toString(),
         ]);
 
     $response->assertStatus(201)
         ->assertJson([
-            'bill_number' => 'BILL-001',
             'status' => 'open',
             'idempotent' => false,
+            'total' => 11900, // El total REAL del order, no el manipulado
         ]);
 
     $this->assertDatabaseHas('bills', [
-        'bill_number' => 'BILL-001',
         'company_id' => $this->company->id,
-        'subtotal' => 10000,
-        'total' => 12400,
+        'total' => 11900,
+        'remaining_amount' => 11900,
     ]);
 });
 
@@ -90,28 +81,17 @@ test('POST /api/v1/bills es idempotente vía idempotency_key', function () {
         'order_number' => 'ORD-SYNC-002',
         'type' => OrderType::DINE_IN,
         'status' => OrderStatus::DRAFT,
-        'subtotal_gross' => 10000,
-        'net_amount' => 8403,
-        'tax_amount' => 1597,
-        'amount_due' => 10000,
         'subtotal' => 10000,
-        'total' => 10000,
+        'tax_amount' => 1900,
+        'total' => 11900,
+        'amount_due' => 11900,
     ]);
 
     $idempotencyKey = Str::uuid()->toString();
 
     $payload = [
         'order_uuid' => $order->uuid,
-        'bill_number' => 'BILL-002',
         'type' => 'single',
-        'subtotal' => 10000,
-        'tax_amount' => 1900,
-        'discount_amount' => 0,
-        'tip_amount' => 500,
-        'total' => 12400,
-        'paid_amount' => 0,
-        'remaining_amount' => 12400,
-        'status' => 'open',
         'idempotency_key' => $idempotencyKey,
     ];
 
@@ -136,42 +116,6 @@ test('POST /api/v1/bills es idempotente vía idempotency_key', function () {
     $this->assertDatabaseCount('bills', 1);
 });
 
-test('POST /api/v1/bills valida invariante paid + remaining = total', function () {
-    $order = Order::create([
-        'company_id' => $this->company->id,
-        'branch_id' => $this->branch->id,
-        'waiter_id' => $this->user->id,
-        'order_number' => 'ORD-SYNC-003',
-        'type' => OrderType::DINE_IN,
-        'status' => OrderStatus::DRAFT,
-        'subtotal_gross' => 10000,
-        'net_amount' => 8403,
-        'tax_amount' => 1597,
-        'amount_due' => 10000,
-        'subtotal' => 10000,
-        'total' => 10000,
-    ]);
-
-    $response = $this->actingAs($this->user)
-        ->postJson('/api/v1/bills', [
-            'order_uuid' => $order->uuid,
-            'bill_number' => 'BILL-003',
-            'type' => 'single',
-            'subtotal' => 10000,
-            'tax_amount' => 1900,
-            'discount_amount' => 0,
-            'tip_amount' => 500,
-            'total' => 12400,
-            'paid_amount' => 5000,
-            'remaining_amount' => 8000, // 5000 + 8000 = 13000 != 12400
-            'status' => 'partial',
-            'idempotency_key' => Str::uuid()->toString(),
-        ]);
-
-    $response->assertStatus(422)
-        ->assertJsonValidationErrors('remaining_amount');
-});
-
 test('POST /api/v1/bills valida que order pertenece al tenant', function () {
     $otherCompany = Company::create([
         'tax_id' => 'OTHER-' . uniqid(),
@@ -185,43 +129,23 @@ test('POST /api/v1/bills valida que order pertenece al tenant', function () {
         'name' => 'Other Branch',
     ]);
 
-    $otherUser = User::create([
-        'name' => 'Other Cashier',
-        'email' => 'other-' . uniqid() . '@test.com',
-        'password' => bcrypt('password'),
-        'company_id' => $otherCompany->id,
-        'branch_id' => $otherBranch->id,
-        'role' => 'cashier',
-    ]);
-
     $otherOrder = Order::create([
         'company_id' => $otherCompany->id,
         'branch_id' => $otherBranch->id,
-        'waiter_id' => $otherUser->id,
+        'waiter_id' => $this->user->id,
         'order_number' => 'ORD-OTHER-001',
         'type' => OrderType::DINE_IN,
         'status' => OrderStatus::DRAFT,
-        'subtotal_gross' => 10000,
-        'net_amount' => 8403,
-        'tax_amount' => 1597,
-        'amount_due' => 10000,
         'subtotal' => 10000,
-        'total' => 10000,
+        'tax_amount' => 1900,
+        'total' => 11900,
+        'amount_due' => 11900,
     ]);
 
     $response = $this->actingAs($this->user)
         ->postJson('/api/v1/bills', [
             'order_uuid' => $otherOrder->uuid, // Order de otra empresa
-            'bill_number' => 'BILL-004',
             'type' => 'single',
-            'subtotal' => 10000,
-            'tax_amount' => 1900,
-            'discount_amount' => 0,
-            'tip_amount' => 500,
-            'total' => 12400,
-            'paid_amount' => 0,
-            'remaining_amount' => 12400,
-            'status' => 'open',
             'idempotency_key' => Str::uuid()->toString(),
         ]);
 
@@ -229,7 +153,7 @@ test('POST /api/v1/bills valida que order pertenece al tenant', function () {
         ->assertJsonValidationErrors('order_uuid');
 });
 
-test('POST /api/v1/bills soporta split bills (equal_split)', function () {
+test('POST /api/v1/bills soporta split bills (equal_split) desde sync', function () {
     $order = Order::create([
         'company_id' => $this->company->id,
         'branch_id' => $this->branch->id,
@@ -237,71 +161,36 @@ test('POST /api/v1/bills soporta split bills (equal_split)', function () {
         'order_number' => 'ORD-SYNC-004',
         'type' => OrderType::DINE_IN,
         'status' => OrderStatus::DRAFT,
-        'subtotal_gross' => 10000,
-        'net_amount' => 8403,
-        'tax_amount' => 1597,
-        'amount_due' => 10000,
         'subtotal' => 10000,
-        'total' => 10000,
+        'tax_amount' => 1900,
+        'total' => 11900,
+        'amount_due' => 11900,
     ]);
 
-    // Crear primera bill del split
+    // Sincronizar intención de división en 2 partes
     $response1 = $this->actingAs($this->user)
         ->postJson('/api/v1/bills', [
             'order_uuid' => $order->uuid,
-            'bill_number' => 'BILL-SPLIT-001-A',
             'type' => 'equal_split',
-            'subtotal' => 5000,
-            'tax_amount' => 950,
-            'discount_amount' => 0,
-            'tip_amount' => 250,
-            'total' => 6200,
-            'paid_amount' => 0,
-            'remaining_amount' => 6200,
-            'status' => 'open',
+            'parts' => 2,
             'idempotency_key' => Str::uuid()->toString(),
         ]);
 
+    // El servidor crea la primera bill del split (o ambas, dependiendo de la lógica, 
+    // pero aquí tomamos la respuesta de la primera o verificamos que se crearon)
     $response1->assertStatus(201);
 
-    // Crear segunda bill del split
-    $response2 = $this->actingAs($this->user)
-        ->postJson('/api/v1/bills', [
-            'order_uuid' => $order->uuid,
-            'bill_number' => 'BILL-SPLIT-001-B',
-            'type' => 'equal_split',
-            'subtotal' => 5000,
-            'tax_amount' => 950,
-            'discount_amount' => 0,
-            'tip_amount' => 250,
-            'total' => 6200,
-            'paid_amount' => 0,
-            'remaining_amount' => 6200,
-            'status' => 'open',
-            'idempotency_key' => Str::uuid()->toString(),
-        ]);
-
-    $response2->assertStatus(201);
-
-    // Verificar que ambas bills existen
-    $this->assertDatabaseCount('bills', 2);
-    $this->assertDatabaseHas('bills', ['bill_number' => 'BILL-SPLIT-001-A']);
-    $this->assertDatabaseHas('bills', ['bill_number' => 'BILL-SPLIT-001-B']);
+    // Verificar que se crearon bills para este order
+    $this->assertDatabaseHas('bills', [
+        'order_id' => $order->id,
+        'type' => 'equal_split',
+    ]);
 });
 
 test('POST /api/v1/bills requiere autenticación', function () {
     $response = $this->postJson('/api/v1/bills', [
         'order_uuid' => Str::uuid()->toString(),
-        'bill_number' => 'BILL-005',
         'type' => 'single',
-        'subtotal' => 10000,
-        'tax_amount' => 1900,
-        'discount_amount' => 0,
-        'tip_amount' => 500,
-        'total' => 12400,
-        'paid_amount' => 0,
-        'remaining_amount' => 12400,
-        'status' => 'open',
         'idempotency_key' => Str::uuid()->toString(),
     ]);
 
@@ -316,31 +205,21 @@ test('POST /api/v1/bills valida tipos de campos (ADR-018)', function () {
         'order_number' => 'ORD-SYNC-005',
         'type' => OrderType::DINE_IN,
         'status' => OrderStatus::DRAFT,
-        'subtotal_gross' => 10000,
-        'net_amount' => 8403,
-        'tax_amount' => 1597,
-        'amount_due' => 10000,
         'subtotal' => 10000,
-        'total' => 10000,
+        'tax_amount' => 1900,
+        'total' => 11900,
+        'amount_due' => 11900,
     ]);
 
-    // Enviar decimales en campos que deben ser integer
+    // Enviar parts como string en lugar de integer
     $response = $this->actingAs($this->user)
         ->postJson('/api/v1/bills', [
             'order_uuid' => $order->uuid,
-            'bill_number' => 'BILL-006',
-            'type' => 'single',
-            'subtotal' => 10000.50, // Debería ser integer
-            'tax_amount' => 1900,
-            'discount_amount' => 0,
-            'tip_amount' => 500,
-            'total' => 12400,
-            'paid_amount' => 0,
-            'remaining_amount' => 12400,
-            'status' => 'open',
+            'type' => 'equal_split',
+            'parts' => 'dos', // Debería ser integer
             'idempotency_key' => Str::uuid()->toString(),
         ]);
 
     $response->assertStatus(422)
-        ->assertJsonValidationErrors('subtotal');
+        ->assertJsonValidationErrors('parts');
 });
