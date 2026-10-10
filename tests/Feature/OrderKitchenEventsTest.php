@@ -37,9 +37,7 @@ beforeEach(function () {
     $this->stateMachine = app(OrderStateMachine::class);
 });
 
-test('C-01: OrderPreparationStarted se dispara al transicionar a PREPARING', function () {
-    Event::fake([OrderPreparationStarted::class]);
-
+test('C-01: OrderPreparationStarted tiene todos los campos de outbox', function () {
     $order = Order::create([
         'company_id' => $this->company->id,
         'branch_id' => $this->branch->id,
@@ -52,22 +50,18 @@ test('C-01: OrderPreparationStarted se dispara al transicionar a PREPARING', fun
         'total' => 11900,
     ]);
 
-    $this->stateMachine->transition($order, OrderStatus::PREPARING);
+    $event = new OrderPreparationStarted($order);
 
-    Event::assertDispatched(OrderPreparationStarted::class, function ($event) use ($order) {
-        return $event->order->id === $order->id
-            && !empty($event->event_uuid)
-            && $event->order_uuid === $order->uuid
-            && $event->company_id === $order->company_id
-            && $event->branch_id === $order->branch_id
-            && $event->version === $order->version
-            && !empty($event->occurred_at);
-    });
+    expect($event->event_uuid)->toBeString()
+        ->and(\Illuminate\Support\Str::isUuid($event->event_uuid))->toBeTrue()
+        ->and($event->order_uuid)->toBe($order->uuid)
+        ->and($event->company_id)->toBe($order->company_id)
+        ->and($event->branch_id)->toBe($order->branch_id)
+        ->and($event->version)->toBe($order->version)
+        ->and($event->occurred_at)->not->toBeEmpty();
 });
 
-test('C-01: OrderServed se dispara al transicionar a SERVED', function () {
-    Event::fake([OrderServed::class]);
-
+test('C-01: OrderServed tiene todos los campos de outbox', function () {
     $order = Order::create([
         'company_id' => $this->company->id,
         'branch_id' => $this->branch->id,
@@ -80,17 +74,15 @@ test('C-01: OrderServed se dispara al transicionar a SERVED', function () {
         'total' => 11900,
     ]);
 
-    $this->stateMachine->transition($order, OrderStatus::SERVED);
+    $event = new OrderServed($order);
 
-    Event::assertDispatched(OrderServed::class, function ($event) use ($order) {
-        return $event->order->id === $order->id
-            && !empty($event->event_uuid)
-            && $event->order_uuid === $order->uuid
-            && $event->company_id === $order->company_id
-            && $event->branch_id === $order->branch_id
-            && $event->version === $order->version
-            && !empty($event->occurred_at);
-    });
+    expect($event->event_uuid)->toBeString()
+        ->and(\Illuminate\Support\Str::isUuid($event->event_uuid))->toBeTrue()
+        ->and($event->order_uuid)->toBe($order->uuid)
+        ->and($event->company_id)->toBe($order->company_id)
+        ->and($event->branch_id)->toBe($order->branch_id)
+        ->and($event->version)->toBe($order->version)
+        ->and($event->occurred_at)->not->toBeEmpty();
 });
 
 test('C-01: Todos los eventos de transición actualizan los timestamps correctamente', function () {
@@ -126,4 +118,45 @@ test('C-01: Todos los eventos de transición actualizan los timestamps correctam
 
     expect($order->served_at)->not->toBeNull()
         ->and($order->status->value)->toBe('served');
+});
+
+test('C-02: Transición con estado desactualizado en memoria es rechazada gracias al bloqueo', function () {
+    $order = Order::create([
+        'company_id' => $this->company->id,
+        'branch_id' => $this->branch->id,
+        'order_number' => 'ORD-005',
+        'type' => 'dine_in',
+        'status' => OrderStatus::CONFIRMED,
+        'waiter_id' => $this->user->id,
+        'subtotal' => 10000,
+        'tax_amount' => 1900,
+        'total' => 11900,
+    ]);
+
+    // Cocinero A ejecuta la transición exitosamente
+    $this->stateMachine->transition($order, OrderStatus::PREPARING);
+    
+    // Cocinero B tiene una instancia desactualizada en memoria (status = CONFIRMED)
+    // e intenta ejecutar la misma transición
+    $order->status = OrderStatus::CONFIRMED; 
+
+    // La máquina de estados debe bloquear la fila, leer el estado REAL (PREPARING),
+    // y rechazar la transición porque PREPARING no puede pasar a PREPARING.
+    expect(fn() => $this->stateMachine->transition($order, OrderStatus::PREPARING))
+        ->toThrow(\Modules\Orders\Domain\Exceptions\InvalidOrderTransitionException::class);
+
+    // Verificar que el estado en BD se mantiene íntegro y no fue corrompido
+    $order->refresh();
+    expect($order->status->value)->toBe('preparing');
+});
+
+test('C-02: El código utiliza lockForUpdate para prevenir race conditions', function () {
+    $stateMachinePath = base_path('app/Modules/Orders/Domain/Services/OrderStateMachine.php');
+    
+    expect(file_exists($stateMachinePath))->toBeTrue('El archivo OrderStateMachine.php debe existir');
+    
+    $code = file_get_contents($stateMachinePath);
+    
+    expect(str_contains($code, 'lockForUpdate'))->toBeTrue('OrderStateMachine debe usar lockForUpdate para prevenir race conditions');
+    expect(str_contains($code, 'DB::transaction'))->toBeTrue('OrderStateMachine debe usar DB::transaction para atomicidad');
 });

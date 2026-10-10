@@ -18,31 +18,45 @@ use Modules\Orders\Domain\ValueObjects\OrderStatus;
 
 class OrderStateMachine
 {
+    /**
+     * HALLAZGO C-02: Protección contra transiciones concurrentes.
+     * Utiliza bloqueo pesimista (lockForUpdate) para garantizar que dos cocineros
+     * no procesen la misma transición simultáneamente sobre un estado desactualizado.
+     */
     public function transition(Order $order, OrderStatus $newStatus, ?string $reason = null): Order
     {
-        $this->assertCanTransitionForOrder($order, $newStatus);
-
-        if ($newStatus === OrderStatus::CANCELLED && empty($reason)) {
-            throw InvalidOrderTransitionException::requiresReason();
-        }
-
         return DB::transaction(function () use ($order, $newStatus, $reason) {
-            $order->status = $newStatus;
-            $this->updateTimestamp($order, $newStatus);
+            // 1. Bloquear la fila del pedido para lectura/escritura exclusiva
+            // Se incluye company_id para mantener el aislamiento de tenant incluso en el lock
+            $lockedOrder = Order::where('id', $order->id)
+                ->where('company_id', $order->company_id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-            if ($newStatus === OrderStatus::CANCELLED) {
-                $order->cancellation_reason = $reason;
+            // 2. Validar la transición con el estado REAL y actualizado de la base de datos
+            // Si otro proceso ya cambió el estado, esta validación fallará de forma controlada
+            $this->assertCanTransitionForOrder($lockedOrder, $newStatus);
+
+            if ($newStatus === OrderStatus::CANCELLED && empty($reason)) {
+                throw InvalidOrderTransitionException::requiresReason();
             }
 
-            $order->save();
+            // 3. Aplicar cambios
+            $lockedOrder->status = $newStatus;
+            $this->updateTimestamp($lockedOrder, $newStatus);
 
-            // HALLAZGO C-01 & M-03: DB::afterCommit garantiza que el evento solo se despache
-            // si la transacción de base de datos se confirma exitosamente.
-            DB::afterCommit(function () use ($order, $newStatus) {
-                $this->dispatchEvent($order, $newStatus);
+            if ($newStatus === OrderStatus::CANCELLED) {
+                $lockedOrder->cancellation_reason = $reason;
+            }
+
+            $lockedOrder->save();
+
+            // 4. Despachar eventos solo si el commit es exitoso (Hallazgo M-03)
+            DB::afterCommit(function () use ($lockedOrder, $newStatus) {
+                $this->dispatchEvent($lockedOrder, $newStatus);
             });
 
-            return $order;
+            return $lockedOrder;
         });
     }
 
@@ -79,9 +93,6 @@ class OrderStateMachine
         };
     }
 
-    /**
-     * HALLAZGO C-01: Despacha eventos de dominio para TODAS las transiciones operacionales significativas.
-     */
     protected function dispatchEvent(Order $order, OrderStatus $status): void
     {
         $event = match($status) {
@@ -96,7 +107,6 @@ class OrderStateMachine
         };
 
         if ($event) {
-            // Usar la función helper event() para despachar una instancia ya creada
             event($event);
         }
     }
