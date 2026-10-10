@@ -3,10 +3,10 @@
 namespace Modules\Payments\Domain\Services;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Modules\Payments\Domain\Entities\CashSession;
 use Modules\Payments\Domain\Exceptions\PaymentException;
 use Modules\Payments\Domain\ValueObjects\CashSessionStatus;
-use Modules\Payments\Domain\ValueObjects\PaymentMethodType;
 use Modules\Cashier\Domain\Events\DrawerOpened;
 
 /**
@@ -50,14 +50,15 @@ class CashSessionService
             ]);
 
             // Disparar evento de auditoría
-            DrawerOpened::dispatch($session, $notes ?? 'Apertura de sesión de caja');
+            DrawerOpened::dispatch($session, $notes ?? 'Apertura de sesión de caja / 打开收银会话');
 
             return $session;
         });
     }
 
     /**
-     * Cierra una sesión de caja con arqueo.
+     * CA-05 FIX: Cierra una sesión de caja con arqueo, bloqueando la sesión para evitar
+     * race conditions con pagos concurrentes.
      */
     public function closeSession(
         CashSession $session,
@@ -65,21 +66,21 @@ class CashSessionService
         ?string $notes = null
     ): CashSession {
         return DB::transaction(function () use ($session, $closingAmount, $notes) {
-            if (!$session->status->isActive()) {
+            // CA-05: Bloquear la sesión para evitar que se registren pagos concurrentemente
+            $lockedSession = CashSession::where('id', $session->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            // CA-05: Verificar que sigue abierta después del bloqueo
+            if (!$lockedSession->status->isActive()) {
                 throw PaymentException::cashSessionNotOpen();
             }
 
-            // ═══════════════════════════════════════════════════
-            // CÁLCULO NETO: esperado con propinas descontadas
-            // ═══════════════════════════════════════════════════
-            // calculateExpectedAmountForClose() ya incluye:
-            // - ENTRADAS: opening + ventas_efectivo + propinas_efectivo
-            // - SALIDAS: todas las propinas entregadas físicamente
-            // El wizard del frontend obliga a entregar propinas antes del arqueo
-            $expected = $session->calculateExpectedAmountForClose();
+            // CA-05: Calcular el monto esperado con la sesión bloqueada
+            $expected = $lockedSession->calculateExpectedAmountForClose();
             
-            \Log::info('Cierre de caja', [
-                'session' => $session->session_number,
+            Log::info('Cierre de caja / 关闭收银会话', [
+                'session' => $lockedSession->session_number,
                 'expected' => $expected,
                 'closing_amount' => $closingAmount,
             ]);
@@ -87,15 +88,15 @@ class CashSessionService
             // Calcular diferencia
             $difference = $closingAmount - $expected;
 
-            $session->status = CashSessionStatus::CLOSED;
-            $session->closing_amount = $closingAmount;
-            $session->expected_amount = $expected;
-            $session->difference = $difference;
-            $session->closing_notes = $notes;
-            $session->closed_at = now();
-            $session->save();
+            $lockedSession->status = CashSessionStatus::CLOSED;
+            $lockedSession->closing_amount = $closingAmount;
+            $lockedSession->expected_amount = $expected;
+            $lockedSession->difference = $difference;
+            $lockedSession->closing_notes = $notes;
+            $lockedSession->closed_at = now();
+            $lockedSession->save();
 
-            return $session;
+            return $lockedSession;
         });
     }
 

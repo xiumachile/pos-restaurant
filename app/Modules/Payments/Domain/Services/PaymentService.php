@@ -36,7 +36,6 @@ class PaymentService
 
         $this->validateTenantInvariants($order, $paymentMethod, $bill, $cashSession);
 
-        // HALLAZGO CA-01: Hash del payload para detectar reutilización maliciosa o errónea
         $payloadHash = hash('sha256', json_encode([
             'order_id' => $order->id,
             'bill_id' => $bill?->id,
@@ -49,8 +48,7 @@ class PaymentService
             $order, $paymentMethod, $amount, $idempotencyKey, $payloadHash,
             $bill, $cashSession, $userId, $tipAmount, $referenceCode, $notes
         ) {
-            // HALLAZGO CA-01: Bloquear el pedido y la cuenta (si existe) para evitar race conditions
-            // en el cálculo del saldo disponible y prevención de doble cobro.
+            // CA-05: Bloquear el pedido y la cuenta para evitar race conditions
             $lockedOrder = Order::where('id', $order->id)
                 ->where('company_id', $order->company_id)
                 ->lockForUpdate()
@@ -64,7 +62,21 @@ class PaymentService
                     ->firstOrFail();
             }
 
-            Log::info('Payment registration started', [
+            // CA-05: Bloquear la sesión de caja si existe, para evitar que se cierre concurrentemente
+            $lockedCashSession = null;
+            if ($cashSession) {
+                $lockedCashSession = CashSession::where('id', $cashSession->id)
+                    ->where('company_id', $cashSession->company_id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                // CA-05: Verificar que la sesión sigue abierta después del bloqueo
+                if (!$lockedCashSession->canReceivePayments()) {
+                    throw PaymentException::cashSessionNotOpen();
+                }
+            }
+
+            Log::info('Payment registration started / 开始注册付款', [
                 'order_id' => $lockedOrder->id,
                 'payment_method' => $paymentMethod->code,
                 'amount' => $amount,
@@ -72,7 +84,6 @@ class PaymentService
                 'idempotency_key' => $idempotencyKey,
             ]);
 
-            // HALLAZGO CA-01: Verificación de idempotencia con validación de payload
             $existing = Payment::where('company_id', $lockedOrder->company_id)
                 ->where('branch_id', $lockedOrder->branch_id)
                 ->where('idempotency_key', $idempotencyKey)
@@ -80,13 +91,13 @@ class PaymentService
 
             if ($existing) {
                 if ($existing->payload_hash === $payloadHash) {
-                    Log::info('PaymentService: Idempotency match, returning existing payment', [
+                    Log::info('PaymentService: Idempotency match / 幂等性匹配', [
                         'payment_id' => $existing->id,
                         'idempotency_key' => $idempotencyKey,
                     ]);
                     return $existing;
                 } else {
-                    Log::warning('PaymentService: Idempotency key reused with different payload', [
+                    Log::warning('PaymentService: Idempotency key reused with different payload / 幂等键被重用且负载不同', [
                         'payment_id' => $existing->id,
                         'idempotency_key' => $idempotencyKey,
                         'expected_hash' => $payloadHash,
@@ -121,7 +132,7 @@ class PaymentService
                     'branch_id' => $lockedOrder->branch_id,
                     'order_id' => $lockedOrder->id,
                     'bill_id' => $lockedBill?->id,
-                    'cash_session_id' => $cashSession?->id,
+                    'cash_session_id' => $lockedCashSession?->id,
                     'payment_method_id' => $paymentMethod->id,
                     'user_id' => $userId,
                     'payment_number' => Payment::generatePaymentNumber($lockedOrder->branch->code, $lockedOrder->branch_id),
@@ -137,9 +148,8 @@ class PaymentService
                     'paid_at' => now(),
                 ]);
             } catch (\Illuminate\Database\QueryException $e) {
-                // HALLAZGO 13 / CA-01: Manejar violación de restricción única (race condition)
                 if (str_contains($e->getMessage(), '23505') || str_contains($e->getMessage(), 'payments_tenant_idempotency_unique')) {
-                    Log::warning('Idempotency race condition caught at DB level', [
+                    Log::warning('Idempotency race condition caught at DB level / 在数据库级别捕获幂等竞争条件', [
                         'idempotency_key' => $idempotencyKey,
                         'order_id' => $lockedOrder->id,
                     ]);
