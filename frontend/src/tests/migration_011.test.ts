@@ -116,7 +116,7 @@ describe('Migration 011: Chilean POS model (ADR-011)', () => {
     expect(bill.grand_total).toBe(10000);
     expect(bill.tip_amount).toBe(1000);
     expect(bill.amount_due).toBe(11000);
-    expect(bill.remaining_amount).toBe(10000); // Sin pagos aún (solo venta, sin propina)
+    expect(bill.remaining_amount).toBe(11000); // CA-04 FIX: Sin pagos, remaining = amount_due (venta + propina)
   });
 
   it('Validación: net_amount + tax_amount = grand_total', async () => {
