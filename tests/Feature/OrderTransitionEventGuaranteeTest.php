@@ -54,13 +54,18 @@ test('M-03: Transición exitosa despacha evento correctamente', function () {
 test('M-03: El código utiliza DB::transaction y DB::afterCommit para garantías de publicación', function () {
     // Verificación estática del código fuente para garantizar las protecciones arquitectónicas
     $stateMachinePath = base_path('app/Modules/Orders/Domain/Services/OrderStateMachine.php');
+    $eventPath = base_path('app/Modules/Orders/Domain/Events/OrderConfirmed.php');
     
     expect(file_exists($stateMachinePath))->toBeTrue('El archivo OrderStateMachine.php debe existir');
+    expect(file_exists($eventPath))->toBeTrue('El archivo OrderConfirmed.php debe existir');
     
-    $code = file_get_contents($stateMachinePath);
+    $stateMachineCode = file_get_contents($stateMachinePath);
+    $eventCode = file_get_contents($eventPath);
     
     // Sintaxis correcta de Pest: evaluar la condición booleana y pasar el mensaje
-    expect(str_contains($code, 'DB::transaction'))->toBeTrue('Debe usar DB::transaction para atomicidad');
-    expect(str_contains($code, 'DB::afterCommit'))->toBeTrue('Debe usar DB::afterCommit para garantizar que el evento solo se despache si la transacción tiene éxito');
-    expect(str_contains($code, 'event_uuid'))->toBeTrue('El evento debe incluir un UUID único para deduplicación en listeners');
+    expect(str_contains($stateMachineCode, 'DB::transaction'))->toBeTrue('OrderStateMachine debe usar DB::transaction para atomicidad');
+    expect(str_contains($stateMachineCode, 'DB::afterCommit'))->toBeTrue('OrderStateMachine debe usar DB::afterCommit para garantizar que el evento solo se despache si la transacción tiene éxito');
+    
+    // Verificar que el evento tiene el UUID único
+    expect(str_contains($eventCode, 'event_uuid'))->toBeTrue('El evento OrderConfirmed debe incluir un UUID único para deduplicación en listeners');
 });
