@@ -5,6 +5,7 @@ namespace Modules\Audit\Domain\Listeners;
 use Modules\Audit\Domain\Services\AuditService;
 use Modules\Orders\Domain\Events\OrderCancelled;
 use Modules\Orders\Domain\Events\OrderDiscountApplied;
+use Modules\Orders\Domain\Events\OrderItemRemoved;
 
 /**
  * Listener que registra eventos de Orders en el audit log.
@@ -15,10 +16,6 @@ class AuditOrderEvents
         protected AuditService $auditService
     ) {}
 
-    /**
-     * Registra cancelación de orden.
-     * OrderCancelled solo tiene $order; el reason está en $order->cancellation_reason
-     */
     public function handleOrderCancelled(OrderCancelled $event): void
     {
         $this->auditService->logOrderCancellation(
@@ -27,15 +24,25 @@ class AuditOrderEvents
         );
     }
 
-    /**
-     * Registra descuento aplicado.
-     */
     public function handleOrderDiscountApplied(OrderDiscountApplied $event): void
     {
         $this->auditService->logDiscountApplied(
             order: $event->order,
             amount: $event->discountAmount,
             reason: $event->reason
+        );
+    }
+
+    /**
+     * HALLAZGO M-04: Registra la eliminación de un item del pedido.
+     */
+    public function handleOrderItemRemoved(OrderItemRemoved $event): void
+    {
+        $this->auditService->logOrderItemRemoved(
+            order: $event->order,
+            item: $event->item,
+            reason: $event->reason,
+            userId: $event->userId
         );
     }
 }

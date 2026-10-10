@@ -50,6 +50,9 @@ class OrderEventServiceProvider extends ServiceProvider
             AuditOrderEvents::class . '@handleOrderCancelled',
         ],
         OrderDiscountApplied::class => [
+        OrderItemRemoved::class => [
+            AuditOrderEvents::class . '@handleOrderItemRemoved',
+        ],
             AuditOrderEvents::class . '@handleOrderDiscountApplied',
         ],
         DrawerOpened::class => [

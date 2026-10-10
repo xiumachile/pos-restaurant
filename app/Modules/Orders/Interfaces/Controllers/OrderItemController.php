@@ -6,11 +6,11 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Modules\Catalog\Domain\Entities\MenuItem;
 use Modules\Catalog\Domain\Entities\Product;
 use Modules\Orders\Domain\Entities\Order;
 use Modules\Orders\Domain\Entities\OrderItem;
+use Modules\Orders\Domain\Events\OrderItemRemoved;
 use Modules\Orders\Interfaces\Requests\AddItemRequest;
 use Modules\Orders\Interfaces\Resources\OrderResource;
 
@@ -136,15 +136,12 @@ class OrderItemController extends Controller
                 ->where('order_id', $order->id)
                 ->firstOrFail();
 
-            Log::info('Order item removed', [
-                'order_id' => $order->id,
-                'order_uuid' => $order->uuid,
-                'item_id' => $item->id,
-                'item_uuid' => $item->uuid,
-                'product_id' => $item->product_id,
-                'user_id' => $request->user()->id,
-                'reason' => 'manual_removal',
-            ]);
+            // HALLAZGO M-04: Disparar evento de auditoría ANTES de eliminar el item
+            // Se usa DB::afterCommit para garantizar que el log de auditoría solo se registre
+            // si la transacción de eliminación se confirma exitosamente.
+            DB::afterCommit(function () use ($order, $item, $request) {
+                OrderItemRemoved::dispatch($order, $item, 'manual_removal', $request->user()->id);
+            });
 
             $item->delete();
 
