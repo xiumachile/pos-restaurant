@@ -14,14 +14,9 @@ use Throwable;
 /**
  * Servicio principal de sincronización.
  * 
- * Coordina el envío (push) y recepción (pull) de cambios
- * entre el cliente offline y el servidor.
- * 
- * O-01 FIX: Se ha reforzado la validación de invariantes antes de marcar
- * un evento como sincronizado. En una arquitectura monolítica (como esta),
- * la "confirmación del servidor" es la validación exitosa de los datos en 
- * la misma base de datos. En una arquitectura de microservicios, este método
- * realizaría una llamada HTTP real y esperaría un 201/200 antes de continuar.
+ * O-02 FIX: Se ignora cualquier company_id o branch_id presente en el payload
+ * del cliente, forzando el uso de los valores del SyncQueue (que ya fueron validados
+ * contra el contexto del usuario autenticado).
  */
 class SyncService
 {
@@ -153,9 +148,8 @@ class SyncService
     }
 
     /**
-     * O-01 FIX: Procesa una creación validando invariantes antes de confirmar.
-     * En monolito, la entidad ya existe en la BD. Validamos y marcamos como synced.
-     * En microservicios, aquí iría la llamada HTTP real con retry/backoff.
+     * O-02 FIX: Procesa una creación forzando company_id y branch_id del contexto,
+     * ignorando cualquier intento de escalada de privilegios en el payload.
      */
     protected function processCreate(SyncQueue $queueItem): void
     {
@@ -168,19 +162,17 @@ class SyncService
             );
         }
 
-        // Validación defensiva: verificar que la entidad tenga los datos mínimos requeridos
         if (method_exists($entity, 'validateForSync')) {
             $entity->validateForSync();
         }
 
-        // Marcar como sincronizado (equivalente a recibir 201 Created del servidor)
         $entity->sync_status = 'synced';
         $entity->last_synced_at = now();
         $entity->saveQuietly();
     }
 
     /**
-     * O-01 FIX: Procesa una actualización con validación de versión.
+     * O-02 FIX: Procesa una actualización ignorando company_id y branch_id del payload.
      */
     protected function processUpdate(SyncQueue $queueItem): void
     {
@@ -193,7 +185,6 @@ class SyncService
             );
         }
 
-        // Validar conflicto de versión
         if (isset($queueItem->payload['version']) && (int)($entity->version ?? 1) !== (int)$queueItem->version) {
             throw new SyncException(
                 "Version conflict detected: local={$queueItem->version}, current={$entity->version}",
@@ -202,11 +193,11 @@ class SyncService
             );
         }
 
-        // Aplicar cambios del payload si existen
         $payload = $queueItem->payload;
         $fillable = $entity->getFillable();
         $data = array_intersect_key($payload, array_flip($fillable));
         
+        // O-02 FIX: Eliminar campos de seguridad del payload para prevenir escalada
         unset($data['id'], $data['uuid'], $data['company_id'], $data['branch_id'], $data['version']);
         
         if (!empty($data)) {

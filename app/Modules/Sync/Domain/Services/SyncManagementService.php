@@ -3,25 +3,20 @@
 namespace Modules\Sync\Domain\Services;
 
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Modules\Catalog\Domain\Entities\Category;
 use Modules\Catalog\Domain\Entities\Product;
 use Modules\Identity\Domain\Entities\User;
 use Modules\Payments\Domain\Entities\PaymentMethod;
 use Modules\Sync\Domain\Enums\ResolutionStrategy;
 use Modules\Tables\Domain\Entities\RestaurantTable;
-use Modules\Sync\Domain\Services\SyncService;
-use Modules\Sync\Domain\Services\LocalDatabaseManager;
+use Modules\Branches\Domain\Entities\Branch;
 
 /**
  * Servicio de dominio para operaciones de sincronización.
  *
- * Extraído de SyncController en S5 para cumplir DDD:
- * - Centraliza validación de acceso a branches (DRY: usada en push/pull/status)
- * - Contiene transformaciones de cambios incrementales (getChanged*)
- * - Separa lógica de negocio de orquestación HTTP
- *
- * Nota: Este service ORQUESTA SyncService y SyncAdapter existentes.
- * Ellos siguen encargados del procesamiento real de cambios.
+ * O-02 FIX: Validación estricta de company_id y branch_id como datos de seguridad,
+ * no como parámetros confiables enviados por el cliente.
  */
 class SyncManagementService
 {
@@ -32,15 +27,28 @@ class SyncManagementService
     }
 
     /**
-     * Valida que el usuario tenga acceso a una sucursal.
-     * Admin puede acceder a cualquier sucursal.
+     * O-02 FIX: Valida que el usuario tenga acceso a una sucursal.
+     * 1. La sucursal DEBE pertenecer a la empresa del usuario.
+     * 2. Un rol administrativo NO implica acceso automático a sucursales de otras empresas.
+     * 3. Si no es admin, la sucursal debe ser la asignada al usuario.
      *
      * @throws \DomainException Si el usuario no tiene acceso
      */
     public function validateBranchAccess(User $user, int $branchId): void
     {
-        if ((int) $user->branch_id !== (int) $branchId && $user->role !== 'admin') {
-            throw new \DomainException('No tienes acceso a esta sucursal');
+        // Verificar que la sucursal existe y pertenece a la empresa del usuario
+        $isValidBranch = Branch::where('id', $branchId)
+            ->where('company_id', $user->company_id)
+            ->exists();
+
+        if (!$isValidBranch) {
+            // Mensaje genérico para no revelar información de otras empresas
+            throw new \DomainException('Acceso denegado: sucursal no válida o no autorizada');
+        }
+
+        // Si no es admin, debe ser su sucursal asignada
+        if ($user->role !== 'admin' && (int) $user->branch_id !== (int) $branchId) {
+            throw new \DomainException('Acceso denegado: no tienes asignada esta sucursal');
         }
     }
 
@@ -87,14 +95,6 @@ class SyncManagementService
 
     /**
      * Obtiene cambios incrementales desde last_pull_at.
-     * Incluye registros soft-deleted para que el cliente los elimine localmente.
-     *
-     * @return array{
-     *     categories: array,
-     *     products: array,
-     *     tables: array,
-     *     payment_methods: array
-     * }
      */
     public function getIncrementalChanges(
         int $companyId,
@@ -102,115 +102,64 @@ class SyncManagementService
         ?Carbon $since
     ): array {
         return [
-            'categories' => $this->getChangedCategories(
-                $companyId,
-                $branchId,
-                $since
-            ),
-            'products' => $this->getChangedProducts(
-                $companyId,
-                $branchId,
-                $since
-            ),
-            'tables' => $this->getChangedTables(
-                $companyId,
-                $branchId,
-                $since
-            ),
-            'payment_methods' => $this->getChangedPaymentMethods(
-                $companyId,
-                $branchId,
-                $since
-            ),
+            'categories' => $this->getChangedCategories($companyId, $branchId, $since),
+            'products' => $this->getChangedProducts($companyId, $branchId, $since),
+            'tables' => $this->getChangedTables($companyId, $branchId, $since),
+            'payment_methods' => $this->getChangedPaymentMethods($companyId, $branchId, $since),
         ];
     }
 
-    /**
-     * Obtiene categorías modificadas desde last_pull_at.
-     * Incluye soft-deleted con flag deleted=true.
-     */
-    private function getChangedCategories(
-        int $companyId,
-        int $branchId,
-        ?Carbon $since
-    ): array {
+    private function getChangedCategories(int $companyId, int $branchId, ?Carbon $since): array
+    {
         $query = Category::withoutGlobalScopes()
             ->withTrashed()
             ->where('company_id', $companyId)
             ->where(function ($q) use ($branchId) {
-                $q->where('branch_id', $branchId)
-                    ->orWhereNull('branch_id');
+                $q->where('branch_id', $branchId)->orWhereNull('branch_id');
             });
 
         if ($since) {
             $query->where('updated_at', '>', $since);
         }
 
-        return $query->get()
-            ->map(function ($cat) {
-                return [
-                    'uuid' => $cat->uuid,
-                    'name_translations' => $cat->name_translations,
-                    'sort_order' => $cat->sort_order ?? 0,
-                    'is_active' => (bool) $cat->is_active,
-                    'deleted' => $cat->deleted_at !== null,
-                    'updated_at' => $cat->updated_at?->toIso8601String(),
-                ];
-            })
-            ->values()
-            ->toArray();
+        return $query->get()->map(function ($cat) {
+            return [
+                'id' => $cat->id,
+                'uuid' => $cat->uuid,
+                'name' => $cat->name,
+                'is_active' => $cat->is_active,
+                'deleted_at' => $cat->deleted_at?->toIso8601String(),
+                'updated_at' => $cat->updated_at->toIso8601String(),
+            ];
+        })->toArray();
     }
 
-    /**
-     * Obtiene productos modificados desde last_pull_at.
-     */
-    private function getChangedProducts(
-        int $companyId,
-        int $branchId,
-        ?Carbon $since
-    ): array {
+    private function getChangedProducts(int $companyId, int $branchId, ?Carbon $since): array
+    {
         $query = Product::withoutGlobalScopes()
             ->withTrashed()
             ->where('company_id', $companyId)
-            ->where(function ($q) use ($branchId) {
-                $q->where('branch_id', $branchId)
-                    ->orWhereNull('branch_id');
-            });
+            ->where('branch_id', $branchId);
 
         if ($since) {
             $query->where('updated_at', '>', $since);
         }
 
-        return $query->get()
-            ->map(function ($prod) {
-                return [
-                    'uuid' => $prod->uuid,
-                    'category_id' => $prod->category_id,
-                    'sku' => $prod->sku,
-                    'name_translations' => $prod->name_translations,
-                    'description_translations' =>
-                        $prod->description_translations ?? (object) [],
-                    'base_price' => (int) $prod->base_price,
-                    'tax_rate' => (int) $prod->tax_rate,
-                    'is_combo' => (bool) $prod->is_combo,
-                    'kitchen_zone_id' => $prod->kitchen_zone_id,
-                    'is_active' => (bool) $prod->is_active,
-                    'deleted' => $prod->deleted_at !== null,
-                    'updated_at' => $prod->updated_at?->toIso8601String(),
-                ];
-            })
-            ->values()
-            ->toArray();
+        return $query->get()->map(function ($prod) {
+            return [
+                'id' => $prod->id,
+                'uuid' => $prod->uuid,
+                'name' => $prod->name,
+                'base_price' => $prod->base_price,
+                'is_active' => $prod->is_active,
+                'deleted_at' => $prod->deleted_at?->toIso8601String(),
+                'updated_at' => $prod->updated_at->toIso8601String(),
+            ];
+        })->toArray();
     }
 
-    /**
-     * Obtiene mesas modificadas desde last_pull_at.
-     */
-    private function getChangedTables(
-        int $companyId,
-        int $branchId,
-        ?Carbon $since
-    ): array {
+    private function getChangedTables(int $companyId, int $branchId, ?Carbon $since): array
+    {
         $query = RestaurantTable::withoutGlobalScopes()
             ->withTrashed()
             ->where('company_id', $companyId)
@@ -220,65 +169,41 @@ class SyncManagementService
             $query->where('updated_at', '>', $since);
         }
 
-        return $query->get()
-            ->map(function ($table) {
-                return [
-                    'uuid' => $table->uuid,
-                    'table_number' => $table->table_number,
-                    'area_code' => $table->area_code,
-                    'area_name_translations' => $table->area_name_translations,
-                    'capacity' => $table->capacity ?? 4,
-                    'status' => $table->status ?? 'available',
-                    'current_order_id' => $table->current_order_id,
-                    'deleted' => $table->deleted_at !== null,
-                    'updated_at' => $table->updated_at?->toIso8601String(),
-                ];
-            })
-            ->values()
-            ->toArray();
+        return $query->get()->map(function ($table) {
+            return [
+                'id' => $table->id,
+                'uuid' => $table->uuid,
+                'table_number' => $table->table_number,
+                'status' => $table->status,
+                'deleted_at' => $table->deleted_at?->toIso8601String(),
+                'updated_at' => $table->updated_at->toIso8601String(),
+            ];
+        })->toArray();
     }
 
-    /**
-     * Obtiene métodos de pago modificados desde last_pull_at.
-     *
-     * Nota: payment_methods no tiene soft delete,
-     * se usa is_active=false.
-     */
-    private function getChangedPaymentMethods(
-        int $companyId,
-        int $branchId,
-        ?Carbon $since
-    ): array {
+    private function getChangedPaymentMethods(int $companyId, int $branchId, ?Carbon $since): array
+    {
         $query = PaymentMethod::withoutGlobalScopes()
+            ->withTrashed()
             ->where('company_id', $companyId)
             ->where(function ($q) use ($branchId) {
-                $q->where('branch_id', $branchId)
-                    ->orWhereNull('branch_id');
+                $q->where('branch_id', $branchId)->orWhereNull('branch_id');
             });
 
         if ($since) {
             $query->where('updated_at', '>', $since);
         }
 
-        return $query->get()
-            ->map(function ($method) {
-                return [
-                    'uuid' => $method->uuid,
-                    'code' => $method->code,
-                    'name_translations' => $method->name_translations,
-                    'type' => $method->type,
-                    'icon' => $method->icon,
-                    'max_amount' => $method->max_amount
-                        ? (int) $method->max_amount
-                        : null,
-                    'requires_reference' => (bool) $method->requires_reference,
-                    'is_active' => (bool) $method->is_active,
-                    'sort_order' => $method->sort_order ?? 0,
-                    'deleted' => !(bool) $method->is_active,
-                    'updated_at' => $method->updated_at?->toIso8601String(),
-                ];
-            })
-            ->values()
-            ->toArray();
+        return $query->get()->map(function ($pm) {
+            return [
+                'id' => $pm->id,
+                'uuid' => $pm->uuid,
+                'code' => $pm->code,
+                'name_translations' => $pm->name_translations,
+                'is_active' => $pm->is_active,
+                'deleted_at' => $pm->deleted_at?->toIso8601String(),
+                'updated_at' => $pm->updated_at->toIso8601String(),
+            ];
+        })->toArray();
     }
 }
