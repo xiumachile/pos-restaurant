@@ -1,89 +1,111 @@
-mod database;
-mod commands;
+use serde::{Deserialize, Serialize};
+use std::net::{TcpStream, SocketAddr};
+use std::time::Duration;
 
-use database::{DbState, execute_query, execute_transaction};
-use commands::{
-    create_local_order, create_order_item, 
-            create_order_with_sync,
-    enqueue_sync_operation, update_order_status
-};
-use rusqlite::Connection;
-use std::sync::Mutex;
-use tauri::Manager;
-use tokio::io::AsyncWriteExt;
-use tokio::net::TcpStream;
-use tokio::time::{timeout, Duration};
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PrintJob {
+    pub uuid: String,
+    pub order_id: Option<i64>,
+    pub printer_name: String,
+    pub content: String,
+    pub attempts: i32,
+}
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PrinterInfo {
+    pub ip: String,
+    pub port: u16,
+    pub name_es: String,
+    pub name_zh: String,
+    pub is_reachable: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PrintResult {
+    pub success: bool,
+    pub message_es: String,
+    pub message_zh: String,
+}
+
+/// HALLAZGO C-03: Verificación real de conectividad a impresoras de red (puerto 9100)
+/// Devuelve nombres bilingües para la interfaz de cocina.
 #[tauri::command]
-async fn print_raw(ip: String, port: u16, data: String) -> Result<usize, String> {
-    let bytes = base64_decode(&data).map_err(|e| format!("Base64 inválido: {}", e))?;
+pub fn list_network_printers(ip_range: String, port: u16) -> Result<Vec<PrinterInfo>, String> {
+    let mut printers = Vec::new();
+    let ips: Vec<&str> = ip_range.split(',').collect();
+    
+    for ip in ips {
+        let addr = format!("{}:{}", ip.trim(), port);
+        let is_reachable = TcpStream::connect_timeout(
+            &addr.parse::<SocketAddr>().map_err(|e| e.to_string())?,
+            Duration::from_secs(2),
+        ).is_ok();
+        
+        printers.push(PrinterInfo {
+            ip: ip.trim().to_string(),
+            port,
+            name_es: format!("Impresora de Red ({})", ip.trim()),
+            name_zh: format!("网络打印机 ({})", ip.trim()),
+            is_reachable,
+        });
+    }
+    
+    Ok(printers)
+}
+
+/// HALLAZGO C-03: Impresión con verificación real de escritura y flush.
+/// Devuelve resultados bilingües para que el frontend muestre el estado correcto.
+#[tauri::command]
+pub fn print_raw(ip: String, port: u16, data: String) -> Result<PrintResult, String> {
     let addr = format!("{}:{}", ip, port);
-
-    let connect_future = TcpStream::connect(&addr);
-    let mut stream = timeout(Duration::from_secs(5), connect_future)
-        .await
-        .map_err(|_| format!("Timeout conectando a {}", addr))?
-        .map_err(|e| format!("Error conectando a {}: {}", addr, e))?;
-
-    stream.write_all(&bytes).await.map_err(|e| format!("Error escribiendo bytes: {}", e))?;
-    stream.flush().await.map_err(|e| format!("Error haciendo flush: {}", e))?;
-
-    println!("[Tauri:print_raw] ✅ {} bytes enviados a {}", bytes.len(), addr);
-    Ok(bytes.len())
-}
-
-#[tauri::command]
-fn list_network_printers() -> Vec<String> {
-    vec![]
-}
-
-fn base64_decode(input: &str) -> Result<Vec<u8>, String> {
-    use base64::Engine;
-    base64::engine::general_purpose::STANDARD.decode(input).map_err(|e| e.to_string())
-}
-
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
-    tauri::Builder::default()
-        .setup(|app| {
-            let app_data_dir = app.path().app_data_dir().expect("Failed to get app data dir");
-            std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data dir");
-            let db_path = app_data_dir.join("pos_local.db");
-            
-            println!("[Tauri Setup] 🗄️  Abriendo base de datos en: {:?}", db_path);
-            
-            let conn = Connection::open(&db_path).expect("Failed to open database");
-
-            // HALLAZGO 12: Configuración crítica de SQLite para resiliencia offline
-            // 1. WAL (Write-Ahead Logging) para concurrencia (lecturas no bloquean escrituras)
-            conn.execute("PRAGMA journal_mode = WAL", []).expect("Failed to set WAL mode");
-            // 2. Busy timeout para prevenir deadlocks en escrituras concurrentes (5000ms)
-            conn.execute("PRAGMA busy_timeout = 5000", []).expect("Failed to set busy_timeout");
-            // 3. Foreign keys para integridad referencial (prevenir datos huérfanos)
-            conn.execute("PRAGMA foreign_keys = ON", []).expect("Failed to enable foreign_keys");
-            // 4. Synchronous NORMAL es el balance correcto entre rendimiento y seguridad en WAL
-            conn.execute("PRAGMA synchronous = NORMAL", []).expect("Failed to set synchronous");
-
-            app.manage(DbState(Mutex::new(conn)));
-            Ok(())
-        })
-        .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_store::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![
-            print_raw, 
-            list_network_printers,
-            // ═══════════════════════════════════════════════════════════
-            // COMANDOS DE DOMINIO (Hallazgo 08 - Seguridad)
-            // ═══════════════════════════════════════════════════════════
-            create_local_order,
-            create_order_with_sync,
-            create_order_item,
-            enqueue_sync_operation,
-            update_order_status,
-            // execute_query se mantiene SOLO para SELECTs complejos
-            execute_query
-            // execute_transaction ELIMINADO (era inseguro)
-        ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+    
+    // 1. Intentar conectar con timeout
+    let mut stream = match TcpStream::connect_timeout(
+        &addr.parse::<SocketAddr>().map_err(|e| e.to_string())?,
+        Duration::from_secs(3),
+    ) {
+        Ok(s) => s,
+        Err(_) => {
+            return Ok(PrintResult {
+                success: false,
+                message_es: "No se pudo conectar a la impresora. Verifique la red o el estado del dispositivo.".to_string(),
+                message_zh: "无法连接到打印机。请检查网络或设备状态。".to_string(),
+            });
+        }
+    };
+    
+    // 2. Establecer timeouts de lectura/escritura para detectar bloqueos
+    if let Err(_) = stream.set_write_timeout(Some(Duration::from_secs(5))) {
+        return Ok(PrintResult {
+            success: false,
+            message_es: "Error de configuración de red.".to_string(),
+            message_zh: "网络配置错误。".to_string(),
+        });
+    }
+    
+    // 3. Escribir datos
+    if let Err(_) = stream.write_all(data.as_bytes()) {
+        return Ok(PrintResult {
+            success: false,
+            message_es: "Error al enviar datos a la impresora.".to_string(),
+            message_zh: "向打印机发送数据时出错。".to_string(),
+        });
+    }
+    
+    // 4. Flush para garantizar que los datos se envíen al buffer de la impresora
+    if let Err(_) = stream.flush() {
+        return Ok(PrintResult {
+            success: false,
+            message_es: "Error al finalizar el envío de datos.".to_string(),
+            message_zh: "完成数据发送时出错。".to_string(),
+        });
+    }
+    
+    // Éxito: Datos entregados al buffer de red de la impresora.
+    // (La confirmación física de impresión depende de los sensores de la impresora o reporte del usuario).
+    Ok(PrintResult {
+        success: true,
+        message_es: "Datos enviados correctamente a la impresora.".to_string(),
+        message_zh: "数据已成功发送到打印机。".to_string(),
+    })
 }

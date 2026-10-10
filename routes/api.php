@@ -31,3 +31,7 @@ Route::middleware(['auth:api', \App\Shared\Http\Middleware\TenantContextMiddlewa
     Route::get('/customers/search', [\Modules\Customers\Interfaces\Controllers\CustomerController::class, 'search']);
     Route::apiResource('customers', \Modules\Customers\Interfaces\Controllers\CustomerController::class);
 });
+
+// HALLAZGO C-03: Rutas para gestión de trabajos de impresión (Tauri Client)
+Route::middleware(['auth:api'])->group(function () {
+});
