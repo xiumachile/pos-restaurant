@@ -39,6 +39,7 @@ class Bill extends Model
         'guest_count',
         'item_ids',
         'idempotency_key',
+        'payload_hash',
     ];
 
     protected $casts = [
