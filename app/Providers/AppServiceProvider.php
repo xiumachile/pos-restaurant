@@ -44,6 +44,9 @@ class AppServiceProvider extends ServiceProvider
      * Valida que la configuración de broadcasting sea segura.
      * Fail-fast en producción si hay configuración insegura.
      * 
+     * IMPORTANTE: Solo valida cuando la app está realmente corriendo
+     * (HTTP, queues, Reverb), NO durante comandos de build/deploy.
+     * 
      * Verifica:
      * 1. BROADCAST_CONNECTION no debe ser 'null' o 'log' en producción
      * 2. allowed_origins no debe contener '*' en producción
@@ -58,6 +61,12 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
+        // NO validar durante comandos Artisan de build/deploy
+        // Estos comandos no necesitan broadcasting funcional
+        if ($this->app->runningInConsole() && !$this->isRuntimeCommand()) {
+            return;
+        }
+
         $broadcastDriver = config('broadcasting.default');
         
         // 1. Verificar que broadcasting esté activo
@@ -67,8 +76,8 @@ class AppServiceProvider extends ServiceProvider
             
             Log::error($message);
             
-            // Fail-fast en producción real
-            if ($env === 'production') {
+            // Fail-fast en producción real (solo durante runtime)
+            if ($env === 'production' && !$this->app->runningInConsole()) {
                 throw new \RuntimeException($message);
             }
         }
@@ -81,7 +90,7 @@ class AppServiceProvider extends ServiceProvider
             
             Log::error($message);
             
-            if ($env === 'production') {
+            if ($env === 'production' && !$this->app->runningInConsole()) {
                 throw new \RuntimeException($message);
             }
         }
@@ -118,5 +127,37 @@ class AppServiceProvider extends ServiceProvider
             'rate_limiting_enabled' => $rateLimitingEnabled,
             'max_connections' => $maxConnections,
         ]);
+    }
+
+    /**
+     * Determina si el comando Artisan actual es de runtime (necesita broadcasting).
+     * Comandos como queue:work, reverb:websocket, horizon, etc. necesitan broadcasting.
+     * Comandos como migrate, config:cache, package:discover NO lo necesitan.
+     */
+    private function isRuntimeCommand(): bool
+    {
+        if (!$this->app->runningInConsole()) {
+            return false;
+        }
+
+        $runtimeCommands = [
+            'queue:work',
+            'queue:listen',
+            'horizon',
+            'reverb:websocket',
+            'reverb:start',
+            'websocket:serve',
+            'serve',
+        ];
+
+        $currentCommand = $_SERVER['argv'][1] ?? '';
+        
+        foreach ($runtimeCommands as $runtimeCmd) {
+            if (str_starts_with($currentCommand, $runtimeCmd)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
