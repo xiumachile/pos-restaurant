@@ -53,15 +53,17 @@ pub fn run() {
             println!("[Tauri Setup] 🗄️  Abriendo base de datos en: {:?}", db_path);
             
             let conn = Connection::open(&db_path).expect("Failed to open database");
-            conn.execute_batch(
-                "PRAGMA journal_mode = WAL;
-                 PRAGMA busy_timeout = 5000;
-                 PRAGMA synchronous = NORMAL;
-                 PRAGMA foreign_keys = ON;"
-            ).expect("Failed to set PRAGMAs");
-            
-            println!("[Tauri Setup] ✅ SQLite configurado con WAL y busy_timeout=5000");
-            
+
+            // HALLAZGO 12: Configuración crítica de SQLite para resiliencia offline
+            // 1. WAL (Write-Ahead Logging) para concurrencia (lecturas no bloquean escrituras)
+            conn.execute("PRAGMA journal_mode = WAL", []).expect("Failed to set WAL mode");
+            // 2. Busy timeout para prevenir deadlocks en escrituras concurrentes (5000ms)
+            conn.execute("PRAGMA busy_timeout = 5000", []).expect("Failed to set busy_timeout");
+            // 3. Foreign keys para integridad referencial (prevenir datos huérfanos)
+            conn.execute("PRAGMA foreign_keys = ON", []).expect("Failed to enable foreign_keys");
+            // 4. Synchronous NORMAL es el balance correcto entre rendimiento y seguridad en WAL
+            conn.execute("PRAGMA synchronous = NORMAL", []).expect("Failed to set synchronous");
+
             app.manage(DbState(Mutex::new(conn)));
             Ok(())
         })
