@@ -4,6 +4,9 @@ namespace Modules\Orders\Interfaces\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Modules\Catalog\Domain\Entities\MenuItem;
 use Modules\Catalog\Domain\Entities\Product;
 use Modules\Orders\Domain\Entities\Order;
@@ -15,134 +18,142 @@ class OrderItemController extends Controller
 {
     public function store(AddItemRequest $request, string $orderUuid): JsonResponse
     {
-        $order = Order::where('uuid', $orderUuid)
-            ->where('company_id', $request->user()->company_id)
-            ->firstOrFail();
+        return DB::transaction(function () use ($request, $orderUuid) {
+            $order = Order::where('uuid', $orderUuid)
+                ->where('company_id', $request->user()->company_id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $this->authorize('update', $order);
+            $this->authorize('update', $order);
 
-        if (!$order->isEditable()) {
-            return response()->json([
-                'error' => 'order_not_modifiable',
-                'message' => 'No se pueden agregar items a un pedido ya confirmado.',
-            ], 422);
-        }
-
-        $validated = $request->validated();
-        $menuItem = null;
-        $product = null;
-
-        // HALLAZGO M-01: Validación estricta de multi-tenancy y estado activo
-        // No usar withoutGlobalScopes() sin validaciones explícitas de company_id y branch_id
-
-        if (!empty($validated['menu_item_uuid'])) {
-            // Buscar MenuItem que pertenezca a la misma empresa y sucursal del pedido, y esté activo
-            $menuItem = MenuItem::where('uuid', $validated['menu_item_uuid'])
-                ->where('company_id', $order->company_id)
-                ->where('branch_id', $order->branch_id)
-                ->where('is_active', true)
-                ->first();
-
-            if ($menuItem) {
-                // Verificar que el producto asociado también pertenezca a la misma empresa
-                $product = Product::where('id', $menuItem->product_id)
-                    ->where('company_id', $order->company_id)
-                    ->where('is_active', true)
-                    ->first();
+            if (!$order->isEditable()) {
+                return response()->json([
+                    'error' => 'order_not_modifiable',
+                    'message' => 'No se pueden agregar items a un pedido ya confirmado.',
+                ], 422);
             }
-        }
 
-        if (!$product && !empty($validated['product_uuid'])) {
-            // Buscar Producto que pertenezca a la misma empresa y esté activo
-            $product = Product::where('uuid', $validated['product_uuid'])
-                ->where('company_id', $order->company_id)
-                ->where('is_active', true)
-                ->first();
+            $validated = $request->validated();
+            $menuItem = null;
+            $product = null;
 
-            if ($product) {
-                // Buscar MenuItem asociado a este producto, en la sucursal del pedido, y activo
-                $menuItem = MenuItem::where('product_id', $product->id)
+            if (!empty($validated['menu_item_uuid'])) {
+                $menuItem = MenuItem::where('uuid', $validated['menu_item_uuid'])
                     ->where('company_id', $order->company_id)
                     ->where('branch_id', $order->branch_id)
                     ->where('is_active', true)
                     ->first();
+
+                if ($menuItem) {
+                    $product = Product::where('id', $menuItem->product_id)
+                        ->where('company_id', $order->company_id)
+                        ->where('is_active', true)
+                        ->first();
+                }
             }
-        }
 
-        if (!$product) {
-            return response()->json([
-                'error' => 'product_not_found',
-                'message' => 'No se encontró el producto o no está disponible en esta sucursal.',
-            ], 422);
-        }
+            if (!$product && !empty($validated['product_uuid'])) {
+                $product = Product::where('uuid', $validated['product_uuid'])
+                    ->where('company_id', $order->company_id)
+                    ->where('is_active', true)
+                    ->first();
 
-        $translations = $product->name_translations ?? [];
-        if (is_string($translations)) {
-            $translations = json_decode($translations, true) ?? [];
-        }
-        $productName = $translations['es'] ?? $translations['en'] ?? reset($translations) ?: 'Producto';
+                if ($product) {
+                    $menuItem = MenuItem::where('product_id', $product->id)
+                        ->where('company_id', $order->company_id)
+                        ->where('branch_id', $order->branch_id)
+                        ->where('is_active', true)
+                        ->first();
+                }
+            }
 
-        // ADR-018 + ADR-011: unit_price es BRUTO (IVA incluido), todo entero
-        $unitPrice = (int) ($menuItem->base_price ?? $product->base_price);
-        $subtotal = $unitPrice * $validated['quantity'];
+            if (!$product) {
+                return response()->json([
+                    'error' => 'product_not_found',
+                    'message' => 'No se encontró el producto o no está disponible en esta sucursal.',
+                ], 422);
+            }
 
-        if ($product->tax_rate !== null && $product->tax_rate > 0) {
-            $taxRate = (float) $product->tax_rate;
-            $taxName = null;
-        } else {
-            $effectiveTax = $product->getEffectiveTax();
-            $taxRate = $effectiveTax ? (float) $effectiveTax->rate : 0.0;
-            $taxName = $effectiveTax ? $effectiveTax->name : null;
-        }
+            $translations = $product->name_translations ?? [];
+            if (is_string($translations)) {
+                $translations = json_decode($translations, true) ?? [];
+            }
+            $productName = $translations['es'] ?? $translations['en'] ?? reset($translations) ?: 'Producto';
 
-        $item = OrderItem::create([
-            'product_id' => $product->id,
-            'company_id' => $order->company_id,
-            'order_id' => $order->id,
-            'menu_item_id' => $menuItem?->id,
-            'name_snapshot' => $productName,
-            'unit_price_snapshot' => $unitPrice,
-            'quantity' => $validated['quantity'],
-            'notes' => $validated['notes'] ?? null,
-            'subtotal' => $subtotal,
-            'tax_rate_snapshot' => $taxRate,
-            'tax_name_snapshot' => $taxName,
-        ]);
+            $unitPrice = (int) ($menuItem->base_price ?? $product->base_price);
+            $subtotal = $unitPrice * $validated['quantity'];
 
-        $order->recalculateTotals();
-        $order->save();
+            if ($product->tax_rate !== null && $product->tax_rate > 0) {
+                $taxRate = (float) $product->tax_rate;
+                $taxName = null;
+            } else {
+                $effectiveTax = $product->getEffectiveTax();
+                $taxRate = $effectiveTax ? (float) $effectiveTax->rate : 0.0;
+                $taxName = $effectiveTax ? $effectiveTax->name : null;
+            }
 
-        $order->load(['items.modifiers', 'table', 'waiter']);
+            $item = OrderItem::create([
+                'product_id' => $product->id,
+                'company_id' => $order->company_id,
+                'order_id' => $order->id,
+                'menu_item_id' => $menuItem?->id,
+                'name_snapshot' => $productName,
+                'unit_price_snapshot' => $unitPrice,
+                'quantity' => $validated['quantity'],
+                'notes' => $validated['notes'] ?? null,
+                'subtotal' => $subtotal,
+                'tax_rate_snapshot' => $taxRate,
+                'tax_name_snapshot' => $taxName,
+            ]);
 
-        return OrderResource::make($order)
-            ->response()
-            ->setStatusCode(201);
+            $order->recalculateTotals();
+            $order->save();
+
+            $order->load(['items.modifiers', 'table', 'waiter']);
+
+            return OrderResource::make($order)->response()->setStatusCode(201);
+        });
     }
 
-    public function destroy(string $orderUuid, string $itemUuid): JsonResponse
+    public function destroy(Request $request, string $orderUuid, string $itemUuid): JsonResponse
     {
-        $order = Order::where('uuid', $orderUuid)
-            ->where('company_id', request()->user()->company_id)
-            ->firstOrFail();
+        return DB::transaction(function () use ($request, $orderUuid, $itemUuid) {
+            $order = Order::where('uuid', $orderUuid)
+                ->where('company_id', $request->user()->company_id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        if (!$order->isEditable()) {
-            return response()->json([
-                'error' => 'order_not_modifiable',
-                'message' => 'No se pueden quitar items de un pedido ya confirmado.',
-            ], 422);
-        }
+            $this->authorize('update', $order);
 
-        $item = OrderItem::where('uuid', $itemUuid)
-            ->where('order_id', $order->id)
-            ->firstOrFail();
+            if (!$order->isEditable()) {
+                return response()->json([
+                    'error' => 'order_not_modifiable',
+                    'message' => 'No se pueden quitar items de un pedido ya confirmado.',
+                ], 422);
+            }
 
-        $item->delete();
+            $item = OrderItem::where('uuid', $itemUuid)
+                ->where('order_id', $order->id)
+                ->firstOrFail();
 
-        $order->recalculateTotals();
-        $order->save();
+            Log::info('Order item removed', [
+                'order_id' => $order->id,
+                'order_uuid' => $order->uuid,
+                'item_id' => $item->id,
+                'item_uuid' => $item->uuid,
+                'product_id' => $item->product_id,
+                'user_id' => $request->user()->id,
+                'reason' => 'manual_removal',
+            ]);
 
-        $order->load(['items.modifiers', 'table', 'waiter']);
+            $item->delete();
 
-        return OrderResource::make($order)->response();
+            $order->recalculateTotals();
+            $order->save();
+
+            $order->load(['items.modifiers', 'table', 'waiter']);
+
+            return OrderResource::make($order)->response();
+        });
     }
 }
