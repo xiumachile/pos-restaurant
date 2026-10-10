@@ -6,23 +6,16 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Modules\Orders\Domain\Entities\Order;
 use Modules\Orders\Domain\Events\OrderCancelled;
-use Modules\Orders\Domain\Events\OrderDiscountApplied;
 use Modules\Orders\Domain\Events\OrderClosed;
 use Modules\Orders\Domain\Events\OrderConfirmed;
+use Modules\Orders\Domain\Events\OrderDiscountApplied;
 use Modules\Orders\Domain\Events\OrderPaid;
+use Modules\Orders\Domain\Events\OrderPreparationStarted;
 use Modules\Orders\Domain\Events\OrderReady;
+use Modules\Orders\Domain\Events\OrderServed;
 use Modules\Orders\Domain\Exceptions\InvalidOrderTransitionException;
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
 
-/**
- * Máquina de estados de pedidos.
- *
- * HALLAZGO M-03: Garantías de publicación de eventos.
- * - Las transiciones se ejecutan dentro de una transacción de base de datos.
- * - Los eventos se despachan usando DB::afterCommit() para garantizar que solo se
- *   publiquen si la transacción se confirma exitosamente.
- * - Los eventos incluyen un event_uuid único para deduplicación en listeners (KDS).
- */
 class OrderStateMachine
 {
     public function transition(Order $order, OrderStatus $newStatus, ?string $reason = null): Order
@@ -43,9 +36,8 @@ class OrderStateMachine
 
             $order->save();
 
-            // HALLAZGO M-03: DB::afterCommit garantiza que el evento solo se despache
-            // si la transacción actual se confirma exitosamente. Si hay un rollback,
-            // este closure nunca se ejecuta, evitando eventos huérfanos.
+            // HALLAZGO C-01 & M-03: DB::afterCommit garantiza que el evento solo se despache
+            // si la transacción de base de datos se confirma exitosamente.
             DB::afterCommit(function () use ($order, $newStatus) {
                 $this->dispatchEvent($order, $newStatus);
             });
@@ -74,6 +66,8 @@ class OrderStateMachine
 
         match($status) {
             OrderStatus::CONFIRMED => $order->confirmed_at = $now,
+            OrderStatus::PREPARING => $order->preparing_at = $now,
+            OrderStatus::READY => $order->ready_at = $now,
             OrderStatus::SERVED => $order->served_at = $now,
             OrderStatus::PICKED_UP => $order->picked_up_at = $now,
             OrderStatus::DISPATCHED => $order->dispatched_at = $now,
@@ -85,16 +79,26 @@ class OrderStateMachine
         };
     }
 
+    /**
+     * HALLAZGO C-01: Despacha eventos de dominio para TODAS las transiciones operacionales significativas.
+     */
     protected function dispatchEvent(Order $order, OrderStatus $status): void
     {
-        match($status) {
-            OrderStatus::CONFIRMED => OrderConfirmed::dispatch($order),
-            OrderStatus::READY => OrderReady::dispatch($order),
-            OrderStatus::PAID => OrderPaid::dispatch($order),
-            OrderStatus::CLOSED => OrderClosed::dispatch($order),
-            OrderStatus::CANCELLED => OrderCancelled::dispatch($order),
+        $event = match($status) {
+            OrderStatus::CONFIRMED => new OrderConfirmed($order),
+            OrderStatus::PREPARING => new OrderPreparationStarted($order),
+            OrderStatus::READY => new OrderReady($order),
+            OrderStatus::SERVED => new OrderServed($order),
+            OrderStatus::PAID => new OrderPaid($order),
+            OrderStatus::CLOSED => new OrderClosed($order),
+            OrderStatus::CANCELLED => new OrderCancelled($order),
             default => null,
         };
+
+        if ($event) {
+            // Usar la función helper event() para despachar una instancia ya creada
+            event($event);
+        }
     }
 
     public function canModifyItems(Order $order): bool
@@ -128,7 +132,7 @@ class OrderStateMachine
             $order->save();
 
             DB::afterCommit(function () use ($order, $amount, $reason) {
-                OrderDiscountApplied::dispatch($order, (int) $amount, $reason);
+                event(new OrderDiscountApplied($order, (int) $amount, $reason));
             });
 
             return $order;
