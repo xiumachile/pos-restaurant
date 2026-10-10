@@ -29,25 +29,40 @@ class OrderItemController extends Controller
         }
 
         $validated = $request->validated();
-
         $menuItem = null;
         $product = null;
 
+        // HALLAZGO M-01: Validación estricta de multi-tenancy y estado activo
+        // No usar withoutGlobalScopes() sin validaciones explícitas de company_id y branch_id
+
         if (!empty($validated['menu_item_uuid'])) {
-            $menuItem = MenuItem::where('uuid', $validated['menu_item_uuid'])->first();
+            // Buscar MenuItem que pertenezca a la misma empresa y sucursal del pedido, y esté activo
+            $menuItem = MenuItem::where('uuid', $validated['menu_item_uuid'])
+                ->where('company_id', $order->company_id)
+                ->where('branch_id', $order->branch_id)
+                ->where('is_active', true)
+                ->first();
+
             if ($menuItem) {
-                $product = Product::withoutGlobalScopes()->find($menuItem->product_id);
+                // Verificar que el producto asociado también pertenezca a la misma empresa
+                $product = Product::where('id', $menuItem->product_id)
+                    ->where('company_id', $order->company_id)
+                    ->where('is_active', true)
+                    ->first();
             }
         }
 
         if (!$product && !empty($validated['product_uuid'])) {
-            $product = Product::withoutGlobalScopes()
-                ->where('uuid', $validated['product_uuid'])
+            // Buscar Producto que pertenezca a la misma empresa y esté activo
+            $product = Product::where('uuid', $validated['product_uuid'])
+                ->where('company_id', $order->company_id)
+                ->where('is_active', true)
                 ->first();
 
             if ($product) {
-                $menuItem = MenuItem::withoutGlobalScopes()
-                    ->where('product_id', $product->id)
+                // Buscar MenuItem asociado a este producto, en la sucursal del pedido, y activo
+                $menuItem = MenuItem::where('product_id', $product->id)
+                    ->where('company_id', $order->company_id)
                     ->where('branch_id', $order->branch_id)
                     ->where('is_active', true)
                     ->first();
@@ -57,7 +72,7 @@ class OrderItemController extends Controller
         if (!$product) {
             return response()->json([
                 'error' => 'product_not_found',
-                'message' => 'No se encontró el producto ni el item del menú.',
+                'message' => 'No se encontró el producto o no está disponible en esta sucursal.',
             ], 422);
         }
 
@@ -71,11 +86,6 @@ class OrderItemController extends Controller
         $unitPrice = (int) ($menuItem->base_price ?? $product->base_price);
         $subtotal = $unitPrice * $validated['quantity'];
 
-        // ADR-011: NO calcular tax_amount por item.
-        // El tax se calcula a nivel de Order usando modelo bruto:
-        // net_amount = round(gross / 1.19), tax_amount = gross - net_amount
-        // 
-        // Mantener solo snapshots de auditoría.
         if ($product->tax_rate !== null && $product->tax_rate > 0) {
             $taxRate = (float) $product->tax_rate;
             $taxName = null;
@@ -95,7 +105,6 @@ class OrderItemController extends Controller
             'quantity' => $validated['quantity'],
             'notes' => $validated['notes'] ?? null,
             'subtotal' => $subtotal,
-            // tax_amount se establece a 0 por OrderItem::booted() (ADR-011)
             'tax_rate_snapshot' => $taxRate,
             'tax_name_snapshot' => $taxName,
         ]);
