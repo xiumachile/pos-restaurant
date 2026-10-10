@@ -34,6 +34,9 @@ class PaymentService
     ): Payment {
         Account::seedDefaultsFor($order->company_id, $order->branch_id);
 
+                // Hallazgo 07: Validación defensiva de invariantes de tenant
+        $this->validateTenantInvariants($order, $paymentMethod, $bill, $cashSession);
+
         return DB::transaction(function () use (
             $order, $paymentMethod, $amount, $idempotencyKey,
             $bill, $cashSession, $userId, $tipAmount, $referenceCode, $notes
@@ -206,4 +209,79 @@ class PaymentService
             }
         }
     }
+    /**
+     * ═══════════════════════════════════════════════════════════════════════
+     * VALIDACIÓN DEFENSIVA DE INVARIANTES (Hallazgo 07 - P1)
+     * ═══════════════════════════════════════════════════════════════════════
+     * 
+     * Defense-in-depth: el Domain Service verifica invariantes críticas
+     * ANTES de procesar el pago, sin confiar en las capas HTTP externas.
+     * 
+     * Esto protege contra:
+     * - Llamadas directas al service (tests, jobs, commands)
+     * - Bugs en capas superiores que olviden validaciones
+     * - Intentos de acceso cruzado entre tenants
+     */
+    private function validateTenantInvariants(
+        Order $order,
+        PaymentMethod $paymentMethod,
+        ?Bill $bill = null,
+        ?CashSession $cashSession = null
+    ): void {
+        // 1. PaymentMethod debe ser de la misma compañía
+        if ($paymentMethod->company_id !== $order->company_id) {
+            throw PaymentException::tenantMismatch(
+                'payment_method.company_id',
+                'order.company_id'
+            );
+        }
+        
+        // 2. Si PaymentMethod tiene branch_id, debe coincidir con order
+        if ($paymentMethod->branch_id !== null && 
+            $paymentMethod->branch_id !== $order->branch_id) {
+            throw PaymentException::tenantMismatch(
+                'payment_method.branch_id',
+                'order.branch_id'
+            );
+        }
+        
+        // 3. Bill (si existe) debe ser de la misma compañía/sucursal
+        if ($bill !== null) {
+            if ($bill->company_id !== $order->company_id) {
+                throw PaymentException::tenantMismatch(
+                    'bill.company_id',
+                    'order.company_id'
+                );
+            }
+            if ($bill->branch_id !== $order->branch_id) {
+                throw PaymentException::tenantMismatch(
+                    'bill.branch_id',
+                    'order.branch_id'
+                );
+            }
+        }
+        
+        // 4. CashSession (si existe) debe ser de la misma compañía/sucursal
+        if ($cashSession !== null) {
+            if ($cashSession->company_id !== $order->company_id) {
+                throw PaymentException::tenantMismatch(
+                    'cash_session.company_id',
+                    'order.company_id'
+                );
+            }
+            if ($cashSession->branch_id !== $order->branch_id) {
+                throw PaymentException::tenantMismatch(
+                    'cash_session.branch_id',
+                    'order.branch_id'
+                );
+            }
+            
+            // 5. CashSession debe estar abierta
+            if (!$cashSession->canReceivePayments()) {
+                throw PaymentException::cashSessionNotOpen();
+            }
+        }
+    }
+
+
 }
