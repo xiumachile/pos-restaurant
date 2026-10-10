@@ -98,7 +98,8 @@ class PaymentService
 
             $totalAmount = Payment::calculateTotal($amount, $tipAmount);
 
-            $payment = Payment::create([
+            try {
+                $payment = Payment::create([
                 'company_id' => $order->company_id,
                 'branch_id' => $order->branch_id,
                 'order_id' => $order->id,
@@ -106,7 +107,7 @@ class PaymentService
                 'cash_session_id' => $cashSession?->id,
                 'payment_method_id' => $paymentMethod->id,
                 'user_id' => $userId,
-                'payment_number' => Payment::generatePaymentNumber($order->branch->code),
+                'payment_number' => Payment::generatePaymentNumber($order->branch->code, $order->branch_id),
                 'method_code' => $paymentMethod->code,
                 'amount' => $amount,
                 'tip_amount' => $tipAmount,
@@ -117,6 +118,26 @@ class PaymentService
                 'notes' => $notes,
                 'paid_at' => now(),
             ]);
+            } catch (\Illuminate\Database\QueryException $e) {
+                // HALLAZGO 13: Manejar violación de restricción única (race condition)
+                // SQLSTATE 23505 es unique_violation en PostgreSQL
+                if (str_contains($e->getMessage(), '23505') || str_contains($e->getMessage(), 'payments_tenant_idempotency_unique')) {
+                    \Illuminate\Support\Facades\Log::warning('Idempotency race condition caught, returning existing payment', [
+                        'idempotency_key' => $idempotencyKey,
+                        'order_id' => $order->id,
+                    ]);
+                    
+                    $existingPayment = Payment::where('company_id', $order->company_id)
+                        ->where('branch_id', $order->branch_id)
+                        ->where('idempotency_key', $idempotencyKey)
+                        ->first();
+                        
+                    if ($existingPayment) {
+                        return $existingPayment;
+                    }
+                }
+                throw $e;
+            }
 
             try {
                 $this->paymentLedgerService->recordPayment($payment);
