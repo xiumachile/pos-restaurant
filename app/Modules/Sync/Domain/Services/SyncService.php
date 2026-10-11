@@ -340,6 +340,18 @@ class SyncService
         return $results;
     }
 
+    /**
+     * O-04 FIX: Campos bloqueados para asignación directa desde sincronización remota.
+     * Protege identidad, tenant, operadores y campos contables derivados.
+     */
+    protected const BLOCKED_SYNC_FIELDS = [
+        'id', 'uuid', 'company_id', 'branch_id', 'version',
+        'created_at', 'updated_at', 'deleted_at',
+        'user_id', 'waiter_id', 'cashier_id', 'assigned_cook_id',
+        'subtotal_gross', 'net_amount', 'tax_amount', 'total', 'amount_due',
+        'sync_status', 'last_synced_at', 'idempotency_key', 'payload_hash'
+    ];
+
     protected function applyServerChange(
         array $change,
         string $sessionId,
@@ -348,26 +360,42 @@ class SyncService
     ): void {
         $entityType = $change['entity_type'];
         $entityId = $change['entity_id'];
+        $entityUuid = $change['entity_uuid'] ?? null;
 
         if (!class_exists($entityType)) {
             throw new SyncException("Unknown entity type: {$entityType}");
         }
 
-        $entity = $entityType::find($entityId);
-        if (!$entity) {
-            throw new SyncException("Entity not found: {$entityType}::{$entityId}");
-        }
-
-        if (isset($change['data']['company_id']) && property_exists($entity, 'company_id')) {
-            if ($entity->company_id !== $change['data']['company_id']) {
-                throw new SyncException("Entity does not belong to company");
-            }
+        // O-04 FIX: Resolver por UUID (preferido) o ID, con validación de tenant
+        $query = $entityType::query();
+        if ($entityUuid) {
+            $query->where('uuid', $entityUuid);
+        } else {
+            $query->where('id', $entityId);
         }
         
-        if (isset($change['data']['branch_id']) && property_exists($entity, 'branch_id')) {
-            if ($entity->branch_id !== $change['data']['branch_id']) {
-                throw new SyncException("Entity does not belong to branch");
-            }
+        // O-04 FIX: Si el payload trae company_id/branch_id, filtrar por ellos para defensa en profundidad
+        if (isset($change['data']['company_id'])) {
+            $query->where('company_id', $change['data']['company_id']);
+        }
+        if (isset($change['data']['branch_id'])) {
+            $query->where('branch_id', $change['data']['branch_id']);
+        }
+
+        $entity = $query->first();
+        if (!$entity) {
+            throw new SyncException("Entity not found or tenant mismatch: {$entityType}::{$entityId}");
+        }
+
+        // O-04 FIX: Validación explícita de atributos de tenant usando getAttributes() o acceso directo
+        $expectedCompanyId = $change['data']['company_id'] ?? null;
+        $expectedBranchId = $change['data']['branch_id'] ?? null;
+
+        if ($expectedCompanyId && $entity->company_id !== $expectedCompanyId) {
+            throw new SyncException("Tenant mismatch: company_id / 租户不匹配: company_id");
+        }
+        if ($expectedBranchId && $entity->branch_id !== $expectedBranchId) {
+            throw new SyncException("Tenant mismatch: branch_id / 租户不匹配: branch_id");
         }
 
         $hasPendingChanges = $entity->sync_status === 'pending' || 
@@ -389,7 +417,7 @@ class SyncService
 
             $resolution = $conflictResolver->resolve($tempQueueItem, $change['data'], $strategy);
             if (!$resolution['resolved']) {
-                throw new SyncException("Conflict not resolved", $entityType, $entityId);
+                throw new SyncException("Conflict not resolved / 冲突未解决", $entityType, $entityId);
             }
             $tempQueueItem->delete();
         } else {
@@ -397,10 +425,16 @@ class SyncService
             try {
                 $fillable = $entity->getFillable();
                 $data = array_intersect_key($change['data'], array_flip($fillable));
-                unset($data['id'], $data['uuid'], $data['company_id'], $data['branch_id'], $data['version'], $data['created_at'], $data['updated_at']);
+                
+                // O-04 FIX: Excluir explícitamente campos protegidos
+                foreach (self::BLOCKED_SYNC_FIELDS as $blockedField) {
+                    unset($data[$blockedField]);
+                }
+                
                 if (!empty($data)) {
                     $entity->fill($data);
                 }
+                
                 $entity->sync_status = 'synced';
                 $entity->version = $change['version'] ?? ($entity->version + 1);
                 $entity->last_synced_at = now();
@@ -410,7 +444,7 @@ class SyncService
             }
         }
 
-        // O-03 FIX: Registrar log de pull
+        // Registrar log de pull
         try {
             SyncLog::create([
                 'uuid' => Str::uuid(),
