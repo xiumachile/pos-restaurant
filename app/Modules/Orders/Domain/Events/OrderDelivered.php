@@ -1,0 +1,17 @@
+<?php
+
+namespace Modules\Orders\Domain\Events;
+
+use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Queue\SerializesModels;
+use Modules\Orders\Domain\Entities\Order;
+
+class OrderDelivered
+{
+    use Dispatchable, InteractsWithSockets, SerializesModels;
+
+    public function __construct(
+        public Order $order
+    ) {}
+}

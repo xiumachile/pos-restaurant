@@ -102,6 +102,10 @@ class OrderStateMachine
             OrderStatus::PAID => OrderPaid::dispatch($order),
             OrderStatus::CLOSED => OrderClosed::dispatch($order),
             OrderStatus::CANCELLED => OrderCancelled::dispatch($order),
+            OrderStatus::SERVED => \Modules\Orders\Domain\Events\OrderServed::dispatch($order),
+            OrderStatus::PICKED_UP => \Modules\Orders\Domain\Events\OrderPickedUp::dispatch($order),
+            OrderStatus::DISPATCHED => \Modules\Orders\Domain\Events\OrderDispatched::dispatch($order),
+            OrderStatus::DELIVERED => \Modules\Orders\Domain\Events\OrderDelivered::dispatch($order),
             // PICKED_UP, DISPATCHED, DELIVERED, SERVED no disparan eventos
             // (se pueden agregar en el futuro si se requiere)
             default => null,

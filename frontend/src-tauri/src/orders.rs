@@ -478,9 +478,7 @@ pub fn register_local_payment(
 #[derive(Debug, Deserialize)]
 pub struct EnqueueSyncEventPayload {
     pub id: String,
-    pub company_id: String,
-    pub branch_id: String,
-    pub entity_type: String,
+    pub entity_type: String, // 'order', 'payment', 'table_mutation'
     pub entity_local_uuid: String,
     pub action: String,
     pub payload_json: String,
@@ -493,11 +491,30 @@ pub fn enqueue_sync_event(
 ) -> Result<(), String> {
     let mut conn = state.0.lock().map_err(|e| format!("Mutex envenenado: {e}"))?;
     
+    // P1 FIX: Zero Trust. Derivar company_id y branch_id desde la entidad, no del frontend.
+    let table_name = match payload.entity_type.as_str() {
+        "order" => "local_orders",
+        "payment" => "local_payments",
+        "table_mutation" => "table_local_mutations",
+        _ => return Err(format!("Tipo de entidad no soportado: {}", payload.entity_type)),
+    };
+
+    let query = format!(
+        "SELECT company_id, branch_id FROM {} WHERE local_uuid = ?1 OR table_uuid = ?1",
+        table_name
+    );
+
+    let (company_id, branch_id): (String, String) = conn
+        .query_row(&query, params![payload.entity_local_uuid], |r| {
+            Ok((r.get(0)?, r.get(1)?))
+        })
+        .map_err(|_| format!("Entidad {} con uuid {} no encontrada", payload.entity_type, payload.entity_local_uuid))?;
+
     conn.execute(
         "INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid, action, payload, sync_status, created_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'pending', CURRENT_TIMESTAMP)",
         params![
-            payload.id, payload.company_id, payload.branch_id,
+            payload.id, company_id, branch_id,
             payload.entity_type, payload.entity_local_uuid, payload.action, payload.payload_json
         ],
     )
