@@ -79,9 +79,28 @@ enum BaseUnit: string
 
     /**
      * Convierte una cantidad de esta unidad a la unidad base SI.
+     * I-02 FIX: Valida que la unidad de destino sea de la misma dimensión.
      */
-    public function toBase(float $quantity): float
+    public function toBase(float $quantity, ?DimensionType $targetDimension = null): float
     {
+        if ($targetDimension !== null && $this->dimension() !== $targetDimension) {
+            throw new \InvalidArgumentException(
+                "[ES] Unidad incompatible: {$this->value} no pertenece a la dimensión {$targetDimension->value} / [ZH] 单位不兼容: {$this->value} 不属于维度 {$targetDimension->value}"
+            );
+        }
         return round($quantity * $this->conversionFactorToBase(), 4);
+    }
+
+    /**
+     * Método estático de utilidad para convertir desde cualquier unidad a su base.
+     */
+    public static function convertToBase(float $quantity, self $unit, DimensionType $dimension): float
+    {
+        if ($unit->dimension() !== $dimension) {
+            throw new \InvalidArgumentException(
+                "[ES] Unidad incompatible: {$unit->value} no coincide con la dimensión del ingrediente ({$dimension->value}) / [ZH] 单位不兼容: {$unit->value} 与原料维度 ({$dimension->value}) 不匹配"
+            );
+        }
+        return $unit->toBase($quantity, $dimension);
     }
 }

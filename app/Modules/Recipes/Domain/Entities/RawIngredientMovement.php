@@ -35,6 +35,8 @@ class RawIngredientMovement extends Model
         'raw_ingredient_id',
         'type',
         'quantity_base',
+        'original_quantity',
+        'original_unit',
         'balance_after',
         'reference_type',
         'reference_id',
@@ -89,7 +91,9 @@ class RawIngredientMovement extends Model
         ?string $reason = null,
         ?string $idempotencyKey = null,
         ?string $orderItemUuid = null,
-        ?int $recipeVersion = null
+        ?int $recipeVersion = null,
+        ?float $originalQuantity = null,
+        ?string $originalUnit = null
     ): self {
         // Validación: quantity_base no puede ser zero
         if ($quantityBase == 0) {
@@ -142,6 +146,8 @@ class RawIngredientMovement extends Model
             'raw_ingredient_id' => $rawIngredientId,
             'type' => $type,
             'quantity_base' => $quantityBase,
+            'original_quantity' => $originalQuantity,
+            'original_unit' => $originalUnit,
             'balance_after' => $balanceAfter,
             'reference_type' => $referenceType,
             'reference_id' => $referenceId,

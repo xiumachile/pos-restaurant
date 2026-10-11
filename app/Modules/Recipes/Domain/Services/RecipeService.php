@@ -55,11 +55,33 @@ class RecipeService
                 // S1.3: Validar ownership del ingrediente
                 $this->validateIngredientOwnership($ingredient);
 
+                // I-02 FIX: Normalización de unidades (compatible con formato legacy)
+                if (isset($ingredientData['unit']) && isset($ingredientData['quantity'])) {
+                    $unit = \Modules\Recipes\Domain\ValueObjects\BaseUnit::from($ingredientData['unit']);
+                    $originalQty = (float) $ingredientData['quantity'];
+                    
+                    $quantityBase = \Modules\Recipes\Domain\ValueObjects\BaseUnit::convertToBase(
+                        $originalQty, 
+                        $unit, 
+                        $ingredient->dimension_type
+                    );
+                    
+                    $origQty = $originalQty;
+                    $origUnit = $unit->value;
+                } else {
+                    // Fallback legacy: ya viene en unidad base
+                    $quantityBase = (float) $ingredientData['quantity_base_unit'];
+                    $origQty = null;
+                    $origUnit = null;
+                }
+
                 RecipeItem::createWithCalculation(
                     recipeId: $recipe->id,
                     ingredient: $ingredient,
-                    quantityBase: (float) $ingredientData['quantity_base_unit'],
-                    wastePercentage: (float) ($ingredientData['waste_percentage'] ?? 0)
+                    quantityBase: $quantityBase,
+                    wastePercentage: (float) ($ingredientData['waste_percentage'] ?? 0),
+                    originalQuantity: $origQty,
+                    originalUnit: $origUnit
                 );
             }
 
@@ -89,11 +111,33 @@ class RecipeService
                 // S1.3: Validar ownership del ingrediente
                 $this->validateIngredientOwnership($ingredient);
 
+                // I-02 FIX: Normalización de unidades (compatible con formato legacy)
+                if (isset($ingredientData['unit']) && isset($ingredientData['quantity'])) {
+                    $unit = \Modules\Recipes\Domain\ValueObjects\BaseUnit::from($ingredientData['unit']);
+                    $originalQty = (float) $ingredientData['quantity'];
+                    
+                    $quantityBase = \Modules\Recipes\Domain\ValueObjects\BaseUnit::convertToBase(
+                        $originalQty, 
+                        $unit, 
+                        $ingredient->dimension_type
+                    );
+                    
+                    $origQty = $originalQty;
+                    $origUnit = $unit->value;
+                } else {
+                    // Fallback legacy: ya viene en unidad base
+                    $quantityBase = (float) $ingredientData['quantity_base_unit'];
+                    $origQty = null;
+                    $origUnit = null;
+                }
+
                 RecipeItem::createWithCalculation(
                     recipeId: $recipe->id,
                     ingredient: $ingredient,
-                    quantityBase: (float) $ingredientData['quantity_base_unit'],
-                    wastePercentage: (float) ($ingredientData['waste_percentage'] ?? 0)
+                    quantityBase: $quantityBase,
+                    wastePercentage: (float) ($ingredientData['waste_percentage'] ?? 0),
+                    originalQuantity: $origQty,
+                    originalUnit: $origUnit
                 );
             }
 

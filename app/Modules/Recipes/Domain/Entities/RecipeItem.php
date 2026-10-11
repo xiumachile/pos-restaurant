@@ -20,6 +20,8 @@ class RecipeItem extends Model
         'recipe_id',
         'raw_ingredient_id',
         'quantity_base_unit',
+        'original_quantity',
+        'original_unit',
         'waste_percentage',
         'effective_discount_base_quantity',
         'calculated_item_cost',
@@ -28,6 +30,7 @@ class RecipeItem extends Model
     protected $casts = [
         'quantity_base_unit' => 'decimal:4',
         'waste_percentage' => 'decimal:2',
+        'original_quantity' => 'decimal:4',
         'effective_discount_base_quantity' => 'decimal:4',
         'calculated_item_cost' => 'decimal:2',
     ];
@@ -61,12 +64,15 @@ class RecipeItem extends Model
 
     /**
      * Crea un recipe item calculando automáticamente cantidad efectiva y costo.
+     * I-02 FIX: Registra también la cantidad y unidad originales para auditoría.
      */
     public static function createWithCalculation(
         int $recipeId,
         RawIngredient $ingredient,
         float $quantityBase,
-        float $wastePercentage = 0
+        float $wastePercentage = 0,
+        ?float $originalQuantity = null,
+        ?string $originalUnit = null
     ): self {
         $effective = self::calculateEffectiveQuantity($quantityBase, $wastePercentage);
         $cost = self::calculateItemCost($effective, (float) $ingredient->cost_per_base_unit);
@@ -75,6 +81,8 @@ class RecipeItem extends Model
             'recipe_id' => $recipeId,
             'raw_ingredient_id' => $ingredient->id,
             'quantity_base_unit' => $quantityBase,
+            'original_quantity' => $originalQuantity,
+            'original_unit' => $originalUnit,
             'waste_percentage' => $wastePercentage,
             'effective_discount_base_quantity' => $effective,
             'calculated_item_cost' => $cost,
