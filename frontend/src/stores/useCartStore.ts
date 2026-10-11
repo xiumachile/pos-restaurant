@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 import type { CartItem, CartTotals, TableCart } from "@/types/cart";
 import type { Product } from "@/types/catalog";
 import type { ChannelType } from "@/stores/useActiveChannelStore";
@@ -12,14 +12,7 @@ function generateUUID(): string {
     const r = (Math.random() * 16) | 0;
     const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
-      },
-    {
-      name: 'pos-cart-storage',
-      storage: createJSONStorage(() => sessionStorage),
-      partialize: (state) => ({ carts: state.carts }), // Solo persistir carritos, no funciones
-    }
-  )
-);
+  });
 }
 
 /**
@@ -101,14 +94,7 @@ export const useCartStore = create<CartState>()(
               },
             },
           };
-            },
-    {
-      name: 'pos-cart-storage',
-      storage: createJSONStorage(() => sessionStorage),
-      partialize: (state) => ({ carts: state.carts }), // Solo persistir carritos, no funciones
-    }
-  )
-);
+        });
         return cartKey;
       },
 
@@ -119,14 +105,7 @@ export const useCartStore = create<CartState>()(
           tableNumber,
           areaName,
           channel: "dine_in",
-            },
-    {
-      name: 'pos-cart-storage',
-      storage: createJSONStorage(() => sessionStorage),
-      partialize: (state) => ({ carts: state.carts }), // Solo persistir carritos, no funciones
-    }
-  )
-);
+        });
       },
 
       addItem: (cartKey, product, quantity = 1) => {
@@ -150,14 +129,7 @@ export const useCartStore = create<CartState>()(
           return {
             carts: { ...state.carts, [cartKey]: { ...cart, items } },
           };
-            },
-    {
-      name: 'pos-cart-storage',
-      storage: createJSONStorage(() => sessionStorage),
-      partialize: (state) => ({ carts: state.carts }), // Solo persistir carritos, no funciones
-    }
-  )
-);
+        });
       },
 
       removeItem: (cartKey, itemId) => {
@@ -173,14 +145,7 @@ export const useCartStore = create<CartState>()(
               },
             },
           };
-            },
-    {
-      name: 'pos-cart-storage',
-      storage: createJSONStorage(() => sessionStorage),
-      partialize: (state) => ({ carts: state.carts }), // Solo persistir carritos, no funciones
-    }
-  )
-);
+        });
       },
 
       updateQuantity: (cartKey, itemId, quantity) => {
@@ -211,14 +176,7 @@ export const useCartStore = create<CartState>()(
               },
             },
           };
-            },
-    {
-      name: 'pos-cart-storage',
-      storage: createJSONStorage(() => sessionStorage),
-      partialize: (state) => ({ carts: state.carts }), // Solo persistir carritos, no funciones
-    }
-  )
-);
+        });
       },
 
       updateItemNotes: (cartKey, itemId, notes) => {
@@ -236,14 +194,7 @@ export const useCartStore = create<CartState>()(
               },
             },
           };
-            },
-    {
-      name: 'pos-cart-storage',
-      storage: createJSONStorage(() => sessionStorage),
-      partialize: (state) => ({ carts: state.carts }), // Solo persistir carritos, no funciones
-    }
-  )
-);
+        });
       },
 
       clearCart: (cartKey) => {
@@ -256,14 +207,7 @@ export const useCartStore = create<CartState>()(
               [cartKey]: { ...cart, items: [] },
             },
           };
-            },
-    {
-      name: 'pos-cart-storage',
-      storage: createJSONStorage(() => sessionStorage),
-      partialize: (state) => ({ carts: state.carts }), // Solo persistir carritos, no funciones
-    }
-  )
-);
+        });
       },
 
       getCart: (cartKey) => {
