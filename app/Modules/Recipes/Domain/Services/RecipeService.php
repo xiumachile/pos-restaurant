@@ -100,6 +100,10 @@ class RecipeService
             // Recalcular costo
             $recipe->load('items');
             $recipe->recalculateTotalCost();
+            
+            // I-01 FIX: Incrementar versión al actualizar receta
+            $recipe->version = ($recipe->version ?? 0) + 1;
+            $recipe->save();
 
             return $recipe;
         });
@@ -157,7 +161,7 @@ class RecipeService
      */
     private function deductRecipeInventoryForOrderItem($orderItem, int $branchId): void
     {
-        Log::info('Buscando receta para producto', [
+        Log::info('[ES] Buscando receta para producto / [ZH] 查找产品配方', [
             'product_id' => $orderItem->product_id,
             'company_id' => $orderItem->company_id,
             'branch_id' => $branchId,
@@ -173,14 +177,15 @@ class RecipeService
             ->first();
 
         if (!$recipe) {
-            Log::info('Producto sin receta, saltando', [
+            Log::info('[ES] Producto sin receta, saltando / [ZH] 产品无配方，跳过', [
                 'product_id' => $orderItem->product_id,
             ]);
             return;
         }
 
-        Log::info('Receta encontrada', [
+        Log::info('[ES] Receta encontrada / [ZH] 找到配方', [
             'recipe_id' => $recipe->id,
+            'recipe_version' => $recipe->version,
             'items_count' => $recipe->items->count(),
         ]);
 
@@ -188,7 +193,7 @@ class RecipeService
             $ingredient = $recipeItem->ingredient;
             
             if (!$ingredient) {
-                Log::warning('Ingredient not found in branch', [
+                Log::warning('[ES] Ingrediente no encontrado en sucursal / [ZH] 门店未找到该原料', [
                     'recipe_item_id' => $recipeItem->id,
                     'branch_id' => $branchId,
                 ]);
@@ -198,17 +203,25 @@ class RecipeService
             // Cantidad a descontar = cantidad efectiva * cantidad de platos pedidos
             $quantityToDeduct = (float) $recipeItem->effective_discount_base_quantity * (int) $orderItem->quantity;
 
-            Log::info('Descontando stock de ingrediente', [
+            Log::info('[ES] Descontando stock de ingrediente / [ZH] 扣减原料库存', [
                 'ingredient_id' => $ingredient->id,
                 'ingredient_sku' => $ingredient->sku,
                 'quantity_to_deduct' => $quantityToDeduct,
                 'current_stock' => (float) $ingredient->current_stock_base,
             ]);
 
-            // Descontar stock (lanza InsufficientIngredientStockException si no hay suficiente)
-            // Descontar stock usando movimiento (lanza InsufficientIngredientStockException si no hay suficiente)
-            // ADR-022: Registro de movimiento OutConsumption con referencia a la orden
+            // I-01 FIX: Generar idempotency_key único por (order_item, ingredient, recipe_version)
+            // Esto previene duplicación en caso de reintento de sincronización
             $orderId = $orderItem->order_id ?? null;
+            $orderItemUuid = $orderItem->uuid ?? null;
+            $idempotencyKey = sprintf(
+                'RECIPE-CONSUME-%s-%d-%d-%d',
+                $orderItemUuid ?? $orderItem->id,
+                $ingredient->id,
+                $recipe->version,
+                $orderId ?? 0
+            );
+
             RawIngredientMovement::record(
                 companyId: $ingredient->company_id,
                 branchId: $ingredient->branch_id,
@@ -217,12 +230,16 @@ class RecipeService
                 quantityBase: $quantityToDeduct,
                 referenceType: 'order',
                 referenceId: $orderId,
-                reason: "Consumo por pedido #{$orderItem->order->order_number}"
+                reason: "[ES] Consumo por pedido #{$orderItem->order->order_number} / [ZH] 订单 #{$orderItem->order->order_number} 消耗",
+                idempotencyKey: $idempotencyKey,
+                orderItemUuid: $orderItemUuid,
+                recipeVersion: $recipe->version
             );
             
-            Log::info('Stock descontado exitosamente', [
+            Log::info('[ES] Stock descontado exitosamente / [ZH] 库存扣减成功', [
                 'ingredient_id' => $ingredient->id,
                 'new_stock' => (float) $ingredient->fresh()->current_stock_base,
+                'idempotency_key' => $idempotencyKey,
             ]);
         }
     }
@@ -305,7 +322,7 @@ class RecipeService
                     quantityBase: $quantityToDeduct,
                     referenceType: 'production_batch',
                     referenceId: null,
-                    reason: $batchNotes ?? "Producción de {$quantity} lote(s) de {$productName}"
+                    reason: $batchNotes ?? "[ES] Producción de {$quantity} lote(s) de {$productName} / [ZH] 生产 {$quantity} 批次 {$productName}"
                 );
 
                 $movements[] = $movement;

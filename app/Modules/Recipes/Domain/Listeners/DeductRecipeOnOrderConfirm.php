@@ -27,7 +27,7 @@ class DeductRecipeOnOrderConfirm
     {
         $order = $event->order;
         
-        Log::info('DeductRecipeOnOrderConfirm: Listener ejecutado', [
+        Log::info('[ES] DeductRecipeOnOrderConfirm: Listener ejecutado / [ZH] 扣料监听器已执行', [
             'order_id' => $order->id,
             'order_number' => $order->order_number,
             'branch_id' => $order->branch_id,
@@ -37,16 +37,16 @@ class DeductRecipeOnOrderConfirm
         try {
             $this->recipeService->deductInventoryForOrder($order);
             
-            Log::info('RecipeInventoryDeducted: Insumos descontados exitosamente', [
+            Log::info('[ES] Insumos descontados exitosamente / [ZH] 原料扣减成功', [
                 'order_id' => $order->id,
                 'order_number' => $order->order_number,
             ]);
         } catch (InsufficientIngredientStockException $e) {
-            Log::warning('InsufficientIngredientStock: ' . $e->getMessage(), [
+            Log::warning('[ES] Stock insuficiente: ' . $e->getMessage() . ' / [ZH] 库存不足: ' . $e->getMessage(), [
                 'order_id' => $order->id,
             ]);
         } catch (\Exception $e) {
-            Log::error('Error al descontar insumos de receta', [
+            Log::error('[ES] Error al descontar insumos de receta / [ZH] 扣减原料失败', [
                 'order_id' => $order->id,
                 'error' => $e->getMessage(),
                 'file' => $e->getFile(),

@@ -29,11 +29,13 @@ class ProductRecipe extends Model
         'description',
         'yield_servings',
         'total_recipe_cost',
+        'version',
     ];
 
     protected $casts = [
         'yield_servings' => 'integer',
         'total_recipe_cost' => 'decimal:2',
+        'version' => 'integer',
     ];
 
     public function company(): BelongsTo

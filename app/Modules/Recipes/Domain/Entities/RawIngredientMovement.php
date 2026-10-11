@@ -38,8 +38,11 @@ class RawIngredientMovement extends Model
         'balance_after',
         'reference_type',
         'reference_id',
+        'order_item_uuid',
+        'recipe_version',
         'user_id',
         'reason',
+        'idempotency_key',
     ];
 
     protected $casts = [
@@ -83,11 +86,26 @@ class RawIngredientMovement extends Model
         ?string $referenceType = null,
         ?int $referenceId = null,
         ?int $userId = null,
-        ?string $reason = null
+        ?string $reason = null,
+        ?string $idempotencyKey = null,
+        ?string $orderItemUuid = null,
+        ?int $recipeVersion = null
     ): self {
         // Validación: quantity_base no puede ser zero
         if ($quantityBase == 0) {
             throw new \InvalidArgumentException('quantity_base cannot be zero');
+        }
+
+        // I-01 FIX: Verificar idempotencia por clave única
+        if ($idempotencyKey) {
+            $existing = self::withoutGlobalScopes()
+                ->where('idempotency_key', $idempotencyKey)
+                ->first();
+            
+            if ($existing) {
+                // Ya existe este movimiento, retornar el existente sin duplicar
+                return $existing;
+            }
         }
 
         // Obtener el insumo (withoutGlobalScopes para evitar filtros de tenant
@@ -129,6 +147,9 @@ class RawIngredientMovement extends Model
             'reference_id' => $referenceId,
             'user_id' => $userId,
             'reason' => $reason,
+            'idempotency_key' => $idempotencyKey,
+            'order_item_uuid' => $orderItemUuid,
+            'recipe_version' => $recipeVersion,
         ]);
 
         // Actualizar current_stock_base del insumo
