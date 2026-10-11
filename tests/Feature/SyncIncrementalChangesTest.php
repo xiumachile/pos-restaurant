@@ -26,3 +26,16 @@ test('getIncrementalChanges funciona en la primera sincronización (sin fecha si
 
     expect($result)->toHaveKeys(['categories', 'products', 'tables', 'payment_methods']);
 });
+
+test('getIncrementalChanges incluye productos company-wide (branch_id NULL)', function () {
+    $product = \Modules\Catalog\Domain\Entities\Product::factory()->create([
+        'company_id' => $this->company->id,
+        'branch_id' => null,
+        'is_active' => true,
+    ]);
+
+    $result = app(SyncManagementService::class)
+        ->getIncrementalChanges($this->company->id, $this->branch->id, null);
+
+    expect(collect($result['products'])->pluck('uuid'))->toContain($product->uuid);
+});
