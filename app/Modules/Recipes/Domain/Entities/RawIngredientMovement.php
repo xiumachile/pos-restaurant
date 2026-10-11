@@ -118,10 +118,11 @@ class RawIngredientMovement extends Model
             }
         }
 
-        // Obtener el insumo (withoutGlobalScopes para evitar filtros de tenant
-        // que pueden fallar cuando el contexto no está configurado en tests)
+        // P0/P1 FIX: Bloquear la fila con lockForUpdate para evitar condiciones de carrera
+        // en recepciones de compra o consumos simultáneos del mismo ingrediente.
         $ingredient = RawIngredient::withoutGlobalScopes()
             ->where('id', $rawIngredientId)
+            ->lockForUpdate()
             ->firstOrFail();
 
         // Calcular el efecto en el stock
