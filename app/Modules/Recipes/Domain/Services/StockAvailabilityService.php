@@ -24,12 +24,19 @@ class StockAvailabilityService
      * Recalcula el stock comprometido de un ingrediente basándose en
      * pedidos CONFIRMADOS que aún no han sido SERVED/CLOSED/CANCELLED.
      */
+    /**
+     * P0-03 FIX: Recalcular stock comprometido sin duplicar el consumo físico.
+     * Política: El stock se descuenta FÍSICAMENTE al confirmar el pedido (OrderConfirmed).
+     * Por lo tanto, los pedidos CONFIRMED, READY y PAID YA fueron descontados físicamente
+     * y NO deben contarse como "comprometidos". Solo los pedidos en estado PENDING
+     * (o DRAFT, si aplica) comprometen stock antes de la confirmación.
+     */
     public function recalculateCommittedStock(RawIngredient $ingredient): float
     {
-        $activeStatuses = [
-            OrderStatus::CONFIRMED,
-            OrderStatus::READY,
-            OrderStatus::PAID,
+        // Solo los estados ANTES de la confirmación física comprometen stock.
+        // Una vez confirmado, el stock ya se descontó físicamente (ver DeductRecipeOnOrderConfirm).
+        $pendingStatuses = [
+            OrderStatus::DRAFT->value,
         ];
 
         // Buscar todas las recetas que usan este ingrediente
@@ -46,16 +53,26 @@ class StockAvailabilityService
         $totalCommitted = 0.0;
 
         foreach ($recipes as $recipe) {
-            $recipeItem = $recipe->items->first();
-            if (!$recipeItem) continue;
+            // P0-03 FIX: Sumar TODOS los componentes de la receta que usen este ingrediente,
+            // no solo el primero (items->first()).
+            $recipeItemsForIngredient = $recipe->items->filter(function ($item) use ($ingredient) {
+                return $item->raw_ingredient_id === $ingredient->id;
+            });
 
-            $effectiveQty = (float) $recipeItem->effective_discount_base_quantity;
+            if ($recipeItemsForIngredient->isEmpty()) {
+                continue;
+            }
 
-            // Contar órdenes activas que contienen este producto
-            $activeOrders = Order::withoutGlobalScopes()
+            // Sumar la cantidad efectiva de todas las líneas de este ingrediente en la receta
+            $totalEffectiveQtyPerDish = $recipeItemsForIngredient->sum(function ($item) {
+                return (float) $item->effective_discount_base_quantity;
+            });
+
+            // Contar órdenes PENDIENTES (no confirmadas) que contienen este producto
+            $pendingOrders = Order::withoutGlobalScopes()
                 ->where('company_id', $ingredient->company_id)
                 ->where('branch_id', $ingredient->branch_id)
-                ->whereIn('status', $activeStatuses)
+                ->whereIn('status', $pendingStatuses)
                 ->whereHas('items', function ($q) use ($recipe) {
                     $q->where('product_id', $recipe->product_id);
                 })
@@ -64,9 +81,9 @@ class StockAvailabilityService
                 }])
                 ->get();
 
-            foreach ($activeOrders as $order) {
+            foreach ($pendingOrders as $order) {
                 foreach ($order->items as $orderItem) {
-                    $totalCommitted += $effectiveQty * (float) $orderItem->quantity;
+                    $totalCommitted += $totalEffectiveQtyPerDish * (float) $orderItem->quantity;
                 }
             }
         }
@@ -74,7 +91,7 @@ class StockAvailabilityService
         $ingredient->committed_stock_base = $totalCommitted;
         $ingredient->save();
 
-        Log::info('[ES] Stock comprometido recalculado / [ZH] 已重新计算承诺库存', [
+        Log::info('[ES] Stock comprometido recalculado (sin duplicidad) / [ZH] 已重新计算承诺库存（无重复）', [
             'ingredient_id' => $ingredient->id,
             'sku' => $ingredient->sku,
             'committed' => $totalCommitted,
