@@ -25,6 +25,18 @@ class CashSessionResource extends JsonResource
                 'uuid' => $this->user->uuid,
                 'name' => $this->user->name,
             ] : null,
+            
+            // UX-04: Desglose detallado para explicación de diferencias
+            'breakdown' => [
+                'cash_sales' => (int) $this->payments()->where('status', 'completed')->where('method_code', 'CASH')->sum('amount'),
+                'card_sales' => (int) $this->payments()->where('status', 'completed')->whereIn('method_code', ['CARD', 'DEBIT_CARD'])->sum('amount'),
+                'transfer_sales' => (int) $this->payments()->where('status', 'completed')->where('method_code', 'TRANSFER')->sum('amount'),
+                'total_tips' => (int) $this->payments()->where('status', 'completed')->sum('tip_amount'),
+                'cash_tips_received' => (int) $this->payments()->where('status', 'completed')->where('method_code', 'CASH')->sum('tip_amount'),
+                'movements_in' => (int) $this->movements()->where('type', 'in')->sum('amount'),
+                'movements_out' => (int) $this->movements()->where('type', 'out')->sum('amount'),
+                'pending_sync_payments' => (int) \Modules\Payments\Domain\Entities\Payment::where('cash_session_id', $this->id)->where('sync_status', 'pending')->count(),
+            ],
         ];
     }
 }

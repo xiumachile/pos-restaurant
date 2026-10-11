@@ -138,6 +138,18 @@ export function CashCloseWizard({
   const difference = total - finalExpected;
   const isExact = Math.abs(difference) < 1;
 
+  // UX-04: Datos de desglose (fallback a 0 si no existen)
+  const breakdown = (sessionData as any)?.breakdown || {
+    cash_sales: 0,
+    card_sales: 0,
+    transfer_sales: 0,
+    total_tips: 0,
+    cash_tips_received: 0,
+    movements_in: 0,
+    movements_out: 0,
+    pending_sync_payments: 0,
+  };
+
   const handleGeneratePayouts = () => {
     if (!hasPendingTips) {
       setStep(3);
