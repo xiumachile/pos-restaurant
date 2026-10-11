@@ -346,3 +346,148 @@ mod tests {
         assert_eq!(st, "available");
     }
 }
+
+// ============================================================================
+// COMANDOS DE DOMINIO ADICIONALES PARA CERRAR O-05
+// ============================================================================
+
+#[derive(Debug, Deserialize)]
+pub struct RegisterPaymentPayload {
+    pub order_local_uuid: String,
+    pub payment_method: String,
+    pub amount: i64,
+    pub tip_amount: i64,
+    pub reference_code: Option<String>,
+    pub notes: Option<String>,
+}
+
+#[tauri::command]
+pub fn register_local_payment(
+    state: tauri::State<DbState>,
+    payload: RegisterPaymentPayload,
+) -> Result<Value, String> {
+    let mut conn = state.0.lock().map_err(|e| format!("Mutex envenenado: {e}"))?;
+    
+    let tx = conn
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .map_err(|e| format!("Error iniciando transacción: {e}"))?;
+
+    let local_uuid = uuid::Uuid::new_v4().to_string();
+    let idempotency_key = uuid::Uuid::new_v4().to_string();
+
+    // 1. Obtener company_id y branch_id de la orden
+    let (company_id, branch_id): (String, String) = tx
+        .query_row(
+            "SELECT company_id, branch_id FROM local_orders WHERE local_uuid = ?1",
+            params![payload.order_local_uuid],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .map_err(|_| "Orden no encontrada".to_string())?;
+
+    // 2. Insertar pago
+    tx.execute(
+        "INSERT INTO local_payments (
+            local_uuid, company_id, branch_id, order_local_uuid, payment_method,
+            amount, tip_amount, reference_code, status, idempotency_key, sync_status, created_at
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'completed', ?9, 'pending', CURRENT_TIMESTAMP)",
+        params![
+            local_uuid, company_id, branch_id, payload.order_local_uuid,
+            payload.payment_method, payload.amount, payload.tip_amount,
+            payload.reference_code, idempotency_key
+        ],
+    )
+    .map_err(|e| format!("Error registrando pago: {e}"))?;
+
+    // 3. Encolar evento de sync para el pago
+    let sync_payload = serde_json::json!({
+        "local_uuid": local_uuid,
+        "order_local_uuid": payload.order_local_uuid,
+        "payment_method": payload.payment_method,
+        "amount": payload.amount,
+        "tip_amount": payload.tip_amount,
+        "reference_code": payload.reference_code,
+        "idempotency_key": idempotency_key
+    });
+
+    tx.execute(
+        "INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid, action, payload, sync_status, created_at)
+         VALUES (?1, ?2, ?3, 'payment', ?4, 'create', ?5, 'pending', CURRENT_TIMESTAMP)",
+        params![local_uuid, company_id, branch_id, local_uuid, sync_payload.to_string()],
+    )
+    .map_err(|e| format!("Error encolando sync de pago: {e}"))?;
+
+    tx.commit().map_err(|e| format!("Error en COMMIT: {e}"))?;
+
+    Ok(serde_json::json!({ "local_uuid": local_uuid }))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct EnqueueSyncEventPayload {
+    pub id: String,
+    pub company_id: String,
+    pub branch_id: String,
+    pub entity_type: String,
+    pub entity_local_uuid: String,
+    pub action: String,
+    pub payload_json: String,
+}
+
+#[tauri::command]
+pub fn enqueue_sync_event(
+    state: tauri::State<DbState>,
+    payload: EnqueueSyncEventPayload,
+) -> Result<(), String> {
+    let mut conn = state.0.lock().map_err(|e| format!("Mutex envenenado: {e}"))?;
+    
+    conn.execute(
+        "INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid, action, payload, sync_status, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'pending', CURRENT_TIMESTAMP)",
+        params![
+            payload.id, payload.company_id, payload.branch_id,
+            payload.entity_type, payload.entity_local_uuid, payload.action, payload.payload_json
+        ],
+    )
+    .map_err(|e| format!("Error encolando evento: {e}"))?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_pending_orders(
+    state: tauri::State<DbState>,
+    company_id: String,
+    branch_id: String,
+) -> Result<Value, String> {
+    let conn = state.0.lock().map_err(|e| format!("Mutex envenenado: {e}"))?;
+    
+    let mut stmt = conn
+        .prepare(
+            "SELECT local_uuid, order_number, order_type, status, subtotal, tax_total, grand_total, created_at
+             FROM local_orders
+             WHERE company_id = ?1 AND branch_id = ?2 AND sync_status = 'pending'
+             ORDER BY created_at ASC",
+        )
+        .map_err(|e| format!("Error preparando statement: {e}"))?;
+
+    let rows = stmt
+        .query_map(params![company_id, branch_id], |row| {
+            Ok(serde_json::json!({
+                "local_uuid": row.get::<_, String>(0)?,
+                "order_number": row.get::<_, String>(1)?,
+                "order_type": row.get::<_, String>(2)?,
+                "status": row.get::<_, String>(3)?,
+                "subtotal": row.get::<_, i64>(4)?,
+                "tax_total": row.get::<_, i64>(5)?,
+                "grand_total": row.get::<_, i64>(6)?,
+                "created_at": row.get::<_, String>(7)?,
+            }))
+        })
+        .map_err(|e| format!("Error ejecutando query: {e}"))?;
+
+    let mut orders = Vec::new();
+    for row in rows {
+        orders.push(row.map_err(|e| format!("Error mapeando fila: {e}"))?);
+    }
+
+    Ok(serde_json::Value::Array(orders))
+}

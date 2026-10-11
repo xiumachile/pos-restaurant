@@ -1,7 +1,5 @@
 mod database;
 mod orders;
-mod generic_sql;
-use generic_sql::{execute_query, execute_transaction};
 
 use database::DbState;
 use rusqlite::Connection;
@@ -67,9 +65,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             print_raw, 
             list_network_printers,
+            // COMANDOS DE DOMINIO SEGUROS (O-05 FIX)
             orders::create_local_order,
-            execute_query,
-            execute_transaction
+            orders::register_local_payment,
+            orders::enqueue_sync_event,
+            orders::get_pending_orders
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,73 +1,78 @@
 /**
  * O-05 FIX: Wrapper de dominio para operaciones locales de Tauri.
  * Reemplaza el uso de execute_transaction con SQL arbitrario por comandos específicos.
- * Esto reduce drásticamente la superficie de ataque local.
+ * Tipos alineados exactamente con el esquema real de SQLite (local_orders, local_order_items, sync_queue).
  */
 
 import { invoke } from '@tauri-apps/api/core';
 
 export interface CreateOrderPayload {
-  uuid: string;
-  company_id: number;
-  branch_id: number;
-  order_number: string;
-  type: string;
-  status: string;
-  subtotal: number;
-  tax_amount: number;
-  total: number;
-  idempotency_key: string;
+  company_id: string;
+  branch_id: string;
+  terminal_id?: string | null;
+  table_id?: string | null;
+  order_type: string;
+  guest_count: number;
+  waiter_id?: string | null;
+  waiter_name?: string | null;
+  notes?: string | null;
+  items: Array<{
+    product_id: string;
+    product_name: string;
+    quantity: number;
+    unit_price: number;
+    notes?: string | null;
+    is_menu_item: boolean;
+    menu_item_id?: string | null;
+  }>;
 }
 
 export interface RegisterPaymentPayload {
-  uuid: string;
-  company_id: number;
-  branch_id: number;
-  order_id: number;
+  order_local_uuid: string;
+  payment_method: string;
   amount: number;
   tip_amount: number;
   total_amount: number;
-  method_code: string;
-  idempotency_key: string;
+  reference_code?: string | null;
+  notes?: string | null;
 }
 
 export interface EnqueueSyncEventPayload {
-  company_id: number;
-  branch_id: number;
+  id: string; // UUID para la PK de sync_queue
+  company_id: string;
+  branch_id: string;
   entity_type: string;
-  entity_id: number;
-  entity_uuid: string;
+  entity_local_uuid: string;
   action: string;
   payload_json: string;
-  version: number;
 }
 
 export const localDomainApi = {
   /**
-   * Crea una orden local con validación de esquema estricta en Rust.
+   * Crea una orden local con sus ítems y encola el evento de sync en UNA transacción atómica.
    */
-  async createOrder(payload: CreateOrderPayload): Promise<string> {
-    return await invoke<string>('create_local_order', { payload });
+  async createOrder(payload: CreateOrderPayload): Promise<{ local_uuid: string }> {
+    return await invoke<{ local_uuid: string }>('create_local_order', { payload });
   },
 
   /**
    * Registra un pago local con validación estricta de campos monetarios.
    */
-  async registerPayment(payload: RegisterPaymentPayload): Promise<string> {
-    return await invoke<string>('register_local_payment', { payload });
+  async registerPayment(payload: RegisterPaymentPayload): Promise<{ local_uuid: string }> {
+    return await invoke<{ local_uuid: string }>('register_local_payment', { payload });
   },
 
   /**
    * Encola un evento de sincronización con validación de esquema.
    */
-  async enqueueSyncEvent(payload: EnqueueSyncEventPayload): Promise<string> {
-    return await invoke<string>('enqueue_sync_event', { payload });
+  async enqueueSyncEvent(payload: EnqueueSyncEventPayload): Promise<void> {
+    await invoke<void>('enqueue_sync_event', { payload });
   },
 
   /**
-   * Obtiene órdenes pendientes de forma segura (sin SQL arbitrario).
+   * Obtiene órdenes pendientes de sincronización de forma segura.
    */
-  async getPendingOrders(companyId: number, branchId: number): Promise<any[]> {
+  async getPendingOrders(companyId: string, branchId: string): Promise<any[]> {
     return await invoke<any[]>('get_pending_orders', { companyId, branchId });
   }
 };
