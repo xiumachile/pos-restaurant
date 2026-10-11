@@ -184,7 +184,6 @@ class SyncManagementService
     private function getChangedPaymentMethods(int $companyId, int $branchId, ?Carbon $since): array
     {
         $query = PaymentMethod::withoutGlobalScopes()
-            ->withTrashed()
             ->where('company_id', $companyId)
             ->where(function ($q) use ($branchId) {
                 $q->where('branch_id', $branchId)->orWhereNull('branch_id');
