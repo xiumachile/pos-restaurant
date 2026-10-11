@@ -186,4 +186,30 @@ class RawIngredient extends Model
     {
         return $query->where('is_active', true);
     }
+
+    /**
+     * I-03 FIX: Actualiza el costo unitario usando el método de Costo Promedio Ponderado (WAC).
+     * Fórmula: ((Stock Actual * Costo Actual) + (Cantidad Nueva * Costo Nuevo)) / (Stock Actual + Cantidad Nueva)
+     */
+    public function updateWeightedAverageCost(float $incomingQuantity, float $incomingUnitCost): void
+    {
+        if ($incomingQuantity <= 0 || $incomingUnitCost < 0) {
+            return;
+        }
+
+        $currentStock = max(0.0, (float) $this->current_stock_base);
+        $currentCost = max(0.0, (float) $this->cost_per_base_unit);
+
+        $totalCurrentValue = $currentStock * $currentCost;
+        $totalIncomingValue = $incomingQuantity * $incomingUnitCost;
+        $newTotalStock = $currentStock + $incomingQuantity;
+
+        if ($newTotalStock > 0) {
+            $this->cost_per_base_unit = round(($totalCurrentValue + $totalIncomingValue) / $newTotalStock, 4);
+        } else {
+            $this->cost_per_base_unit = $incomingUnitCost;
+        }
+        
+        $this->save();
+    }
 }

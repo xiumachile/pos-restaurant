@@ -266,6 +266,10 @@ class RecipeService
                 $orderId ?? 0
             );
 
+            // I-03 FIX: Congelar el costo unitario actual en el momento del consumo
+            $currentUnitCost = (float) $ingredient->cost_per_base_unit;
+            $totalMovementCost = round($quantityToDeduct * $currentUnitCost, 2);
+
             RawIngredientMovement::record(
                 companyId: $ingredient->company_id,
                 branchId: $ingredient->branch_id,
@@ -277,7 +281,9 @@ class RecipeService
                 reason: "[ES] Consumo por pedido #{$orderItem->order->order_number} / [ZH] 订单 #{$orderItem->order->order_number} 消耗",
                 idempotencyKey: $idempotencyKey,
                 orderItemUuid: $orderItemUuid,
-                recipeVersion: $recipe->version
+                recipeVersion: $recipe->version,
+                costPerBaseUnitAtTransaction: $currentUnitCost,
+                totalCostAtTransaction: $totalMovementCost
             );
             
             Log::info('[ES] Stock descontado exitosamente / [ZH] 库存扣减成功', [

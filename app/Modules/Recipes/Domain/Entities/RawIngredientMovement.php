@@ -45,12 +45,16 @@ class RawIngredientMovement extends Model
         'user_id',
         'reason',
         'idempotency_key',
+        'cost_per_base_unit_at_transaction',
+        'total_cost_at_transaction',
     ];
 
     protected $casts = [
         'type' => MovementType::class,
         'quantity_base' => 'decimal:4',
         'balance_after' => 'decimal:4',
+        'cost_per_base_unit_at_transaction' => 'decimal:4',
+        'total_cost_at_transaction' => 'decimal:2',
     ];
 
     public function company(): BelongsTo
@@ -93,7 +97,9 @@ class RawIngredientMovement extends Model
         ?string $orderItemUuid = null,
         ?int $recipeVersion = null,
         ?float $originalQuantity = null,
-        ?string $originalUnit = null
+        ?string $originalUnit = null,
+        ?float $costPerBaseUnitAtTransaction = null,
+        ?float $totalCostAtTransaction = null
     ): self {
         // Validación: quantity_base no puede ser zero
         if ($quantityBase == 0) {
@@ -148,6 +154,8 @@ class RawIngredientMovement extends Model
             'quantity_base' => $quantityBase,
             'original_quantity' => $originalQuantity,
             'original_unit' => $originalUnit,
+            'cost_per_base_unit_at_transaction' => $costPerBaseUnitAtTransaction,
+            'total_cost_at_transaction' => $totalCostAtTransaction,
             'balance_after' => $balanceAfter,
             'reference_type' => $referenceType,
             'reference_id' => $referenceId,
