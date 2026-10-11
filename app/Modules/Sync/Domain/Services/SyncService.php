@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Modules\Sync\Domain\Entities\SyncLog;
 use Modules\Sync\Domain\Entities\SyncQueue;
 use Modules\Sync\Domain\Exceptions\SyncException;
+use Modules\Sync\Domain\Services\RemoteSyncClient;
 use Modules\Sync\Domain\Services\ServerDataProvider;
 use Throwable;
 
@@ -161,6 +162,9 @@ class SyncService
             $entity->validateForSync();
         }
 
+        // P1 FIX: Sincronización remota antes de marcar como synced
+        app(RemoteSyncClient::class)->pushToCloud($queueItem);
+
         $entity->sync_status = 'synced';
         $entity->last_synced_at = now();
         $entity->saveQuietly();
@@ -187,6 +191,9 @@ class SyncService
             $entity->fill($data);
         }
         
+        // P1 FIX: Sincronización remota antes de marcar como synced
+        app(RemoteSyncClient::class)->pushToCloud($queueItem);
+
         $entity->sync_status = 'synced';
         $entity->last_synced_at = now();
         $entity->saveQuietly();
@@ -196,6 +203,8 @@ class SyncService
     {
         $entity = $queueItem->getEntity();
         if ($entity) {
+            // P1 FIX: Sincronización remota antes de eliminar
+            app(RemoteSyncClient::class)->pushToCloud($queueItem);
             $entity->delete();
         }
     }
