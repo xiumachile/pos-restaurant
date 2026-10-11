@@ -168,6 +168,13 @@ class RawIngredientMovement extends Model
 
         // Actualizar current_stock_base del insumo
         $ingredient->current_stock_base = $balanceAfter;
+        
+        // I-04 FIX: Si es un movimiento de consumo, liberar el stock comprometido correspondiente
+        // para evitar que se cuente dos veces (una como compromiso y otra como descuento físico)
+        if ($type === \Modules\Recipes\Domain\ValueObjects\MovementType::OutConsumption) {
+            $ingredient->releaseCommittedStock(abs($stockChange));
+        }
+        
         $ingredient->save();
 
         return $movement;

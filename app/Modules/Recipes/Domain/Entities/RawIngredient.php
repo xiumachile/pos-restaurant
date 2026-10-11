@@ -38,7 +38,10 @@ class RawIngredient extends Model
         'dimension_type',
         'base_unit',
         'current_stock_base',
+        'committed_stock_base',
+        'pending_incoming_base',
         'minimum_stock_base',
+        'reorder_level_base',
         'cost_per_base_unit',
         'is_active',
     ];
@@ -48,7 +51,10 @@ class RawIngredient extends Model
         'dimension_type' => DimensionType::class,
         'base_unit' => BaseUnit::class,
         'current_stock_base' => 'decimal:4',
+        'committed_stock_base' => 'decimal:4',
+        'pending_incoming_base' => 'decimal:4',
         'minimum_stock_base' => 'decimal:4',
+        'reorder_level_base' => 'decimal:4',
         'cost_per_base_unit' => 'decimal:6',
         'is_active' => 'boolean',
     ];
@@ -171,7 +177,9 @@ class RawIngredient extends Model
             );
         }
 
-        $this->decrement('current_stock_base', $quantityBase);
+        $this->decrement('current_stock_base',
+        'committed_stock_base',
+        'pending_incoming_base', $quantityBase);
     }
 
     /**
@@ -210,6 +218,50 @@ class RawIngredient extends Model
             $this->cost_per_base_unit = $incomingUnitCost;
         }
         
+        $this->save();
+    }
+
+    /**
+     * I-04 FIX: Calcula el stock disponible real.
+     * Fórmula: stock_available = current_stock - committed + pending_incoming
+     */
+    public function getAvailableStockBase(): float
+    {
+        return max(0.0, (float) $this->current_stock_base - (float) $this->committed_stock_base + (float) $this->pending_incoming_base);
+    }
+
+    /**
+     * I-04 FIX: Verifica si el stock disponible está por debajo del umbral mínimo.
+     */
+    public function isBelowMinimum(): bool
+    {
+        return $this->getAvailableStockBase() < (float) $this->minimum_stock_base;
+    }
+
+    /**
+     * I-04 FIX: Verifica si el stock disponible está en nivel de reposición.
+     */
+    public function needsReorder(): bool
+    {
+        $reorderLevel = (float) ($this->reorder_level_base ?? $this->minimum_stock_base);
+        return $this->getAvailableStockBase() <= $reorderLevel;
+    }
+
+    /**
+     * I-04 FIX: Incrementa el stock comprometido (al confirmar un pedido).
+     */
+    public function commitStock(float $quantity): void
+    {
+        $this->committed_stock_base = (float) $this->committed_stock_base + $quantity;
+        $this->save();
+    }
+
+    /**
+     * I-04 FIX: Libera stock comprometido (al descontar físicamente o cancelar).
+     */
+    public function releaseCommittedStock(float $quantity): void
+    {
+        $this->committed_stock_base = max(0.0, (float) $this->committed_stock_base - $quantity);
         $this->save();
     }
 }
