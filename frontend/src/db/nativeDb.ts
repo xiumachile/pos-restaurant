@@ -18,7 +18,7 @@ function getTestDb() {
 /**
  * Detección infalible de entorno de pruebas (Vitest, Jest, CI, Node.js).
  */
-function isTestEnvironment(): boolean {
+export function isTestEnvironment(): boolean {
   // 1. Entorno Node.js puro (GitHub Actions CI, scripts)
   if (typeof window === 'undefined') {
     return true;

@@ -1,14 +1,9 @@
 mod database;
+mod orders;
 mod generic_sql;
 use generic_sql::{execute_query, execute_transaction};
 
-use database::{
-    DbState, 
-    create_local_order, 
-    register_local_payment, 
-    enqueue_sync_event,
-    get_pending_orders
-};
+use database::DbState;
 use rusqlite::Connection;
 use std::sync::Mutex;
 use tauri::Manager;
@@ -72,11 +67,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             print_raw, 
             list_network_printers,
-            // O-05 FIX: Comandos de dominio específicos, sin SQL arbitrario
-            create_local_order,
-            register_local_payment,
-            enqueue_sync_event,
-            get_pending_orders,
+            orders::create_local_order,
             execute_query,
             execute_transaction
         ])

@@ -1,3 +1,4 @@
+import { isTestEnvironment } from "../nativeDb";
 import { localDb } from "../localDb";
 import { localWriteCoordinator } from "../LocalWriteCoordinator";
 import { validateLocalMoneyPayload } from '../guards/localMoneyGuard';
@@ -427,6 +428,35 @@ export class OrderRepository {
     }>
   ): Promise<LocalOrder> {
     validateLocalMoneyPayload(payload as unknown as Record<string, unknown>, 'order');
+
+    // Tauri real: creación atómica en Rust (orden + ítems + sync_queue + mesa en UNA transacción)
+    if (!isTestEnvironment()) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const res = await invoke<{ local_uuid: string }>("create_local_order", {
+        payload: {
+          company_id: String(payload.company_id),
+          branch_id: String(payload.branch_id),
+          terminal_id: payload.terminal_id ?? null,
+          table_id: payload.table_id ?? null,
+          order_type: payload.order_type ?? "dine_in",
+          guest_count: payload.guest_count ?? 1,
+          waiter_id: payload.waiter_id ?? null,
+          waiter_name: payload.waiter_name ?? null,
+          notes: payload.notes ?? null,
+          items: items.map((i) => ({
+            product_id: String(i.product_id),
+            product_name: i.product_name,
+            quantity: i.quantity,
+            unit_price: i.unit_price,
+            notes: i.notes ?? null,
+            is_menu_item: i.is_menu_item ?? false,
+            menu_item_id: i.menu_item_id ?? null,
+          })),
+        },
+      });
+      console.log("[OrderRepository] 📤 Pedido creado atómicamente (Rust):", res.local_uuid);
+      return (await this.findByLocalUuid(res.local_uuid)) as LocalOrder;
+    }
     const local_uuid = uuidv4();
     const idempotency_key = uuidv4();
     const order_number = `TEMP-${Date.now()}`;

@@ -4,6 +4,9 @@ namespace Modules\Sync\Domain\Services;
 
 use Illuminate\Support\Facades\Log;
 use Modules\Orders\Domain\Entities\Order;
+use Modules\Payments\Domain\Entities\Payment;
+use Modules\Cashier\Domain\Entities\CashMovement;
+use Modules\Payments\Domain\Entities\Bill;
 use Modules\Sync\Domain\Entities\SyncLog;
 use Modules\Sync\Domain\Entities\SyncQueue;
 use Modules\Sync\Domain\Enums\ResolutionStrategy;
@@ -12,20 +15,45 @@ use Modules\Sync\Domain\Enums\ResolutionStrategy;
  * Resuelve conflictos de sincronización cuando el servidor
  * tiene una versión diferente a la del cliente.
  *
- * Estrategias disponibles:
- * - SERVER_WINS: El servidor gana, el cliente pierde sus cambios
- * - CLIENT_WINS: El cliente gana, sobrescribe el servidor
- * - MERGE: Intenta fusionar cambios (solo para campos no conflictivos)
- * - MANUAL: Marca para revisión manual (requiere intervención humana)
+ * O-06 FIX: Políticas explícitas por tipo de entidad para prevenir
+ * la pérdida silenciosa de operaciones financieras.
  */
 class ConflictResolver
 {
+    /**
+     * O-06 FIX: Mapa de políticas de conflicto por tipo de entidad.
+     * Las entidades financieras NO permiten SERVER_WINS para evitar pérdida de datos.
+     */
+    protected const ENTITY_CONFLICT_POLICIES = [
+        // Catálogo: El servidor es la autoridad
+        \Modules\Catalog\Domain\Entities\Category::class => ResolutionStrategy::SERVER_WINS,
+        \Modules\Catalog\Domain\Entities\Product::class => ResolutionStrategy::SERVER_WINS,
+        \Modules\Tables\Domain\Entities\RestaurantTable::class => ResolutionStrategy::SERVER_WINS,
+        
+        // Pedidos: Fusión controlada o revisión manual si hay conflicto en montos/estado
+        \Modules\Orders\Domain\Entities\Order::class => ResolutionStrategy::MERGE,
+        
+        // Entidades financieras: INMUTABLES. Deduplicación por clave o revisión manual.
+        // NUNCA SERVER_WINS para evitar sobrescribir pagos o movimientos de caja locales.
+        Payment::class => ResolutionStrategy::MANUAL,
+        CashMovement::class => ResolutionStrategy::MANUAL,
+        Bill::class => ResolutionStrategy::MANUAL,
+    ];
+
+    /**
+     * Entidades que soportan deduplicación por idempotency_key.
+     */
+    protected const DEDUPLICABLE_ENTITIES = [
+        Payment::class,
+        \Modules\Orders\Domain\Entities\Order::class,
+    ];
+
     /**
      * Resuelve un conflicto detectado durante la sincronización.
      *
      * @param SyncQueue $queueItem El item en cola con conflicto
      * @param array $serverData Datos actuales del servidor
-     * @param ResolutionStrategy $strategy Estrategia de resolución
+     * @param ResolutionStrategy $strategy Estrategia de resolución solicitada
      * @return array Resultado de la resolución
      */
     public function resolve(
@@ -44,37 +72,56 @@ class ConflictResolver
             $entity = $queueItem->getEntity();
             
             if (!$entity) {
-                $result['action_taken'] = 'skip_entity_not_found';
+                $result['action_taken'] = 'skip_entity_not_found / 实体未找到';
                 return $result;
+            }
+
+            // O-06 FIX: Forzar política segura según el tipo de entidad
+            $safeStrategy = $this->getSafeStrategyForEntity($queueItem->entity_type, $strategy);
+            $result['strategy'] = $safeStrategy->value;
+
+            // O-06 FIX: Intentar deduplicación por idempotency_key antes de marcar conflicto
+            if (in_array($queueItem->entity_type, self::DEDUPLICABLE_ENTITIES)) {
+                $dedupResult = $this->attemptDeduplication($queueItem, $serverData);
+                if ($dedupResult['resolved']) {
+                    return array_merge($result, $dedupResult);
+                }
             }
 
             // Detectar campos en conflicto
             $conflicts = $this->detectConflicts($queueItem, $serverData);
             $result['conflict_details'] = $conflicts;
 
-            // Aplicar estrategia
-            switch ($strategy) {
+            // Aplicar estrategia segura
+            switch ($safeStrategy) {
                 case ResolutionStrategy::SERVER_WINS:
                     $this->applyServerWins($entity, $serverData);
-                    $result['action_taken'] = 'server_data_applied';
+                    $result['action_taken'] = 'server_data_applied / 应用服务器数据';
                     $result['resolved'] = true;
                     break;
 
                 case ResolutionStrategy::CLIENT_WINS:
                     $this->applyClientWins($queueItem, $entity);
-                    $result['action_taken'] = 'client_data_preserved';
+                    $result['action_taken'] = 'client_data_preserved / 保留客户端数据';
                     $result['resolved'] = true;
                     break;
 
                 case ResolutionStrategy::MERGE:
                     $merged = $this->applyMerge($queueItem, $serverData, $conflicts);
-                    $result['action_taken'] = $merged ? 'fields_merged' : 'merge_failed_conflicts';
+                    if ($merged) {
+                        $result['action_taken'] = 'fields_merged / 字段已合并';
+                        $result['resolved'] = true;
+                    } else {
+                        $this->markForManualReview($queueItem, $conflicts, ResolutionStrategy::MANUAL);
+                        $result['action_taken'] = 'merge_failed_fallback_to_manual / 合并失败，转为人工审核';
+                        $result['resolved'] = false;
+                    }
                     $result['resolved'] = $merged;
                     break;
 
                 case ResolutionStrategy::MANUAL:
-                    $this->markForManualReview($queueItem, $conflicts);
-                    $result['action_taken'] = 'marked_for_manual_review';
+                    $this->markForManualReview($queueItem, $conflicts, $safeStrategy);
+                    $result['action_taken'] = 'marked_for_manual_review / 标记为人工审核';
                     $result['resolved'] = false;
                     break;
             }
@@ -83,16 +130,71 @@ class ConflictResolver
             $this->logConflictResolution($queueItem, $result);
 
         } catch (\Throwable $e) {
-            Log::error('ConflictResolver failed', [
+            Log::error('ConflictResolver failed / 冲突解决失败', [
                 'queue_id' => $queueItem->id,
                 'error' => $e->getMessage(),
             ]);
             
-            $result['action_taken'] = 'resolution_failed';
+            $result['action_taken'] = 'resolution_failed / 解决失败';
             $result['error'] = $e->getMessage();
         }
 
         return $result;
+    }
+
+    /**
+     * O-06 FIX: Obtiene la estrategia segura para una entidad, previniendo SERVER_WINS en datos financieros.
+     */
+    protected function getSafeStrategyForEntity(string $entityType, ResolutionStrategy $requestedStrategy): ResolutionStrategy
+    {
+        // O-06 FIX: Solo bloquear SERVER_WINS para entidades financieras.
+        // Para otras entidades (Order, Category, etc.), respetar la estrategia solicitada.
+        $financialEntities = [Payment::class, CashMovement::class, Bill::class];
+        
+        if (in_array($entityType, $financialEntities) && $requestedStrategy === ResolutionStrategy::SERVER_WINS) {
+            Log::warning("ConflictResolver: Blocked SERVER_WINS for financial entity {$entityType} / 阻止对财务实体使用 SERVER_WINS", [
+                'entity_type' => $entityType,
+            ]);
+            return ResolutionStrategy::MANUAL;
+        }
+
+        // Para entidades no financieras, respetar la estrategia solicitada
+        return $requestedStrategy;
+    }
+
+    /**
+     * O-06 FIX: Intenta resolver el conflicto mediante deduplicación por idempotency_key.
+     * Si el servidor ya tiene un registro con la misma clave de idempotencia, 
+     * consideramos el sync exitoso sin sobrescribir datos.
+     */
+    protected function attemptDeduplication(SyncQueue $queueItem, array $serverData): array
+    {
+        $clientPayload = $queueItem->payload ?? [];
+        $clientIdempotency = $clientPayload['idempotency_key'] ?? null;
+        $serverIdempotency = $serverData['idempotency_key'] ?? null;
+
+        if ($clientIdempotency && $clientIdempotency === $serverIdempotency) {
+            // Ya existe en el servidor con la misma clave. Marcar como synced localmente.
+            $entity = $queueItem->getEntity();
+            if ($entity) {
+                app()->instance('sync.is_syncing', true);
+                try {
+                    $entity->sync_status = 'synced';
+                    $entity->last_synced_at = now();
+                    $entity->save();
+                } finally {
+                    app()->instance('sync.is_syncing', false);
+                }
+            }
+            
+            return [
+                'resolved' => true,
+                'action_taken' => 'deduplicated_by_idempotency_key / 通过幂等键去重',
+                'conflict_details' => [],
+            ];
+        }
+
+        return ['resolved' => false];
     }
 
     /**
@@ -103,25 +205,21 @@ class ConflictResolver
         $conflicts = [];
         $clientData = $queueItem->payload ?? [];
 
-        // Campos que pueden fusionarse automáticamente
         $mergeableFields = ['notes', 'updated_at'];
-        
-        // Campos que generan conflicto si ambos cambian
         $conflictFields = [
             'status', 'subtotal', 'tax_amount', 'discount_amount', 
-            'total', 'waiter_id', 'table_id', 'assigned_cook_id'
+            'total', 'amount', 'tip_amount', 'waiter_id', 'table_id', 'assigned_cook_id'
         ];
 
         foreach ($conflictFields as $field) {
             $clientValue = $clientData[$field] ?? null;
             $serverValue = $serverData[$field] ?? null;
 
-            // Si ambos tienen valores diferentes, hay conflicto
             if ($clientValue !== null && $serverValue !== null && $clientValue !== $serverValue) {
                 $conflicts[$field] = [
                     'client' => $clientValue,
                     'server' => $serverValue,
-                    'mergeable' => false,
+                    'mergeable' => in_array($field, $mergeableFields),
                 ];
             }
         }
@@ -129,16 +227,10 @@ class ConflictResolver
         return $conflicts;
     }
 
-    /**
-     * SERVER_WINS: Aplica los datos del servidor al cliente.
-     */
     protected function applyServerWins($entity, array $serverData): void
     {
-        // Marcar que estamos sincronizando (evita que Syncable incremente versión)
         app()->instance('sync.is_syncing', true);
-
         try {
-            // Actualizar la entidad local con datos del servidor
             $entity->fill($serverData);
             $entity->sync_status = 'synced';
             $entity->version = $serverData['version'] ?? $entity->version;
@@ -149,28 +241,28 @@ class ConflictResolver
         }
     }
 
-    /**
-     * CLIENT_WINS: Preserva los datos del cliente (próximo push sobrescribirá servidor).
-     */
     protected function applyClientWins(SyncQueue $queueItem, $entity): void
     {
-        // Marcar como pending para reintentar con datos del cliente
         $queueItem->status = 'pending';
         $queueItem->attempts = 0;
         $queueItem->save();
 
-        // Mantener sync_status en pending para forzar nuevo push
         $entity->sync_status = 'pending';
         $entity->save();
     }
 
-    /**
-     * MERGE: Intenta fusionar campos no conflictivos.
-     */
     protected function applyMerge(SyncQueue $queueItem, array $serverData, array $conflicts): bool
     {
-        // Si hay conflictos en campos críticos, no se puede fusionar
-        if (!empty($conflicts)) {
+        // Si hay conflictos en campos críticos (no mergeables), no se puede fusionar
+        $hasCriticalConflicts = false;
+        foreach ($conflicts as $field => $details) {
+            if (!$details['mergeable']) {
+                $hasCriticalConflicts = true;
+                break;
+            }
+        }
+
+        if ($hasCriticalConflicts) {
             return false;
         }
 
@@ -179,19 +271,14 @@ class ConflictResolver
             return false;
         }
 
-        // Marcar que estamos sincronizando
         app()->instance('sync.is_syncing', true);
-
         try {
-            // Fusionar solo campos mergeables
             $clientData = $queueItem->payload ?? [];
             $mergeableFields = ['notes'];
             
             foreach ($mergeableFields as $field) {
-                if (isset($clientData[$field]) && isset($serverData[$field])) {
-                    // Concatenar notas con separador
-                    $merged = $serverData[$field] . "\n--- Cliente: " . $clientData[$field];
-                    $entity->{$field} = $merged;
+                if (isset($clientData[$field]) && isset($serverData[$field]) && $clientData[$field] !== $serverData[$field]) {
+                    $entity->{$field} = $serverData[$field] . "\n--- Cliente / Client: " . $clientData[$field];
                 }
             }
 
@@ -206,20 +293,14 @@ class ConflictResolver
         return true;
     }
 
-    /**
-     * MANUAL: Marca para revisión humana.
-     */
-    protected function markForManualReview(SyncQueue $queueItem, array $conflicts): void
+    protected function markForManualReview(SyncQueue $queueItem, array $conflicts, ResolutionStrategy $forcedStrategy): void
     {
         $queueItem->status = 'conflict';
-        $queueItem->error_message = 'Conflicto detectado, requiere revisión manual / 检测到冲突，需要人工审核';
-        $queueItem->conflict_data = $conflicts;
+        $queueItem->error_message = "Conflicto detectado (Política: {$forcedStrategy->value}), requiere revisión manual / 检测到冲突 (策略: {$forcedStrategy->value})，需要人工审核";
+        $queueItem->conflict_data = array_merge($conflicts, ['forced_strategy' => $forcedStrategy->value]);
         $queueItem->save();
     }
 
-    /**
-     * Registra la resolución en sync_log.
-     */
     protected function logConflictResolution(SyncQueue $queueItem, array $result): void
     {
         try {
@@ -243,7 +324,7 @@ class ConflictResolver
                 'synced_at' => now(),
             ]);
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('ConflictResolver: Failed to write log', [
+            Log::warning('ConflictResolver: Failed to write log / 记录日志失败', [
                 'error' => $e->getMessage(),
             ]);
         }

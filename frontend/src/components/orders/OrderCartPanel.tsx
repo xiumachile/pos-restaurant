@@ -74,7 +74,12 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
       // 1. Crear pedido (operación crítica)
       const order = await OrderRepository.createWithItems(
         mergeAuthContext({
-          table_id: tableId,
+          // Solo dine_in lleva mesa. Delivery/takeout usan clave "takeaway-{uuid}"
+          // y no tienen mesa real (regla del backend: CreateOrderRequest).
+          table_id:
+            channelToOrderType(cart.channel) === "dine_in"
+              ? (cart.tableUuid ?? null)
+              : null,
           order_type: channelToOrderType(cart.channel),
         }),
         items.map(item => ({
