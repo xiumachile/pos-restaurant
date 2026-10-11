@@ -1,4 +1,6 @@
 mod database;
+mod generic_sql;
+use generic_sql::{execute_query, execute_transaction};
 
 use database::{
     DbState, 
@@ -74,7 +76,9 @@ pub fn run() {
             create_local_order,
             register_local_payment,
             enqueue_sync_event,
-            get_pending_orders
+            get_pending_orders,
+            execute_query,
+            execute_transaction
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
