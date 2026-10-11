@@ -166,20 +166,40 @@ class RawIngredient extends Model
         });
     }
 
+    /**
+     * P0-01 FIX: Descontar stock físico de forma atómica y segura.
+     * - Usa transacción con bloqueo de fila (lockForUpdate) para evitar condiciones de carrera.
+     * - Solo afecta a current_stock_base. 
+     * - NO modifica committed_stock_base ni pending_incoming_base (se gestionan por separado).
+     */
     public function deductStock(float $quantityBase): void
     {
-        $branch = $this->branch;
-        $allowNegative = $branch?->allow_negative_stock ?? false;
+        \Illuminate\Support\Facades\DB::transaction(function () use ($quantityBase) {
+            // 1. Bloquear la fila para lectura/escritura exclusiva
+            $ingredient = static::where('id', $this->id)->lockForUpdate()->first();
+            
+            if (!$ingredient) {
+                throw new \Exception("Ingrediente no encontrado para bloqueo");
+            }
 
-        if (!$allowNegative && (float) $this->current_stock_base < $quantityBase) {
-            throw new \Modules\Recipes\Domain\Exceptions\InsufficientIngredientStockException(
-                $this, $quantityBase, (float) $this->current_stock_base
-            );
-        }
+            $branch = $ingredient->branch;
+            $allowNegative = $branch?->allow_negative_stock ?? false;
 
-        $this->decrement('current_stock_base',
-        'committed_stock_base',
-        'pending_incoming_base', $quantityBase);
+            // 2. Validar stock suficiente (si no se permite negativo)
+            if (!$allowNegative && (float) $ingredient->current_stock_base < $quantityBase) {
+                throw new \Modules\Recipes\Domain\Exceptions\InsufficientIngredientStockException(
+                    $ingredient, $quantityBase, (float) $ingredient->current_stock_base
+                );
+            }
+
+            // 3. Decrementar SOLO el stock físico actual (permitir negativo si la sucursal lo permite)
+            $newStock = (float) $ingredient->current_stock_base - $quantityBase;
+            $ingredient->current_stock_base = $allowNegative ? $newStock : max(0.0, $newStock);
+            $ingredient->save();
+            
+            // 4. Sincronizar la instancia actual para reflejar el cambio en memoria
+            $this->current_stock_base = $ingredient->current_stock_base;
+        });
     }
 
     /**
