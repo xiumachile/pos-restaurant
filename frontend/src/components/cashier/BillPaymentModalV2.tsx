@@ -71,7 +71,8 @@ export function BillPaymentModalV2({
   const [receivedInput, setReceivedInput] = useState<string>("");
   const [activeField, setActiveField] = useState<ActiveField>("amount");
   const [payments, setPayments] = useState<PendingPayment[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
+  const [networkError, setNetworkError] = useState<string | null>(null);
   const { t } = useTranslation();
   const [errors, setErrors] = useState<string[]>([]);
   
