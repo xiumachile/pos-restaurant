@@ -1,9 +1,3 @@
-/**
- * O-05 / P0-02 FIX: Wrapper de dominio para operaciones locales de Tauri.
- * La idempotencia es responsabilidad del llamador (frontend), que debe generar
- * y persistir la idempotency_key antes del primer intento y reutilizarla.
- */
-
 import { invoke } from '@tauri-apps/api/core';
 
 export interface CreateOrderPayload {
@@ -28,8 +22,8 @@ export interface CreateOrderPayload {
 }
 
 export interface RegisterPaymentPayload {
-  local_uuid: string; // Generado y persistido por el frontend antes del primer intento
-  idempotency_key: string; // Generado y persistido por el frontend antes del primer intento
+  local_uuid: string;
+  idempotency_key: string;
   order_local_uuid: string;
   payment_method: string;
   amount: number;
@@ -41,8 +35,6 @@ export interface RegisterPaymentPayload {
 
 export interface EnqueueSyncEventPayload {
   id: string;
-  company_id: string;
-  branch_id: string;
   entity_type: string;
   entity_local_uuid: string;
   action: string;
@@ -64,5 +56,14 @@ export const localDomainApi = {
 
   async getPendingOrders(companyId: string, branchId: string): Promise<any[]> {
     return await invoke<any[]>('get_pending_orders', { companyId, branchId });
+  },
+
+  // P1 FIX: Verificación real de conectividad en lugar de descubrimiento de red vacío
+  async checkPrinterStatus(ip: string, port: number): Promise<string> {
+    return await invoke<string>('check_printer_status', { ip, port });
+  },
+
+  async printRaw(ip: string, port: number, dataBase64: string): Promise<number> {
+    return await invoke<number>('print_raw', { ip, port, data: dataBase64 });
   }
 };

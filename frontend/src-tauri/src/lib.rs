@@ -10,26 +10,43 @@ use tokio::net::TcpStream;
 use tokio::time::{timeout, Duration};
 
 #[tauri::command]
+async fn check_printer_status(ip: String, port: u16) -> Result<String, String> {
+    let addr = format!("{}:{}", ip, port);
+    let connect_future = TcpStream::connect(&addr);
+    
+    match timeout(Duration::from_secs(3), connect_future).await {
+        Ok(Ok(_stream)) => {
+            // La conexión TCP fue exitosa. En un escenario ideal, aquí se enviaría 
+            // un comando de estado específico (ej. ESC/POS GS r), pero la conexión 
+            // exitosa ya descarta que la impresora esté apagada o fuera de red.
+            Ok("Online".to_string())
+        }
+        Ok(Err(e)) => Err(format!("Offline: No se pudo conectar ({})", e)),
+        Err(_) => Err("Offline: Timeout de conexión (3s)".to_string()),
+    }
+}
+
+#[tauri::command]
 async fn print_raw(ip: String, port: u16, data: String) -> Result<usize, String> {
     let bytes = base64_decode(&data).map_err(|e| format!("Base64 inválido: {}", e))?;
     let addr = format!("{}:{}", ip, port);
 
     let connect_future = TcpStream::connect(&addr);
-    let mut stream = timeout(Duration::from_secs(5), connect_future)
+    let mut stream = timeout(Duration::from_secs(3), connect_future)
         .await
-        .map_err(|_| format!("Timeout conectando a {}", addr))?
-        .map_err(|e| format!("Error conectando a {}: {}", addr, e))?;
+        .map_err(|_| format!("Error de conexión: Timeout al conectar con {}", addr))?
+        .map_err(|e| format!("Error de conexión: No se pudo conectar a {} ({})", addr, e))?;
 
-    stream.write_all(&bytes).await.map_err(|e| format!("Error escribiendo bytes: {}", e))?;
-    stream.flush().await.map_err(|e| format!("Error haciendo flush: {}", e))?;
+    stream.write_all(&bytes).await.map_err(|e| format!("Error de escritura: {}", e))?;
+    
+    // Opcional: flush para asegurar que los datos salen del buffer del SO
+    stream.flush().await.map_err(|e| format!("Error de flush: {}", e))?;
 
+    // Nota: La mayoría de impresoras térmicas en modo raw no envían un ACK de aplicación 
+    // a menos que se envíe un comando de estado específico. El éxito aquí garantiza que 
+    // los datos fueron entregados a la pila de red de la impresora.
     println!("[Tauri:print_raw] ✅ {} bytes enviados a {}", bytes.len(), addr);
     Ok(bytes.len())
-}
-
-#[tauri::command]
-fn list_network_printers() -> Vec<String> {
-    vec![]
 }
 
 fn base64_decode(input: &str) -> Result<Vec<u8>, String> {
@@ -64,7 +81,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             print_raw, 
-            list_network_printers,
+            check_printer_status,
             // COMANDOS DE DOMINIO SEGUROS (O-05 FIX)
             orders::create_local_order,
             orders::register_local_payment,
