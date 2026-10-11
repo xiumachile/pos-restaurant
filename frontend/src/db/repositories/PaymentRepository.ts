@@ -5,6 +5,7 @@ import { SyncQueueRepository } from "./SyncQueueRepository";
 import { EventStore } from "./EventStore";
 import { getTerminalId } from "../../services/terminalIdentity";
 import { getAuthContextSafe } from "../../services/authContext";
+import { localDomainApi } from "../../services/localDbDomain";
 
 export interface LocalPayment {
   local_uuid: string;
@@ -42,6 +43,9 @@ export interface CreatePaymentPayload {
   tip_amount?: number;
   reference_code?: string;
   notes?: string;
+  // P0-02 FIX: Claves de idempotencia estables para reintentos
+  local_uuid?: string;
+  idempotency_key?: string;
 }
 
 export class PaymentRepository {
@@ -69,8 +73,10 @@ export class PaymentRepository {
   static async create(payload: CreatePaymentPayload, txDb?: any): Promise<LocalPayment> {
     // P2-003: Local Money Guard - Validar contrato monetario antes de insertar
     validateLocalMoneyPayload(payload as unknown as Record<string, unknown>, 'payment');
-    const local_uuid = uuidv4();
-    const idempotency_key = uuidv4();
+    
+    // P0-02 FIX: Usar claves estables si se proporcionan (reintento), o generar nuevas (primer intento)
+    const local_uuid = payload.local_uuid || uuidv4();
+    const idempotency_key = payload.idempotency_key || uuidv4();
 
     // Resolver payment_method_uuid si no se pasó
     let paymentMethodUuid = payload.payment_method_uuid || null;
@@ -85,28 +91,51 @@ export class PaymentRepository {
     // ADR-019: Persistir bill_local_uuid si se especificó
     const billLocalUuid = payload.bill_local_uuid || null;
 
-    const dbToUse = txDb || localDb;
-    await (txDb ? (txDb as any) : localDb).execute(
-      `INSERT INTO local_payments (
-        local_uuid, company_id, branch_id, order_local_uuid, order_cloud_id,
-        bill_local_uuid, payment_method, amount, sale_amount, tip_amount,
-        reference_code, status, idempotency_key, sync_status, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 'pending', CURRENT_TIMESTAMP)`,
-      [
-        local_uuid,
-        payload.company_id,
-        payload.branch_id,
-        payload.order_local_uuid || null,
-        payload.order_cloud_id || null,
-        billLocalUuid,
-        payload.payment_method,
-        payload.amount,
-        saleAmount,
-        tipAmount,
-        payload.reference_code || null,
-        idempotency_key,
-      ]
-    );
+    // P0-02 / O-05 FIX: Usar comando de dominio seguro en entorno Tauri
+    const isTest = process.env.NODE_ENV === 'test' || typeof window === 'undefined';
+    if (!isTest && !txDb) {
+      try {
+        await localDomainApi.registerPayment({
+          local_uuid,
+          idempotency_key,
+          order_local_uuid: payload.order_local_uuid || "",
+          payment_method: payload.payment_method,
+          amount: payload.amount,
+          tip_amount: tipAmount,
+          total_amount: payload.amount, // amount ya incluye tip_amount según ADR-011
+          reference_code: payload.reference_code || null,
+          notes: payload.notes || null,
+        });
+        console.log("[PaymentRepository] 📤 Pago registrado atómicamente (Rust):", local_uuid);
+      } catch (error) {
+        console.error("[PaymentRepository] ❌ Error registrando pago en Rust:", error);
+        throw error;
+      }
+    } else {
+      // Fallback para tests o transacciones externas (txDb)
+      const dbToUse = txDb || localDb;
+      await (txDb ? (txDb as any) : localDb).execute(
+        `INSERT INTO local_payments (
+          local_uuid, company_id, branch_id, order_local_uuid, order_cloud_id,
+          bill_local_uuid, payment_method, amount, sale_amount, tip_amount,
+          reference_code, status, idempotency_key, sync_status, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 'pending', CURRENT_TIMESTAMP)`,
+        [
+          local_uuid,
+          payload.company_id,
+          payload.branch_id,
+          payload.order_local_uuid || null,
+          payload.order_cloud_id || null,
+          billLocalUuid,
+          payload.payment_method,
+          payload.amount,
+          saleAmount,
+          tipAmount,
+          payload.reference_code || null,
+          idempotency_key,
+        ]
+      );
+    }
 
     // Construir el objeto payment en memoria (más seguro y rápido dentro de transacción)
     const payment: LocalPayment = {
@@ -266,6 +295,9 @@ export class PaymentRepository {
       tip_amount?: number;
       reference_code?: string;
       notes?: string;
+  // P0-02 FIX: Claves de idempotencia estables para reintentos
+  local_uuid?: string;
+  idempotency_key?: string;
     },
     reason: string
   ): Promise<void> {

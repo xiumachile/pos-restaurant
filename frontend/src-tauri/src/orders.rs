@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection, TransactionBehavior};
+use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -353,10 +353,13 @@ mod tests {
 
 #[derive(Debug, Deserialize)]
 pub struct RegisterPaymentPayload {
+    pub local_uuid: String,
+    pub idempotency_key: String,
     pub order_local_uuid: String,
     pub payment_method: String,
     pub amount: i64,
     pub tip_amount: i64,
+    pub total_amount: i64,
     pub reference_code: Option<String>,
     pub notes: Option<String>,
 }
@@ -372,53 +375,104 @@ pub fn register_local_payment(
         .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
         .map_err(|e| format!("Error iniciando transacción: {e}"))?;
 
-    let local_uuid = uuid::Uuid::new_v4().to_string();
-    let idempotency_key = uuid::Uuid::new_v4().to_string();
-
-    // 1. Obtener company_id y branch_id de la orden
-    let (company_id, branch_id): (String, String) = tx
+    // 1. Verificar idempotencia: si ya existe un pago con esta clave, validar que el payload sea idéntico
+    let existing_payment: Option<(String, i64, i64)> = tx
         .query_row(
-            "SELECT company_id, branch_id FROM local_orders WHERE local_uuid = ?1",
-            params![payload.order_local_uuid],
-            |r| Ok((r.get(0)?, r.get(1)?)),
+            "SELECT local_uuid, amount, tip_amount FROM local_payments WHERE idempotency_key = ?1",
+            params![payload.idempotency_key],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )
-        .map_err(|_| "Orden no encontrada".to_string())?;
+        .optional()
+        .map_err(|e| format!("Error verificando idempotencia: {e}"))?;
 
-    // 2. Insertar pago
+    if let Some((existing_uuid, existing_amount, existing_tip)) = existing_payment {
+        if existing_amount == payload.amount && existing_tip == payload.tip_amount {
+            // Idempotencia exitosa: retornar el UUID existente sin hacer nada más
+            return Ok(serde_json::json!({ "local_uuid": existing_uuid, "idempotent": true }));
+        } else {
+            // Conflicto: misma clave, distintos montos
+            return Err("Conflicto de idempotencia: la clave ya existe con montos diferentes".to_string());
+        }
+    }
+
+    // 2. Obtener datos de la orden para actualizar su estado y el de la mesa
+    let order_data: Option<(String, String, i64, i64, Option<String>)> = tx
+        .query_row(
+            "SELECT company_id, branch_id, grand_total, amount_due, table_id FROM local_orders WHERE local_uuid = ?1",
+            params![payload.order_local_uuid],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+        )
+        .optional()
+        .map_err(|e| format!("Orden no encontrada: {e}"))?;
+
+    let (company_id, branch_id, _grand_total, mut amount_due, table_id) = order_data
+        .ok_or_else(|| "Orden no encontrada".to_string())?;
+
+    // 3. Insertar el nuevo pago
     tx.execute(
         "INSERT INTO local_payments (
             local_uuid, company_id, branch_id, order_local_uuid, payment_method,
-            amount, tip_amount, reference_code, status, idempotency_key, sync_status, created_at
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'completed', ?9, 'pending', CURRENT_TIMESTAMP)",
+            amount, tip_amount, total_amount, reference_code, notes, status, idempotency_key, sync_status, created_at
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, 'pending', CURRENT_TIMESTAMP)",
         params![
-            local_uuid, company_id, branch_id, payload.order_local_uuid,
-            payload.payment_method, payload.amount, payload.tip_amount,
-            payload.reference_code, idempotency_key
+            payload.local_uuid, company_id, branch_id, payload.order_local_uuid,
+            payload.payment_method, payload.amount, payload.tip_amount, payload.total_amount,
+            payload.reference_code, payload.notes, "completed"
         ],
     )
     .map_err(|e| format!("Error registrando pago: {e}"))?;
 
-    // 3. Encolar evento de sync para el pago
+    // 4. Actualizar el amount_due de la orden
+    amount_due = (amount_due - payload.total_amount).max(0);
+    let new_status = if amount_due <= 0 { "paid" } else { "partial" };
+    
+    tx.execute(
+        "UPDATE local_orders SET amount_due = ?1, status = ?2, updated_at = CURRENT_TIMESTAMP WHERE local_uuid = ?3",
+        params![amount_due, new_status, payload.order_local_uuid],
+    )
+    .map_err(|e| format!("Error actualizando orden: {e}"))?;
+
+    // 5. Si la orden está pagada y tiene mesa asociada, liberar la mesa
+    if new_status == "paid" && table_id.is_some() {
+        let tid = table_id.unwrap();
+        tx.execute(
+            "UPDATE local_tables SET status = 'available', current_order_uuid = NULL, last_updated = CURRENT_TIMESTAMP WHERE uuid = ?1 AND company_id = ?2 AND branch_id = ?3",
+            params![tid, company_id, branch_id],
+        )
+        .map_err(|e| format!("Error liberando mesa: {e}"))?;
+        
+        // Encolar mutación de mesa para el SyncEngine
+        let mutation = serde_json::json!({ "status": "available", "current_order_uuid": null });
+        tx.execute(
+            "INSERT OR REPLACE INTO table_local_mutations (table_uuid, pending_status, pending_order_uuid, company_id, branch_id, action, payload, created_at)
+             VALUES (?1, 'available', NULL, ?2, ?3, 'update', ?4, CURRENT_TIMESTAMP)",
+            params![tid, company_id, branch_id, mutation.to_string()],
+        )
+        .map_err(|e| format!("Error registrando mutación de mesa: {e}"))?;
+    }
+
+    // 6. Encolar evento de sync para el pago
     let sync_payload = serde_json::json!({
-        "local_uuid": local_uuid,
+        "local_uuid": payload.local_uuid,
         "order_local_uuid": payload.order_local_uuid,
         "payment_method": payload.payment_method,
         "amount": payload.amount,
         "tip_amount": payload.tip_amount,
+        "total_amount": payload.total_amount,
         "reference_code": payload.reference_code,
-        "idempotency_key": idempotency_key
+        "idempotency_key": payload.idempotency_key
     });
 
     tx.execute(
         "INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid, action, payload, sync_status, created_at)
          VALUES (?1, ?2, ?3, 'payment', ?4, 'create', ?5, 'pending', CURRENT_TIMESTAMP)",
-        params![local_uuid, company_id, branch_id, local_uuid, sync_payload.to_string()],
+        params![payload.local_uuid, company_id, branch_id, payload.local_uuid, sync_payload.to_string()],
     )
     .map_err(|e| format!("Error encolando sync de pago: {e}"))?;
 
     tx.commit().map_err(|e| format!("Error en COMMIT: {e}"))?;
 
-    Ok(serde_json::json!({ "local_uuid": local_uuid }))
+    Ok(serde_json::json!({ "local_uuid": payload.local_uuid, "idempotent": false }))
 }
 
 #[derive(Debug, Deserialize)]
@@ -458,7 +512,7 @@ pub fn get_pending_orders(
     company_id: String,
     branch_id: String,
 ) -> Result<Value, String> {
-    let conn = state.0.lock().map_err(|e| format!("Mutex envenenado: {e}"))?;
+    let mut conn = state.0.lock().map_err(|e| format!("Mutex envenenado: {e}"))?;
     
     let mut stmt = conn
         .prepare(
@@ -490,4 +544,122 @@ pub fn get_pending_orders(
     }
 
     Ok(serde_json::Value::Array(orders))
+}
+
+#[cfg(test)]
+mod payment_idempotency_tests {
+    use super::*;
+
+    const SCHEMA: &str = "
+    CREATE TABLE local_orders (
+      local_uuid TEXT PRIMARY KEY, company_id TEXT NOT NULL, branch_id TEXT NOT NULL,
+      order_number TEXT NOT NULL, order_type TEXT DEFAULT 'dine_in', status TEXT DEFAULT 'draft',
+      grand_total INTEGER NOT NULL DEFAULT 0, amount_due INTEGER NOT NULL DEFAULT 0,
+      table_id TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
+    CREATE TABLE local_payments (
+      local_uuid TEXT PRIMARY KEY, company_id TEXT NOT NULL, branch_id TEXT NOT NULL,
+      order_local_uuid TEXT, payment_method TEXT NOT NULL, amount INTEGER NOT NULL,
+      tip_amount INTEGER DEFAULT 0, total_amount INTEGER NOT NULL, reference_code TEXT,
+      notes TEXT, status TEXT DEFAULT 'pending', idempotency_key TEXT UNIQUE NOT NULL,
+      sync_status TEXT DEFAULT 'pending', created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+    CREATE TABLE sync_queue (
+      id TEXT PRIMARY KEY, company_id TEXT NOT NULL, branch_id TEXT NOT NULL,
+      entity_type TEXT NOT NULL, entity_local_uuid TEXT NOT NULL, action TEXT NOT NULL,
+      payload TEXT NOT NULL, sync_status TEXT DEFAULT 'pending', created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+    CREATE TABLE local_tables (
+      uuid TEXT PRIMARY KEY, table_number TEXT NOT NULL, status TEXT DEFAULT 'available',
+      current_order_uuid TEXT, company_id TEXT, branch_id TEXT, last_updated TEXT DEFAULT CURRENT_TIMESTAMP);
+    CREATE TABLE table_local_mutations (
+      table_uuid TEXT PRIMARY KEY, pending_status TEXT NOT NULL, pending_order_uuid TEXT,
+      company_id TEXT NOT NULL, branch_id TEXT NOT NULL, action TEXT DEFAULT 'update',
+      payload TEXT DEFAULT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+    ";
+
+    fn db() -> Connection {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        c.execute_batch(SCHEMA).unwrap();
+        c
+    }
+
+    fn create_test_order(conn: &mut Connection) -> String {
+        let uuid = uuid::Uuid::new_v4().to_string();
+        conn.execute(
+            "INSERT INTO local_orders (local_uuid, company_id, branch_id, order_number, grand_total, amount_due)
+             VALUES (?1, 'c1', 'b1', 'ORD-001', 10000, 10000)",
+            params![uuid],
+        ).unwrap();
+        uuid
+    }
+
+    #[test]
+    fn p0_02_repeated_payment_with_same_key_returns_existing() {
+        let mut c = db();
+        let order_uuid = create_test_order(&mut c);
+        let state = DbState(Mutex::new(c));
+        
+        let payload = RegisterPaymentPayload {
+            local_uuid: "pay-1".to_string(),
+            idempotency_key: "idem-key-1".to_string(),
+            order_local_uuid: order_uuid.clone(),
+            payment_method: "cash".to_string(),
+            amount: 10000,
+            tip_amount: 0,
+            total_amount: 10000,
+            reference_code: None,
+            notes: None,
+        };
+
+        // Primer intento: debe crear el pago
+        let res1 = register_local_payment(tauri::State::from(&state), payload.clone()).unwrap();
+        assert_eq!(res1["local_uuid"], "pay-1");
+        assert_eq!(res1["idempotent"], false);
+
+        // Segundo intento con la misma clave: debe retornar el existente sin duplicar
+        let res2 = register_local_payment(tauri::State::from(&state), payload.clone()).unwrap();
+        assert_eq!(res2["local_uuid"], "pay-1");
+        assert_eq!(res2["idempotent"], true);
+
+        // Verificar que solo hay 1 pago en la base de datos
+        let count: i64 = state.0.lock().unwrap()
+            .query_row("SELECT COUNT(*) FROM local_payments", [], |r| r.get(0)).unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn p0_02_reusing_key_with_different_amount_is_rejected() {
+        let mut c = db();
+        let order_uuid = create_test_order(&mut c);
+        let state = DbState(Mutex::new(c));
+        
+        let payload1 = RegisterPaymentPayload {
+            local_uuid: "pay-2".to_string(),
+            idempotency_key: "idem-key-2".to_string(),
+            order_local_uuid: order_uuid.clone(),
+            payment_method: "cash".to_string(),
+            amount: 10000,
+            tip_amount: 0,
+            total_amount: 10000,
+            reference_code: None,
+            notes: None,
+        };
+
+        register_local_payment(tauri::State::from(&state), payload1).unwrap();
+
+        // Intento con la misma clave pero monto diferente
+        let payload2 = RegisterPaymentPayload {
+            local_uuid: "pay-3".to_string(), // UUID diferente
+            idempotency_key: "idem-key-2".to_string(), // Misma clave de idempotencia
+            order_local_uuid: order_uuid.clone(),
+            payment_method: "cash".to_string(),
+            amount: 5000, // Monto diferente
+            tip_amount: 0,
+            total_amount: 5000,
+            reference_code: None,
+            notes: None,
+        };
+
+        let err = register_local_payment(tauri::State::from(&state), payload2).unwrap_err();
+        assert!(err.contains("Conflicto de idempotencia"));
+    }
 }

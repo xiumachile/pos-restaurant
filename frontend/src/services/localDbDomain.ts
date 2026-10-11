@@ -1,7 +1,7 @@
 /**
- * O-05 FIX: Wrapper de dominio para operaciones locales de Tauri.
- * Reemplaza el uso de execute_transaction con SQL arbitrario por comandos específicos.
- * Tipos alineados exactamente con el esquema real de SQLite (local_orders, local_order_items, sync_queue).
+ * O-05 / P0-02 FIX: Wrapper de dominio para operaciones locales de Tauri.
+ * La idempotencia es responsabilidad del llamador (frontend), que debe generar
+ * y persistir la idempotency_key antes del primer intento y reutilizarla.
  */
 
 import { invoke } from '@tauri-apps/api/core';
@@ -28,6 +28,8 @@ export interface CreateOrderPayload {
 }
 
 export interface RegisterPaymentPayload {
+  local_uuid: string; // Generado y persistido por el frontend antes del primer intento
+  idempotency_key: string; // Generado y persistido por el frontend antes del primer intento
   order_local_uuid: string;
   payment_method: string;
   amount: number;
@@ -38,7 +40,7 @@ export interface RegisterPaymentPayload {
 }
 
 export interface EnqueueSyncEventPayload {
-  id: string; // UUID para la PK de sync_queue
+  id: string;
   company_id: string;
   branch_id: string;
   entity_type: string;
@@ -48,30 +50,18 @@ export interface EnqueueSyncEventPayload {
 }
 
 export const localDomainApi = {
-  /**
-   * Crea una orden local con sus ítems y encola el evento de sync en UNA transacción atómica.
-   */
   async createOrder(payload: CreateOrderPayload): Promise<{ local_uuid: string }> {
     return await invoke<{ local_uuid: string }>('create_local_order', { payload });
   },
 
-  /**
-   * Registra un pago local con validación estricta de campos monetarios.
-   */
   async registerPayment(payload: RegisterPaymentPayload): Promise<{ local_uuid: string }> {
     return await invoke<{ local_uuid: string }>('register_local_payment', { payload });
   },
 
-  /**
-   * Encola un evento de sincronización con validación de esquema.
-   */
   async enqueueSyncEvent(payload: EnqueueSyncEventPayload): Promise<void> {
     await invoke<void>('enqueue_sync_event', { payload });
   },
 
-  /**
-   * Obtiene órdenes pendientes de sincronización de forma segura.
-   */
   async getPendingOrders(companyId: string, branchId: string): Promise<any[]> {
     return await invoke<any[]>('get_pending_orders', { companyId, branchId });
   }
