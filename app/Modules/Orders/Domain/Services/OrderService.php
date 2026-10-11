@@ -190,6 +190,11 @@ class OrderService
             $order->guest_count = $data['guest_count'];
         }
 
+        // UX-03: Sincronización de items para pedidos en estado DRAFT
+        if (isset($data['items']) && is_array($data['items']) && $order->status->value === 'draft') {
+            $this->syncOrderItems($order, $data['items']);
+        }
+
         $order->save();
         $order->load(['items', 'table', 'waiter']);
 
@@ -210,5 +215,67 @@ class OrderService
         $seq = $lastOrder ? (intval(substr($lastOrder->order_number, -4)) + 1) : 1;
 
         return sprintf('ORD-%03d-%s-%04d', $branchId, $date, $seq);
+    }
+
+    /**
+     * UX-03: Sincroniza los items de un pedido en estado DRAFT.
+     * Realiza upsert basado en product_id, eliminando los que ya no están en el payload.
+     */
+    private function syncOrderItems(Order $order, array $payloadItems): void
+    {
+        $existingItems = $order->items()->get()->keyBy('product_id');
+        $processedProductIds = [];
+
+        foreach ($payloadItems as $itemData) {
+            $productId = $itemData['product_id'] ?? null;
+            if (!$productId) continue;
+
+            $processedProductIds[] = $productId;
+            $product = \Modules\Catalog\Domain\Entities\Product::find($productId);
+            if (!$product) continue;
+
+            $quantity = (int)($itemData['quantity'] ?? 1);
+            $unitPrice = (int)($itemData['unit_price'] ?? $product->base_price);
+            $subtotal = $quantity * $unitPrice;
+            $taxRate = 19.0; // Default, idealmente venir del producto
+            $taxAmount = (int)round($subtotal * ($taxRate / 100));
+
+            if ($existingItems->has($productId)) {
+                // Update existente
+                $existingItem = $existingItems->get($productId);
+                $existingItem->quantity = $quantity;
+                $existingItem->unit_price_snapshot = $unitPrice;
+                $existingItem->subtotal = $subtotal;
+                $existingItem->tax_amount = $taxAmount;
+                $existingItem->save();
+            } else {
+                // Crear nuevo
+                \Modules\Orders\Domain\Entities\OrderItem::create([
+                    'company_id' => $order->company_id,
+                    'branch_id' => $order->branch_id,
+                    'order_id' => $order->id,
+                    'product_id' => $productId,
+                    'name_snapshot' => $product->name_translations['es'] ?? $product->sku,
+                    'quantity' => $quantity,
+                    'unit_price_snapshot' => $unitPrice,
+                    'subtotal' => $subtotal,
+                    'tax_amount' => $taxAmount,
+                    'tax_rate_snapshot' => $taxRate,
+                    'tax_name_snapshot' => 'IVA 19%',
+                ]);
+            }
+        }
+
+        // Eliminar items que ya no están en el payload (fueron removidos del carrito)
+        $itemsToRemove = $existingItems->filter(function ($item) use ($processedProductIds) {
+            return !in_array($item->product_id, $processedProductIds);
+        });
+
+        foreach ($itemsToRemove as $item) {
+            $item->delete();
+        }
+
+        // Recalcular totales del order
+        $order->recalculateTotals();
     }
 }

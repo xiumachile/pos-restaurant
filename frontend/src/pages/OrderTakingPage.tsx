@@ -77,6 +77,22 @@ export function OrderTakingPage() {
     addItem(table.uuid, product);
   };
 
+    // UX-03: Advertir al usuario si intenta salir con cambios no guardados en el carrito
+  useEffect(() => {
+    const hasUnsavedItems = cart?.items && cart.items.length > 0;
+    
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedItems) {
+        e.preventDefault();
+        e.returnValue = 'Tienes cambios no guardados en este pedido. ¿Estás seguro de que deseas salir?';
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [cart]);
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between mb-4">
