@@ -63,25 +63,25 @@ export async function runMigrations(): Promise<void> {
 
   console.log(`[Migrations] 📋 Migraciones aplicadas: ${applied.length > 0 ? applied.map(m => m.version).join(", ") : "ninguna"}`);
 
-  await applyMigration(db, "001", initialMigration, applied);
-  await applyMigration(db, "002", tableMutationsMigration, applied);
-  await applyMigration(db, "003", backendIdMigration, applied);
-  await applyMigration(db, "004", localBillsMigration, applied);
-  await applyMigration(db, "005", localCashMovementsMigration, applied);
-  await applyMigration(db, "006", localCashSessionsCompanyMigration, applied);
-  await applyMigration(db, "007", offlineEventsMigration, applied);
-  await applyMigration(db, "008", localPrintJobsMigration, applied);
-  await applyMigration(db, "009", printerConfigsMigration, applied);
-  await applyMigration(db, "011", chileanColumnsMigration, applied);
-  await applyMigration(db, "012", multiTenancyMigration, applied);
-  await applyMigration(db, "013", tableMutationsTenancyMigration, applied);
-  await applyMigration(db, "014", tenantBackfillMigration, applied);
-  await applyMigration(db, "015", billLinkMigration, applied);
-  await applyMigration(db, "016", fixOrphanTablesMigration, applied);
-  await applyMigration(db, "017", enforceIntegerMoneyMigration, applied);
-  await applyMigration(db, "019", fixTableStatusMigration, applied);
-  await applyMigration(db, "020", cleanTableMutationsMigration, applied);
-  await applyMigration(db, "021", enforceTableMutationSchemaMigration, applied);
+  await applyMigration("001", initialMigration, applied);
+  await applyMigration("002", tableMutationsMigration, applied);
+  await applyMigration("003", backendIdMigration, applied);
+  await applyMigration("004", localBillsMigration, applied);
+  await applyMigration("005", localCashMovementsMigration, applied);
+  await applyMigration("006", localCashSessionsCompanyMigration, applied);
+  await applyMigration("007", offlineEventsMigration, applied);
+  await applyMigration("008", localPrintJobsMigration, applied);
+  await applyMigration("009", printerConfigsMigration, applied);
+  await applyMigration("011", chileanColumnsMigration, applied);
+  await applyMigration("012", multiTenancyMigration, applied);
+  await applyMigration("013", tableMutationsTenancyMigration, applied);
+  await applyMigration("014", tenantBackfillMigration, applied);
+  await applyMigration("015", billLinkMigration, applied);
+  await applyMigration("016", fixOrphanTablesMigration, applied);
+  await applyMigration("017", enforceIntegerMoneyMigration, applied);
+  await applyMigration("019", fixTableStatusMigration, applied);
+  await applyMigration("020", cleanTableMutationsMigration, applied);
+  await applyMigration("021", enforceTableMutationSchemaMigration, applied);
 
   // ═══════════════════════════════════════════════════════════════
   // VERIFICACIÓN DE INTEGRIDAD (independiente de migraciones)
