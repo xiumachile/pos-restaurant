@@ -20,6 +20,9 @@ class OrderResource extends JsonResource
             'fulfillment_channel_label' => $this->fulfillment_channel?->label(),
             'type_label' => $this->type->label(),
             'status' => $this->status->value,
+            'sync_status' => $this->sync_status instanceof \Modules\Sync\Domain\ValueObjects\SyncStatus 
+                ? $this->sync_status->value 
+                : $this->sync_status,
             'is_editable' => $this->isEditable(),
             'is_active' => $this->isActive(),
             

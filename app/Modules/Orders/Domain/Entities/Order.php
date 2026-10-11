@@ -36,6 +36,8 @@ class Order extends Model
     use Syncable;
     use BelongsToTenant;
 
+    protected $appends = ['sync_status'];
+
     protected $fillable = [
         'company_id',
         'branch_id',
@@ -83,7 +85,7 @@ class Order extends Model
             'type' => OrderType::class,
             'fulfillment_channel' => \Modules\Orders\Domain\ValueObjects\FulfillmentChannel::class,
             'status' => OrderStatus::class,
-            'sync_status' => SyncStatus::class,
+            'sync_status' => \App\Shared\Domain\Casts\SyncStatusCast::class,
             'version' => 'integer',
             'last_synced_at' => 'datetime',
             'pickup_at' => 'datetime',

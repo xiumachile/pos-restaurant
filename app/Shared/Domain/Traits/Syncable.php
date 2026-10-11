@@ -23,13 +23,14 @@ trait Syncable
      */
     protected static function bootSyncable(): void
     {
-        // Al crear: marcar como pending
+        // Al crear: asegurar versión inicial. 
+        // sync_status usa el DEFAULT 'pending' de la base de datos.
         static::creating(function ($model) {
-            if (empty($model->sync_status)) {
-                $model->sync_status = SyncStatus::PENDING;
-            }
             if (is_null($model->version)) {
                 $model->version = 1;
+            }
+            if (empty($model->sync_status)) {
+                $model->sync_status = 'pending';
             }
         });
 
@@ -39,7 +40,7 @@ trait Syncable
             if (!app()->bound('sync.is_syncing') || !app('sync.is_syncing')) {
                 // Solo marcar pending si cambió algún campo relevante
                 if ($model->hasRelevantChanges()) {
-                    $model->sync_status = SyncStatus::PENDING;
+                    $model->sync_status = 'pending';
                     $model->version = ($model->version ?? 0) + 1;
                 }
             }
@@ -100,7 +101,7 @@ trait Syncable
                 'entity_id' => $model->id,
                 'entity_uuid' => $model->uuid ?? null,
                 'action' => $action->value,
-                'payload' => json_encode($action === SyncAction::DELETE ? ['id' => $model->id] : $model->toArray()),
+                'payload' => json_encode($action === SyncAction::DELETE ? ['id' => $model->id] : $model->getAttributes()),
                 'version' => $model->version ?? 1,
                 'attempts' => 0,
                 'status' => 'pending',
@@ -123,7 +124,7 @@ trait Syncable
     public function markAsSynced(): bool
     {
         return $this->updateQuietly([
-            'sync_status' => SyncStatus::SYNCED,
+            'sync_status' => 'synced',
             'last_synced_at' => now(),
         ]);
     }
@@ -134,7 +135,7 @@ trait Syncable
     public function markAsConflict(): bool
     {
         return $this->updateQuietly([
-            'sync_status' => SyncStatus::CONFLICT,
+            'sync_status' => 'conflict',
         ]);
     }
 
@@ -144,7 +145,7 @@ trait Syncable
     public function markAsFailed(): bool
     {
         return $this->updateQuietly([
-            'sync_status' => SyncStatus::FAILED,
+            'sync_status' => 'failed',
         ]);
     }
 
@@ -174,16 +175,16 @@ trait Syncable
 
     public function scopePending($query)
     {
-        return $query->where('sync_status', SyncStatus::PENDING);
+        return $query->where('sync_status', 'pending');
     }
 
     public function scopeSynced($query)
     {
-        return $query->where('sync_status', SyncStatus::SYNCED);
+        return $query->where('sync_status', 'synced');
     }
 
     public function scopeWithConflicts($query)
     {
-        return $query->where('sync_status', SyncStatus::CONFLICT);
+        return $query->where('sync_status', 'conflict');
     }
 }
