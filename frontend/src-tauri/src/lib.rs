@@ -1,6 +1,12 @@
 mod database;
 
-use database::{DbState, execute_transaction, execute_query};
+use database::{
+    DbState, 
+    create_local_order, 
+    register_local_payment, 
+    enqueue_sync_event,
+    get_pending_orders
+};
 use rusqlite::Connection;
 use std::sync::Mutex;
 use tauri::Manager;
@@ -40,16 +46,12 @@ fn base64_decode(input: &str) -> Result<Vec<u8>, String> {
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            // 1. Obtener directorio de datos de la aplicación
             let app_data_dir = app.path().app_data_dir().expect("Failed to get app data dir");
             std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data dir");
             let db_path = app_data_dir.join("pos_local.db");
             
             println!("[Tauri Setup] 🗄️  Abriendo base de datos en: {:?}", db_path);
             
-            // 2. Abrir conexión y configurar PRAGMAs críticos
-            // Usamos execute_batch porque PRAGMA journal_mode devuelve una fila, 
-            // y execute() fallaría con ExecuteReturnedResults.
             let conn = Connection::open(&db_path).expect("Failed to open database");
             conn.execute_batch(
                 "PRAGMA journal_mode = WAL;
@@ -60,7 +62,6 @@ pub fn run() {
             
             println!("[Tauri Setup] ✅ SQLite configurado con WAL y busy_timeout=5000");
             
-            // 3. Gestionar el estado global de la BD
             app.manage(DbState(Mutex::new(conn)));
             Ok(())
         })
@@ -69,8 +70,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             print_raw, 
             list_network_printers,
-            execute_transaction,
-            execute_query
+            // O-05 FIX: Comandos de dominio específicos, sin SQL arbitrario
+            create_local_order,
+            register_local_payment,
+            enqueue_sync_event,
+            get_pending_orders
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,93 +1,159 @@
-use rusqlite::{params_from_iter, Connection, types::ToSql};
+use rusqlite::{Connection, params};
 use serde::Deserialize;
 use serde_json::{Value, Map};
 use std::sync::Mutex;
+use chrono::Utc;
 
 /// Estado global de la base de datos, protegido por un Mutex.
 pub struct DbState(pub Mutex<Connection>);
 
-/// Representa una única sentencia SQL con sus parámetros.
+/// O-05 FIX: Comandos de dominio específicos para reemplazar SQL arbitrario.
+/// Esto reduce drásticamente la superficie de ataque local.
+
 #[derive(Debug, Deserialize)]
-pub struct DbStatement {
-    pub sql: String,
-    pub params: Vec<Value>,
+pub struct CreateOrderPayload {
+    pub uuid: String,
+    pub company_id: i64,
+    pub branch_id: i64,
+    pub order_number: String,
+    pub r#type: String,
+    pub status: String,
+    pub subtotal: i64,
+    pub tax_amount: i64,
+    pub total: i64,
+    pub idempotency_key: String,
 }
 
-/// Wrapper para convertir serde_json::Value a tipos que rusqlite entienda.
-struct JsonValueWrapper<'a>(&'a Value);
-
-impl<'a> ToSql for JsonValueWrapper<'a> {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
-        match self.0 {
-            Value::Null => Ok(rusqlite::types::ToSqlOutput::Owned(rusqlite::types::Value::Null)),
-            Value::Bool(b) => Ok(rusqlite::types::ToSqlOutput::Owned(rusqlite::types::Value::Integer(if *b { 1 } else { 0 }))),
-            Value::Number(n) => {
-                if let Some(i) = n.as_i64() {
-                    Ok(rusqlite::types::ToSqlOutput::Owned(rusqlite::types::Value::Integer(i)))
-                } else if let Some(f) = n.as_f64() {
-                    Ok(rusqlite::types::ToSqlOutput::Owned(rusqlite::types::Value::Real(f)))
-                } else {
-                    Err(rusqlite::Error::ToSqlConversionFailure("Número no soportado".into()))
-                }
-            }
-            Value::String(s) => Ok(rusqlite::types::ToSqlOutput::Owned(rusqlite::types::Value::Text(s.clone()))),
-            _ => Err(rusqlite::Error::ToSqlConversionFailure("Tipo de dato no soportado para SQLite".into())),
-        }
-    }
+#[derive(Debug, Deserialize)]
+pub struct RegisterPaymentPayload {
+    pub uuid: String,
+    pub company_id: i64,
+    pub branch_id: i64,
+    pub order_id: i64,
+    pub amount: i64,
+    pub tip_amount: i64,
+    pub total_amount: i64,
+    pub method_code: String,
+    pub idempotency_key: String,
 }
 
-/// Ejecuta una transacción atómica con múltiples statements en UNA SOLA llamada IPC.
+#[derive(Debug, Deserialize)]
+pub struct EnqueueSyncEventPayload {
+    pub company_id: i64,
+    pub branch_id: i64,
+    pub entity_type: String,
+    pub entity_id: i64,
+    pub entity_uuid: String,
+    pub action: String,
+    pub payload_json: String,
+    pub version: i64,
+}
+
+/// O-05 FIX: Crear orden local con validación de esquema estricta.
 #[tauri::command]
-pub fn execute_transaction(state: tauri::State<DbState>, statements: Vec<DbStatement>) -> Result<Value, String> {
+pub fn create_local_order(state: tauri::State<DbState>, payload: CreateOrderPayload) -> Result<Value, String> {
     let mut conn = state.0.lock().map_err(|e| format!("Mutex envenenado: {}", e))?;
     
-    // Iniciar transacción inmediata (obtiene el bloqueo de escritura al instante)
     let tx = conn.transaction().map_err(|e| format!("Error al iniciar transacción: {}", e))?;
     
-    // Ejecutar cada statement
-    for stmt_data in statements {
-        let mut stmt = tx.prepare(&stmt_data.sql).map_err(|e| format!("Error preparando SQL '{}': {}", stmt_data.sql, e))?;
-        
-        let params: Vec<JsonValueWrapper> = stmt_data.params.iter().map(JsonValueWrapper).collect();
-        
-        stmt.execute(params_from_iter(params)).map_err(|e| format!("Error ejecutando SQL '{}': {}", stmt_data.sql, e))?;
-    }
+    tx.execute(
+        "INSERT INTO local_orders (
+            uuid, company_id, branch_id, order_number, type, status, 
+            subtotal, tax_amount, total, idempotency_key, sync_status, created_at
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'pending', ?11)",
+        params![
+            payload.uuid, payload.company_id, payload.branch_id, payload.order_number,
+            payload.r#type, payload.status, payload.subtotal, payload.tax_amount,
+            payload.total, payload.idempotency_key, Utc::now().to_rfc3339()
+        ],
+    ).map_err(|e| format!("Error creando orden: {}", e))?;
     
-    // Confirmar la transacción
     tx.commit().map_err(|e| format!("Error al hacer COMMIT: {}", e))?;
     
-    Ok(Value::String("Transacción exitosa".to_string()))
+    Ok(Value::String("Orden creada exitosamente".to_string()))
 }
 
-/// Ejecuta una consulta de lectura (SELECT) de forma segura.
+/// O-05 FIX: Registrar pago local con validación estricta de campos monetarios.
 #[tauri::command]
-pub fn execute_query(state: tauri::State<DbState>, sql: String, params: Vec<Value>) -> Result<Value, String> {
+pub fn register_local_payment(state: tauri::State<DbState>, payload: RegisterPaymentPayload) -> Result<Value, String> {
+    let mut conn = state.0.lock().map_err(|e| format!("Mutex envenenado: {}", e))?;
+    
+    let tx = conn.transaction().map_err(|e| format!("Error al iniciar transacción: {}", e))?;
+    
+    tx.execute(
+        "INSERT INTO local_payments (
+            uuid, company_id, branch_id, order_id, amount, tip_amount, total_amount,
+            method_code, idempotency_key, status, created_at
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'completed', ?10)",
+        params![
+            payload.uuid, payload.company_id, payload.branch_id, payload.order_id,
+            payload.amount, payload.tip_amount, payload.total_amount,
+            payload.method_code, payload.idempotency_key, Utc::now().to_rfc3339()
+        ],
+    ).map_err(|e| format!("Error registrando pago: {}", e))?;
+    
+    // Actualizar estado de la orden si es necesario (simplificado)
+    tx.execute(
+        "UPDATE local_orders SET sync_status = 'pending' WHERE id = ?1",
+        params![payload.order_id],
+    ).map_err(|e| format!("Error actualizando orden: {}", e))?;
+    
+    tx.commit().map_err(|e| format!("Error al hacer COMMIT: {}", e))?;
+    
+    Ok(Value::String("Pago registrado exitosamente".to_string()))
+}
+
+/// O-05 FIX: Encolar evento de sincronización con validación de esquema.
+#[tauri::command]
+pub fn enqueue_sync_event(state: tauri::State<DbState>, payload: EnqueueSyncEventPayload) -> Result<Value, String> {
+    let mut conn = state.0.lock().map_err(|e| format!("Mutex envenenado: {}", e))?;
+    
+    let tx = conn.transaction().map_err(|e| format!("Error al iniciar transacción: {}", e))?;
+    
+    tx.execute(
+        "INSERT INTO sync_queue (
+            company_id, branch_id, entity_type, entity_id, entity_uuid, 
+            action, payload, version, status, created_at
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'pending', ?9)",
+        params![
+            payload.company_id, payload.branch_id, payload.entity_type,
+            payload.entity_id, payload.entity_uuid, payload.action,
+            payload.payload_json, payload.version, Utc::now().to_rfc3339()
+        ],
+    ).map_err(|e| format!("Error encolando evento de sync: {}", e))?;
+    
+    tx.commit().map_err(|e| format!("Error al hacer COMMIT: {}", e))?;
+    
+    Ok(Value::String("Evento encolado exitosamente".to_string()))
+}
+
+/// O-05 FIX: Consulta de lectura específica y segura (ej. obtener órdenes pendientes).
+/// No acepta SQL arbitrario, solo consultas predefinidas.
+#[tauri::command]
+pub fn get_pending_orders(state: tauri::State<DbState>, company_id: i64, branch_id: i64) -> Result<Value, String> {
     let conn = state.0.lock().map_err(|e| format!("Mutex envenenado: {}", e))?;
     
-    let mut stmt = conn.prepare(&sql).map_err(|e| format!("Error preparando SQL: {}", e))?;
+    let mut stmt = conn.prepare(
+        "SELECT id, uuid, order_number, type, status, subtotal, tax_amount, total, created_at 
+         FROM local_orders 
+         WHERE company_id = ?1 AND branch_id = ?2 AND sync_status = 'pending'
+         ORDER BY created_at ASC"
+    ).map_err(|e| format!("Error preparando consulta: {}", e))?;
     
-    // 1. OBTENER NOMBRES DE COLUMNAS ANTES DE LLAMAR A query()
-    let column_names: Vec<String> = stmt.column_names().into_iter().map(|s| s.to_string()).collect();
-    
-    let param_wrappers: Vec<JsonValueWrapper> = params.iter().map(JsonValueWrapper).collect();
-    
-    // 2. AHORA SÍ EJECUTAR LA CONSULTA
-    let mut rows = stmt.query(params_from_iter(param_wrappers)).map_err(|e| format!("Error ejecutando query: {}", e))?;
+    let mut rows = stmt.query(params![company_id, branch_id]).map_err(|e| format!("Error ejecutando query: {}", e))?;
     
     let mut results = Vec::new();
-    
-    // 3. ITERAR SOBRE LOS RESULTADOS
     while let Ok(Some(row)) = rows.next() {
         let mut map = Map::new();
-        for (i, column_name) in column_names.iter().enumerate() {
-            // Intentar obtener como texto, luego número, luego null (simplificación segura para POS)
-            let value: Value = row.get::<_, String>(i).map(Value::String).unwrap_or_else(|_| {
-                row.get::<_, i64>(i).map(|v| Value::Number(v.into())).unwrap_or_else(|_| {
-                    row.get::<_, f64>(i).map(|v| Value::Number(serde_json::Number::from_f64(v).unwrap_or(serde_json::Number::from(0)))).unwrap_or(Value::Null)
-                })
-            });
-            map.insert(column_name.clone(), value);
-        }
+        map.insert("id".to_string(), Value::Number(row.get::<_, i64>(0).unwrap_or(0).into()));
+        map.insert("uuid".to_string(), Value::String(row.get::<_, String>(1).unwrap_or_default()));
+        map.insert("order_number".to_string(), Value::String(row.get::<_, String>(2).unwrap_or_default()));
+        map.insert("type".to_string(), Value::String(row.get::<_, String>(3).unwrap_or_default()));
+        map.insert("status".to_string(), Value::String(row.get::<_, String>(4).unwrap_or_default()));
+        map.insert("subtotal".to_string(), Value::Number(row.get::<_, i64>(5).unwrap_or(0).into()));
+        map.insert("tax_amount".to_string(), Value::Number(row.get::<_, i64>(6).unwrap_or(0).into()));
+        map.insert("total".to_string(), Value::Number(row.get::<_, i64>(7).unwrap_or(0).into()));
+        map.insert("created_at".to_string(), Value::String(row.get::<_, String>(8).unwrap_or_default()));
         results.push(Value::Object(map));
     }
     
