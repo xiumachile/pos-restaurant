@@ -139,7 +139,9 @@ class SyncManagementService
         $query = Product::withoutGlobalScopes()
             ->withTrashed()
             ->where('company_id', $companyId)
-            ->where('branch_id', $branchId);
+            ->where(function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId)->orWhereNull('branch_id');
+            });
 
         if ($since) {
             $query->where('updated_at', '>', $since);
