@@ -14,6 +14,12 @@ abstract class TestCase extends BaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // P1 FIX: Prevenir timeouts en CI (120s) por peticiones HTTP reales de RemoteSyncClient.
+        // Simula respuestas exitosas de sync. Los tests que requieran fallos pueden sobrescribir este fake.
+        \Illuminate\Support\Facades\Http::fake([
+            '*/sync/*' => \Illuminate\Support\Facades\Http::response(['status' => 'success', 'synced' => true], 200),
+            '*/api/v1/sync/*' => \Illuminate\Support\Facades\Http::response(['status' => 'success', 'synced' => true], 200),
+        ]);
 
         // Los tests de negocio no deben depender de un servicio externo
         // de broadcasting real. Solo se simulan los eventos que EXISTEN
