@@ -244,6 +244,7 @@ describe("offlinePaymentService", () => {
       expect(result.payment).toBeDefined();
       expect(result.bill).toBeDefined();
 
+
       const pending = await SyncQueueRepository.getPending(10);
       expect(pending.length).toBeGreaterThanOrEqual(2);
 

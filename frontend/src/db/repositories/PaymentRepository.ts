@@ -158,20 +158,27 @@ export class PaymentRepository {
       created_at: new Date().toISOString(), // Aproximación, la BD usa CURRENT_TIMESTAMP
       notes: payload.notes || null,
     } as LocalPayment;
-
-    // Encolar automáticamente para sincronización
+    // P1 Fix: Encolar para sincronización. 
+    // En producción, Rust también hace INSERT OR IGNORE como respaldo de seguridad atómica.
+    // En pruebas, este encolado es esencial porque se salta la llamada a Rust.
     await SyncQueueRepository.enqueue({
-      company_id: payload.company_id,
-      branch_id: payload.branch_id,
+      company_id: payment.company_id,
+      branch_id: payment.branch_id,
       entity_type: "payment",
-      entity_local_uuid: local_uuid,
+      entity_local_uuid: payment.local_uuid,
       action: "create",
       payload: {
-        ...payment,
-        payment_method_uuid: paymentMethodUuid,
-        order_local_uuid: payload.order_local_uuid || null,
+        local_uuid: payment.local_uuid,
+        order_local_uuid: payment.order_local_uuid,
+        bill_local_uuid: payment.bill_local_uuid, // P1 Fix: Requerido por backend para split bill
+        payment_method_uuid: payment.payment_method_uuid,
+        amount: payment.amount,
+        sale_amount: payment.sale_amount, // P1 Fix: Requerido por backend para ADR-011
+        tip_amount: payment.tip_amount,
+        total_amount: payment.amount,
+        idempotency_key: payment.idempotency_key,
+        reference_code: payment.reference_code,
         notes: payload.notes || null,
-        idempotency_key,
       },
     });
 

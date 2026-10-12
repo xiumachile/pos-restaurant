@@ -356,7 +356,7 @@ pub struct RegisterPaymentPayload {
     pub local_uuid: String,
     pub idempotency_key: String,
     pub order_local_uuid: String,
-    pub payment_method: String,
+    pub payment_method_uuid: String, // P1 Fix: Requerido para sync_queue
     pub amount: i64,
     pub tip_amount: i64,
     pub total_amount: i64,
@@ -388,7 +388,7 @@ pub fn register_payment_tx(
     if payload.total_amount <= 0 {
         return Err("El monto total del pago debe ser mayor a 0".to_string());
     }
-    if payload.payment_method.trim().is_empty() {
+    if payload.payment_method_uuid.trim().is_empty() {
         return Err("El método de pago es requerido".to_string());
     }
 
@@ -411,7 +411,7 @@ pub fn register_payment_tx(
         if existing_amount == payload.amount 
             && existing_tip == payload.tip_amount 
             && existing_order == payload.order_local_uuid 
-            && existing_method == payload.payment_method 
+            && existing_method == payload.payment_method_uuid 
         {
             return Ok(serde_json::json!({ "local_uuid": existing_uuid, "idempotent": true }));
         } else {
@@ -445,7 +445,7 @@ pub fn register_payment_tx(
          ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'completed', ?11, 'pending', CURRENT_TIMESTAMP)",
         params![
             payload.local_uuid, company_id, branch_id, payload.order_local_uuid,
-            payload.payment_method, payload.amount, payload.tip_amount, payload.total_amount,
+            payload.payment_method_uuid, payload.amount, payload.tip_amount, payload.total_amount,
             payload.reference_code, payload.notes, payload.idempotency_key
         ],
     )
@@ -478,6 +478,29 @@ pub fn register_payment_tx(
         )
         .map_err(|e| format!("Error registrando mutación de mesa: {e}"))?;
     }
+
+    // 6. Encolar evento de sync DENTRO de la misma transacción (P1 Fix: Atomicidad)
+    let sync_payload = serde_json::json!({
+        "local_uuid": payload.local_uuid,
+        "order_local_uuid": payload.order_local_uuid,
+        "payment_method_uuid": payload.payment_method_uuid,
+        "amount": payload.amount,
+        "tip_amount": payload.tip_amount,
+        "total_amount": payload.total_amount,
+        "reference_code": payload.reference_code,
+        "notes": payload.notes,
+        "idempotency_key": payload.idempotency_key
+    });
+
+    // P1 Fix: Usamos INSERT OR IGNORE para garantizar idempotencia.
+    // Si TypeScript ya encoló el pago, esta operación es un no-op seguro.
+    // Si TypeScript falló, esta operación garantiza la atomicidad del encolado.
+    tx.execute(
+        "INSERT OR IGNORE INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid, action, payload, sync_status, created_at)
+         VALUES (?1, ?2, ?3, 'payment', ?4, 'create', ?5, 'pending', CURRENT_TIMESTAMP)",
+        params![payload.local_uuid, company_id, branch_id, payload.local_uuid, sync_payload.to_string()],
+    )
+    .map_err(|e| format!("Error encolando sync de pago: {e}"))?;
 
     tx.commit().map_err(|e| format!("Error en COMMIT: {e}"))?;
 
