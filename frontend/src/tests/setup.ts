@@ -2,17 +2,16 @@ import "@testing-library/jest-dom";
 import { vi, beforeAll, afterAll } from "vitest";
 import { initTestDb, resetTestDb } from "../db/nativeDb";
 
-// 1. Inicializar la base de datos de pruebas REAL antes de cualquier test
+// 1. Inicializar la DB REAL antes de CUALQUIER test
 beforeAll(async () => {
   await initTestDb();
 });
 
-// 2. Limpiar la base de datos después de todos los tests
+// 2. Limpiar la DB después de todos los tests
 afterAll(() => {
   resetTestDb();
 });
 
-// Mock funcional de localStorage para tests.
 const storage = new Map<string, string>();
 const localStorageMock = {
   getItem: vi.fn((key: string): string | null => storage.has(key) ? storage.get(key)! : null),

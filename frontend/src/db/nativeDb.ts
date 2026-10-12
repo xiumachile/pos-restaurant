@@ -14,10 +14,12 @@ export function getTestDb(): any { return testDb; }
 export function setTestDb(db: any) { testDb = db; }
 
 /**
- * Inicializa la base de datos de pruebas con better-sqlite3.
+ * Inicializa perezosamente la DB de pruebas. Garantiza que siempre exista
+ * cuando se necesita, sin depender del orden de ejecución de los hooks.
  */
 export async function initTestDb(): Promise<any> {
   if (!isTestEnvironment()) return null;
+  if (testDb) return testDb;
   
   const { default: BetterSqlite3 } = await import('better-sqlite3');
   const path = await import('path');
@@ -25,61 +27,30 @@ export async function initTestDb(): Promise<any> {
   const { randomUUID } = await import('crypto');
 
   const filePath = path.join(os.tmpdir(), `pos-test-${randomUUID()}.db`);
-  const db = new BetterSqlite3(filePath);
-  
-  // Guardar la ruta para poder limpiar el archivo al cerrar
-  (db as any).__testFilePath = filePath;
-  setTestDb(db);
-  
-  return db;
+  testDb = new BetterSqlite3(filePath);
+  (testDb as any).__testFilePath = filePath;
+  console.log("[nativeDb] ✅ Test DB inicializada en:", filePath);
+  return testDb;
 }
 
 export function resetTestDb() {
-  const db = getTestDb();
-  if (db) {
-    db.close();
-    const filePath = (db as any).__testFilePath;
+  if (testDb) {
+    testDb.close();
+    const filePath = (testDb as any).__testFilePath;
     if (filePath) {
       try {
         const fs = require('fs');
         fs.unlinkSync(filePath);
       } catch { /* noop */ }
     }
-    setTestDb(null);
-  }
-}
-
-/**
- * Ejecuta un script de migración tolerando errores de columnas duplicadas,
- * replicando exactamente el comportamiento de run_migration_script en Rust.
- */
-function executeMigrationScript(db: any, sqlScript: string) {
-  const statements = sqlScript
-    .replace(/--.*$/gm, '') // eliminar comentarios de una línea
-    .replace(/\/\*[\s\S]*?\*\//g, '') // eliminar comentarios de bloque
-    .split(';')
-    .map((s: string) => s.trim())
-    .filter((s: string) => s.length > 0);
-
-  for (const stmt of statements) {
-    if (stmt.toUpperCase().startsWith('PRAGMA')) continue;
-    try {
-      db.exec(stmt);
-    } catch (e: any) {
-      const msg = e.message.toLowerCase();
-      // Ignorar errores que Rust también ignora (idempotencia de esquema)
-      if (msg.includes('duplicate column name') || msg.includes('already exists')) {
-        continue;
-      }
-      throw e;
-    }
+    testDb = null;
   }
 }
 
 export async function pingDatabase(): Promise<boolean> {
   if (isTestEnvironment()) {
-    const db = getTestDb();
-    if (!db) throw new Error("Test DB not initialized. Call initTestDb() first.");
+    const db = await initTestDb();
+    if (!db) throw new Error("Test DB no se pudo inicializar");
     db.prepare("SELECT 1").get();
     return true;
   }
@@ -88,9 +59,28 @@ export async function pingDatabase(): Promise<boolean> {
 
 export async function applyMigration(version: string, sqlScript: string): Promise<boolean> {
   if (isTestEnvironment()) {
-    const db = getTestDb();
-    if (!db) throw new Error("Test DB not initialized.");
-    executeMigrationScript(db, sqlScript);
+    const db = await initTestDb();
+    if (!db) throw new Error("Test DB no se pudo inicializar");
+    
+    const statements = sqlScript
+      .replace(/--.*$/gm, '')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .split(';')
+      .map((s: string) => s.trim())
+      .filter((s: string) => s.length > 0);
+
+    for (const stmt of statements) {
+      if (stmt.toUpperCase().startsWith('PRAGMA')) continue;
+      try {
+        db.exec(stmt);
+      } catch (e: any) {
+        const msg = e.message.toLowerCase();
+        if (msg.includes('duplicate column name') || msg.includes('already exists')) {
+          continue; // Idempotencia de esquema, igual que en Rust
+        }
+        throw e;
+      }
+    }
     db.exec(`INSERT OR IGNORE INTO migrations (version) VALUES ('${version}')`);
     return true;
   }
@@ -99,8 +89,8 @@ export async function applyMigration(version: string, sqlScript: string): Promis
 
 export async function executeReadQuery<T = any>(sql: string, params: (string | number | boolean | null)[] = []): Promise<T[]> {
   if (isTestEnvironment()) {
-    const db = getTestDb();
-    if (!db) throw new Error("Test DB not initialized.");
+    const db = await initTestDb();
+    if (!db) throw new Error("Test DB no se pudo inicializar");
     return db.prepare(sql).all(...params) as T[];
   }
   return await invoke<any>("execute_read_query", { sql, params });
@@ -108,8 +98,8 @@ export async function executeReadQuery<T = any>(sql: string, params: (string | n
 
 export async function executeWriteStatements(statements: DbStatement[]): Promise<any> {
   if (isTestEnvironment()) {
-    const db = getTestDb();
-    if (!db) throw new Error("Test DB not initialized.");
+    const db = await initTestDb();
+    if (!db) throw new Error("Test DB no se pudo inicializar");
     
     const results: any[] = [];
     db.transaction(() => {
@@ -124,7 +114,7 @@ export async function executeWriteStatements(statements: DbStatement[]): Promise
 
 export async function claimPendingSyncItems<T = any>(limit: number): Promise<T[]> {
   if (isTestEnvironment()) {
-    const db = getTestDb();
+    const db = await initTestDb();
     if (!db) return [];
     const now = new Date().toISOString();
     return db.prepare(`
