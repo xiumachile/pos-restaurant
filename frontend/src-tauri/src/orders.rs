@@ -388,6 +388,10 @@ pub fn register_payment_tx(
     if payload.total_amount <= 0 {
         return Err("El monto total del pago debe ser mayor a 0".to_string());
     }
+    // P1 Fix: Coherencia matemática estricta
+    if payload.amount + payload.tip_amount != payload.total_amount {
+        return Err("Inconsistencia financiera: amount + tip_amount debe ser igual a total_amount".to_string());
+    }
     if payload.payment_method_uuid.trim().is_empty() {
         return Err("El método de pago es requerido".to_string());
     }
@@ -396,26 +400,27 @@ pub fn register_payment_tx(
         .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
         .map_err(|e| format!("Error iniciando transacción: {e}"))?;
 
-    // 1. Verificar idempotencia COMPLETA (P1 Fix: incluir order y método)
-    let existing_payment: Option<(String, i64, i64, String, String)> = tx
+    // 1. Verificar idempotencia COMPLETA (P1 Fix: incluir total_amount, order y método)
+    let existing_payment: Option<(String, i64, i64, i64, String, String)> = tx
         .query_row(
-            "SELECT local_uuid, CAST(amount AS INTEGER), CAST(tip_amount AS INTEGER), order_local_uuid, payment_method 
+            "SELECT local_uuid, CAST(amount AS INTEGER), CAST(tip_amount AS INTEGER), CAST(total_amount AS INTEGER), order_local_uuid, payment_method 
              FROM local_payments WHERE idempotency_key = ?1",
             params![payload.idempotency_key],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
         )
         .optional()
         .map_err(|e| format!("Error verificando idempotencia: {e}"))?;
 
-    if let Some((existing_uuid, existing_amount, existing_tip, existing_order, existing_method)) = existing_payment {
+    if let Some((existing_uuid, existing_amount, existing_tip, existing_total, existing_order, existing_method)) = existing_payment {
         if existing_amount == payload.amount 
             && existing_tip == payload.tip_amount 
+            && existing_total == payload.total_amount
             && existing_order == payload.order_local_uuid 
             && existing_method == payload.payment_method_uuid 
         {
             return Ok(serde_json::json!({ "local_uuid": existing_uuid, "idempotent": true }));
         } else {
-            return Err("Conflicto de idempotencia: la clave ya existe con datos diferentes (monto, propina, orden o método)".to_string());
+            return Err("Conflicto de idempotencia: la clave ya existe con datos financieros o de contexto diferentes".to_string());
         }
     }
 
@@ -435,6 +440,11 @@ pub fn register_payment_tx(
 
     if order_status == "cancelled" {
         return Err("No se puede pagar una orden cancelada".to_string());
+    }
+
+    // P1 Fix: Validar que el monto aplicado no exceda el saldo pendiente
+    if payload.amount > amount_due {
+        return Err(format!("El monto del pago ({}) excede el saldo pendiente de la orden ({})", payload.amount, amount_due));
     }
 
     // 3. Insertar el nuevo pago
