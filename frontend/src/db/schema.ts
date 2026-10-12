@@ -22,7 +22,6 @@ import enforceTableMutationSchemaMigration from "./migrations/021_enforce_table_
 
 import { parseSqlStatements } from "./utils/sqlParser";
 import { applyMigration } from "./nativeDb";
-import { ensureChileanColumns } from "./migrations/018_ensure_chilean_columns";
 
 // El parser de SQL ahora vive en src/db/utils/sqlParser.ts
 
