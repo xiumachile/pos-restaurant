@@ -378,42 +378,64 @@ pub fn register_payment_tx(
     conn: &mut Connection,
     payload: RegisterPaymentPayload,
 ) -> Result<Value, String> {
+    // 0. Validaciones financieras básicas (P1 Fix: Integridad financiera)
+    if payload.amount <= 0 {
+        return Err("El monto del pago debe ser mayor a 0".to_string());
+    }
+    if payload.tip_amount < 0 {
+        return Err("La propina no puede ser negativa".to_string());
+    }
+    if payload.total_amount <= 0 {
+        return Err("El monto total del pago debe ser mayor a 0".to_string());
+    }
+    if payload.payment_method.trim().is_empty() {
+        return Err("El método de pago es requerido".to_string());
+    }
+
     let tx = conn
         .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
         .map_err(|e| format!("Error iniciando transacción: {e}"))?;
 
-    // 1. Verificar idempotencia: si ya existe un pago con esta clave, validar que el payload sea idéntico
-    let existing_payment: Option<(String, i64, i64)> = tx
+    // 1. Verificar idempotencia COMPLETA (P1 Fix: incluir order y método)
+    let existing_payment: Option<(String, i64, i64, String, String)> = tx
         .query_row(
-            "SELECT local_uuid, CAST(amount AS INTEGER), CAST(tip_amount AS INTEGER) FROM local_payments WHERE idempotency_key = ?1",
+            "SELECT local_uuid, CAST(amount AS INTEGER), CAST(tip_amount AS INTEGER), order_local_uuid, payment_method 
+             FROM local_payments WHERE idempotency_key = ?1",
             params![payload.idempotency_key],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
         )
         .optional()
         .map_err(|e| format!("Error verificando idempotencia: {e}"))?;
 
-    if let Some((existing_uuid, existing_amount, existing_tip)) = existing_payment {
-        if existing_amount == payload.amount && existing_tip == payload.tip_amount {
-            // Idempotencia exitosa: retornar el UUID existente sin hacer nada más
+    if let Some((existing_uuid, existing_amount, existing_tip, existing_order, existing_method)) = existing_payment {
+        if existing_amount == payload.amount 
+            && existing_tip == payload.tip_amount 
+            && existing_order == payload.order_local_uuid 
+            && existing_method == payload.payment_method 
+        {
             return Ok(serde_json::json!({ "local_uuid": existing_uuid, "idempotent": true }));
         } else {
-            // Conflicto: misma clave, distintos montos
-            return Err("Conflicto de idempotencia: la clave ya existe con montos diferentes".to_string());
+            return Err("Conflicto de idempotencia: la clave ya existe con datos diferentes (monto, propina, orden o método)".to_string());
         }
     }
 
-    // 2. Obtener datos de la orden para actualizar su estado y el de la mesa
-    let order_data: Option<(String, String, i64, i64, Option<String>)> = tx
+    // 2. Obtener datos de la orden para validar estado y actualizar
+    let order_data: Option<(String, String, i64, i64, Option<String>, String)> = tx
         .query_row(
-            "SELECT company_id, branch_id, CAST(grand_total AS INTEGER), CAST(amount_due AS INTEGER), table_id FROM local_orders WHERE local_uuid = ?1",
+            "SELECT company_id, branch_id, CAST(grand_total AS INTEGER), CAST(amount_due AS INTEGER), table_id, status 
+             FROM local_orders WHERE local_uuid = ?1",
             params![payload.order_local_uuid],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
         )
         .optional()
-        .map_err(|e| format!("Orden no encontrada: {e}"))?;
+        .map_err(|e| format!("Error consultando orden: {e}"))?;
 
-    let (company_id, branch_id, _grand_total, mut amount_due, table_id) = order_data
+    let (company_id, branch_id, _grand_total, mut amount_due, table_id, order_status) = order_data
         .ok_or_else(|| "Orden no encontrada".to_string())?;
+
+    if order_status == "cancelled" {
+        return Err("No se puede pagar una orden cancelada".to_string());
+    }
 
     // 3. Insertar el nuevo pago
     tx.execute(
@@ -448,7 +470,6 @@ pub fn register_payment_tx(
         )
         .map_err(|e| format!("Error liberando mesa: {e}"))?;
         
-        // Encolar mutación de mesa para el SyncEngine
         let mutation = serde_json::json!({ "status": "available", "current_order_uuid": null });
         tx.execute(
             "INSERT OR REPLACE INTO table_local_mutations (table_uuid, pending_status, pending_order_uuid, company_id, branch_id, action, payload, created_at)
@@ -457,25 +478,6 @@ pub fn register_payment_tx(
         )
         .map_err(|e| format!("Error registrando mutación de mesa: {e}"))?;
     }
-
-    // 6. Encolar evento de sync para el pago
-    let sync_payload = serde_json::json!({
-        "local_uuid": payload.local_uuid,
-        "order_local_uuid": payload.order_local_uuid,
-        "payment_method": payload.payment_method,
-        "amount": payload.amount,
-        "tip_amount": payload.tip_amount,
-        "total_amount": payload.total_amount,
-        "reference_code": payload.reference_code,
-        "idempotency_key": payload.idempotency_key
-    });
-
-    tx.execute(
-        "INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid, action, payload, sync_status, created_at)
-         VALUES (?1, ?2, ?3, 'payment', ?4, 'create', ?5, 'pending', CURRENT_TIMESTAMP)",
-        params![payload.local_uuid, company_id, branch_id, payload.local_uuid, sync_payload.to_string()],
-    )
-    .map_err(|e| format!("Error encolando sync de pago: {e}"))?;
 
     tx.commit().map_err(|e| format!("Error en COMMIT: {e}"))?;
 
