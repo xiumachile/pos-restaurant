@@ -203,9 +203,11 @@ test('middleware cachea respuesta exitosa', function () {
 test('middleware detecta conflicto de key con diferente request', function () {
     $key = Str::uuid();
 
-    // Crear registro previo con un hash específico
+    // Crear registro previo con un hash específico (incluyendo tenant context)
     IdempotencyKey::create([
         'key' => $key,
+        'company_id' => $this->cashier->company_id,
+        'branch_id' => $this->cashier->branch_id,
         'request_hash' => hash('sha256', 'completely-different-request'),
         'response_body' => ['success' => true],
         'response_code' => 200,

@@ -62,7 +62,7 @@ test('real concurrent requests handle idempotency unique constraint correctly', 
                     'endpoint' => '/api/test',
                     'user_id' => $user->id,
                     'company_id' => $company->id,
-                    'branch_id' => null,
+                    'branch_id' => 1, // P1 Fix: Debe ser un valor válido para que el índice único y el middleware funcionen correctamente
                     'expires_at' => now()->addHours(24),
                     'processing_until' => now()->addSeconds(60),
                     'response_code' => null,
