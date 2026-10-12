@@ -122,7 +122,7 @@ class IdempotencyKeyMiddleware
                 return $response; // Retorna 409 o replay
             }
             // Si es null, el middleware tomó ownership de un zombie lock.
-            // Continuamos a la FASE 3 usando el registro existente.
+            // Asignamos el registro para saltar la FASE 2 (INSERT) e ir directo a la FASE 3.
             $idempotencyRecord = $existing;
         }
 
@@ -130,7 +130,9 @@ class IdempotencyKeyMiddleware
         // FASE 2: CLAIM ATOMIC (SQL INSERT)
         // Previene race conditions entre requests simultáneos
         // ═══════════════════════════════════════════
-        $dbData = [
+        // Si ya tomamos ownership de un zombie lock, saltamos el INSERT
+        if (!isset($idempotencyRecord)) {
+            $dbData = [
             'key' => $idempotencyKey,
             'request_hash' => $requestHash,
             'endpoint' => $request->path(),
@@ -170,6 +172,8 @@ class IdempotencyKeyMiddleware
             }
             return $this->conflictResponse('Idempotency-Key conflict');
         }
+
+        } // Fin del if (!isset($idempotencyRecord)) de FASE 2
 
         // ═══════════════════════════════════════════
         // FASE 3: EJECUCIÓN DEL NEGOCIO
