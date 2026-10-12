@@ -452,7 +452,7 @@ pub fn register_payment_tx(
     .map_err(|e| format!("Error registrando pago: {e}"))?;
 
     // 4. Actualizar el amount_due de la orden
-    amount_due = (amount_due - payload.total_amount).max(0);
+    amount_due = (amount_due - payload.amount).max(0); // P1 Fix: Restar solo el monto de la venta, no la propina
     let new_status = if amount_due <= 0 { "paid" } else { "partial" };
     
     tx.execute(
