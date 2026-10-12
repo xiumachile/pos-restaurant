@@ -6,7 +6,7 @@ export interface DbStatement {
 }
 
 export function isTestEnvironment(): boolean {
-  return typeof process !== 'undefined' && process.env.NODE_ENV === 'test';
+  return typeof process !== 'undefined' && (process.env.NODE_ENV === 'test' || process.env.VITEST === 'true');
 }
 
 let testDb: any = null;

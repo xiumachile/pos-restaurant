@@ -2,6 +2,16 @@ import "@testing-library/jest-dom";
 import { vi, beforeAll, afterAll } from "vitest";
 import { initTestDb, resetTestDb } from "../db/nativeDb";
 
+// 1. Inicializar la base de datos de pruebas REAL antes de cualquier test
+beforeAll(async () => {
+  await initTestDb();
+});
+
+// 2. Limpiar la base de datos después de todos los tests
+afterAll(() => {
+  resetTestDb();
+});
+
 // Mock funcional de localStorage para tests.
 const storage = new Map<string, string>();
 const localStorageMock = {
@@ -34,13 +44,3 @@ vi.mock("react-i18next", () => ({
     i18n: { changeLanguage: () => new Promise(() => {}), language: "es-CL" },
   }),
 }));
-
-// Inicializar la base de datos de pruebas global antes de cualquier test
-beforeAll(async () => {
-  await initTestDb();
-});
-
-// Limpiar la base de datos después de todos los tests
-afterAll(() => {
-  resetTestDb();
-});
