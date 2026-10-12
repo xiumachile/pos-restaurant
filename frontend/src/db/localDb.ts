@@ -1,4 +1,4 @@
-import { executeQuery, executeTransaction, DbStatement, pingDatabase } from "./nativeDb";
+import { executeReadQuery, executeWriteStatements, DbStatement, pingDatabase } from "./nativeDb";
 import { localWriteCoordinator } from "./LocalWriteCoordinator";
 
 export class LocalDatabase {
@@ -21,7 +21,7 @@ export class LocalDatabase {
   }
 
   async select<T = any>(query: string, params?: unknown[]): Promise<T[]> {
-    return await executeQuery<T>(query, (params as any[]) || []);
+    return await executeReadQuery<T>(query, (params as any[]) || []);
   }
 
   async selectOne<T = any>(query: string, params?: unknown[]): Promise<T | null> {

@@ -28,7 +28,7 @@ class CompanyCapabilitiesSeeder extends Seeder
             // Todas las capabilities habilitadas por defecto
             $capabilities = [
                 CapabilityKey::CAN_SPLIT_BILLS->value => true,
-                CapabilityKey::CAN_MANAGE_INVENTORY->value => true,
+                CapabilityKey::CAN_MANAGE_RECIPES->value => true,
                 CapabilityKey::REQUIRES_CASHIER_SESSION->value => true,
                 CapabilityKey::CAN_ACCEPT_TIPS->value => true,
                 CapabilityKey::HAS_KITCHEN_DISPLAY->value => true,

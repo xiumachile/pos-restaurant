@@ -1,13 +1,11 @@
-import { executeTransaction, executeQuery, DbStatement } from "./nativeDb";
+import { executeReadQuery, executeWriteStatements, DbStatement } from "./nativeDb";
 
 export class LocalWriteCoordinator {
   private mutex: Promise<void> = Promise.resolve();
 
   async run<T>(operation: (db: any) => Promise<T>): Promise<T> {
     let release: () => void;
-    const newMutex = new Promise<void>(resolve => {
-      release = resolve;
-    });
+    const newMutex = new Promise<void>(resolve => { release = resolve; });
     
     const currentMutex = this.mutex;
     this.mutex = newMutex;
@@ -18,7 +16,7 @@ export class LocalWriteCoordinator {
       
       const flush = async () => {
         if (pendingStatements.length > 0) {
-          await executeTransaction(pendingStatements);
+          await executeWriteStatements(pendingStatements); // <-- LLAMADA DIRECTA, SIN RECURSIÓN
           pendingStatements.length = 0;
         }
       };
@@ -29,7 +27,7 @@ export class LocalWriteCoordinator {
         },
         select: async (sql: string, params: any[] = []) => {
           await flush();
-          return await executeQuery(sql, params);
+          return await executeReadQuery(sql, params);
         }
       };
 
@@ -47,7 +45,7 @@ export class LocalWriteCoordinator {
   }
 
   async select<T = any>(query: string, params?: unknown[]): Promise<T[]> {
-    return await executeQuery<T>(query, params as any[]);
+    return await executeReadQuery<T>(query, params as any[]);
   }
 
   async transaction<T>(fn: (db: any) => Promise<T>): Promise<T> {
@@ -55,21 +53,11 @@ export class LocalWriteCoordinator {
   }
 
   async executeSingle(query: string, params?: unknown[]): Promise<any> {
-    return await executeTransaction([{ 
-      sql: query, 
-      params: (params as any[]) || [] 
-    }]);
+    return await executeWriteStatements([{ sql: query, params: (params as any[]) || [] }]);
   }
 
   async executeTransaction(statements: DbStatement[]): Promise<any> {
-    return await this.run(async (txDb) => {
-      const results: any[] = [];
-      for (const stmt of statements) {
-        txDb.execute(stmt.sql, stmt.params || []);
-        results.push({ success: true });
-      }
-      return results;
-    });
+    return await executeWriteStatements(statements);
   }
 }
 

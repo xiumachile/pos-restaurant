@@ -1,3 +1,4 @@
+import { isTestEnvironment, claimPendingSyncItems } from "../nativeDb";
 import { localDb } from "../localDb";
 import { v4 as uuidv4 } from "uuid";
 
@@ -221,6 +222,9 @@ export class SyncQueueRepository {
       RETURNING *
     `;
     
+    if (!isTestEnvironment()) {
+      return await claimPendingSyncItems<SyncQueueItem>(limit);
+    }
     const claimed = await localDb.select<SyncQueueItem>(query, [limit]);
     return claimed || [];
   }

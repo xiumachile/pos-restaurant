@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { localWriteCoordinator } from "./LocalWriteCoordinator";
+import { Database } from "@tauri-apps/plugin-sql"; // Será interceptado por vi.mock en tests
 
 export interface DbStatement {
   sql: string;
@@ -11,81 +11,57 @@ export function isTestEnvironment(): boolean {
 }
 
 let testDb: any = null;
-export function getTestDb(): any { return testDb; }
-export function setTestDb(db: any) { testDb = db; }
 
-/**
- * Verifica la conexión con la base de datos nativa de Rust.
- */
+async function getDb() {
+  if (isTestEnvironment()) {
+    if (!testDb) {
+      testDb = await Database.load("sqlite:test.db");
+    }
+    return testDb;
+  }
+  return null;
+}
+
 export async function pingDatabase(): Promise<boolean> {
   if (isTestEnvironment()) {
-    const db = getTestDb();
-    if (db) db.prepare("SELECT 1").get();
+    const db = await getDb();
+    await db.execute("SELECT 1");
     return true;
   }
   return await invoke<boolean>("ping_database");
 }
 
-/**
- * Aplica una migración de esquema de forma segura a través de Rust.
- */
 export async function applyMigration(version: string, sqlScript: string): Promise<boolean> {
   if (isTestEnvironment()) {
-    const db = getTestDb();
-    if (db) {
-      db.exec(sqlScript);
-      db.exec(`INSERT OR IGNORE INTO migrations (version) VALUES ('${version}')`);
-    }
+    const db = await getDb();
+    await db.exec(sqlScript);
+    await db.exec(`INSERT OR IGNORE INTO migrations (version) VALUES ('${version}')`);
     return true;
   }
   return await invoke<boolean>("apply_migration", { version, sqlScript });
 }
 
-/**
- * Ejecuta una consulta de lectura (SELECT).
- * NOTA: Si el comando 'execute_query' fue eliminado por seguridad, 
- * las lecturas deben usar comandos de dominio específicos o este comando 
- * debe ser reintroducido en Rust con validación estricta (solo SELECT).
- * Por ahora, intentamos invocar 'execute_read_query' o fallback.
- */
-export async function executeQuery<T = any>(
-  sql: string,
-  params: (string | number | boolean | null)[] = []
-): Promise<T[]> {
+export async function executeReadQuery<T = any>(sql: string, params: (string | number | boolean | null)[] = []): Promise<T[]> {
   if (isTestEnvironment()) {
-    const db = getTestDb();
-    return db ? (db.prepare(sql).all(...params) as T[]) : [];
+    const db = await getDb();
+    return await db.select<T>(sql, params);
   }
-
-  try {
-    // Intentar usar un comando de lectura seguro si existe
-    const result = await invoke<any>("execute_read_query", { sql, params });
-    return (result as T[]) || [];
-  } catch (e: any) {
-    // Fallback si el comando no existe (ej. en versiones antiguas del backend)
-    console.warn("[nativeDb] Comando de lectura no encontrado. Verificar implementación en Rust.");
-    throw e;
-  }
+  return await invoke<any>("execute_read_query", { sql, params });
 }
 
-/**
- * Ejecuta una transacción de escritura delegando al coordinador.
- */
-export async function executeTransaction(statements: DbStatement[]): Promise<any> {
+export async function executeWriteStatements(statements: DbStatement[]): Promise<any> {
   if (isTestEnvironment()) {
-    const db = getTestDb();
-    if (!db) return [];
+    const db = await getDb();
     const results: any[] = [];
+    // Transacción real en better-sqlite3 para garantizar atomicidad en tests
     db.transaction(() => {
       for (const stmt of statements) {
-        results.push(db.prepare(stmt.sql).run(...(stmt.params || [])));
+        results.push(db.execute(stmt.sql, stmt.params || []));
       }
     })();
     return results;
   }
-  
-  // Usar el método correcto del coordinador
-  return await localWriteCoordinator.executeTransaction(statements);
+  return await invoke<any>("execute_write_statements", { statements });
 }
 
 export function resetTestDb() {
@@ -93,4 +69,26 @@ export function resetTestDb() {
     testDb.close();
     testDb = null;
   }
+}
+
+export async function claimPendingSyncItems<T = any>(limit: number): Promise<T[]> {
+  if (isTestEnvironment()) {
+    // Fallback para tests que usan claimPending directamente
+    const db = await getDb();
+    const now = new Date().toISOString();
+    const items = await db.select<T>(`
+      UPDATE sync_queue
+      SET sync_status = 'syncing', updated_at = CURRENT_TIMESTAMP
+      WHERE id IN (
+        SELECT id FROM sync_queue
+        WHERE sync_status = 'pending'
+          AND (next_retry_at IS NULL OR next_retry_at <= ?)
+        ORDER BY created_at ASC
+        LIMIT ?
+      )
+      RETURNING *
+    `, [now, limit]);
+    return items || [];
+  }
+  return (await invoke<T[]>("claim_pending_sync_items", { limit })) || [];
 }

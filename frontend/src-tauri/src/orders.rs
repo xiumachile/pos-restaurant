@@ -351,7 +351,7 @@ mod tests {
 // COMANDOS DE DOMINIO ADICIONALES PARA CERRAR O-05
 // ============================================================================
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct RegisterPaymentPayload {
     pub local_uuid: String,
     pub idempotency_key: String,
@@ -370,7 +370,14 @@ pub fn register_local_payment(
     payload: RegisterPaymentPayload,
 ) -> Result<Value, String> {
     let mut conn = state.0.lock().map_err(|e| format!("Mutex envenenado: {e}"))?;
-    
+    register_payment_tx(&mut conn, payload)
+}
+
+/// Lógica pura sobre una Connection: testeable sin Tauri.
+pub fn register_payment_tx(
+    conn: &mut Connection,
+    payload: RegisterPaymentPayload,
+) -> Result<Value, String> {
     let tx = conn
         .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
         .map_err(|e| format!("Error iniciando transacción: {e}"))?;
@@ -378,7 +385,7 @@ pub fn register_local_payment(
     // 1. Verificar idempotencia: si ya existe un pago con esta clave, validar que el payload sea idéntico
     let existing_payment: Option<(String, i64, i64)> = tx
         .query_row(
-            "SELECT local_uuid, amount, tip_amount FROM local_payments WHERE idempotency_key = ?1",
+            "SELECT local_uuid, CAST(amount AS INTEGER), CAST(tip_amount AS INTEGER) FROM local_payments WHERE idempotency_key = ?1",
             params![payload.idempotency_key],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )
@@ -398,7 +405,7 @@ pub fn register_local_payment(
     // 2. Obtener datos de la orden para actualizar su estado y el de la mesa
     let order_data: Option<(String, String, i64, i64, Option<String>)> = tx
         .query_row(
-            "SELECT company_id, branch_id, grand_total, amount_due, table_id FROM local_orders WHERE local_uuid = ?1",
+            "SELECT company_id, branch_id, CAST(grand_total AS INTEGER), CAST(amount_due AS INTEGER), table_id FROM local_orders WHERE local_uuid = ?1",
             params![payload.order_local_uuid],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
         )
@@ -413,11 +420,11 @@ pub fn register_local_payment(
         "INSERT INTO local_payments (
             local_uuid, company_id, branch_id, order_local_uuid, payment_method,
             amount, tip_amount, total_amount, reference_code, notes, status, idempotency_key, sync_status, created_at
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, 'pending', CURRENT_TIMESTAMP)",
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'completed', ?11, 'pending', CURRENT_TIMESTAMP)",
         params![
             payload.local_uuid, company_id, branch_id, payload.order_local_uuid,
             payload.payment_method, payload.amount, payload.tip_amount, payload.total_amount,
-            payload.reference_code, payload.notes, "completed"
+            payload.reference_code, payload.notes, payload.idempotency_key
         ],
     )
     .map_err(|e| format!("Error registrando pago: {e}"))?;
@@ -566,6 +573,7 @@ pub fn get_pending_orders(
 #[cfg(test)]
 mod payment_idempotency_tests {
     use super::*;
+    use std::sync::Mutex;
 
     const SCHEMA: &str = "
     CREATE TABLE local_orders (
@@ -628,12 +636,12 @@ mod payment_idempotency_tests {
         };
 
         // Primer intento: debe crear el pago
-        let res1 = register_local_payment(tauri::State::from(&state), payload.clone()).unwrap();
+        let res1 = register_payment_tx(&mut state.0.lock().unwrap(), payload.clone()).unwrap();
         assert_eq!(res1["local_uuid"], "pay-1");
         assert_eq!(res1["idempotent"], false);
 
         // Segundo intento con la misma clave: debe retornar el existente sin duplicar
-        let res2 = register_local_payment(tauri::State::from(&state), payload.clone()).unwrap();
+        let res2 = register_payment_tx(&mut state.0.lock().unwrap(), payload.clone()).unwrap();
         assert_eq!(res2["local_uuid"], "pay-1");
         assert_eq!(res2["idempotent"], true);
 
@@ -661,7 +669,7 @@ mod payment_idempotency_tests {
             notes: None,
         };
 
-        register_local_payment(tauri::State::from(&state), payload1).unwrap();
+        register_payment_tx(&mut state.0.lock().unwrap(), payload1).unwrap();
 
         // Intento con la misma clave pero monto diferente
         let payload2 = RegisterPaymentPayload {
@@ -676,7 +684,7 @@ mod payment_idempotency_tests {
             notes: None,
         };
 
-        let err = register_local_payment(tauri::State::from(&state), payload2).unwrap_err();
+        let err = register_payment_tx(&mut state.0.lock().unwrap(), payload2).unwrap_err();
         assert!(err.contains("Conflicto de idempotencia"));
     }
 }

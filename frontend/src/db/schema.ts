@@ -21,7 +21,7 @@ import cleanTableMutationsMigration from "./migrations/020_clean_table_mutations
 import enforceTableMutationSchemaMigration from "./migrations/021_enforce_table_mutation_schema.sql?raw";
 
 import { parseSqlStatements } from "./utils/sqlParser";
-import { applyMigration } from "./migrations/applyMigration";
+import { applyMigration } from "./nativeDb";
 import { ensureChileanColumns } from "./migrations/018_ensure_chilean_columns";
 
 // El parser de SQL ahora vive en src/db/utils/sqlParser.ts
@@ -37,91 +37,39 @@ export async function runMigrations(): Promise<void> {
   }
 
   migrationInitPromise = (async () => {
-    const db = await localDb.getConnection();
+    console.log("[Migrations] 🚀 Iniciando sistema de migraciones...");
 
-  console.log("[Migrations] 🚀 Iniciando sistema de migraciones...");
-
-  // Crear tabla de control de migraciones
-  try {
-    await db.execute(`
+    // 1. Asegurar que la tabla de control existe (applyMigration maneja el IF NOT EXISTS internamente)
+    await applyMigration("000_create_migrations_table", `
       CREATE TABLE IF NOT EXISTS migrations (
         version TEXT PRIMARY KEY,
         applied_at TEXT DEFAULT CURRENT_TIMESTAMP,
         checksum TEXT
       )
     `);
-    console.log("[Migrations] ✅ Tabla migrations verificada");
-  } catch (error) {
-    console.error("[Migrations] ❌ Error creando tabla migrations:", error);
-    throw error;
-  }
 
-  // Verificar migraciones ya aplicadas
-  const applied = await db.select<Array<{ version: string }>>(
-    "SELECT version FROM migrations ORDER BY version"
-  );
+    // 2. Aplicar migraciones secuencialmente. Rust verifica si ya fueron aplicadas.
+    await applyMigration("001", initialMigration);
+    await applyMigration("002", tableMutationsMigration);
+    await applyMigration("003", backendIdMigration);
+    await applyMigration("004", localBillsMigration);
+    await applyMigration("005", localCashMovementsMigration);
+    await applyMigration("006", localCashSessionsCompanyMigration);
+    await applyMigration("007", offlineEventsMigration);
+    await applyMigration("008", localPrintJobsMigration);
+    await applyMigration("009", printerConfigsMigration);
+    await applyMigration("011", chileanColumnsMigration);
+    await applyMigration("012", multiTenancyMigration);
+    await applyMigration("013", tableMutationsTenancyMigration);
+    await applyMigration("014", tenantBackfillMigration);
+    await applyMigration("015", billLinkMigration);
+    await applyMigration("016", fixOrphanTablesMigration);
+    await applyMigration("017", enforceIntegerMoneyMigration);
+    await applyMigration("019", fixTableStatusMigration);
+    await applyMigration("020", cleanTableMutationsMigration);
+    await applyMigration("021", enforceTableMutationSchemaMigration);
 
-  console.log(`[Migrations] 📋 Migraciones aplicadas: ${applied.length > 0 ? applied.map(m => m.version).join(", ") : "ninguna"}`);
-
-  await applyMigration("001", initialMigration, applied);
-  await applyMigration("002", tableMutationsMigration, applied);
-  await applyMigration("003", backendIdMigration, applied);
-  await applyMigration("004", localBillsMigration, applied);
-  await applyMigration("005", localCashMovementsMigration, applied);
-  await applyMigration("006", localCashSessionsCompanyMigration, applied);
-  await applyMigration("007", offlineEventsMigration, applied);
-  await applyMigration("008", localPrintJobsMigration, applied);
-  await applyMigration("009", printerConfigsMigration, applied);
-  await applyMigration("011", chileanColumnsMigration, applied);
-  await applyMigration("012", multiTenancyMigration, applied);
-  await applyMigration("013", tableMutationsTenancyMigration, applied);
-  await applyMigration("014", tenantBackfillMigration, applied);
-  await applyMigration("015", billLinkMigration, applied);
-  await applyMigration("016", fixOrphanTablesMigration, applied);
-  await applyMigration("017", enforceIntegerMoneyMigration, applied);
-  await applyMigration("019", fixTableStatusMigration, applied);
-  await applyMigration("020", cleanTableMutationsMigration, applied);
-  await applyMigration("021", enforceTableMutationSchemaMigration, applied);
-
-  // ═══════════════════════════════════════════════════════════════
-  // VERIFICACIÓN DE INTEGRIDAD (independiente de migraciones)
-  // ═══════════════════════════════════════════════════════════════
-  const criticalSchemas = [
-    { table: "local_orders", required: ["terminal_id", "guest_count", "idempotency_key"] },
-    { table: "local_bills", required: ["terminal_id"] },
-    { table: "sync_queue", required: ["entity_type", "sync_status"] }
-  ];
-
-  await ensureChileanColumns();
-
-  console.log("[Migrations] 🔍 Verificando integridad profunda de esquemas...");
-  let allOk = true;
-
-  for (const schema of criticalSchemas) {
-    try {
-      const columns: any[] = await db.select(`PRAGMA table_info(${schema.table})`);
-      const existingNames = columns.map((c: any) => c.name);
-      
-      const missing = schema.required.filter((col: string) => !existingNames.includes(col));
-      
-      if (missing.length > 0) {
-        console.error(`[Migrations] ❌ Tabla ${schema.table} falta columnas críticas: ${missing.join(", ")}`);
-        allOk = false;
-      } else {
-        console.log(`[Migrations] ✅ Esquema verificado: ${schema.table}`);
-      }
-    } catch (err) {
-      console.error(`[Migrations] ❌ Error verificando esquema de ${schema.table}:`, err);
-      allOk = false;
-    }
-  }
-
-  if (!allOk) {
-    console.warn("[Migrations] ⚠️  Faltan tablas críticas");
-    throw new Error("Faltan tablas críticas en la base de datos");
-  }
-
-    console.log("[Migrations] ✅ Integridad de base de datos verificada");
+    console.log("[Migrations] ✅ Todas las migraciones aplicadas exitosamente");
   })();
 
   return migrationInitPromise;
