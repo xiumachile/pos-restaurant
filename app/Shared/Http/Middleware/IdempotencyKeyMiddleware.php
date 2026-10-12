@@ -8,6 +8,7 @@ use Closure;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
@@ -80,13 +81,13 @@ class IdempotencyKeyMiddleware
             ], 400);
         }
 
-        // ADR-015: Obtener tenant context
+        // P1 Fix: Obtener tenant context completo (company Y branch)
         $companyId = $this->tenantContext->companyId();
         $branchId = $this->tenantContext->branchId();
-        $hasTenantContext = $this->tenantContext->hasCompany();
+        $hasTenantContext = $this->tenantContext->hasCompany() && $this->tenantContext->hasBranch();
 
-        // Fallback: si TenantContext no tiene company pero hay usuario autenticado
-        if (!$hasTenantContext && auth()->check() && auth()->user()->company_id) {
+        // Fallback: si TenantContext no tiene datos pero hay usuario autenticado
+        if (!$hasTenantContext && auth()->check() && auth()->user()->company_id && auth()->user()->branch_id) {
             $companyId = auth()->user()->company_id;
             $branchId = auth()->user()->branch_id;
             $hasTenantContext = true;
@@ -94,7 +95,7 @@ class IdempotencyKeyMiddleware
 
         $requestHash = $this->generateRequestHash($request);
         $cacheKey = $hasTenantContext
-            ? "idempotency:{$companyId}:{$idempotencyKey}"
+            ? "idempotency:{$companyId}:{$branchId}:{$idempotencyKey}"
             : "idempotency:global:{$idempotencyKey}";
 
         // ═══════════════════════════════════════════
@@ -113,7 +114,7 @@ class IdempotencyKeyMiddleware
         // FASE 1: PRE-CHECK (SQL SELECT)
         // Detecta keys pre-existentes (tests, requests anteriores)
         // ═══════════════════════════════════════════
-        $existing = $this->findExistingKey($idempotencyKey, $companyId, $hasTenantContext);
+        $existing = $this->findExistingKey($idempotencyKey, $companyId, $branchId, $hasTenantContext);
 
         if ($existing) {
             $response = $this->handleExistingKey($existing, $requestHash, $cacheKey);
@@ -146,15 +147,20 @@ class IdempotencyKeyMiddleware
         }
 
         try {
-            $idempotencyRecord = IdempotencyKey::withoutGlobalScopes()->create($dbData);
+            // P1 Fix: Envolver en DB::transaction para crear un savepoint.
+            // Si el INSERT falla, solo el savepoint se revierte, no la transacción
+            // principal del test o del request, permitiendo consultas posteriores.
+            $idempotencyRecord = DB::transaction(function () use ($dbData) {
+                return IdempotencyKey::withoutGlobalScopes()->create($dbData);
+            });
         } catch (UniqueConstraintViolationException $e) {
             // Race condition: otro request ganó el claim entre nuestro SELECT e INSERT
             Log::debug('IdempotencyKey: UNIQUE violation (race condition detected)', [
                 'key' => $idempotencyKey,
             ]);
 
-            // Re-consultar el registro que ganó
-            $winner = $this->findExistingKey($idempotencyKey, $companyId, $hasTenantContext);
+            // Re-consultar el registro que ganó (ahora funciona porque el savepoint se revirtió)
+            $winner = $this->findExistingKey($idempotencyKey, $companyId, $branchId, $hasTenantContext);
             if ($winner) {
                 $response = $this->handleExistingKey($winner, $requestHash, $cacheKey);
                 if ($response !== null) {
@@ -214,20 +220,17 @@ class IdempotencyKeyMiddleware
      * Busca un registro existente por key, con scope de tenant correcto.
      * Maneja explícitamente el caso de company_id NULL (tests legacy).
      */
-    private function findExistingKey(string $key, ?int $companyId, bool $hasTenantContext): ?IdempotencyKey
+    private function findExistingKey(string $key, ?int $companyId, ?int $branchId, bool $hasTenantContext): ?IdempotencyKey
     {
         $query = IdempotencyKey::withoutGlobalScopes()->where('key', $key);
 
-        if ($hasTenantContext && $companyId) {
-            // Buscar en el scope del tenant O en global (company_id NULL)
-            // Esto permite detectar keys pre-existentes de tests
-            $query->where(function ($q) use ($companyId) {
-                $q->where('company_id', $companyId)
-                  ->orWhereNull('company_id');
-            });
+        if ($hasTenantContext && $companyId && $branchId) {
+            // P1 Fix: Alcance estricto a empresa Y sucursal
+            $query->where('company_id', $companyId)
+                  ->where('branch_id', $branchId);
         } else {
             // Sin tenant: buscar solo registros globales
-            $query->whereNull('company_id');
+            $query->whereNull('company_id')->whereNull('branch_id');
         }
 
         return $query->first();
@@ -264,18 +267,59 @@ class IdempotencyKeyMiddleware
 
         // P1-011: Detección de Zombie Lock (proceso murió antes de guardar respuesta)
         if ($existing->isProcessingExpired()) {
-            \Log::warning('IdempotencyKey: Zombie lock detected, taking ownership', [
+            \Log::warning('IdempotencyKey: Zombie lock detected, attempting atomic takeover', [
                 'key' => $existing->key,
             ]);
-            if (!$existing->takeOwnership()) {
-                \Log::warning("IdempotencyKey: Failed to take ownership, another process got it", ["key" => $existing->key]);
-                return response()->json([
-                    "error" => "request_in_progress",
-                    "message" => "Un request con esta Idempotency-Key está siendo procesado.",
-                ], 409)->header("Retry-After", (string) self::IN_PROGRESS_TTL_SECONDS);
+            
+            try {
+                // Usamos una transacción atómica para evitar "current transaction is aborted"
+                $tookOwnership = \DB::transaction(function () use ($existing) {
+                    // Re-leer con FOR UPDATE para prevenir race conditions
+                    $locked = IdempotencyKey::where('id', $existing->id)
+                        ->whereNull('response_code')
+                        ->lockForUpdate()
+                        ->first();
+                    
+                    if (!$locked || !$locked->isProcessingExpired()) {
+                        return false; // Otro proceso ya lo tomó o aún no expira
+                    }
+                    
+                    $newToken = (string) \Illuminate\Support\Str::uuid();
+                    $now = now();
+                    $updated = $locked->update([
+                        'processing_until' => $now->addSeconds(60),
+                        'lock_token' => $newToken,
+                        'updated_at' => $now,
+                    ]);
+                    
+                    if ($updated) {
+                        $locked->refresh();
+                        // Actualizar la instancia en memoria
+                        $existing->processing_until = $locked->processing_until;
+                        $existing->lock_token = $locked->lock_token;
+                    }
+                    return (bool) $updated;
+                });
+
+                if (!$tookOwnership) {
+                    \Log::warning("IdempotencyKey: Failed to take ownership atomically", ["key" => $existing->key]);
+                    return response()->json([
+                        "error" => "request_in_progress",
+                        "message" => "Un request con esta Idempotency-Key está siendo procesado.",
+                    ], 409)->header("Retry-After", (string) self::IN_PROGRESS_TTL_SECONDS);
+                }
+                
+                \Log::info("IdempotencyKey: Ownership taken successfully via atomic transaction", ["key" => $existing->key]);
+                return null; // Indica al middleware que debe continuar con la ejecución
+                
+            } catch (\Throwable $e) {
+                \Log::error("IdempotencyKey: Atomic takeover failed with exception", [
+                    "key" => $existing->key, 
+                    "error" => $e->getMessage()
+                ]);
+                // Si falla el takeover, tratamos como conflicto normal para no romper la app
+                return $this->conflictResponse('Error interno al recuperar bloqueo zombie');
             }
-            \Log::info("IdempotencyKey: Ownership taken successfully", ["key" => $existing->key]);
-            return null; // Indica al middleware que debe continuar con la ejecución
         }
 
         // En progreso real

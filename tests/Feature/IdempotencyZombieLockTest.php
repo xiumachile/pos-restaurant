@@ -48,6 +48,8 @@ class IdempotencyZombieLockTest extends TestCase
             'key' => $idempotencyKey,
             'request_hash' => $requestHash,
             'endpoint' => 'api/test-idempotency',
+            'company_id' => $user->company_id,
+            'branch_id' => $user->branch_id,
             'user_id' => $user->id,
             'expires_at' => now()->addHours(22),
             'processing_until' => now()->subHour(), // ¡LEASE EXPIRADO!
@@ -56,7 +58,8 @@ class IdempotencyZombieLockTest extends TestCase
         ]);
 
         // 2. Simular un nuevo request con la misma key
-        $response = $this->actingAs($user)
+        $response = $this->withoutExceptionHandling()
+            ->actingAs($user)
             ->withHeaders([
                 'Idempotency-Key' => $idempotencyKey,
                 'Content-Type' => 'application/json',
@@ -85,6 +88,8 @@ class IdempotencyZombieLockTest extends TestCase
             'key' => $idempotencyKey,
             'request_hash' => $requestHash,
             'endpoint' => 'api/test-idempotency',
+            'company_id' => $user->company_id,
+            'branch_id' => $user->branch_id,
             'user_id' => $user->id,
             'expires_at' => now()->addHours(23),
             'processing_until' => now()->addMinutes(5), // Lease activo
@@ -93,7 +98,8 @@ class IdempotencyZombieLockTest extends TestCase
         ]);
 
         // 2. Simular un nuevo request con la misma key
-        $response = $this->actingAs($user)
+        $response = $this->withoutExceptionHandling()
+            ->actingAs($user)
             ->withHeaders([
                 'Idempotency-Key' => $idempotencyKey,
                 'Content-Type' => 'application/json',
