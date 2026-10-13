@@ -138,11 +138,12 @@ export class SyncQueueRepository {
     return result;
   }
 
-  static async enqueue(data: EnqueuePayload): Promise<string> {
+  static async enqueue(data: EnqueuePayload, txDb?: any): Promise<string> {
     const id = uuidv4();
     const payloadStr = JSON.stringify(data.payload);
+    const dbToUse = txDb || localDb;
 
-    await localDb.execute(
+    await (dbToUse as any).execute(
       `INSERT INTO sync_queue (
         id, company_id, branch_id, entity_type, entity_local_uuid,
         action, payload, sync_status, attempts, max_attempts,

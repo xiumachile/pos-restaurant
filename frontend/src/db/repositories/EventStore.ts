@@ -79,11 +79,12 @@ export class EventStore {
    * 
    * @throws Error si idempotency_key ya existe (evento duplicado)
    */
-  static async record(payload: CreateEventPayload): Promise<OfflineEvent> {
+  static async record(payload: CreateEventPayload, txDb?: any): Promise<OfflineEvent> {
     const event_uuid = uuidv4();
     const idempotency_key = uuidv4();
+    const dbToUse = txDb || localDb;
 
-    await localDb.execute(
+    await (dbToUse as any).execute(
       `INSERT INTO offline_events (
         event_uuid, idempotency_key, company_id, branch_id, terminal_id, user_id,
         entity_type, entity_uuid, event_type, payload, created_at, notes, sync_status

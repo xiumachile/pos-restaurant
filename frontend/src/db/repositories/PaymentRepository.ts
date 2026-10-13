@@ -183,7 +183,7 @@ export class PaymentRepository {
           reference_code: payment.reference_code,
           notes: payload.notes || null,
         },
-      });
+      }, txDb); // P1-03 FIX: Propagar contexto transaccional
     }
 
     // Registrar evento CREATE_PAYMENT (Event Sourcing - append-only)
