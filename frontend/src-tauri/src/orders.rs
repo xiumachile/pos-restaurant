@@ -571,7 +571,7 @@ pub fn get_pending_orders(
     company_id: String,
     branch_id: String,
 ) -> Result<Value, String> {
-    let mut conn = state.0.lock().map_err(|e| format!("Mutex envenenado: {e}"))?;
+    let conn = state.0.lock().map_err(|e| format!("Mutex envenenado: {e}"))?;
     
     let mut stmt = conn
         .prepare(

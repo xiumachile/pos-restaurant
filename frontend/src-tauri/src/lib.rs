@@ -240,13 +240,45 @@ fn json_to_sql_values(params: &[serde_json::Value]) -> Vec<rusqlite::types::Valu
 
 fn validate_write_sql(sql: &str) -> Result<(), String> {
     let lower = sql.trim_start().to_lowercase();
-    let allowed = ["insert", "update", "delete"];
-    if !allowed.iter().any(|k| lower.starts_with(k)) {
-        return Err("Solo se permiten INSERT, UPDATE o DELETE".into());
+    
+    // 1. Verificar operación permitida
+    if !lower.starts_with("insert into") && !lower.starts_with("update ") && !lower.starts_with("delete from") {
+        return Err("Operación no permitida. Solo INSERT INTO, UPDATE o DELETE FROM".into());
     }
-    for banned in ["attach ", "detach ", "load_extension", "vacuum"] {
+
+    // 2. Extraer nombre de la tabla de forma segura (usando strip_prefix para evitar problemas de lifetime)
+    let prefix_stripped = if lower.starts_with("insert into") {
+        lower.strip_prefix("insert into").unwrap_or("")
+    } else if lower.starts_with("update ") {
+        lower.strip_prefix("update ").unwrap_or("")
+    } else if lower.starts_with("delete from") {
+        lower.strip_prefix("delete from").unwrap_or("")
+    } else {
+        ""
+    };
+
+    let table_name = prefix_stripped
+        .split_whitespace()
+        .next()
+        .unwrap_or("")
+        .trim_matches(|c: char| c == '`' || c == '"' || c == '[' || c == ']');
+
+    // 3. P1 FIX: Whitelist estricta de tablas permitidas para escritura genérica
+    let allowed_tables = [
+        "local_orders", "local_order_items", "local_payments", "local_bills",
+        "sync_queue", "local_tables", "table_local_mutations", "local_cash_sessions",
+        "local_cash_movements", "migrations", "local_print_jobs", "printer_configs",
+        "offline_events", "idempotency_keys"
+    ];
+
+    if !allowed_tables.contains(&table_name) {
+        return Err(format!("Acceso denegado: Escritura en tabla no permitida o desconocida '{}'", table_name));
+    }
+
+    // 4. Bloquear comandos peligrosos a nivel de sistema
+    for banned in ["attach", "detach", "load_extension", "vacuum", "pragma", "sqlite_master"] {
         if lower.contains(banned) {
-            return Err(format!("Operación no permitida: {}", banned.trim()));
+            return Err(format!("Operación no permitida: contiene palabra clave prohibida '{}'", banned));
         }
     }
     Ok(())
