@@ -149,7 +149,10 @@ describe("OrderRepository - Escenario 3: Pago vs. Cancelación", () => {
       expect(finalOrder?.status).toBe('cancelled');
       expect(finalBill?.status).toBe('open'); // O 'cancelled' si la lógica lo maneja, pero no 'paid'
       expect(payments.length).toBe(0); // No debe haber pagos huérfanos
-      // La mesa podría seguir ocupada o no, dependiendo de la lógica de cancelación, pero no debe haber inconsistencia de pago
+            // AUD-02 FIX: Exigir explícitamente que la mesa quede liberada tras la cancelación.
+      // Si la mesa sigue ocupada con este order, es un estado híbrido inaceptable.
+      expect(finalTable[0]?.status).toBe('available');
+      expect(finalTable[0]?.current_order_uuid).toBeNull();
     }
 
     // Regla de oro: NUNCA debe haber un estado híbrido (pagado pero con pagos = 0, o pagado pero mesa ocupada por ese order)
