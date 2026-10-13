@@ -102,7 +102,7 @@ export class PaymentRepository {
           local_uuid,
           idempotency_key,
           order_local_uuid: payload.order_local_uuid || "",
-          payment_method_uuid: paymentMethodUuid, // P0 Fix: Rust requiere UUID, no nombre
+          payment_method_uuid: paymentMethodUuid || "", // P0 Fix: Rust requiere UUID, no nombre
           amount: saleAmount, // P0 Fix: Monto de la venta, no el total con propina
           tip_amount: tipAmount,
           total_amount: payload.amount, // P0 Fix: Total pagado (venta + propina)
@@ -150,7 +150,7 @@ export class PaymentRepository {
       order_cloud_id: payload.order_cloud_id || null,
       bill_local_uuid: billLocalUuid,
       payment_method: payload.payment_method,
-      payment_method_uuid: paymentMethodUuid,
+      payment_method_uuid: paymentMethodUuid || "",
       amount: payload.amount,
       sale_amount: saleAmount,
       tip_amount: tipAmount,
@@ -199,7 +199,7 @@ export class PaymentRepository {
         payload: {
           amount: payment.amount,
           payment_method: payment.payment_method,
-          payment_method_uuid: paymentMethodUuid,
+          payment_method_uuid: paymentMethodUuid || "",
           tip_amount: payment.tip_amount,
           reference_code: payment.reference_code,
           notes: payload.notes || null,

@@ -25,7 +25,7 @@ export interface RegisterPaymentPayload {
   local_uuid: string;
   idempotency_key: string;
   order_local_uuid: string;
-  payment_method: string;
+  payment_method_uuid: string; // P0 Fix: Alineado con Rust
   amount: number;
   tip_amount: number;
   total_amount: number;
