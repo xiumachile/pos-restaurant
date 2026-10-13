@@ -277,9 +277,8 @@ export class OrderRepository {
   }
 
   /**
-   * Actualiza el estado del pedido.
-   * P1 Fix: 'expectedCurrentStatus' es opcional. Si se proporciona, omite el SELECT interno
-   * para evitar INTEGRITY_VIOLATION cuando se llama dentro de una transacción con escrituras previas.
+   * P1-02 FIX: Actualiza el estado del pedido con transición condicional atómica.
+   * Incluye el estado esperado en el WHERE para prevenir condiciones de carrera (TOCTOU).
    */
   static async updateStatus(
     orderLocalUuid: string, 
@@ -303,7 +302,7 @@ export class OrderRepository {
       currentStatus = currentOrder[0].status;
     }
 
-    // 2. Validación de transiciones de estado inválidas (Fail-Fast)
+    // 2. Validación de transiciones de estado inválidas (Fail-Fast en memoria)
     if (currentStatus === 'paid' && status !== 'paid') {
       throw new Error(`No se puede modificar un pedido ya pagado. Estado actual: ${currentStatus}`);
     }
@@ -312,11 +311,19 @@ export class OrderRepository {
       throw new Error(`No se puede modificar un pedido ya cancelado. Estado actual: ${currentStatus}`);
     }
 
-    // 3. Ejecutar actualización
-    await (dbToUse as any).execute(
-      `UPDATE local_orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE local_uuid = ?`,
-      [status, orderLocalUuid]
+    // 3. P1-02 FIX: Transición de estado atómica condicional.
+    // Incluimos el estado esperado en el WHERE para prevenir TOCTOU.
+    const changes = await (dbToUse as any).execute(
+      `UPDATE local_orders 
+       SET status = ?, updated_at = CURRENT_TIMESTAMP 
+       WHERE local_uuid = ? AND status = ?`,
+      [status, orderLocalUuid, currentStatus]
     );
+
+    // 4. Verificar que la actualización afectó exactamente 1 fila
+    if (changes === 0) {
+      throw new Error(`Conflicto de concurrencia: No se pudo actualizar el estado de la orden ${orderLocalUuid} porque el estado cambió inesperadamente (esperado: ${currentStatus}).`);
+    }
   }
 
   /**
