@@ -127,9 +127,21 @@ pub fn create_order_tx(conn: &mut Connection, p: &CreateOrderPayload) -> Result<
          ) VALUES (?1,?2,?3,?4,?5,?6,?7,'confirmed',?8,0,?9,?10,0,?8,?8,?11,?12,?13,?14,?15,
                    'pending',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
         params![
-            local_uuid, p.company_id, p.branch_id, p.terminal_id, p.table_id,
-            order_number, order_type, subtotal, net, tax, guest_count,
-            p.waiter_id, p.waiter_name, p.notes, idempotency_key
+            local_uuid,
+            p.company_id,
+            p.branch_id,
+            p.terminal_id,
+            p.table_id,
+            order_number,
+            order_type,
+            subtotal,
+            net,
+            tax,
+            guest_count,
+            p.waiter_id,
+            p.waiter_name,
+            p.notes,
+            idempotency_key
         ],
     )
     .map_err(|e| format!("Error creando orden: {e}"))?;
@@ -142,9 +154,16 @@ pub fn create_order_tx(conn: &mut Connection, p: &CreateOrderPayload) -> Result<
                 unit_price, subtotal, notes, kitchen_status, is_menu_item, menu_item_id, created_at
              ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,'pending',?9,?10,CURRENT_TIMESTAMP)",
             params![
-                uuid::Uuid::new_v4().to_string(), local_uuid, it.product_id, it.product_name,
-                it.quantity, it.unit_price, it.quantity * it.unit_price, it.notes,
-                it.is_menu_item.unwrap_or(false) as i64, it.menu_item_id
+                uuid::Uuid::new_v4().to_string(),
+                local_uuid,
+                it.product_id,
+                it.product_name,
+                it.quantity,
+                it.unit_price,
+                it.quantity * it.unit_price,
+                it.notes,
+                it.is_menu_item.unwrap_or(false) as i64,
+                it.menu_item_id
             ],
         )
         .map_err(|e| format!("Error insertando ítem: {e}"))?;
@@ -162,7 +181,12 @@ pub fn create_order_tx(conn: &mut Connection, p: &CreateOrderPayload) -> Result<
         "INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid,
                                  action, payload, sync_status, created_at)
          VALUES (?1,?2,?3,'order',?1,'create',?4,'pending',CURRENT_TIMESTAMP)",
-        params![local_uuid, p.company_id, p.branch_id, sync_payload.to_string()],
+        params![
+            local_uuid,
+            p.company_id,
+            p.branch_id,
+            sync_payload.to_string()
+        ],
     )
     .map_err(|e| format!("Error encolando sync: {e}"))?;
 
@@ -198,7 +222,10 @@ pub fn create_local_order(
     state: tauri::State<DbState>,
     payload: CreateOrderPayload,
 ) -> Result<Value, String> {
-    let mut conn = state.0.lock().map_err(|e| format!("Mutex envenenado: {e}"))?;
+    let mut conn = state
+        .0
+        .lock()
+        .map_err(|e| format!("Mutex envenenado: {e}"))?;
     create_order_tx(&mut conn, &payload)
 }
 
@@ -251,27 +278,44 @@ mod tests {
 
     fn item(qty: i64, price: i64) -> NewOrderItem {
         NewOrderItem {
-            product_id: "p1".into(), product_name: "Chaufa".into(), quantity: qty,
-            unit_price: price, notes: None, is_menu_item: None, menu_item_id: None,
+            product_id: "p1".into(),
+            product_name: "Chaufa".into(),
+            quantity: qty,
+            unit_price: price,
+            notes: None,
+            is_menu_item: None,
+            menu_item_id: None,
         }
     }
 
     fn payload(table: Option<&str>, items: Vec<NewOrderItem>) -> CreateOrderPayload {
         CreateOrderPayload {
-            company_id: "c1".into(), branch_id: "b1".into(), terminal_id: None,
-            table_id: table.map(String::from), order_type: None, guest_count: None,
-            waiter_id: None, waiter_name: None, notes: None, items,
+            company_id: "c1".into(),
+            branch_id: "b1".into(),
+            terminal_id: None,
+            table_id: table.map(String::from),
+            order_type: None,
+            guest_count: None,
+            waiter_id: None,
+            waiter_name: None,
+            notes: None,
+            items,
         }
     }
 
     fn count(c: &Connection, table: &str) -> i64 {
-        c.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0)).unwrap()
+        c.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |r| r.get(0))
+            .unwrap()
     }
 
     #[test]
     fn net_parity_with_js_float_formula() {
         for s in 0..=2_000_000i64 {
-            assert_eq!(net_from_gross(s), (s as f64 / 1.19).round() as i64, "subtotal {s}");
+            assert_eq!(
+                net_from_gross(s),
+                (s as f64 / 1.19).round() as i64,
+                "subtotal {s}"
+            );
         }
     }
 
@@ -282,15 +326,23 @@ mod tests {
         let r = create_order_tx(&mut c, &p).unwrap();
         let id = r["local_uuid"].as_str().unwrap();
 
-        let (sub, net, tax, grand, due): (i64, i64, i64, i64, i64) = c.query_row(
-            "SELECT CAST(subtotal AS INTEGER), net_amount, CAST(tax_total AS INTEGER),
+        let (sub, net, tax, grand, due): (i64, i64, i64, i64, i64) = c
+            .query_row(
+                "SELECT CAST(subtotal AS INTEGER), net_amount, CAST(tax_total AS INTEGER),
                     CAST(grand_total AS INTEGER), amount_due FROM local_orders WHERE local_uuid=?1",
-            [id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))).unwrap();
+                [id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+            )
+            .unwrap();
         assert_eq!((sub, net, tax, grand, due), (8990, 7555, 1435, 8990, 8990));
         assert_eq!(count(&c, "local_order_items"), 2);
         assert_eq!(count(&c, "sync_queue"), 1);
         assert_eq!(count(&c, "table_local_mutations"), 1);
-        let st: String = c.query_row("SELECT status FROM local_tables WHERE uuid='t1'", [], |r| r.get(0)).unwrap();
+        let st: String = c
+            .query_row("SELECT status FROM local_tables WHERE uuid='t1'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
         assert_eq!(st, "occupied");
     }
 
@@ -309,12 +361,17 @@ mod tests {
         c.execute_batch(
             "CREATE TRIGGER boom BEFORE INSERT ON table_local_mutations
              BEGIN SELECT RAISE(ABORT,'boom'); END;",
-        ).unwrap();
+        )
+        .unwrap();
         assert!(create_order_tx(&mut c, &payload(Some("t1"), vec![item(1, 1000)])).is_err());
         assert_eq!(count(&c, "local_orders"), 0);
         assert_eq!(count(&c, "local_order_items"), 0);
         assert_eq!(count(&c, "sync_queue"), 0);
-        let st: String = c.query_row("SELECT status FROM local_tables WHERE uuid='t1'", [], |r| r.get(0)).unwrap();
+        let st: String = c
+            .query_row("SELECT status FROM local_tables WHERE uuid='t1'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
         assert_eq!(st, "available");
     }
 
@@ -336,13 +393,23 @@ mod tests {
         p.order_type = Some("take_out".into());
         let r = create_order_tx(&mut c, &p).unwrap();
         let id = r["local_uuid"].as_str().unwrap();
-        let t: String = c.query_row("SELECT order_type FROM local_orders WHERE local_uuid=?1", [id], |r| r.get(0)).unwrap();
+        let t: String = c
+            .query_row(
+                "SELECT order_type FROM local_orders WHERE local_uuid=?1",
+                [id],
+                |r| r.get(0),
+            )
+            .unwrap();
         assert_eq!(t, "takeout");
 
         let mut bad = payload(Some("t1"), vec![item(1, 1000)]);
         bad.order_type = Some("takeout".into());
         assert!(create_order_tx(&mut c, &bad).is_err());
-        let st: String = c.query_row("SELECT status FROM local_tables WHERE uuid='t1'", [], |r| r.get(0)).unwrap();
+        let st: String = c
+            .query_row("SELECT status FROM local_tables WHERE uuid='t1'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
         assert_eq!(st, "available");
     }
 }
@@ -369,7 +436,10 @@ pub fn register_local_payment(
     state: tauri::State<DbState>,
     payload: RegisterPaymentPayload,
 ) -> Result<Value, String> {
-    let mut conn = state.0.lock().map_err(|e| format!("Mutex envenenado: {e}"))?;
+    let mut conn = state
+        .0
+        .lock()
+        .map_err(|e| format!("Mutex envenenado: {e}"))?;
     register_payment_tx(&mut conn, payload)
 }
 
@@ -390,7 +460,10 @@ pub fn register_payment_tx(
     }
     // P1 Fix: Coherencia matemática estricta
     if payload.amount + payload.tip_amount != payload.total_amount {
-        return Err("Inconsistencia financiera: amount + tip_amount debe ser igual a total_amount".to_string());
+        return Err(
+            "Inconsistencia financiera: amount + tip_amount debe ser igual a total_amount"
+                .to_string(),
+        );
     }
     if payload.payment_method_uuid.trim().is_empty() {
         return Err("El método de pago es requerido".to_string());
@@ -411,12 +484,20 @@ pub fn register_payment_tx(
         .optional()
         .map_err(|e| format!("Error verificando idempotencia: {e}"))?;
 
-    if let Some((existing_uuid, existing_amount, existing_tip, existing_total, existing_order, existing_method)) = existing_payment {
-        if existing_amount == payload.amount 
-            && existing_tip == payload.tip_amount 
+    if let Some((
+        existing_uuid,
+        existing_amount,
+        existing_tip,
+        existing_total,
+        existing_order,
+        existing_method,
+    )) = existing_payment
+    {
+        if existing_amount == payload.amount
+            && existing_tip == payload.tip_amount
             && existing_total == payload.total_amount
-            && existing_order == payload.order_local_uuid 
-            && existing_method == payload.payment_method_uuid 
+            && existing_order == payload.order_local_uuid
+            && existing_method == payload.payment_method_uuid
         {
             return Ok(serde_json::json!({ "local_uuid": existing_uuid, "idempotent": true }));
         } else {
@@ -435,8 +516,8 @@ pub fn register_payment_tx(
         .optional()
         .map_err(|e| format!("Error consultando orden: {e}"))?;
 
-    let (company_id, branch_id, _grand_total, mut amount_due, table_id, order_status) = order_data
-        .ok_or_else(|| "Orden no encontrada".to_string())?;
+    let (company_id, branch_id, _grand_total, mut amount_due, table_id, order_status) =
+        order_data.ok_or_else(|| "Orden no encontrada".to_string())?;
 
     if order_status == "cancelled" {
         return Err("No se puede pagar una orden cancelada".to_string());
@@ -444,7 +525,10 @@ pub fn register_payment_tx(
 
     // P1 Fix: Validar que el monto aplicado no exceda el saldo pendiente
     if payload.amount > amount_due {
-        return Err(format!("El monto del pago ({}) excede el saldo pendiente de la orden ({})", payload.amount, amount_due));
+        return Err(format!(
+            "El monto del pago ({}) excede el saldo pendiente de la orden ({})",
+            payload.amount, amount_due
+        ));
     }
 
     // 3. Insertar el nuevo pago
@@ -464,7 +548,7 @@ pub fn register_payment_tx(
     // 4. Actualizar el amount_due de la orden
     amount_due = (amount_due - payload.amount).max(0); // P1 Fix: Restar solo el monto de la venta, no la propina
     let new_status = if amount_due <= 0 { "paid" } else { "partial" };
-    
+
     tx.execute(
         "UPDATE local_orders SET amount_due = ?1, status = ?2, updated_at = CURRENT_TIMESTAMP WHERE local_uuid = ?3",
         params![amount_due, new_status, payload.order_local_uuid],
@@ -479,7 +563,7 @@ pub fn register_payment_tx(
             params![tid, company_id, branch_id],
         )
         .map_err(|e| format!("Error liberando mesa: {e}"))?;
-        
+
         let mutation = serde_json::json!({ "status": "available", "current_order_uuid": null });
         tx.execute(
             "INSERT OR REPLACE INTO table_local_mutations (table_uuid, pending_status, pending_order_uuid, company_id, branch_id, action, payload, created_at)
@@ -531,14 +615,22 @@ pub fn enqueue_sync_event(
     state: tauri::State<DbState>,
     payload: EnqueueSyncEventPayload,
 ) -> Result<(), String> {
-    let mut conn = state.0.lock().map_err(|e| format!("Mutex envenenado: {e}"))?;
-    
+    let mut conn = state
+        .0
+        .lock()
+        .map_err(|e| format!("Mutex envenenado: {e}"))?;
+
     // P1 FIX: Zero Trust. Derivar company_id y branch_id desde la entidad, no del frontend.
     let table_name = match payload.entity_type.as_str() {
         "order" => "local_orders",
         "payment" => "local_payments",
         "table_mutation" => "table_local_mutations",
-        _ => return Err(format!("Tipo de entidad no soportado: {}", payload.entity_type)),
+        _ => {
+            return Err(format!(
+                "Tipo de entidad no soportado: {}",
+                payload.entity_type
+            ))
+        }
     };
 
     let query = format!(
@@ -550,7 +642,12 @@ pub fn enqueue_sync_event(
         .query_row(&query, params![payload.entity_local_uuid], |r| {
             Ok((r.get(0)?, r.get(1)?))
         })
-        .map_err(|_| format!("Entidad {} con uuid {} no encontrada", payload.entity_type, payload.entity_local_uuid))?;
+        .map_err(|_| {
+            format!(
+                "Entidad {} con uuid {} no encontrada",
+                payload.entity_type, payload.entity_local_uuid
+            )
+        })?;
 
     conn.execute(
         "INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid, action, payload, sync_status, created_at)
@@ -571,8 +668,11 @@ pub fn get_pending_orders(
     company_id: String,
     branch_id: String,
 ) -> Result<Value, String> {
-    let conn = state.0.lock().map_err(|e| format!("Mutex envenenado: {e}"))?;
-    
+    let conn = state
+        .0
+        .lock()
+        .map_err(|e| format!("Mutex envenenado: {e}"))?;
+
     let mut stmt = conn
         .prepare(
             "SELECT local_uuid, order_number, order_type, status, subtotal, tax_total, grand_total, created_at
@@ -657,12 +757,12 @@ mod payment_idempotency_tests {
         let mut c = db();
         let order_uuid = create_test_order(&mut c);
         let state = DbState(Mutex::new(c));
-        
+
         let payload = RegisterPaymentPayload {
             local_uuid: "pay-1".to_string(),
             idempotency_key: "idem-key-1".to_string(),
             order_local_uuid: order_uuid.clone(),
-            payment_method: "cash".to_string(),
+            payment_method_uuid: "mock-method-uuid".to_string(),
             amount: 10000,
             tip_amount: 0,
             total_amount: 10000,
@@ -681,8 +781,12 @@ mod payment_idempotency_tests {
         assert_eq!(res2["idempotent"], true);
 
         // Verificar que solo hay 1 pago en la base de datos
-        let count: i64 = state.0.lock().unwrap()
-            .query_row("SELECT COUNT(*) FROM local_payments", [], |r| r.get(0)).unwrap();
+        let count: i64 = state
+            .0
+            .lock()
+            .unwrap()
+            .query_row("SELECT COUNT(*) FROM local_payments", [], |r| r.get(0))
+            .unwrap();
         assert_eq!(count, 1);
     }
 
@@ -691,12 +795,12 @@ mod payment_idempotency_tests {
         let mut c = db();
         let order_uuid = create_test_order(&mut c);
         let state = DbState(Mutex::new(c));
-        
+
         let payload1 = RegisterPaymentPayload {
             local_uuid: "pay-2".to_string(),
             idempotency_key: "idem-key-2".to_string(),
             order_local_uuid: order_uuid.clone(),
-            payment_method: "cash".to_string(),
+            payment_method_uuid: "mock-method-uuid".to_string(),
             amount: 10000,
             tip_amount: 0,
             total_amount: 10000,
@@ -708,10 +812,10 @@ mod payment_idempotency_tests {
 
         // Intento con la misma clave pero monto diferente
         let payload2 = RegisterPaymentPayload {
-            local_uuid: "pay-3".to_string(), // UUID diferente
+            local_uuid: "pay-3".to_string(),           // UUID diferente
             idempotency_key: "idem-key-2".to_string(), // Misma clave de idempotencia
             order_local_uuid: order_uuid.clone(),
-            payment_method: "cash".to_string(),
+            payment_method_uuid: "mock-method-uuid".to_string(),
             amount: 5000, // Monto diferente
             tip_amount: 0,
             total_amount: 5000,

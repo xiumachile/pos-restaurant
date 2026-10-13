@@ -2,8 +2,8 @@ mod database;
 pub mod orders;
 
 use database::DbState;
-use rusqlite::Connection;
 use rusqlite::params;
+use rusqlite::Connection;
 use std::sync::Mutex;
 use tauri::Manager;
 use tokio::io::AsyncWriteExt;
@@ -14,11 +14,11 @@ use tokio::time::{timeout, Duration};
 async fn check_printer_status(ip: String, port: u16) -> Result<String, String> {
     let addr = format!("{}:{}", ip, port);
     let connect_future = TcpStream::connect(&addr);
-    
+
     match timeout(Duration::from_secs(3), connect_future).await {
         Ok(Ok(_stream)) => {
-            // La conexión TCP fue exitosa. En un escenario ideal, aquí se enviaría 
-            // un comando de estado específico (ej. ESC/POS GS r), pero la conexión 
+            // La conexión TCP fue exitosa. En un escenario ideal, aquí se enviaría
+            // un comando de estado específico (ej. ESC/POS GS r), pero la conexión
             // exitosa ya descarta que la impresora esté apagada o fuera de red.
             Ok("Online".to_string())
         }
@@ -38,55 +38,71 @@ async fn print_raw(ip: String, port: u16, data: String) -> Result<usize, String>
         .map_err(|_| format!("Error de conexión: Timeout al conectar con {}", addr))?
         .map_err(|e| format!("Error de conexión: No se pudo conectar a {} ({})", addr, e))?;
 
-    stream.write_all(&bytes).await.map_err(|e| format!("Error de escritura: {}", e))?;
-    
-    // Opcional: flush para asegurar que los datos salen del buffer del SO
-    stream.flush().await.map_err(|e| format!("Error de flush: {}", e))?;
+    stream
+        .write_all(&bytes)
+        .await
+        .map_err(|e| format!("Error de escritura: {}", e))?;
 
-    // Nota: La mayoría de impresoras térmicas en modo raw no envían un ACK de aplicación 
-    // a menos que se envíe un comando de estado específico. El éxito aquí garantiza que 
+    // Opcional: flush para asegurar que los datos salen del buffer del SO
+    stream
+        .flush()
+        .await
+        .map_err(|e| format!("Error de flush: {}", e))?;
+
+    // Nota: La mayoría de impresoras térmicas en modo raw no envían un ACK de aplicación
+    // a menos que se envíe un comando de estado específico. El éxito aquí garantiza que
     // los datos fueron entregados a la pila de red de la impresora.
-    println!("[Tauri:print_raw] ✅ {} bytes enviados a {}", bytes.len(), addr);
+    println!(
+        "[Tauri:print_raw] ✅ {} bytes enviados a {}",
+        bytes.len(),
+        addr
+    );
     Ok(bytes.len())
 }
 
 fn base64_decode(input: &str) -> Result<Vec<u8>, String> {
     use base64::Engine;
-    base64::engine::general_purpose::STANDARD.decode(input).map_err(|e| e.to_string())
+    base64::engine::general_purpose::STANDARD
+        .decode(input)
+        .map_err(|e| e.to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            let app_data_dir = app.path().app_data_dir().expect("Failed to get app data dir");
+            let app_data_dir = app
+                .path()
+                .app_data_dir()
+                .expect("Failed to get app data dir");
             std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data dir");
             let db_path = app_data_dir.join("pos_local.db");
-            
+
             println!("[Tauri Setup] 🗄️  Abriendo base de datos en: {:?}", db_path);
-            
+
             let conn = Connection::open(&db_path).expect("Failed to open database");
             conn.execute_batch(
                 "PRAGMA journal_mode = WAL;
                  PRAGMA busy_timeout = 5000;
                  PRAGMA synchronous = NORMAL;
-                 PRAGMA foreign_keys = ON;"
-            ).expect("Failed to set PRAGMAs");
-            
+                 PRAGMA foreign_keys = ON;",
+            )
+            .expect("Failed to set PRAGMAs");
+
             println!("[Tauri Setup] ✅ SQLite configurado con WAL y busy_timeout=5000");
-            
+
             app.manage(DbState(Mutex::new(conn)));
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
-        execute_write_statements,
-        claim_pending_sync_items,
-        execute_read_query,
-        ping_database,
-        apply_migration,
-            print_raw, 
+            execute_write_statements,
+            claim_pending_sync_items,
+            execute_read_query,
+            ping_database,
+            apply_migration,
+            print_raw,
             check_printer_status,
             // COMANDOS DE DOMINIO SEGUROS (O-05 FIX)
             orders::create_local_order,
@@ -101,15 +117,19 @@ pub fn run() {
 /// P0/O-05 FIX: Comando seguro para verificar que la base de datos está inicializada.
 #[tauri::command]
 fn ping_database(state: tauri::State<crate::database::DbState>) -> Result<bool, String> {
-    let conn = state.0.lock().map_err(|e| format!("Mutex envenenado: {e}"))?;
+    let conn = state
+        .0
+        .lock()
+        .map_err(|e| format!("Mutex envenenado: {e}"))?;
     // Una consulta simple y segura para verificar la conexión
-    let _: i64 = conn.query_row("SELECT 1", [], |r| r.get(0))
+    let _: i64 = conn
+        .query_row("SELECT 1", [], |r| r.get(0))
         .map_err(|e| format!("Error de ping: {e}"))?;
     Ok(true)
 }
 
 /// P0/O-05 FIX: Comando seguro para aplicar migraciones de esquema.
-/// Aunque recibe SQL, está diseñado exclusivamente para ser invocado por el 
+/// Aunque recibe SQL, está diseñado exclusivamente para ser invocado por el
 /// sistema de migraciones del frontend con scripts estáticos y auditados.
 #[tauri::command]
 fn apply_migration(
@@ -117,8 +137,11 @@ fn apply_migration(
     version: String,
     sql_script: String,
 ) -> Result<bool, String> {
-    let mut conn = state.0.lock().map_err(|e| format!("Mutex envenenado: {e}"))?;
-    
+    let mut conn = state
+        .0
+        .lock()
+        .map_err(|e| format!("Mutex envenenado: {e}"))?;
+
     let tx = conn
         .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
         .map_err(|e| format!("Error iniciando transacción de migración: {e}"))?;
@@ -146,16 +169,13 @@ fn apply_migration(
     )
     .map_err(|e| format!("Error registrando migración {version}: {e}"))?;
 
-    tx.commit().map_err(|e| format!("Error en COMMIT de migración: {e}"))?;
-    
+    tx.commit()
+        .map_err(|e| format!("Error en COMMIT de migración: {e}"))?;
+
     Ok(true)
 }
 
-
-
-
-
-/// P0/O-05 FIX: Comando de lectura seguro. 
+/// P0/O-05 FIX: Comando de lectura seguro.
 /// Solo permite consultas SELECT y valida que no contengan palabras clave peligrosas.
 #[tauri::command]
 fn execute_read_query(
@@ -165,44 +185,64 @@ fn execute_read_query(
 ) -> Result<serde_json::Value, String> {
     validate_read_sql(&sql)?;
 
-    let conn = state.0.lock().map_err(|e| format!("Mutex envenenado: {e}"))?;
-    let mut stmt = conn.prepare(&sql).map_err(|e| format!("Error preparando consulta: {e}"))?;
+    let conn = state
+        .0
+        .lock()
+        .map_err(|e| format!("Mutex envenenado: {e}"))?;
+    let mut stmt = conn
+        .prepare(&sql)
+        .map_err(|e| format!("Error preparando consulta: {e}"))?;
     if !stmt.readonly() {
         return Err("La consulta no es de solo lectura".to_string());
     }
-    
+
     // Obtener nombres de columnas UNA sola vez
     let column_names: Vec<String> = stmt.column_names().into_iter().map(String::from).collect();
     let column_count = column_names.len();
-    
-    let rusqlite_params: Vec<Box<dyn rusqlite::types::ToSql>> = params.iter().map(|v| {
-        let boxed: Box<dyn rusqlite::types::ToSql> = match v {
-            serde_json::Value::Null => Box::new(rusqlite::types::Null),
-            serde_json::Value::Number(n) => {
-                if let Some(i) = n.as_i64() { Box::new(i) }
-                else if let Some(f) = n.as_f64() { Box::new(f) }
-                else { Box::new(rusqlite::types::Null) }
-            },
-            serde_json::Value::String(s) => Box::new(s.clone()),
-            serde_json::Value::Bool(b) => Box::new(if *b { 1i64 } else { 0i64 }),
-            _ => Box::new(rusqlite::types::Null),
-        };
-        boxed
-    }).collect();
-    
-    let param_refs: Vec<&dyn rusqlite::types::ToSql> = rusqlite_params.iter().map(|p| p.as_ref()).collect();
-    
-    let mut rows = stmt.query(param_refs.as_slice()).map_err(|e| format!("Error ejecutando consulta: {e}"))?;
+
+    let rusqlite_params: Vec<Box<dyn rusqlite::types::ToSql>> = params
+        .iter()
+        .map(|v| {
+            let boxed: Box<dyn rusqlite::types::ToSql> = match v {
+                serde_json::Value::Null => Box::new(rusqlite::types::Null),
+                serde_json::Value::Number(n) => {
+                    if let Some(i) = n.as_i64() {
+                        Box::new(i)
+                    } else if let Some(f) = n.as_f64() {
+                        Box::new(f)
+                    } else {
+                        Box::new(rusqlite::types::Null)
+                    }
+                }
+                serde_json::Value::String(s) => Box::new(s.clone()),
+                serde_json::Value::Bool(b) => Box::new(if *b { 1i64 } else { 0i64 }),
+                _ => Box::new(rusqlite::types::Null),
+            };
+            boxed
+        })
+        .collect();
+
+    let param_refs: Vec<&dyn rusqlite::types::ToSql> =
+        rusqlite_params.iter().map(|p| p.as_ref()).collect();
+
+    let mut rows = stmt
+        .query(param_refs.as_slice())
+        .map_err(|e| format!("Error ejecutando consulta: {e}"))?;
 
     let mut results: Vec<serde_json::Map<String, serde_json::Value>> = Vec::new();
-    while let Some(row) = rows.next().map_err(|e| format!("Error leyendo fila: {e}"))? {
+    while let Some(row) = rows
+        .next()
+        .map_err(|e| format!("Error leyendo fila: {e}"))?
+    {
         let mut map = serde_json::Map::new();
         for i in 0..column_count {
             let col_name = column_names[i].to_string();
             let val: rusqlite::types::Value = row.get(i).unwrap_or(rusqlite::types::Value::Null);
             let json_val = match val {
                 rusqlite::types::Value::Null => serde_json::Value::Null,
-                rusqlite::types::Value::Integer(i) => serde_json::Value::Number(serde_json::Number::from(i)),
+                rusqlite::types::Value::Integer(i) => {
+                    serde_json::Value::Number(serde_json::Number::from(i))
+                }
                 rusqlite::types::Value::Real(f) => serde_json::Number::from_f64(f)
                     .map(serde_json::Value::Number)
                     .unwrap_or(serde_json::Value::Null),
@@ -214,9 +254,10 @@ fn execute_read_query(
         results.push(map);
     }
 
-    Ok(serde_json::Value::Array(results.into_iter().map(serde_json::Value::Object).collect()))
+    Ok(serde_json::Value::Array(
+        results.into_iter().map(serde_json::Value::Object).collect(),
+    ))
 }
-
 
 #[derive(Debug, serde::Deserialize)]
 pub struct WriteStatement {
@@ -225,24 +266,34 @@ pub struct WriteStatement {
 }
 
 fn json_to_sql_values(params: &[serde_json::Value]) -> Vec<rusqlite::types::Value> {
-    params.iter().map(|v| match v {
-        serde_json::Value::Null => rusqlite::types::Value::Null,
-        serde_json::Value::Number(n) => {
-            if let Some(i) = n.as_i64() { rusqlite::types::Value::Integer(i) }
-            else if let Some(f) = n.as_f64() { rusqlite::types::Value::Real(f) }
-            else { rusqlite::types::Value::Null }
-        }
-        serde_json::Value::String(s) => rusqlite::types::Value::Text(s.clone()),
-        serde_json::Value::Bool(b) => rusqlite::types::Value::Integer(*b as i64),
-        _ => rusqlite::types::Value::Null,
-    }).collect()
+    params
+        .iter()
+        .map(|v| match v {
+            serde_json::Value::Null => rusqlite::types::Value::Null,
+            serde_json::Value::Number(n) => {
+                if let Some(i) = n.as_i64() {
+                    rusqlite::types::Value::Integer(i)
+                } else if let Some(f) = n.as_f64() {
+                    rusqlite::types::Value::Real(f)
+                } else {
+                    rusqlite::types::Value::Null
+                }
+            }
+            serde_json::Value::String(s) => rusqlite::types::Value::Text(s.clone()),
+            serde_json::Value::Bool(b) => rusqlite::types::Value::Integer(*b as i64),
+            _ => rusqlite::types::Value::Null,
+        })
+        .collect()
 }
 
 fn validate_write_sql(sql: &str) -> Result<(), String> {
     let lower = sql.trim_start().to_lowercase();
-    
+
     // 1. Verificar operación permitida
-    if !lower.starts_with("insert into") && !lower.starts_with("update ") && !lower.starts_with("delete from") {
+    if !lower.starts_with("insert into")
+        && !lower.starts_with("update ")
+        && !lower.starts_with("delete from")
+    {
         return Err("Operación no permitida. Solo INSERT INTO, UPDATE o DELETE FROM".into());
     }
 
@@ -265,20 +316,43 @@ fn validate_write_sql(sql: &str) -> Result<(), String> {
 
     // 3. P1 FIX: Whitelist estricta de tablas permitidas para escritura genérica
     let allowed_tables = [
-        "local_orders", "local_order_items", "local_payments", "local_bills",
-        "sync_queue", "local_tables", "table_local_mutations", "local_cash_sessions",
-        "local_cash_movements", "migrations", "local_print_jobs", "printer_configs",
-        "offline_events", "idempotency_keys"
+        "local_orders",
+        "local_order_items",
+        "local_payments",
+        "local_bills",
+        "sync_queue",
+        "local_tables",
+        "table_local_mutations",
+        "local_cash_sessions",
+        "local_cash_movements",
+        "migrations",
+        "local_print_jobs",
+        "printer_configs",
+        "offline_events",
+        "idempotency_keys",
     ];
 
     if !allowed_tables.contains(&table_name) {
-        return Err(format!("Acceso denegado: Escritura en tabla no permitida o desconocida '{}'", table_name));
+        return Err(format!(
+            "Acceso denegado: Escritura en tabla no permitida o desconocida '{}'",
+            table_name
+        ));
     }
 
     // 4. Bloquear comandos peligrosos a nivel de sistema
-    for banned in ["attach", "detach", "load_extension", "vacuum", "pragma", "sqlite_master"] {
+    for banned in [
+        "attach",
+        "detach",
+        "load_extension",
+        "vacuum",
+        "pragma",
+        "sqlite_master",
+    ] {
         if lower.contains(banned) {
-            return Err(format!("Operación no permitida: contiene palabra clave prohibida '{}'", banned));
+            return Err(format!(
+                "Operación no permitida: contiene palabra clave prohibida '{}'",
+                banned
+            ));
         }
     }
     Ok(())
@@ -296,7 +370,10 @@ fn execute_write_statements(
     for st in &statements {
         validate_write_sql(&st.sql)?;
     }
-    let mut conn = state.0.lock().map_err(|e| format!("Mutex envenenado: {e}"))?;
+    let mut conn = state
+        .0
+        .lock()
+        .map_err(|e| format!("Mutex envenenado: {e}"))?;
     let tx = conn
         .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
         .map_err(|e| format!("Error iniciando transacción: {e}"))?;
@@ -309,17 +386,31 @@ fn execute_write_statements(
     Ok(serde_json::json!({ "success": true, "count": statements.len() }))
 }
 
-
 /// Solo SELECT / WITH. Compara palabras completas: `created_at` o `updated_at` NO se bloquean.
 fn validate_read_sql(sql: &str) -> Result<(), String> {
     let lower = sql.trim_start().to_lowercase();
-    let first = lower.split(|c: char| !c.is_ascii_alphabetic()).next().unwrap_or("");
+    let first = lower
+        .split(|c: char| !c.is_ascii_alphabetic())
+        .next()
+        .unwrap_or("");
     if first != "select" && first != "with" {
         return Err("Comando no permitido: solo se permiten consultas SELECT".to_string());
     }
     for word in lower.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_')) {
-        if matches!(word, "attach" | "detach" | "load_extension" | "pragma" | "insert"
-            | "update" | "delete" | "drop" | "alter" | "create" | "vacuum") {
+        if matches!(
+            word,
+            "attach"
+                | "detach"
+                | "load_extension"
+                | "pragma"
+                | "insert"
+                | "update"
+                | "delete"
+                | "drop"
+                | "alter"
+                | "create"
+                | "vacuum"
+        ) {
             return Err(format!("Comando no permitido: palabra clave '{}'", word));
         }
     }
@@ -346,7 +437,6 @@ mod read_sql_tests {
         assert!(validate_read_sql("PRAGMA table_info(local_orders)").is_err());
     }
 }
-
 
 /// Divide un script SQL en sentencias. Descarta comentarios (-- y /* */) y respeta strings.
 /// Equivale a parseSqlStatements (TypeScript). Válido porque las migraciones no usan triggers.
@@ -408,13 +498,28 @@ fn split_sql_statements(sql: &str) -> Vec<String> {
 
 /// Ejecuta una migración sentencia por sentencia. Salta PRAGMA y tolera
 /// "duplicate column name" / "already exists" (comportamiento del runner anterior).
-fn run_migration_script(tx: &rusqlite::Transaction, version: &str, sql: &str) -> Result<(), String> {
+fn run_migration_script(
+    tx: &rusqlite::Transaction,
+    version: &str,
+    sql: &str,
+) -> Result<(), String> {
     // P1 Security Fix: Validación estricta de DDL para migraciones.
     let upper_sql = sql.trim().to_uppercase();
-    let dangerous = ["DELETE FROM", "UPDATE ", "INSERT INTO", "DROP TABLE", "ATTACH", "DETACH", "VACUUM"];
+    let dangerous = [
+        "DELETE FROM",
+        "UPDATE ",
+        "INSERT INTO",
+        "DROP TABLE",
+        "ATTACH",
+        "DETACH",
+        "VACUUM",
+    ];
     for word in dangerous {
         if upper_sql.contains(word) {
-            return Err(format!("Seguridad: Migración {} contiene operación prohibida: {}", version, word));
+            return Err(format!(
+                "Seguridad: Migración {} contiene operación prohibida: {}",
+                version, word
+            ));
         }
     }
     for (idx, stmt) in split_sql_statements(sql).iter().enumerate() {
@@ -428,7 +533,9 @@ fn run_migration_script(tx: &rusqlite::Transaction, version: &str, sql: &str) ->
                 eprintln!("[Migrations] {version} sentencia {n} ignorada (no crítico): {msg}");
                 continue;
             }
-            return Err(format!("Error ejecutando migración {version} (sentencia {n}): {msg}"));
+            return Err(format!(
+                "Error ejecutando migración {version} (sentencia {n}): {msg}"
+            ));
         }
     }
     Ok(())
@@ -440,7 +547,9 @@ mod migration_runner_tests {
 
     #[test]
     fn splits_ignoring_comments_and_semicolons_in_strings() {
-        let v = split_sql_statements("-- c\nCREATE TABLE a (x TEXT DEFAULT 'a;b'); /* x; */ INSERT INTO a VALUES ('1');");
+        let v = split_sql_statements(
+            "-- c\nCREATE TABLE a (x TEXT DEFAULT 'a;b'); /* x; */ INSERT INTO a VALUES ('1');",
+        );
         assert_eq!(v.len(), 2);
         assert!(v[0].contains("'a;b'"));
     }
@@ -448,18 +557,29 @@ mod migration_runner_tests {
     #[test]
     fn tolerates_duplicate_column_but_fails_on_real_errors() {
         let mut conn = rusqlite::Connection::open_in_memory().unwrap();
-        conn.execute_batch("CREATE TABLE t (id INTEGER, guest_count INTEGER);").unwrap();
+        conn.execute_batch("CREATE TABLE t (id INTEGER, guest_count INTEGER);")
+            .unwrap();
         let tx = conn.transaction().unwrap();
-        run_migration_script(&tx, "t1", "ALTER TABLE t ADD COLUMN guest_count INTEGER; ALTER TABLE t ADD COLUMN extra TEXT;").unwrap();
+        run_migration_script(
+            &tx,
+            "t1",
+            "ALTER TABLE t ADD COLUMN guest_count INTEGER; ALTER TABLE t ADD COLUMN extra TEXT;",
+        )
+        .unwrap();
         tx.commit().unwrap();
-        let n: i64 = conn.query_row("SELECT COUNT(*) FROM pragma_table_info('t') WHERE name='extra'", [], |r| r.get(0)).unwrap();
+        let n: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('t') WHERE name='extra'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
         assert_eq!(n, 1);
 
         let tx = conn.transaction().unwrap();
         assert!(run_migration_script(&tx, "t2", "INSERT INTO no_existe VALUES (1);").is_err());
     }
 }
-
 
 fn claim_row_to_json(row: &rusqlite::Row, cols: &[String]) -> Result<serde_json::Value, String> {
     let mut map = serde_json::Map::new();
@@ -482,7 +602,10 @@ fn claim_row_to_json(row: &rusqlite::Row, cols: &[String]) -> Result<serde_json:
 
 /// Reclama atómicamente hasta `limit` eventos pendientes de sync_queue (pending -> syncing)
 /// y los devuelve. Reemplaza el `UPDATE ... RETURNING` que iba por el canal de lectura.
-pub fn claim_pending_tx(conn: &mut rusqlite::Connection, limit: i64) -> Result<serde_json::Value, String> {
+pub fn claim_pending_tx(
+    conn: &mut rusqlite::Connection,
+    limit: i64,
+) -> Result<serde_json::Value, String> {
     let limit = limit.clamp(1, 100);
     let tx = conn
         .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
@@ -503,7 +626,9 @@ pub fn claim_pending_tx(conn: &mut rusqlite::Connection, limit: i64) -> Result<s
             )
             .map_err(|e| format!("Error preparando claim: {e}"))?;
         let cols: Vec<String> = stmt.column_names().iter().map(|c| c.to_string()).collect();
-        let mut rows = stmt.query([limit]).map_err(|e| format!("Error en claim: {e}"))?;
+        let mut rows = stmt
+            .query([limit])
+            .map_err(|e| format!("Error en claim: {e}"))?;
         let mut out = Vec::new();
         while let Some(row) = rows.next().map_err(|e| e.to_string())? {
             out.push(claim_row_to_json(row, &cols)?);
@@ -519,7 +644,10 @@ fn claim_pending_sync_items(
     state: tauri::State<crate::database::DbState>,
     limit: i64,
 ) -> Result<serde_json::Value, String> {
-    let mut conn = state.0.lock().map_err(|e| format!("Mutex envenenado: {e}"))?;
+    let mut conn = state
+        .0
+        .lock()
+        .map_err(|e| format!("Mutex envenenado: {e}"))?;
     claim_pending_tx(&mut conn, limit)
 }
 
@@ -552,7 +680,12 @@ mod claim_tests {
     fn claims_in_order_respects_limit_and_retry_time() {
         let mut c = db();
         let r = claim_pending_tx(&mut c, 2).unwrap();
-        let ids: Vec<&str> = r.as_array().unwrap().iter().map(|x| x["id"].as_str().unwrap()).collect();
+        let ids: Vec<&str> = r
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x["id"].as_str().unwrap())
+            .collect();
         assert_eq!(ids, vec!["a", "b"]);
         assert!(r[0]["sync_status"] == "syncing");
 
@@ -560,6 +693,13 @@ mod claim_tests {
         let r2 = claim_pending_tx(&mut c, 10).unwrap();
         assert_eq!(r2.as_array().unwrap().len(), 1);
         assert_eq!(r2[0]["id"], "c");
-        assert_eq!(claim_pending_tx(&mut c, 10).unwrap().as_array().unwrap().len(), 0);
+        assert_eq!(
+            claim_pending_tx(&mut c, 10)
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .len(),
+            0
+        );
     }
 }
