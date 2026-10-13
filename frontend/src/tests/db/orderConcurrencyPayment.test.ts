@@ -86,7 +86,7 @@ describe("OrderRepository - Escenario 3: Pago vs. Cancelación", () => {
             branch_id: branchId,
             order_local_uuid: order.local_uuid,
             bill_local_uuid: bill.local_uuid,
-            payment_method: 'cash',
+            payment_method_uuid: 'mock-payment-method-uuid',
             amount: itemPrice,
             tip_amount: 0,
           }, db);
