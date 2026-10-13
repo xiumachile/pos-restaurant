@@ -139,9 +139,11 @@ fn ping_database(state: tauri::State<crate::database::DbState>) -> Result<bool, 
 fn get_trusted_migration(version: &str) -> Option<&'static str> {
     match version {
         // Agregamos la migración 000 que crea la tabla de control de migraciones
+        // AUD-04 FIX: Esquema canónico unificado con checksum para paridad con tests
         "000_create_migrations_table" => Some(
             "CREATE TABLE IF NOT EXISTS migrations (
                 version TEXT PRIMARY KEY,
+                checksum TEXT,
                 applied_at TEXT DEFAULT CURRENT_TIMESTAMP
             );"
         ),
