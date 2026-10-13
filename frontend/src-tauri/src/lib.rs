@@ -409,6 +409,14 @@ fn split_sql_statements(sql: &str) -> Vec<String> {
 /// Ejecuta una migración sentencia por sentencia. Salta PRAGMA y tolera
 /// "duplicate column name" / "already exists" (comportamiento del runner anterior).
 fn run_migration_script(tx: &rusqlite::Transaction, version: &str, sql: &str) -> Result<(), String> {
+    // P1 Security Fix: Validación estricta de DDL para migraciones.
+    let upper_sql = sql.trim().to_uppercase();
+    let dangerous = ["DELETE FROM", "UPDATE ", "INSERT INTO", "DROP TABLE", "ATTACH", "DETACH", "VACUUM"];
+    for word in dangerous {
+        if upper_sql.contains(word) {
+            return Err(format!("Seguridad: Migración {} contiene operación prohibida: {}", version, word));
+        }
+    }
     for (idx, stmt) in split_sql_statements(sql).iter().enumerate() {
         let n = idx + 1;
         if stmt.trim_start().to_uppercase().starts_with("PRAGMA") {

@@ -95,14 +95,17 @@ export class PaymentRepository {
     const isTest = process.env.NODE_ENV === 'test' || typeof window === 'undefined';
     if (!isTest && !txDb) {
       try {
+        // P0 Fix: Alinear contrato con Rust. 
+        // Rust espera: total_amount = amount (venta) + tip_amount
+        // saleAmount ya fue calculado antes como: payload.amount - tipAmount
         await localDomainApi.registerPayment({
           local_uuid,
           idempotency_key,
           order_local_uuid: payload.order_local_uuid || "",
-          payment_method: payload.payment_method,
-          amount: payload.amount,
+          payment_method_uuid: paymentMethodUuid, // P0 Fix: Rust requiere UUID, no nombre
+          amount: saleAmount, // P0 Fix: Monto de la venta, no el total con propina
           tip_amount: tipAmount,
-          total_amount: payload.amount, // amount ya incluye tip_amount según ADR-011
+          total_amount: payload.amount, // P0 Fix: Total pagado (venta + propina)
           reference_code: payload.reference_code || null,
           notes: payload.notes || null,
         });
@@ -158,29 +161,30 @@ export class PaymentRepository {
       created_at: new Date().toISOString(), // Aproximación, la BD usa CURRENT_TIMESTAMP
       notes: payload.notes || null,
     } as LocalPayment;
-    // P1 Fix: Encolar para sincronización. 
-    // En producción, Rust también hace INSERT OR IGNORE como respaldo de seguridad atómica.
-    // En pruebas, este encolado es esencial porque se salta la llamada a Rust.
-    await SyncQueueRepository.enqueue({
-      company_id: payment.company_id,
-      branch_id: payment.branch_id,
-      entity_type: "payment",
-      entity_local_uuid: payment.local_uuid,
-      action: "create",
-      payload: {
-        local_uuid: payment.local_uuid,
-        order_local_uuid: payment.order_local_uuid,
-        bill_local_uuid: payment.bill_local_uuid, // P1 Fix: Requerido por backend para split bill
-        payment_method_uuid: payment.payment_method_uuid,
-        amount: payment.amount,
-        sale_amount: payment.sale_amount, // P1 Fix: Requerido por backend para ADR-011
-        tip_amount: payment.tip_amount,
-        total_amount: payment.amount,
-        idempotency_key: payment.idempotency_key,
-        reference_code: payment.reference_code,
-        notes: payload.notes || null,
-      },
-    });
+    // P1 Fix: El encolado en producción lo maneja Rust atómicamente (INSERT OR IGNORE).
+    // En pruebas o transacciones externas (txDb), TypeScript debe encolar porque se salta Rust.
+    if (isTest || txDb) {
+      await SyncQueueRepository.enqueue({
+        company_id: payment.company_id,
+        branch_id: payment.branch_id,
+        entity_type: "payment",
+        entity_local_uuid: payment.local_uuid,
+        action: "create",
+        payload: {
+          local_uuid: payment.local_uuid,
+          order_local_uuid: payment.order_local_uuid,
+          bill_local_uuid: payment.bill_local_uuid,
+          payment_method_uuid: payment.payment_method_uuid,
+          amount: payment.amount,
+          sale_amount: payment.sale_amount,
+          tip_amount: payment.tip_amount,
+          total_amount: payment.amount,
+          idempotency_key: payment.idempotency_key,
+          reference_code: payment.reference_code,
+          notes: payload.notes || null,
+        },
+      });
+    }
 
     // Registrar evento CREATE_PAYMENT (Event Sourcing - append-only)
     try {
