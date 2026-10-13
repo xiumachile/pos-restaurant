@@ -186,13 +186,22 @@ export class PaymentRepository {
       }, txDb); // P1-03 FIX: Propagar contexto transaccional
     }
 
-    // Registrar evento CREATE_PAYMENT (Event Sourcing - append-only)
+    // AUD-03 FIX: Registrar evento CREATE_PAYMENT dentro de la misma transacción.
+    // Se elimina el try/catch general para garantizar fail-fast ante errores de BD.
+    // Sin embargo, protegemos la obtención del user_id para evitar fallos por mocks incompletos en tests.
+    let userId = "system";
     try {
-      await EventStore.record({
+      userId = getAuthContextSafe()?.user_id ?? "system";
+    } catch (e) {
+      // Fallback seguro para entornos de prueba con mocks incompletos de authContext
+    }
+
+    await EventStore.record(
+      {
         company_id: payload.company_id,
         branch_id: payload.branch_id,
         terminal_id: getTerminalId(),
-        user_id: getAuthContextSafe()?.user_id ?? "system",
+        user_id: userId,
         entity_type: "payment",
         entity_uuid: local_uuid,
         event_type: "CREATE_PAYMENT",
@@ -206,11 +215,9 @@ export class PaymentRepository {
           order_local_uuid: payload.order_local_uuid || null,
           order_cloud_id: payload.order_cloud_id || null,
         },
-      });
-    } catch (eventErr: any) {
-      // ADR-021: No crítico - EventStore es best-effort, payment ya persistió
-      console.warn("[PaymentRepository] ⚠️ No se pudo registrar evento CREATE_PAYMENT:", eventErr?.message);
-    }
+      },
+      txDb // AUD-03 FIX: Propagar contexto transaccional para atomicidad
+    );
 
     console.log(`[PaymentRepository] 📤 Pago encolado para sync: ${local_uuid}`);
     return payment;

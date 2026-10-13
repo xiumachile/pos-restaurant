@@ -84,6 +84,7 @@ export class EventStore {
     const idempotency_key = uuidv4();
     const dbToUse = txDb || localDb;
 
+    // AUD-03 FIX: Ejecutar con txDb garantiza que el evento es parte de la transacción atómica.
     await (dbToUse as any).execute(
       `INSERT INTO offline_events (
         event_uuid, idempotency_key, company_id, branch_id, terminal_id, user_id,
@@ -107,12 +108,25 @@ export class EventStore {
 
     console.log(`[EventStore] 📝 Evento registrado: ${payload.event_type} para ${payload.entity_type}:${payload.entity_uuid}`);
 
-    const event = await this.findByUuid(event_uuid);
-    if (!event) {
-      throw new Error(`Error creando evento ${event_uuid}`);
-    }
-
-    return event;
+    // AUD-03 FIX: Devolver el objeto construido en memoria en lugar de hacer un SELECT.
+    // Hacer un SELECT inmediatamente después de execute() falla dentro de las transacciones 
+    // de LocalWriteCoordinator porque las escrituras están en buffer y aún no se han aplicado.
+    // La atomicidad está garantizada: si el INSERT falla, toda la transacción se revierte.
+    return {
+      event_uuid,
+      idempotency_key,
+      company_id: payload.company_id,
+      branch_id: payload.branch_id,
+      terminal_id: payload.terminal_id,
+      user_id: payload.user_id,
+      entity_type: payload.entity_type,
+      entity_uuid: payload.entity_uuid,
+      event_type: payload.event_type,
+      payload: JSON.stringify(payload.payload),
+      created_at: new Date().toISOString(),
+      notes: payload.notes || null,
+      sync_status: 'pending',
+    } as OfflineEvent;
   }
 
   /**
