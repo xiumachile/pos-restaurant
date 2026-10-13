@@ -228,40 +228,36 @@ export class OrderRepository {
    * - grand_total = subtotal - discount
    * - amount_due = grand_total + tip_amount
    */
+  /**
+   * P1 FIX: Recalcula totales de forma atómica en una sola sentencia SQL (CTE).
+   * Usa solo 2 parámetros posicionales simples para evitar conflictos de binding.
+   */
   static async recalculateOrderTotals(orderLocalUuid: string, txDb?: any): Promise<void> {
-    // Usar la conexión de la transacción si se proporciona, sino la global
     const dbToUse = txDb || localDb;
     
-    const orderRows = await (txDb ? (txDb as any) : localDb).select('SELECT * FROM local_orders WHERE local_uuid = ?', [orderLocalUuid]);
-    const order = orderRows[0];
-    if (!order) return;
+    const atomicUpdateSql = `
+      WITH order_data AS (
+        SELECT 
+          o.discount_total,
+          o.tip_amount,
+          COALESCE(SUM(i.subtotal), 0) as new_subtotal
+        FROM local_orders o
+        LEFT JOIN local_order_items i ON i.order_local_uuid = o.local_uuid
+        WHERE o.local_uuid = ?
+        GROUP BY o.local_uuid
+      )
+      UPDATE local_orders
+      SET 
+        subtotal = (SELECT new_subtotal FROM order_data),
+        net_amount = CAST(ROUND((SELECT new_subtotal FROM order_data) / 1.19) AS INTEGER),
+        tax_total = (SELECT new_subtotal FROM order_data) - CAST(ROUND((SELECT new_subtotal FROM order_data) / 1.19) AS INTEGER),
+        grand_total = (SELECT new_subtotal FROM order_data) - (SELECT discount_total FROM order_data),
+        amount_due = ((SELECT new_subtotal FROM order_data) - (SELECT discount_total FROM order_data)) + (SELECT tip_amount FROM order_data),
+        updated_at = CURRENT_TIMESTAMP
+      WHERE local_uuid = ?
+    `;
 
-    const items = await (txDb ? (txDb as any) : localDb).select(
-      "SELECT subtotal FROM local_order_items WHERE order_local_uuid = ?",
-      [orderLocalUuid]
-    );
-
-    // ADR-011: Suma de precios IVA incluido
-    const subtotal = sumMoney(items.map((item: any) => item.subtotal));
-    const discountTotal = order.discount_total || 0;
-    const tipAmount = order.tip_amount || 0;
-
-    // ADR-011: Desglose tributario (IVA incluido en precios)
-    const netAmount = roundToCents(subtotal / 1.19);
-    const taxTotal = subtotal - netAmount;
-
-    // ADR-011: Totales
-    const grandTotal = subtotal - discountTotal;
-    const amountDue = grandTotal + tipAmount;
-
-    await (txDb ? (txDb as any) : localDb).execute(
-      `UPDATE local_orders 
-       SET subtotal = ?, discount_total = ?, net_amount = ?, 
-           tax_total = ?, tip_amount = ?, grand_total = ?, amount_due = ?,
-           updated_at = CURRENT_TIMESTAMP 
-       WHERE local_uuid = ?`,
-      [subtotal, discountTotal, netAmount, taxTotal, tipAmount, grandTotal, amountDue, orderLocalUuid]
-    );
+    await (dbToUse as any).execute(atomicUpdateSql, [orderLocalUuid, orderLocalUuid]);
   }
 
   /**

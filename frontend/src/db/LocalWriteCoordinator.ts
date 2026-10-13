@@ -26,7 +26,15 @@ export class LocalWriteCoordinator {
           pendingStatements.push({ sql, params });
         },
         select: async (sql: string, params: any[] = []) => {
-          await flush();
+          // P1 FIX: Prevenir ruptura de atomicidad.
+          // Si ya hay escrituras pendientes, una lectura intermedia forzaría un flush() prematuro,
+          // rompiendo la capacidad de revertir toda la operación en caso de error posterior.
+          if (pendingStatements.length > 0) {
+            throw new Error(
+              "INTEGRITY_VIOLATION: No se permite 'select' después de 'execute' dentro de la misma transacción local. " +
+              "Separe las lecturas previas o mueva la lógica a una transacción real en Rust."
+            );
+          }
           return await executeReadQuery(sql, params);
         }
       };
