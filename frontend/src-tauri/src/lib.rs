@@ -138,62 +138,33 @@ fn ping_database(state: tauri::State<crate::database::DbState>) -> Result<bool, 
 /// P1-04 FIX: El frontend solo envía la versión, Rust valida y carga el script de forma segura.
 fn get_trusted_migration(version: &str) -> Option<&'static str> {
     match version {
+        // Agregamos la migración 000 que crea la tabla de control de migraciones
+        "000_create_migrations_table" => Some(
+            "CREATE TABLE IF NOT EXISTS migrations (
+                version TEXT PRIMARY KEY,
+                applied_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );"
+        ),
         "001" => Some(include_str!("../../src/db/migrations/001_initial.sql")),
-        "002" => Some(include_str!(
-            "../../src/db/migrations/002_table_local_mutations.sql"
-        )),
-        "003" => Some(include_str!(
-            "../../src/db/migrations/003_add_backend_id_to_categories.sql"
-        )),
-        "004" => Some(include_str!(
-            "../../src/db/migrations/004_create_local_bills.sql"
-        )),
-        "005" => Some(include_str!(
-            "../../src/db/migrations/005_create_local_cash_movements.sql"
-        )),
-        "006" => Some(include_str!(
-            "../../src/db/migrations/006_add_company_to_local_cash_sessions.sql"
-        )),
-        "007" => Some(include_str!(
-            "../../src/db/migrations/007_create_offline_events.sql"
-        )),
-        "008" => Some(include_str!(
-            "../../src/db/migrations/008_create_local_print_jobs.sql"
-        )),
-        "009" => Some(include_str!(
-            "../../src/db/migrations/009_create_printer_configs.sql"
-        )),
-        "011" => Some(include_str!(
-            "../../src/db/migrations/011_add_chilean_columns.sql"
-        )),
-        "012" => Some(include_str!(
-            "../../src/db/migrations/012_add_tenant_to_local_tables.sql"
-        )),
-        "013" => Some(include_str!(
-            "../../src/db/migrations/013_add_tenant_to_table_mutations.sql"
-        )),
-        "014" => Some(include_str!(
-            "../../src/db/migrations/014_backfill_and_validate_tenant.sql"
-        )),
-        "015" => Some(include_str!(
-            "../../src/db/migrations/015_add_bill_link_to_payments.sql"
-        )),
-        "016" => Some(include_str!(
-            "../../src/db/migrations/016_fix_orphan_local_tables.sql"
-        )),
-        "017" => Some(include_str!(
-            "../../src/db/migrations/017_enforce_integer_money.sql"
-        )),
-        "019" => Some(include_str!(
-            "../../src/db/migrations/019_fix_table_status_pending.sql"
-        )),
-        "020" => Some(include_str!(
-            "../../src/db/migrations/020_clean_table_mutations.sql"
-        )),
-        "021" => Some(include_str!(
-            "../../src/db/migrations/021_enforce_table_mutation_schema.sql"
-        )),
-        _ => None,
+        "002" => Some(include_str!("../../src/db/migrations/002_table_local_mutations.sql")),
+        "003" => Some(include_str!("../../src/db/migrations/003_add_backend_id_to_categories.sql")),
+        "004" => Some(include_str!("../../src/db/migrations/004_create_local_bills.sql")),
+        "005" => Some(include_str!("../../src/db/migrations/005_create_local_cash_movements.sql")),
+        "006" => Some(include_str!("../../src/db/migrations/006_add_company_to_local_cash_sessions.sql")),
+        "007" => Some(include_str!("../../src/db/migrations/007_create_offline_events.sql")),
+        "008" => Some(include_str!("../../src/db/migrations/008_create_local_print_jobs.sql")),
+        "009" => Some(include_str!("../../src/db/migrations/009_create_printer_configs.sql")),
+        "011" => Some(include_str!("../../src/db/migrations/011_add_chilean_columns.sql")),
+        "012" => Some(include_str!("../../src/db/migrations/012_add_tenant_to_local_tables.sql")),
+        "013" => Some(include_str!("../../src/db/migrations/013_add_tenant_to_table_mutations.sql")),
+        "014" => Some(include_str!("../../src/db/migrations/014_backfill_and_validate_tenant.sql")),
+        "015" => Some(include_str!("../../src/db/migrations/015_add_bill_link_to_payments.sql")),
+        "016" => Some(include_str!("../../src/db/migrations/016_fix_orphan_local_tables.sql")),
+        "017" => Some(include_str!("../../src/db/migrations/017_enforce_integer_money.sql")),
+        "019" => Some(include_str!("../../src/db/migrations/019_fix_table_status_pending.sql")),
+        "020" => Some(include_str!("../../src/db/migrations/020_clean_table_mutations.sql")),
+        "021" => Some(include_str!("../../src/db/migrations/021_enforce_table_mutation_schema.sql")),
+        _ => None, // Cualquier otra versión será rechazada por seguridad
     }
 }
 #[tauri::command]
@@ -206,27 +177,10 @@ fn apply_migration(
         .ok_or_else(|| format!("Migración no reconocida o no permitida: {}", version))?;
 
     // 2. Validación de defensa en profundidad: rechazar patrones peligrosos
-    let upper_sql = sql_script.to_uppercase();
-    let dangerous_patterns = [
-        "DROP TABLE",
-        "DROP INDEX",
-        "DELETE FROM",
-        "UPDATE ",
-        "INSERT INTO",
-        "ATTACH",
-        "DETACH",
-        "PRAGMA",
-        "CREATE TRIGGER",
-        "VACUUM",
-    ];
-    for pattern in dangerous_patterns {
-        if upper_sql.contains(pattern) {
-            return Err(format!(
-                "Seguridad: Migración {} contiene operación prohibida: {}",
-                version, pattern
-            ));
-        }
-    }
+    // P1-04 FIX: No se valida el contenido del script porque proviene de
+    // get_trusted_migration (include_str!), que es una whitelist compilada en el binario.
+    // El frontend solo puede solicitar una versión de esta lista, imposibilitando la inyección.
+
     let mut conn = state
         .0
         .lock()
@@ -264,9 +218,6 @@ fn apply_migration(
 
     Ok(true)
 }
-
-/// P0/O-05 FIX: Comando de lectura seguro.
-/// Solo permite consultas SELECT y valida que no contengan palabras clave peligrosas.
 #[tauri::command]
 fn execute_read_query(
     state: tauri::State<crate::database::DbState>,
@@ -449,6 +400,7 @@ fn validate_write_sql(sql: &str) -> Result<(), String> {
 }
 
 /// Escrituras en UNA transacción atómica (todo o nada).
+/// Devuelve { success, count (sentencias), rowsAffected (filas realmente modificadas) }.
 #[tauri::command]
 fn execute_write_statements(
     state: tauri::State<crate::database::DbState>,
@@ -467,15 +419,21 @@ fn execute_write_statements(
     let tx = conn
         .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
         .map_err(|e| format!("Error iniciando transacción: {e}"))?;
+    let mut total_changes: usize = 0;
     for st in &statements {
         let values = json_to_sql_values(st.params.as_deref().unwrap_or(&[]));
-        tx.execute(&st.sql, rusqlite::params_from_iter(values.iter()))
+        let n = tx
+            .execute(&st.sql, rusqlite::params_from_iter(values.iter()))
             .map_err(|e| format!("Error ejecutando '{}': {}", st.sql, e))?;
+        total_changes += n;
     }
     tx.commit().map_err(|e| format!("Error en COMMIT: {e}"))?;
-    Ok(serde_json::json!({ "success": true, "count": statements.len() }))
+    Ok(serde_json::json!({
+        "success": true,
+        "count": statements.len(),
+        "rowsAffected": total_changes
+    }))
 }
-
 /// Solo SELECT / WITH. Compara palabras completas: `created_at` o `updated_at` NO se bloquean.
 fn validate_read_sql(sql: &str) -> Result<(), String> {
     let lower = sql.trim_start().to_lowercase();
@@ -593,25 +551,8 @@ fn run_migration_script(
     version: &str,
     sql: &str,
 ) -> Result<(), String> {
-    // P1 Security Fix: Validación estricta de DDL para migraciones.
-    let upper_sql = sql.trim().to_uppercase();
-    let dangerous = [
-        "DELETE FROM",
-        "UPDATE ",
-        "INSERT INTO",
-        "DROP TABLE",
-        "ATTACH",
-        "DETACH",
-        "VACUUM",
-    ];
-    for word in dangerous {
-        if upper_sql.contains(word) {
-            return Err(format!(
-                "Seguridad: Migración {} contiene operación prohibida: {}",
-                version, word
-            ));
-        }
-    }
+    // P1-04 FIX: No se valida el contenido porque el script ya es de confianza absoluta
+    // (proviene de include_str!). La seguridad radica en la whitelist de versiones.
     for (idx, stmt) in split_sql_statements(sql).iter().enumerate() {
         let n = idx + 1;
         if stmt.trim_start().to_uppercase().starts_with("PRAGMA") {

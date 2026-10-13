@@ -20,7 +20,7 @@ export function setTestDb(db: any) { testDb = db; }
 export async function initTestDb(): Promise<any> {
   if (!isTestEnvironment()) return null;
   if (testDb) return testDb;
-  
+
   const { default: BetterSqlite3 } = await import('better-sqlite3');
   const path = await import('path');
   const os = await import('os');
@@ -61,7 +61,7 @@ export async function applyMigration(version: string, sqlScript: string): Promis
   if (isTestEnvironment()) {
     const db = await initTestDb();
     if (!db) throw new Error("Test DB no se pudo inicializar");
-    
+
     const statements = sqlScript
       .replace(/--.*$/gm, '')
       .replace(/\/\*[\s\S]*?\*\//g, '')
@@ -96,18 +96,36 @@ export async function executeReadQuery<T = any>(sql: string, params: (string | n
   return await invoke<any>("execute_read_query", { sql, params });
 }
 
+/**
+ * Forma del resultado de escritura. En producción la devuelve Rust
+ * (execute_write_statements); en tests se construye aquí con la misma forma.
+ */
+export interface WriteResult {
+  success: boolean;
+  count: number;
+  rowsAffected: number;
+}
+
 export async function executeWriteStatements(statements: DbStatement[]): Promise<any> {
   if (isTestEnvironment()) {
     const db = await initTestDb();
     if (!db) throw new Error("Test DB no se pudo inicializar");
-    
+
     const results: any[] = [];
     db.transaction(() => {
       for (const stmt of statements) {
         results.push(db.prepare(stmt.sql).run(...(stmt.params || [])));
       }
     })();
-    return results;
+
+    const meta: WriteResult = {
+      success: true,
+      count: statements.length,
+      rowsAffected: results.reduce((sum, r) => sum + (r?.changes ?? 0), 0),
+    };
+    // Se conserva el array original (results[0].changes, etc.) y se le agrega la
+    // misma forma que devuelve Rust, para no romper código de tests existente.
+    return Object.assign(results, meta);
   }
   return await invoke<any>("execute_write_statements", { statements });
 }
@@ -116,7 +134,6 @@ export async function claimPendingSyncItems<T = any>(limit: number): Promise<T[]
   if (isTestEnvironment()) {
     const db = await initTestDb();
     if (!db) return [];
-    const now = new Date().toISOString();
     return db.prepare(`
       UPDATE sync_queue
       SET sync_status = 'syncing', updated_at = CURRENT_TIMESTAMP

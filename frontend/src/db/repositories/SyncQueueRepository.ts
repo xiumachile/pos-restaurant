@@ -29,8 +29,24 @@ export interface EnqueuePayload {
   payload: any;
 }
 
-// Timeout para considerar una operación syncing como abandonada (2 minutos)
+// Timeout para considerar una operación syncing como abandonada (minutos).
+// Todos los comentarios y mensajes de este archivo deben referirse a esta constante.
 const SYNCING_TIMEOUT_MINUTES = 5;
+
+// Retención de items ya sincronizados antes de limpiarlos (días).
+const SYNCED_RETENTION_DAYS = 7;
+
+/**
+ * Normaliza el valor devuelto por localDb.execute() a un número de filas afectadas.
+ * - Rust (producción) y nativeDb (tests) devuelven { success, count, rowsAffected }.
+ * - Si por compatibilidad llega un número, se usa tal cual.
+ * - Si no hay información, devuelve 0.
+ */
+function affectedRows(result: any): number {
+  if (typeof result === "number") return result;
+  const n = result?.rowsAffected;
+  return typeof n === "number" ? n : 0;
+}
 
 export class SyncQueueRepository {
   /**
@@ -38,23 +54,28 @@ export class SyncQueueRepository {
    * Esto ocurre cuando el proceso se interrumpe (crash, corte de energía, timeout).
    *
    * Regla:
-   * - syncing < 2 minutos → mantener (proceso activo)
-   * - syncing >= 2 minutos → volver a pending + increment attempts
+   * - syncing por menos de SYNCING_TIMEOUT_MINUTES → mantener (proceso activo)
+   * - syncing por SYNCING_TIMEOUT_MINUTES o más → volver a pending (+1 intento),
+   *   o a failed si se alcanzó max_attempts
+   *
+   * La comparación se hace 100% en SQLite con segundos Unix, de modo que no
+   * depende del formato de fecha ('T' vs espacio) ni de la zona horaria de JS.
    *
    * @returns Número de items recuperados
    */
   static async recoverAbandonedSyncing(): Promise<number> {
-    const cutoff = new Date(
-      Date.now() - SYNCING_TIMEOUT_MINUTES * 60 * 1000
-    ).toISOString();
-
-    // Paso 1: Obtener IDs candidatos (solo para logging y cálculo de backoff)
-    const abandoned = await localDb.select<{id: number, attempts: number, max_attempts: number, entity_type: string, action: string}>(
-      `SELECT id, attempts, max_attempts, entity_type, action FROM sync_queue 
-       WHERE sync_status = 'syncing' 
-         AND updated_at < ?
+    const abandoned = await localDb.select<{
+      id: string;
+      attempts: number;
+      max_attempts: number;
+      entity_type: string;
+      action: string;
+    }>(
+      `SELECT id, attempts, max_attempts, entity_type, action FROM sync_queue
+       WHERE sync_status = 'syncing'
+         AND CAST(strftime('%s', updated_at) AS INTEGER) < CAST(strftime('%s', 'now', ?) AS INTEGER)
        ORDER BY created_at ASC`,
-      [cutoff]
+      [`-${SYNCING_TIMEOUT_MINUTES} minutes`]
     );
 
     if (abandoned.length === 0) return 0;
@@ -64,47 +85,30 @@ export class SyncQueueRepository {
     let recoveredCount = 0;
     for (const item of abandoned) {
       const newAttempts = item.attempts + 1;
-      
+
       if (newAttempts >= item.max_attempts) {
         // UPDATE atómico: solo si sigue en 'syncing' (previene TOCTOU)
-        const rowsAffected = await localDb.execute(
-          `UPDATE sync_queue 
-           SET sync_status = 'failed', 
-               attempts = ?, 
+        const result = await localDb.execute(
+          `UPDATE sync_queue
+           SET sync_status = 'failed',
+               attempts = ?,
                last_error = ?,
-               updated_at = CURRENT_TIMESTAMP 
+               updated_at = CURRENT_TIMESTAMP
            WHERE id = ? AND sync_status = 'syncing'`,
           [newAttempts, `Abandonado tras ${SYNCING_TIMEOUT_MINUTES}min (intento ${newAttempts})`, item.id]
         );
-        if (rowsAffected > 0) {
-          console.log(`[SyncQueue] ❌ ${item.entity_type}/${item.action} falló tras ${newAttempts} intentos`);
-          recoveredCount++;
-        }
+        if (affectedRows(result) > 0) recoveredCount++;
       } else {
-        // Backoff exponencial
-        const backoffSeconds = Math.pow(2, newAttempts) * 15;
-        const nextRetryAt = new Date(Date.now() + backoffSeconds * 1000).toISOString();
-
-        // UPDATE atómico: solo si sigue en 'syncing' (previene TOCTOU)
-        const rowsAffected = await localDb.execute(
-          `UPDATE sync_queue 
-           SET sync_status = 'pending', 
-               attempts = ?, 
-               last_error = ?,
-               next_retry_at = ?,
-               updated_at = CURRENT_TIMESTAMP 
+        // UPDATE atómico: volver a pending para reintentar
+        const result = await localDb.execute(
+          `UPDATE sync_queue
+           SET sync_status = 'pending',
+               attempts = ?,
+               updated_at = CURRENT_TIMESTAMP
            WHERE id = ? AND sync_status = 'syncing'`,
-          [
-            newAttempts,
-            `Sync abandonado (timeout ${SYNCING_TIMEOUT_MINUTES}min, intento ${newAttempts})`,
-            nextRetryAt,
-            item.id,
-          ]
+          [newAttempts, item.id]
         );
-        if (rowsAffected > 0) {
-          console.log(`[SyncQueue] 🔄 ${item.entity_type}/${item.action} → pending (intento ${newAttempts})`);
-          recoveredCount++;
-        }
+        if (affectedRows(result) > 0) recoveredCount++;
       }
     }
 
@@ -128,14 +132,14 @@ export class SyncQueueRepository {
    */
   static async forceResetAllSyncing(): Promise<number> {
     const result = await localDb.execute(
-      `UPDATE sync_queue 
-       SET sync_status = 'pending', 
+      `UPDATE sync_queue
+       SET sync_status = 'pending',
            attempts = attempts + 1,
            last_error = 'Reset forzado (posible crash)',
-           updated_at = CURRENT_TIMESTAMP 
+           updated_at = CURRENT_TIMESTAMP
        WHERE sync_status = 'syncing'`
     );
-    return result;
+    return affectedRows(result);
   }
 
   static async enqueue(data: EnqueuePayload, txDb?: any): Promise<string> {
@@ -164,24 +168,14 @@ export class SyncQueueRepository {
   }
 
   /**
-   * Obtiene los próximos N eventos pendientes.
-   * 
-   * IMPORTANTE: Antes de consultar, recupera automáticamente cualquier
-   * operación 'syncing' que haya quedado abandonada (timeout > 2min).
-   * Esto garantiza que nunca queden operaciones pegadas en 'syncing'.
-   * 
-   * Nota: El filtrado por next_retry_at se hace en JS para compatibilidad con tests.
-   */
-  /**
-   * P1-009: Claim atómico de items pendientes.
-   * Actualiza el estado a 'syncing' y devuelve los registros reclamados en una sola operación,
-   * garantizando que ningún otro proceso pueda reclamar los mismos items simultáneamente.
-   */
-
-  /**
-   * Obtiene items pendientes sin modificar su estado.
-   * Útil para inspección, tests o UI. 
+   * Obtiene items pendientes sin modificar su estado (salvo la recuperación de abandonados).
+   * Útil para inspección, tests o UI.
    * NOTA: Para procesar, usar claimPending() para garantizar atomicidad.
+   *
+   * Antes de consultar, recupera automáticamente cualquier operación 'syncing'
+   * abandonada (más de SYNCING_TIMEOUT_MINUTES).
+   *
+   * Nota: El filtrado por next_retry_at se hace en JS para compatibilidad con tests.
    */
   static async getPending(limit: number = 50): Promise<SyncQueueItem[]> {
     // Paso 1: Recuperar cualquier syncing abandonado
@@ -203,6 +197,11 @@ export class SyncQueueRepository {
     return eligible.slice(0, limit);
   }
 
+  /**
+   * P1-009: Claim atómico de items pendientes.
+   * Actualiza el estado a 'syncing' y devuelve los registros reclamados en una sola operación,
+   * garantizando que ningún otro proceso pueda reclamar los mismos items simultáneamente.
+   */
   static async claimPending(limit: number = 10): Promise<SyncQueueItem[]> {
     // Paso 1: Recuperar cualquier syncing abandonado (timeout)
     await this.recoverAbandonedSyncing();
@@ -211,18 +210,18 @@ export class SyncQueueRepository {
     // La subconsulta limita el número de filas, y el UPDATE las marca como 'syncing'
     // y las devuelve exclusivamente a este proceso.
     const query = `
-      UPDATE sync_queue 
-      SET sync_status = 'syncing', updated_at = CURRENT_TIMESTAMP 
+      UPDATE sync_queue
+      SET sync_status = 'syncing', updated_at = CURRENT_TIMESTAMP
       WHERE id IN (
-        SELECT id FROM sync_queue 
-        WHERE sync_status = 'pending' 
+        SELECT id FROM sync_queue
+        WHERE sync_status = 'pending'
           AND (next_retry_at IS NULL OR datetime(next_retry_at) <= datetime('now'))
-        ORDER BY created_at ASC 
+        ORDER BY created_at ASC
         LIMIT ?
       )
       RETURNING *
     `;
-    
+
     if (!isTestEnvironment()) {
       return await claimPendingSyncItems<SyncQueueItem>(limit);
     }
@@ -283,7 +282,7 @@ export class SyncQueueRepository {
       // Backoff exponencial calculado en JS (evita datetime() en SQL para compatibilidad)
       const backoffSeconds = Math.pow(2, attempts) * 15;
       const nextRetryAt = new Date(Date.now() + backoffSeconds * 1000).toISOString();
-      
+
       await localDb.execute(
         `UPDATE sync_queue SET sync_status = 'pending', attempts = ?, last_error = ?, next_retry_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
         [attempts, error, nextRetryAt, id]
@@ -291,13 +290,18 @@ export class SyncQueueRepository {
     }
   }
 
+  /**
+   * Elimina items ya sincronizados con más de SYNCED_RETENTION_DAYS días.
+   * (Antes comparaba segundos Unix contra SYNCING_TIMEOUT_MINUTES, por lo que nunca borraba nada.)
+   */
   static async cleanupOldSynced(): Promise<number> {
-    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const result = await localDb.execute(
-      `DELETE FROM sync_queue WHERE sync_status = 'synced' AND updated_at < ?`,
-      [cutoff]
+      `DELETE FROM sync_queue
+       WHERE sync_status = 'synced'
+         AND CAST(strftime('%s', updated_at) AS INTEGER) < CAST(strftime('%s', 'now', ?) AS INTEGER)`,
+      [`-${SYNCED_RETENTION_DAYS} days`]
     );
-    return result;
+    return affectedRows(result);
   }
 
   static async findById(id: string): Promise<SyncQueueItem | null> {
@@ -326,16 +330,15 @@ export class SyncQueueRepository {
     if (!item) return;
 
     await localDb.execute(
-      `UPDATE sync_queue 
-       SET sync_status = 'failed', 
-           attempts = max_attempts, 
-           last_error = ?, 
-           updated_at = CURRENT_TIMESTAMP 
+      `UPDATE sync_queue
+       SET sync_status = 'failed',
+           attempts = max_attempts,
+           last_error = ?,
+           updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
       [error, id]
     );
   }
-
 
   /**
    * Obtiene todos los items de la cola (para panel de diagnóstico).
@@ -357,8 +360,8 @@ export class SyncQueueRepository {
     failed: number;
   }> {
     const results = await localDb.select<{ sync_status: string; count: number }>(
-      `SELECT sync_status, COUNT(*) as count 
-       FROM sync_queue 
+      `SELECT sync_status, COUNT(*) as count
+       FROM sync_queue
        GROUP BY sync_status`
     );
 
@@ -385,7 +388,7 @@ export class SyncQueueRepository {
     const result = await localDb.execute(
       "DELETE FROM sync_queue WHERE sync_status = 'failed'"
     );
-    return result;
+    return affectedRows(result);
   }
 
   /**
@@ -393,12 +396,12 @@ export class SyncQueueRepository {
    */
   static async resetToPending(id: string): Promise<void> {
     await localDb.execute(
-      `UPDATE sync_queue 
-       SET sync_status = 'pending', 
+      `UPDATE sync_queue
+       SET sync_status = 'pending',
            attempts = 0,
            last_error = NULL,
            next_retry_at = NULL,
-           updated_at = CURRENT_TIMESTAMP 
+           updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
       [id]
     );
@@ -409,15 +412,14 @@ export class SyncQueueRepository {
    */
   static async resetAllFailed(): Promise<number> {
     const result = await localDb.execute(
-      `UPDATE sync_queue 
-       SET sync_status = 'pending', 
+      `UPDATE sync_queue
+       SET sync_status = 'pending',
            attempts = 0,
            last_error = NULL,
            next_retry_at = NULL,
-           updated_at = CURRENT_TIMESTAMP 
+           updated_at = CURRENT_TIMESTAMP
        WHERE sync_status = 'failed'`
     );
-    return result;
+    return affectedRows(result);
   }
-
 }
