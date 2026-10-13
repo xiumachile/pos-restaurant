@@ -131,12 +131,102 @@ fn ping_database(state: tauri::State<crate::database::DbState>) -> Result<bool, 
 /// P0/O-05 FIX: Comando seguro para aplicar migraciones de esquema.
 /// Aunque recibe SQL, está diseñado exclusivamente para ser invocado por el
 /// sistema de migraciones del frontend con scripts estáticos y auditados.
+/// P1-04 FIX: El frontend solo envía la versión. Rust carga el SQL de forma segura
+/// desde los archivos de migración en tiempo de compilación.
+
+/// Devuelve el script SQL confiable para una versión dada, cargado en tiempo de compilación.
+/// P1-04 FIX: El frontend solo envía la versión, Rust valida y carga el script de forma segura.
+fn get_trusted_migration(version: &str) -> Option<&'static str> {
+    match version {
+        "001" => Some(include_str!("../../src/db/migrations/001_initial.sql")),
+        "002" => Some(include_str!(
+            "../../src/db/migrations/002_table_local_mutations.sql"
+        )),
+        "003" => Some(include_str!(
+            "../../src/db/migrations/003_add_backend_id_to_categories.sql"
+        )),
+        "004" => Some(include_str!(
+            "../../src/db/migrations/004_create_local_bills.sql"
+        )),
+        "005" => Some(include_str!(
+            "../../src/db/migrations/005_create_local_cash_movements.sql"
+        )),
+        "006" => Some(include_str!(
+            "../../src/db/migrations/006_add_company_to_local_cash_sessions.sql"
+        )),
+        "007" => Some(include_str!(
+            "../../src/db/migrations/007_create_offline_events.sql"
+        )),
+        "008" => Some(include_str!(
+            "../../src/db/migrations/008_create_local_print_jobs.sql"
+        )),
+        "009" => Some(include_str!(
+            "../../src/db/migrations/009_create_printer_configs.sql"
+        )),
+        "011" => Some(include_str!(
+            "../../src/db/migrations/011_add_chilean_columns.sql"
+        )),
+        "012" => Some(include_str!(
+            "../../src/db/migrations/012_add_tenant_to_local_tables.sql"
+        )),
+        "013" => Some(include_str!(
+            "../../src/db/migrations/013_add_tenant_to_table_mutations.sql"
+        )),
+        "014" => Some(include_str!(
+            "../../src/db/migrations/014_backfill_and_validate_tenant.sql"
+        )),
+        "015" => Some(include_str!(
+            "../../src/db/migrations/015_add_bill_link_to_payments.sql"
+        )),
+        "016" => Some(include_str!(
+            "../../src/db/migrations/016_fix_orphan_local_tables.sql"
+        )),
+        "017" => Some(include_str!(
+            "../../src/db/migrations/017_enforce_integer_money.sql"
+        )),
+        "019" => Some(include_str!(
+            "../../src/db/migrations/019_fix_table_status_pending.sql"
+        )),
+        "020" => Some(include_str!(
+            "../../src/db/migrations/020_clean_table_mutations.sql"
+        )),
+        "021" => Some(include_str!(
+            "../../src/db/migrations/021_enforce_table_mutation_schema.sql"
+        )),
+        _ => None,
+    }
+}
 #[tauri::command]
 fn apply_migration(
     state: tauri::State<crate::database::DbState>,
     version: String,
-    sql_script: String,
 ) -> Result<bool, String> {
+    // 1. Obtener el script confiable incorporado en el binario
+    let sql_script = get_trusted_migration(&version)
+        .ok_or_else(|| format!("Migración no reconocida o no permitida: {}", version))?;
+
+    // 2. Validación de defensa en profundidad: rechazar patrones peligrosos
+    let upper_sql = sql_script.to_uppercase();
+    let dangerous_patterns = [
+        "DROP TABLE",
+        "DROP INDEX",
+        "DELETE FROM",
+        "UPDATE ",
+        "INSERT INTO",
+        "ATTACH",
+        "DETACH",
+        "PRAGMA",
+        "CREATE TRIGGER",
+        "VACUUM",
+    ];
+    for pattern in dangerous_patterns {
+        if upper_sql.contains(pattern) {
+            return Err(format!(
+                "Seguridad: Migración {} contiene operación prohibida: {}",
+                version, pattern
+            ));
+        }
+    }
     let mut conn = state
         .0
         .lock()
