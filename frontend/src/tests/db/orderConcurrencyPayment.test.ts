@@ -91,7 +91,7 @@ describe("OrderRepository - Escenario 3: Pago vs. Cancelación", () => {
             tip_amount: 0,
           }, db);
           // Actualizar orden
-          await OrderRepository.updateStatus(order.local_uuid, 'paid', db);
+          await OrderRepository.updateStatus(order.local_uuid, 'paid', db, order.status);
           // Liberar mesa
           await (db as any).execute(
             `UPDATE local_tables SET status = 'available', current_order_uuid = NULL WHERE uuid = ?`,

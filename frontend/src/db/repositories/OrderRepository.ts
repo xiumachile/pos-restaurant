@@ -278,21 +278,30 @@ export class OrderRepository {
 
   /**
    * Actualiza el estado del pedido.
+   * P1 Fix: 'expectedCurrentStatus' es opcional. Si se proporciona, omite el SELECT interno
+   * para evitar INTEGRITY_VIOLATION cuando se llama dentro de una transacción con escrituras previas.
    */
-  static async updateStatus(orderLocalUuid: string, status: LocalOrder["status"], txDb?: any): Promise<void> {
+  static async updateStatus(
+    orderLocalUuid: string, 
+    status: LocalOrder["status"], 
+    txDb?: any, 
+    expectedCurrentStatus?: string
+  ): Promise<void> {
     const dbToUse = txDb || localDb;
     
-    // 1. Leer estado actual para validar transición de estado
-    const currentOrder = await (txDb ? (txDb as any) : localDb).select(
-      "SELECT status FROM local_orders WHERE local_uuid = ?",
-      [orderLocalUuid]
-    );
+    let currentStatus = expectedCurrentStatus;
 
-    if (!currentOrder || currentOrder.length === 0) {
-      throw new Error(`Order ${orderLocalUuid} no encontrado`);
+    // 1. Leer estado actual SOLO si no se proporcionó (fallback para compatibilidad)
+    if (!currentStatus) {
+      const currentOrder = await (dbToUse as any).select(
+        "SELECT status FROM local_orders WHERE local_uuid = ?",
+        [orderLocalUuid]
+      );
+      if (!currentOrder || currentOrder.length === 0) {
+        throw new Error(`Order ${orderLocalUuid} no encontrado`);
+      }
+      currentStatus = currentOrder[0].status;
     }
-
-    const currentStatus = currentOrder[0].status;
 
     // 2. Validación de transiciones de estado inválidas (Fail-Fast)
     if (currentStatus === 'paid' && status !== 'paid') {
@@ -304,7 +313,7 @@ export class OrderRepository {
     }
 
     // 3. Ejecutar actualización
-    await (txDb ? (txDb as any) : localDb).execute(
+    await (dbToUse as any).execute(
       `UPDATE local_orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE local_uuid = ?`,
       [status, orderLocalUuid]
     );

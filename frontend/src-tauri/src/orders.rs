@@ -615,7 +615,7 @@ pub fn enqueue_sync_event(
     state: tauri::State<DbState>,
     payload: EnqueueSyncEventPayload,
 ) -> Result<(), String> {
-    let mut conn = state
+    let conn = state
         .0
         .lock()
         .map_err(|e| format!("Mutex envenenado: {e}"))?;
