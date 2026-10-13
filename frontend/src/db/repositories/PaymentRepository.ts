@@ -17,7 +17,7 @@ export interface LocalPayment {
   // ADR-019: Link a bill específica (para split bill offline)
   // NULL para payments directos a order (sin bill/sin split)
   bill_local_uuid: string | null;
-  payment_method: "cash" | "card" | "transfer" | "gift_card";
+  payment_method?: "cash" | "card" | "transfer" | "gift_card"; // P0 Fix: Opcional si se usa payment_method_uuid
   payment_method_uuid: string | null;
   // ADR-011: Montos del pago
   amount: number;       // Total recibido (sale_amount + tip_amount)
@@ -37,7 +37,7 @@ export interface CreatePaymentPayload {
   order_cloud_id?: string;
   // ADR-019: UUID de bill específica (para split bill offline)
   bill_local_uuid?: string;
-  payment_method: "cash" | "card" | "transfer" | "gift_card";
+  payment_method?: "cash" | "card" | "transfer" | "gift_card"; // P0 Fix: Opcional si se usa payment_method_uuid
   payment_method_uuid?: string;
   amount: number;
   tip_amount?: number;
@@ -80,7 +80,7 @@ export class PaymentRepository {
 
     // Resolver payment_method_uuid si no se pasó
     let paymentMethodUuid = payload.payment_method_uuid || null;
-    if (!paymentMethodUuid) {
+    if (!paymentMethodUuid && payload.payment_method) {
       paymentMethodUuid = await this.resolvePaymentMethodUuid(payload.payment_method);
     }
 
@@ -130,7 +130,7 @@ export class PaymentRepository {
           payload.order_local_uuid || null,
           payload.order_cloud_id || null,
           billLocalUuid,
-          payload.payment_method,
+          payload.payment_method_uuid || payload.payment_method || 'unknown', // P0 Fix: Preferir UUID
           payload.amount,
           saleAmount,
           tipAmount,
