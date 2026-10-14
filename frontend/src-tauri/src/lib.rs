@@ -738,3 +738,40 @@ mod claim_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod migration_integration_tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    #[test]
+    fn test_022_migration_on_legacy_schema() {
+        let conn = Connection::open_in_memory().unwrap();
+        
+        // 1. Crear esquema legacy (sin columna checksum)
+        conn.execute(
+            "CREATE TABLE migrations (version TEXT PRIMARY KEY, applied_at TEXT DEFAULT CURRENT_TIMESTAMP)",
+            [],
+        ).unwrap();
+        
+        conn.execute(
+            "INSERT INTO migrations (version) VALUES ('000_create_migrations_table')",
+            [],
+        ).unwrap();
+
+        // 2. Obtener el SQL de migración directamente de la lista blanca de Rust
+        let migration_sql = get_trusted_migration("022").expect("La migración 022 debe estar en la lista blanca de Rust");
+        
+        // 3. Aplicar la migración (simulando el comportamiento del comando apply_migration)
+        conn.execute_batch(&migration_sql).unwrap();
+
+        // 4. Verificar que la columna checksum existe y los datos legacy se conservan
+        let mut stmt = conn.prepare("PRAGMA table_info(migrations)").unwrap();
+        let columns: Vec<String> = stmt.query_map([], |row| row.get::<_, String>(1)).unwrap().map(|r| r.unwrap()).collect();
+        
+        assert!(columns.contains(&"checksum".to_string()), "La columna checksum debe existir después de aplicar la migración 022");
+        
+        let version: String = conn.query_row("SELECT version FROM migrations WHERE version = '000_create_migrations_table'", [], |row| row.get(0)).unwrap();
+        assert_eq!(version, "000_create_migrations_table", "Los registros de migración legacy deben conservarse intactos");
+    }
+}

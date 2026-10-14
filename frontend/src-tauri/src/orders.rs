@@ -893,12 +893,11 @@ pub struct TransitionOrderStatusPayload {
     pub expected_status: String,
 }
 
-#[tauri::command]
-pub fn transition_order_status(
-    state: tauri::State<crate::database::DbState>,
-    payload: TransitionOrderStatusPayload,
+// Lógica de dominio pura, probada unitariamente para verificar atomicidad completa
+pub fn process_order_transition(
+    conn: &mut rusqlite::Connection,
+    payload: &TransitionOrderStatusPayload,
 ) -> Result<String, String> {
-    let mut conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
     
     // 1. Iniciar transacción IMMEDIATE
     let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
@@ -994,94 +993,54 @@ pub fn transition_order_status(
     // 6. Confirmar con COMMIT
     tx.commit().map_err(|e| format!("Error confirmando transacción: {}", e))?;
     
-    Ok(payload.order_uuid)
+    Ok(payload.order_uuid.clone())
+}
+
+
+
+#[tauri::command]
+pub fn transition_order_status(
+    state: tauri::State<crate::database::DbState>,
+    payload: TransitionOrderStatusPayload,
+) -> Result<String, String> {
+    let mut conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    process_order_transition(&mut conn, &payload)
 }
 
 #[cfg(test)]
-mod cancel_with_pending_mutation_tests {
+mod cancel_full_flow_tests {
     use super::*;
     use rusqlite::Connection;
 
-    fn setup_db() -> Connection {
-        let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch("
-            CREATE TABLE local_orders (
-                local_uuid TEXT PRIMARY KEY, cloud_id TEXT, company_id TEXT NOT NULL, branch_id TEXT NOT NULL,
-                table_id TEXT, status TEXT DEFAULT 'confirmed',
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE local_tables (
-                uuid TEXT PRIMARY KEY, status TEXT DEFAULT 'available', current_order_uuid TEXT
-            );
-            CREATE TABLE table_local_mutations (
-                table_uuid TEXT PRIMARY KEY,
-                pending_status TEXT,
-                pending_order_uuid TEXT,
-                company_id TEXT,
-                branch_id TEXT,
-                action TEXT,
-                payload TEXT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE sync_queue (
-                id TEXT PRIMARY KEY,
-                company_id TEXT,
-                branch_id TEXT,
-                entity_type TEXT,
-                entity_local_uuid TEXT,
-                action TEXT,
-                payload TEXT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
-            );
-        ").unwrap();
-        conn
-    }
-
     #[test]
-    fn cancel_order_with_existing_mutation_succeeds() {
-        let conn = setup_db();
+    fn test_full_cancellation_with_existing_mutation() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("
+            CREATE TABLE local_orders (local_uuid TEXT PRIMARY KEY, cloud_id TEXT, company_id TEXT NOT NULL, branch_id TEXT NOT NULL, table_id TEXT, status TEXT DEFAULT 'confirmed', created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
+            CREATE TABLE local_tables (uuid TEXT PRIMARY KEY, status TEXT DEFAULT 'available', current_order_uuid TEXT);
+            CREATE TABLE table_local_mutations (table_uuid TEXT PRIMARY KEY, pending_status TEXT, pending_order_uuid TEXT, company_id TEXT, branch_id TEXT, action TEXT, payload TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
+            CREATE TABLE sync_queue (id TEXT PRIMARY KEY, company_id TEXT, branch_id TEXT, entity_type TEXT, entity_local_uuid TEXT, action TEXT, payload TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+        ").unwrap();
         
-        conn.execute(
-            "INSERT INTO local_tables (uuid, status, current_order_uuid) VALUES ('table-1', 'occupied', 'order-1')",
-            [],
-        ).unwrap();
+        conn.execute("INSERT INTO local_tables (uuid, status, current_order_uuid) VALUES ('table-1', 'occupied', 'order-1')", []).unwrap();
+        conn.execute("INSERT INTO local_orders (local_uuid, company_id, branch_id, table_id, status) VALUES ('order-1', 'comp-1', 'branch-1', 'table-1', 'confirmed')", []).unwrap();
+        conn.execute("INSERT INTO table_local_mutations (table_uuid, pending_status, pending_order_uuid, company_id, branch_id, action, payload) VALUES ('table-1', 'occupied', 'order-1', 'comp-1', 'branch-1', 'update', '{\"status\":\"occupied\"}')", []).unwrap();
+
+        let payload = TransitionOrderStatusPayload {
+            order_uuid: "order-1".to_string(),
+            new_status: "cancelled".to_string(),
+            expected_status: "confirmed".to_string(),
+        };
+
+        // INVOCAR LA LÓGICA DE DOMINIO COMPLETA
+        let result = process_order_transition(&mut conn, &payload);
+        assert!(result.is_ok(), "La cancelación completa debe tener éxito: {:?}", result.err());
         
-        conn.execute(
-            "INSERT INTO local_orders (local_uuid, company_id, branch_id, table_id, status) VALUES ('order-1', 'comp-1', 'branch-1', 'table-1', 'confirmed')",
-            [],
-        ).unwrap();
-        
-        // Simular mutación pendiente existente
-        conn.execute(
-            "INSERT INTO table_local_mutations (table_uuid, pending_status, pending_order_uuid, company_id, branch_id, action, payload) 
-             VALUES ('table-1', 'occupied', 'order-1', 'comp-1', 'branch-1', 'update', '{\"status\":\"occupied\"}')",
-            [],
-        ).unwrap();
-        
-        // Ejecutar la lógica de actualización con ON CONFLICT (la misma que usamos en la corrección)
-        let result = conn.execute(
-            "INSERT INTO table_local_mutations (table_uuid, pending_status, pending_order_uuid, company_id, branch_id, action, payload, created_at, updated_at)
-             SELECT table_id, 'available', NULL, company_id, branch_id, 'update', json_object('status', 'available', 'current_order_uuid', null), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-             FROM local_orders WHERE local_uuid = ?1 AND table_id IS NOT NULL
-             ON CONFLICT(table_uuid) DO UPDATE SET
-               pending_status = excluded.pending_status,
-               pending_order_uuid = excluded.pending_order_uuid,
-               action = excluded.action,
-               payload = excluded.payload,
-               updated_at = CURRENT_TIMESTAMP",
-            rusqlite::params!["order-1"],
-        );
-        
-        assert!(result.is_ok(), "La cancelación debe actualizar la mutación existente sin fallar por conflicto de clave primaria");
-        
-        let mutation: (String, String) = conn.query_row(
-            "SELECT pending_status, action FROM table_local_mutations WHERE table_uuid = 'table-1'",
-            [],
-            |row| Ok((row.get(0)?, row.get(1)?)),
-        ).unwrap();
-        
+        // Verificar efectos secundarios atómicos
+        let mutation: (String, String) = conn.query_row("SELECT pending_status, action FROM table_local_mutations WHERE table_uuid = 'table-1'", [], |row| Ok((row.get(0)?, row.get(1)?))).unwrap();
         assert_eq!(mutation.0, "available");
-        assert_eq!(mutation.1, "update");
+        
+        let sync_count: i64 = conn.query_row("SELECT COUNT(*) FROM sync_queue WHERE entity_local_uuid = 'order-1'", [], |row| row.get(0)).unwrap();
+        assert_eq!(sync_count, 1, "Debe haber exactamente 1 evento en sync_queue");
     }
 }
