@@ -25,7 +25,7 @@ pub struct NewOrderItem {
 pub struct CreateOrderPayload {
     pub company_id: String,
     pub branch_id: String,
-    pub terminal_id: Option<String>,
+    pub terminal_id: String, // AUD-03 FIX: Obligatorio para auditoría
     pub table_id: Option<String>,
     pub order_type: Option<String>,
     pub guest_count: Option<i64>,
@@ -431,9 +431,9 @@ pub struct RegisterPaymentPayload {
     pub notes: Option<String>,
     // AUD-03 FIX: Contexto de terminal/usuario para el evento de auditoría atómico
     #[serde(default)]
-    pub terminal_id: Option<String>,
+    pub terminal_id: String, // AUD-03 FIX: Obligatorio para auditoría
     #[serde(default)]
-    pub user_id: Option<String>,
+    pub user_id: String, // AUD-03 FIX: Obligatorio para auditoría
 }
 
 #[tauri::command]
@@ -472,6 +472,14 @@ pub fn register_payment_tx(
     }
     if payload.payment_method_uuid.trim().is_empty() {
         return Err("El método de pago es requerido".to_string());
+    }
+
+    // AUD-03 FIX: Validación estricta de contexto de auditoría antes de iniciar la transacción
+    if payload.terminal_id.trim().is_empty() {
+        return Err("terminal_id es obligatorio y no puede estar vacío".to_string());
+    }
+    if payload.user_id.trim().is_empty() {
+        return Err("user_id es obligatorio y no puede estar vacío".to_string());
     }
 
     let tx = conn
@@ -961,45 +969,6 @@ pub fn transition_order_status(
     }
 
     // 6. Confirmar con COMMIT
-    tx.commit().map_err(|e| format!("Error confirmando transacción: {}", e))?;
-    
-    Ok(payload.order_uuid)
-}
-
-pub fn transition_order_status(
-    state: tauri::State<crate::database::DbState>,
-    payload: TransitionOrderStatusPayload,
-) -> Result<String, String> {
-    let mut conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
-    
-    // 1. Iniciar transacción IMMEDIATE (toma el lock de escritura al inicio)
-    let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
-        .map_err(|e| format!("Error iniciando transacción: {}", e))?;
-
-    // 2. Ejecutar UPDATE condicional
-    let changed = tx.execute(
-        "UPDATE local_orders
-         SET status = ?1, updated_at = CURRENT_TIMESTAMP
-         WHERE local_uuid = ?2 AND status = ?3",
-        rusqlite::params![payload.new_status, payload.order_uuid, payload.expected_status],
-    ).map_err(|e| format!("Error ejecutando UPDATE: {}", e))?;
-
-    // 3. Comprobar que se modificó exactamente una fila
-    if changed != 1 {
-        return Err(format!("Conflicto de estado del pedido: se esperaba '{}', pero no se pudo actualizar", payload.expected_status));
-    }
-
-    // 4. Si se cancela, liberar la mesa atómicamente dentro de la misma transacción
-    if payload.new_status == "cancelled" {
-        tx.execute(
-            "UPDATE local_tables 
-             SET status = 'available', current_order_uuid = NULL 
-             WHERE uuid = (SELECT table_id FROM local_orders WHERE local_uuid = ?1 AND table_id IS NOT NULL)",
-            rusqlite::params![payload.order_uuid],
-        ).map_err(|e| format!("Error liberando mesa: {}", e))?;
-    }
-
-    // 5. Confirmar con COMMIT únicamente si todo salió bien
     tx.commit().map_err(|e| format!("Error confirmando transacción: {}", e))?;
     
     Ok(payload.order_uuid)
