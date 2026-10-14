@@ -892,6 +892,86 @@ pub fn transition_order_status(
 ) -> Result<String, String> {
     let mut conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
     
+    // 1. Iniciar transacción IMMEDIATE
+    let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .map_err(|e| format!("Error iniciando transacción: {}", e))?;
+
+    // 2. Leer el estado actual del pedido para validar reglas de negocio
+    let current_status: Option<String> = tx.query_row(
+        "SELECT status FROM local_orders WHERE local_uuid = ?1",
+        rusqlite::params![payload.order_uuid],
+        |row| row.get(0),
+    ).optional().map_err(|e| format!("Error leyendo pedido: {}", e))?;
+
+    let current_status = current_status.ok_or_else(|| format!("Pedido {} no encontrado", payload.order_uuid))?;
+
+    // 3. Validar matriz de transiciones permitidas (AUD-01 FIX)
+    if current_status == "paid" && payload.new_status == "cancelled" {
+        return Err("No se puede cancelar un pedido que ya está pagado".to_string());
+    }
+    if current_status == "cancelled" && payload.new_status != "cancelled" {
+        return Err("No se puede modificar un pedido que ya está cancelado".to_string());
+    }
+    if current_status != payload.expected_status {
+        return Err(format!("Conflicto de estado: se esperaba '{}', pero el estado actual es '{}'", payload.expected_status, current_status));
+    }
+
+    // 4. Ejecutar UPDATE condicional
+    let changed = tx.execute(
+        "UPDATE local_orders
+         SET status = ?1, updated_at = CURRENT_TIMESTAMP
+         WHERE local_uuid = ?2 AND status = ?3",
+        rusqlite::params![payload.new_status, payload.order_uuid, current_status],
+    ).map_err(|e| format!("Error ejecutando UPDATE: {}", e))?;
+
+    if changed != 1 {
+        return Err("Conflicto de concurrencia: el estado cambió inesperadamente".to_string());
+    }
+
+    // 5. Si se cancela, propagar efectos secundarios en la misma transacción (Offline-first)
+    if payload.new_status == "cancelled" {
+        // 5a. Liberar la mesa
+        tx.execute(
+            "UPDATE local_tables 
+             SET status = 'available', current_order_uuid = NULL 
+             WHERE uuid = (SELECT table_id FROM local_orders WHERE local_uuid = ?1 AND table_id IS NOT NULL)",
+            rusqlite::params![payload.order_uuid],
+        ).map_err(|e| format!("Error liberando mesa: {}", e))?;
+
+        // 5b. Registrar mutación de mesa
+        tx.execute(
+            "INSERT INTO table_local_mutations (table_uuid, pending_status, pending_order_uuid, company_id, branch_id, action, payload, created_at)
+             SELECT table_id, 'available', NULL, company_id, branch_id, 'update', json_object('status', 'available', 'current_order_uuid', null), CURRENT_TIMESTAMP
+             FROM local_orders WHERE local_uuid = ?1 AND table_id IS NOT NULL",
+            rusqlite::params![payload.order_uuid],
+        ).map_err(|e| format!("Error registrando mutación de mesa: {}", e))?;
+
+        // 5c. Encolar en sync_queue
+        let sync_payload = serde_json::json!({
+            "local_uuid": payload.order_uuid,
+            "status": "cancelled"
+        }).to_string();
+        
+        tx.execute(
+            "INSERT INTO sync_queue (company_id, branch_id, entity_type, entity_local_uuid, action, payload, created_at)
+             SELECT company_id, branch_id, 'order', ?1, 'update', ?2, CURRENT_TIMESTAMP
+             FROM local_orders WHERE local_uuid = ?1",
+            rusqlite::params![payload.order_uuid, sync_payload],
+        ).map_err(|e| format!("Error encolando en sync_queue: {}", e))?;
+    }
+
+    // 6. Confirmar con COMMIT
+    tx.commit().map_err(|e| format!("Error confirmando transacción: {}", e))?;
+    
+    Ok(payload.order_uuid)
+}
+
+pub fn transition_order_status(
+    state: tauri::State<crate::database::DbState>,
+    payload: TransitionOrderStatusPayload,
+) -> Result<String, String> {
+    let mut conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    
     // 1. Iniciar transacción IMMEDIATE (toma el lock de escritura al inicio)
     let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
         .map_err(|e| format!("Error iniciando transacción: {}", e))?;

@@ -40,6 +40,10 @@ describe("AUD-02: Concurrencia y Consistencia de Estado (Pago vs Cancelación)",
       `INSERT INTO local_tables (uuid, company_id, branch_id, table_number, status) VALUES (?, ?, ?, ?, 'available')`,
       ['table-aud03-fail', '10', '5', 99]
     );
+    await localDb.execute(
+      `INSERT INTO local_tables (uuid, company_id, branch_id, table_number, status) VALUES (?, ?, ?, ?, 'available')`,
+      ['table-aud01-paid-cancel', '10', '5', 100]
+    );
   });
 
   const createTestOrder = async (tableId: string) => {
@@ -248,5 +252,30 @@ describe("AUD-02: Concurrencia y Consistencia de Estado (Pago vs Cancelación)",
     expect(payload.user_id).toBeDefined();
     expect(typeof payload.terminal_id).toBe('string');
     expect(typeof payload.user_id).toBe('string');
+  });
+
+  it("AUD-01: DEBE rechazar la transición de 'paid' a 'cancelled' y no dejar efectos secundarios", async () => {
+    const { order, bill, companyId, branchId, itemPrice } = await createTestOrder('table-aud01-paid-cancel');
+    
+    // 1. Pagar el pedido primero
+    await localDb.transaction(async (db) => {
+      await (db as any).execute(`UPDATE local_bills SET paid_amount = ?, remaining_amount = ?, status = 'paid' WHERE local_uuid = ?`, [itemPrice, 0, bill.local_uuid]);
+      await OrderRepository.updateStatus(order.local_uuid, 'paid', db, order.status);
+      await (db as any).execute(`UPDATE local_tables SET status = 'available', current_order_uuid = NULL WHERE uuid = ?`, ['table-aud01-paid-cancel']);
+    });
+
+    // 2. Intentar cancelar pasando expected_status: 'paid' (simulando que el cliente cree que puede)
+    await expect(
+      OrderRepository.updateStatus(order.local_uuid, 'cancelled', undefined, 'paid')
+    ).rejects.toThrow(/No se puede modificar un pedido ya pagado|Conflicto/);
+
+    // 3. Verificar que NO hubo efectos secundarios (el pedido sigue 'paid')
+    const finalOrder = await OrderRepository.findByLocalUuid(order.local_uuid);
+    expect(finalOrder?.status).toBe('paid');
+    
+    // 4. Verificar que no se encoló una sincronización de cancelación
+    const syncQueue = await localDb.select('SELECT * FROM sync_queue WHERE entity_local_uuid = ?', [order.local_uuid]);
+    const cancelSync = syncQueue.find((s: any) => s.action === 'update' && s.payload.includes('cancelled'));
+    expect(cancelSync).toBeUndefined();
   });
 });
