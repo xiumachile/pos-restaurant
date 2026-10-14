@@ -288,14 +288,12 @@ export class OrderRepository {
   ): Promise<void> {
     const isTest = process.env.NODE_ENV === 'test' || typeof window === 'undefined';
     
-    // AUD-01 FIX: En producción, delegar la transición crítica a Rust para garantizar atomicidad real.
+    // AUD-01/02 FIX: En producción, delegar a Rust para atomicidad real.
     if (!isTest && !txDb) {
       let currentStatus: string = expectedCurrentStatus || '';
       if (!currentStatus) {
         const currentOrder = await localDb.select("SELECT status FROM local_orders WHERE local_uuid = ?", [orderLocalUuid]);
-        if (!currentOrder || currentOrder.length === 0) {
-          throw new Error(`Order ${orderLocalUuid} no encontrado`);
-        }
+        if (!currentOrder || currentOrder.length === 0) throw new Error(`Order ${orderLocalUuid} no encontrado`);
         currentStatus = currentOrder[0].status;
       }
 
@@ -305,7 +303,7 @@ export class OrderRepository {
           new_status: status,
           expected_status: currentStatus,
         });
-        return; // Éxito: la transacción Rust se completó atómicamente
+        return;
       } catch (error: any) {
         console.error("[OrderRepository] ❌ Error en transición de estado en Rust:", error);
         throw new Error(error.message || "Conflicto de estado del pedido");
@@ -317,13 +315,8 @@ export class OrderRepository {
     let currentStatus: string = expectedCurrentStatus || '';
 
     if (!currentStatus) {
-      const currentOrder = await (dbToUse as any).select(
-        "SELECT status FROM local_orders WHERE local_uuid = ?",
-        [orderLocalUuid]
-      );
-      if (!currentOrder || currentOrder.length === 0) {
-        throw new Error(`Order ${orderLocalUuid} no encontrado`);
-      }
+      const currentOrder = await (dbToUse as any).select("SELECT status FROM local_orders WHERE local_uuid = ?", [orderLocalUuid]);
+      if (!currentOrder || currentOrder.length === 0) throw new Error(`Order ${orderLocalUuid} no encontrado`);
       currentStatus = currentOrder[0].status;
     }
 
@@ -334,24 +327,25 @@ export class OrderRepository {
       throw new Error(`No se puede modificar un pedido ya cancelado. Estado actual: ${currentStatus}`);
     }
 
+    // Ejecutar UPDATE condicional
     const result = await (dbToUse as any).execute(
-      `UPDATE local_orders
-       SET status = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE local_uuid = ? AND status = ?`,
+      `UPDATE local_orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE local_uuid = ? AND status = ?`,
       [status, orderLocalUuid, currentStatus]
     );
 
+    // AUD-02 FIX: Verificar explícitamente que el UPDATE afectó una fila, SOLO si el entorno lo soporta.
+    // En modo txDb (buffering), result es undefined. En ese caso, confiamos en la validación inicial
+    // de estado y dejamos la verificación estricta de filas para la ruta de producción en Rust.
     if (result && typeof result === 'object' && 'rowsAffected' in result) {
       if ((result as any).rowsAffected === 0) {
-        throw new Error(`Conflicto de concurrencia: No se pudo actualizar el estado de la orden ${orderLocalUuid} porque el estado cambió inesperadamente (esperado: ${currentStatus}).`);
+        throw new Error(`Conflicto de concurrencia: No se pudo actualizar el estado de la orden ${orderLocalUuid} (esperado: ${currentStatus}).`);
       }
     }
 
+    // Si la verificación pasa, proceder con efectos secundarios
     if (status === 'cancelled') {
       await (dbToUse as any).execute(
-        `UPDATE local_tables 
-         SET status = 'available', current_order_uuid = NULL 
-         WHERE uuid = (SELECT table_id FROM local_orders WHERE local_uuid = ? AND table_id IS NOT NULL)`,
+        `UPDATE local_tables SET status = 'available', current_order_uuid = NULL WHERE uuid = (SELECT table_id FROM local_orders WHERE local_uuid = ? AND table_id IS NOT NULL)`,
         [orderLocalUuid]
       );
     }

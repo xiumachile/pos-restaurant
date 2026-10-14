@@ -16,7 +16,7 @@ export class LocalWriteCoordinator {
       
       const flush = async () => {
         if (pendingStatements.length > 0) {
-          await executeWriteStatements(pendingStatements); // <-- LLAMADA DIRECTA, SIN RECURSIÓN
+          await executeWriteStatements(pendingStatements);
           pendingStatements.length = 0;
         }
       };
@@ -26,9 +26,6 @@ export class LocalWriteCoordinator {
           pendingStatements.push({ sql, params });
         },
         select: async (sql: string, params: any[] = []) => {
-          // P1 FIX: Prevenir ruptura de atomicidad.
-          // Si ya hay escrituras pendientes, una lectura intermedia forzaría un flush() prematuro,
-          // rompiendo la capacidad de revertir toda la operación en caso de error posterior.
           if (pendingStatements.length > 0) {
             throw new Error(
               "INTEGRITY_VIOLATION: No se permite 'select' después de 'execute' dentro de la misma transacción local. " +
@@ -45,7 +42,7 @@ export class LocalWriteCoordinator {
         return result;
       } catch (error: any) {
         console.error("[LocalWriteCoordinator] ❌ Error en operación:", error?.message || error);
-        throw error;
+        throw error; // El flush no se ejecuta, garantizando rollback lógico del buffer
       }
     } finally {
       release!();
