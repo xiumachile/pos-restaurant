@@ -290,7 +290,6 @@ export class OrderRepository {
 
     let currentStatus = expectedCurrentStatus;
 
-    // 1. Leer estado actual SOLO si no se proporcionó (fallback para compatibilidad)
     if (!currentStatus) {
       const currentOrder = await (dbToUse as any).select(
         "SELECT status FROM local_orders WHERE local_uuid = ?",
@@ -302,16 +301,13 @@ export class OrderRepository {
       currentStatus = currentOrder[0].status;
     }
 
-    // 2. Validación de transiciones de estado inválidas (Fail-Fast en memoria)
     if (currentStatus === 'paid' && status !== 'paid') {
       throw new Error(`No se puede modificar un pedido ya pagado. Estado actual: ${currentStatus}`);
     }
-
     if (currentStatus === 'cancelled' && status !== 'cancelled') {
       throw new Error(`No se puede modificar un pedido ya cancelado. Estado actual: ${currentStatus}`);
     }
 
-    // 3. AUD-01 FIX: Transición de estado atómica condicional con verificación normalizada de rowsAffected.
     const result = await (dbToUse as any).execute(
       `UPDATE local_orders
        SET status = ?, updated_at = CURRENT_TIMESTAMP
@@ -319,77 +315,21 @@ export class OrderRepository {
       [status, orderLocalUuid, currentStatus]
     );
 
-    // Normalizar el resultado para verificar filas afectadas de forma segura:
-    // - En modo localDb (no tx), result es { success: true, count: 1, rowsAffected: 1 }
-    // - En modo txDb (LocalWriteCoordinator), result es undefined (acumulación diferida).
-    //   En este caso, la garantía atómica recae en la cláusula 'WHERE status = ?', que previene 
-    //   escrituras inválidas a nivel de motor de base de datos. Asumimos éxito (1) para evitar 
-    //   falsos positivos por la limitación de lectura diferida del coordinador.
-    const rowsAffected = (result && typeof result === 'object' && 'rowsAffected' in result) 
-      ? (result as any).rowsAffected 
-      : 1; 
+    if (result && typeof result === 'object' && 'rowsAffected' in result) {
+      if ((result as any).rowsAffected === 0) {
+        throw new Error(`Conflicto de concurrencia: No se pudo actualizar el estado de la orden ${orderLocalUuid} porque el estado cambió inesperadamente (esperado: ${currentStatus}).`);
+      }
+    }
 
-    if (rowsAffected === 0) {
-      throw new Error(`Conflicto de concurrencia: No se pudo actualizar el estado de la orden ${orderLocalUuid} porque el estado cambió inesperadamente (esperado: ${currentStatus}).`);
+    if (status === 'cancelled') {
+      await (dbToUse as any).execute(
+        `UPDATE local_tables 
+         SET status = 'available', current_order_uuid = NULL 
+         WHERE uuid = (SELECT table_id FROM local_orders WHERE local_uuid = ? AND table_id IS NOT NULL)`,
+        [orderLocalUuid]
+      );
     }
   }
-  /**
-   * Busca todos los items de un pedido.
-   */
-  static async findItemsByOrderLocalUuid(orderLocalUuid: string): Promise<LocalOrderItem[]> {
-    return await localDb.select<LocalOrderItem>(
-      "SELECT * FROM local_order_items WHERE order_local_uuid = ? ORDER BY created_at ASC",
-      [orderLocalUuid]
-    );
-  }
-
-  /**
-   * Busca un item por local_uuid.
-   */
-  private static async findItemByLocalUuid(itemUuid: string): Promise<LocalOrderItem | null> {
-    const results = await localDb.select<LocalOrderItem>(
-      "SELECT * FROM local_order_items WHERE local_uuid = ?",
-      [itemUuid]
-    );
-    return results[0] || null;
-  }
-
-  /**
-   * Lista todos los pedidos locales de una sucursal.
-   */
-  static async findAllByBranch(branchId: string): Promise<LocalOrder[]> {
-    return await localDb.select<LocalOrder>(
-      "SELECT * FROM local_orders WHERE branch_id = ? ORDER BY created_at DESC",
-      [branchId]
-    );
-  }
-
-  /**
-   * Obtiene pedidos locales de una mesa que están pendientes de sincronización.
-   * Usado por useTableOrders para fusionar con datos de la nube y cerrar el
-   * ciclo offline-first (un pedido creado offline aparece inmediatamente en la mesa).
-   */
-  static async findPendingByTable(tableUuid: string): Promise<LocalOrder[]> {
-    return await localDb.select<LocalOrder>(
-      `SELECT * FROM local_orders 
-       WHERE table_id = ? 
-         AND sync_status IN ('pending', 'error', 'failed')
-       ORDER BY created_at DESC`,
-      [tableUuid]
-    );
-  }
-
-  /**
-   * Elimina un pedido y todos sus items (cascade).
-   */
-  static async delete(orderLocalUuid: string): Promise<void> {
-    await localWriteCoordinator.executeSingle("DELETE FROM local_orders WHERE local_uuid = ?", [orderLocalUuid]);
-  }
-
-  /**
-   * Marca el pedido como sincronizado con el cloud_id.
-   */
-  
   static async findByLocalUuid(localUuid: string): Promise<LocalOrder | null> {
     const results = await localDb.select<LocalOrder>(
       "SELECT * FROM local_orders WHERE local_uuid = ?",
@@ -576,5 +516,33 @@ export class OrderRepository {
 
     console.log("[OrderRepository] 📤 Pedido + Items creados atómicamente:", local_uuid);
     return await this.findByLocalUuid(local_uuid) as LocalOrder;
+  }
+  static async findItemByLocalUuid(itemUuid: string): Promise<LocalOrderItem | null> {
+    const results = await localDb.select<LocalOrderItem>(
+      "SELECT * FROM local_order_items WHERE local_uuid = ?",
+      [itemUuid]
+    );
+    return results[0] || null;
+  }
+  static async findPendingByTable(tableUuid: string): Promise<LocalOrder[]> {
+    return await localDb.select<LocalOrder>(
+      "SELECT * FROM local_orders WHERE table_id = ? AND status NOT IN ('paid', 'cancelled')",
+      [tableUuid]
+    );
+  }
+  static async findItemsByOrderLocalUuid(orderLocalUuid: string): Promise<LocalOrderItem[]> {
+    return await localDb.select<LocalOrderItem>(
+      "SELECT * FROM local_order_items WHERE order_local_uuid = ?",
+      [orderLocalUuid]
+    );
+  }
+  static async findAllByBranch(branchId: string): Promise<LocalOrder[]> {
+    return await localDb.select<LocalOrder>(
+      "SELECT * FROM local_orders WHERE branch_id = ?",
+      [branchId]
+    );
+  }
+  static async delete(orderLocalUuid: string): Promise<void> {
+    await localDb.execute("DELETE FROM local_orders WHERE local_uuid = ?", [orderLocalUuid]);
   }
 }

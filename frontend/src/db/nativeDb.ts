@@ -84,7 +84,10 @@ export async function applyMigration(version: string, sqlScript: string): Promis
     db.exec(`INSERT OR IGNORE INTO migrations (version) VALUES ('${version}')`);
     return true;
   }
-  return await invoke<boolean>("apply_migration", { version, sqlScript });
+
+  // AUD-04 FIX: En producción, Rust carga el script de forma segura desde include_str!.
+  // No enviamos sqlScript para cumplir estrictamente con el contrato de seguridad.
+  return await invoke<boolean>("apply_migration", { version });
 }
 
 export async function executeReadQuery<T = any>(sql: string, params: (string | number | boolean | null)[] = []): Promise<T[]> {

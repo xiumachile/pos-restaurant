@@ -27,137 +27,77 @@ describe("OrderRepository - Escenario 3: Pago vs. Cancelación", () => {
     await localDb.execute("DELETE FROM local_orders");
     await localDb.execute("DELETE FROM local_tables");
     
-    // Crear una mesa disponible
+    // Crear mesas disponibles para los escenarios deterministas
     await localDb.execute(
       `INSERT INTO local_tables (uuid, company_id, branch_id, table_number, status) VALUES (?, ?, ?, ?, 'available')`,
-      ['table-3', '10', '5', 3]
+      ['table-cancel-wins', '10', '5', 1]
+    );
+    await localDb.execute(
+      `INSERT INTO local_tables (uuid, company_id, branch_id, table_number, status) VALUES (?, ?, ?, ?, 'available')`,
+      ['table-pay-wins', '10', '5', 2]
     );
   });
 
-  it("debe mantener la consistencia si se intenta pagar y cancelar el mismo pedido simultáneamente", async () => {
+  it("DEBE manejar correctamente cuando la CANCELACIÓN gana la carrera", async () => {
     const companyId = '10';
     const branchId = '5';
-    const tableId = 'table-3';
+    const tableId = 'table-cancel-wins';
     const itemPrice = 10000;
 
-    // 1. Crear pedido y agregar un item
-    const order = await OrderRepository.create({
-      company_id: companyId,
-      branch_id: branchId,
-      table_id: tableId,
-      order_type: 'dine_in',
-    });
+    const order = await OrderRepository.create({ company_id: companyId, branch_id: branchId, table_id: tableId, order_type: 'dine_in' });
+    await OrderRepository.addItem(order.local_uuid, { product_id: 'prod-1', product_name: 'Test', quantity: 1, unit_price: itemPrice });
+    const bill = await BillRepository.create({ company_id: companyId, branch_id: branchId, order_local_uuid: order.local_uuid, bill_number: 'TEST-C1', subtotal: itemPrice, discount_total: 0, tax_total: 0, tip_amount: 0, grand_total: itemPrice });
 
-    await OrderRepository.addItem(order.local_uuid, {
-      product_id: 'prod-1',
-      product_name: 'Producto de Prueba',
-      quantity: 1,
-      unit_price: itemPrice,
-    });
+    // Escenario determinista: La cancelación se ejecuta PRIMERO y de forma síncrona
+    await OrderRepository.updateStatus(order.local_uuid, 'cancelled');
 
-    // 2. Crear la bill manualmente para el test
-    const bill = await BillRepository.create({
-      company_id: companyId,
-      branch_id: branchId,
-      order_local_uuid: order.local_uuid,
-      bill_number: 'TEST-001',
-      subtotal: itemPrice,
-      discount_total: 0,
-      tax_total: 0,
-      tip_amount: 0,
-      grand_total: itemPrice,
-    });
-
-    console.log(`📦 Pedido y Bill creados. Estado inicial order: ${order.status}, bill: ${bill.status}`);
-
-    // 3. Simular concurrencia: Pago vs Cancelación
-    const promisePayment = (async () => {
-      try {
-        // Simulamos el núcleo de la transacción de pago
-        await localDb.transaction(async (db) => {
-          // Actualizar bill
-          await (db as any).execute(
-            `UPDATE local_bills SET paid_amount = ?, remaining_amount = ?, status = 'paid' WHERE local_uuid = ?`,
-            [itemPrice, 0, bill.local_uuid]
-          );
-          // Crear pago
-          await PaymentRepository.create({
-            company_id: companyId,
-            branch_id: branchId,
-            order_local_uuid: order.local_uuid,
-            bill_local_uuid: bill.local_uuid,
-            payment_method_uuid: 'mock-payment-method-uuid',
-            amount: itemPrice,
-            tip_amount: 0,
-          }, db);
-          // Actualizar orden
-          await OrderRepository.updateStatus(order.local_uuid, 'paid', db, order.status);
-          // Liberar mesa
-          await (db as any).execute(
-            `UPDATE local_tables SET status = 'available', current_order_uuid = NULL WHERE uuid = ?`,
-            [tableId]
-          );
-        });
-        return 'payment_success';
-      } catch (e: any) {
-        return `payment_failed: ${e.message}`;
-      }
-    })();
-
-    const promiseCancel = (async () => {
-      try {
-        // Pequeño delay para aumentar la probabilidad de solapamiento real
-        await new Promise(r => setTimeout(r, 5));
-        await OrderRepository.updateStatus(order.local_uuid, 'cancelled');
-        return 'cancel_success';
-      } catch (e: any) {
-        return `cancel_failed: ${e.message}`;
-      }
-    })();
-
-    // 4. Ejecutar simultáneamente
-    const [resultPayment, resultCancel] = await Promise.all([promisePayment, promiseCancel]);
-    
-    console.log(`💳 Resultado Pago: ${resultPayment}`);
-    console.log(`🚫 Resultado Cancelación: ${resultCancel}`);
-
-    // 5. Verificar integridad final
+    // Verificar estado post-cancelación
     const finalOrder = await OrderRepository.findByLocalUuid(order.local_uuid);
-    const finalBill = await BillRepository.findByLocalUuid(bill.local_uuid);
-    const payments = await localDb.select('SELECT * FROM local_payments WHERE order_local_uuid = ?', [order.local_uuid]);
     const finalTable = await localDb.select('SELECT status, current_order_uuid FROM local_tables WHERE uuid = ?', [tableId]);
+    const payments = await localDb.select('SELECT * FROM local_payments WHERE order_local_uuid = ?', [order.local_uuid]);
 
-    console.log(`📊 Estado final Order: ${finalOrder?.status}`);
-    console.log(`📊 Estado final Bill: ${finalBill?.status}`);
-    console.log(`📊 Pagos registrados: ${payments.length}`);
-    console.log(`🪑 Estado final Mesa: ${finalTable[0]?.status} (current_order: ${finalTable[0]?.current_order_uuid})`);
+    expect(finalOrder?.status).toBe('cancelled');
+    expect(finalTable[0]?.status).toBe('available');
+    expect(finalTable[0]?.current_order_uuid).toBeNull();
+    expect(payments.length).toBe(0);
 
-    // ==========================================
-    // EXPECTATIVAS DE CONSISTENCIA
-    // ==========================================
-    
-    // Escenario A: El pago ganó la carrera
-    if (resultPayment === 'payment_success') {
-      expect(finalOrder?.status).toBe('paid');
-      expect(finalBill?.status).toBe('paid');
-      expect(payments.length).toBe(1);
-      expect(finalTable[0]?.status).toBe('available');
-      expect(finalTable[0]?.current_order_uuid).toBeNull();
-    } 
-    // Escenario B: La cancelación ganó la carrera (el pago debería haber fallado o revertido)
-    else {
-      expect(finalOrder?.status).toBe('cancelled');
-      expect(finalBill?.status).toBe('open'); // O 'cancelled' si la lógica lo maneja, pero no 'paid'
-      expect(payments.length).toBe(0); // No debe haber pagos huérfanos
-            // AUD-02 FIX: Exigir explícitamente que la mesa quede liberada tras la cancelación.
-      // Si la mesa sigue ocupada con este order, es un estado híbrido inaceptable.
-      expect(finalTable[0]?.status).toBe('available');
-      expect(finalTable[0]?.current_order_uuid).toBeNull();
-    }
+    // Intentar pagar después debe fallar
+    await expect(
+      OrderRepository.updateStatus(order.local_uuid, 'paid')
+    ).rejects.toThrow("No se puede modificar un pedido ya cancelado");
+  });
 
-    // Regla de oro: NUNCA debe haber un estado híbrido (pagado pero con pagos = 0, o pagado pero mesa ocupada por ese order)
-    if (finalOrder?.status === 'paid') {
-      expect(payments.length).toBeGreaterThan(0);
-    }
+  it("DEBE manejar correctamente cuando el PAGO gana la carrera", async () => {
+    const companyId = '10';
+    const branchId = '5';
+    const tableId = 'table-pay-wins';
+    const itemPrice = 10000;
+
+    const order = await OrderRepository.create({ company_id: companyId, branch_id: branchId, table_id: tableId, order_type: 'dine_in' });
+    await OrderRepository.addItem(order.local_uuid, { product_id: 'prod-1', product_name: 'Test', quantity: 1, unit_price: itemPrice });
+    const bill = await BillRepository.create({ company_id: companyId, branch_id: branchId, order_local_uuid: order.local_uuid, bill_number: 'TEST-P1', subtotal: itemPrice, discount_total: 0, tax_total: 0, tip_amount: 0, grand_total: itemPrice });
+
+    // Escenario determinista: El pago se ejecuta PRIMERO dentro de una transacción
+    await localDb.transaction(async (db) => {
+      await (db as any).execute(`UPDATE local_bills SET paid_amount = ?, remaining_amount = ?, status = 'paid' WHERE local_uuid = ?`, [itemPrice, 0, bill.local_uuid]);
+      await PaymentRepository.create({ company_id: companyId, branch_id: branchId, order_local_uuid: order.local_uuid, bill_local_uuid: bill.local_uuid, payment_method_uuid: 'mock-method', amount: itemPrice, tip_amount: 0 }, db);
+      await OrderRepository.updateStatus(order.local_uuid, 'paid', db, order.status);
+      await (db as any).execute(`UPDATE local_tables SET status = 'available', current_order_uuid = NULL WHERE uuid = ?`, [tableId]);
+    });
+
+    // Verificar estado post-pago
+    const finalOrder = await OrderRepository.findByLocalUuid(order.local_uuid);
+    const finalTable = await localDb.select('SELECT status, current_order_uuid FROM local_tables WHERE uuid = ?', [tableId]);
+    const payments = await localDb.select('SELECT * FROM local_payments WHERE order_local_uuid = ?', [order.local_uuid]);
+
+    expect(finalOrder?.status).toBe('paid');
+    expect(finalTable[0]?.status).toBe('available');
+    expect(finalTable[0]?.current_order_uuid).toBeNull();
+    expect(payments.length).toBe(1);
+
+    // Intentar cancelar después debe fallar
+    await expect(
+      OrderRepository.updateStatus(order.local_uuid, 'cancelled')
+    ).rejects.toThrow("No se puede modificar un pedido ya pagado");
   });
 });

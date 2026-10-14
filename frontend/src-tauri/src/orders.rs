@@ -429,6 +429,11 @@ pub struct RegisterPaymentPayload {
     pub total_amount: i64,
     pub reference_code: Option<String>,
     pub notes: Option<String>,
+    // AUD-03 FIX: Contexto de terminal/usuario para el evento de auditoría atómico
+    #[serde(default)]
+    pub terminal_id: Option<String>,
+    #[serde(default)]
+    pub user_id: Option<String>,
 }
 
 #[tauri::command]
@@ -506,17 +511,17 @@ pub fn register_payment_tx(
     }
 
     // 2. Obtener datos de la orden para validar estado y actualizar
-    let order_data: Option<(String, String, i64, i64, Option<String>, String)> = tx
+    let order_data: Option<(String, String, i64, i64, Option<String>, String, Option<String>)> = tx
         .query_row(
-            "SELECT company_id, branch_id, CAST(grand_total AS INTEGER), CAST(amount_due AS INTEGER), table_id, status 
+            "SELECT company_id, branch_id, CAST(grand_total AS INTEGER), CAST(amount_due AS INTEGER), table_id, status, cloud_id
              FROM local_orders WHERE local_uuid = ?1",
             params![payload.order_local_uuid],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?)),
         )
         .optional()
         .map_err(|e| format!("Error consultando orden: {e}"))?;
 
-    let (company_id, branch_id, _grand_total, mut amount_due, table_id, order_status) =
+    let (company_id, branch_id, _grand_total, mut amount_due, table_id, order_status, order_cloud_id) =
         order_data.ok_or_else(|| "Orden no encontrada".to_string())?;
 
     if order_status == "cancelled" {
@@ -595,6 +600,40 @@ pub fn register_payment_tx(
         params![payload.local_uuid, company_id, branch_id, payload.local_uuid, sync_payload.to_string()],
     )
     .map_err(|e| format!("Error encolando sync de pago: {e}"))?;
+
+    // AUD-03 FIX: Registrar evento de auditoría en la MISMA transacción atómica.
+    // Si esto falla, el pago y el sync_queue se revierten, garantizando integridad financiera.
+    let event_uuid = uuid::Uuid::new_v4().to_string();
+    let audit_idempotency_key = uuid::Uuid::new_v4().to_string();
+    let payload_json = serde_json::json!({
+        "amount": payload.amount,
+        "payment_method_uuid": payload.payment_method_uuid,
+        "tip_amount": payload.tip_amount,
+        "reference_code": payload.reference_code,
+        "notes": payload.notes,
+        "order_local_uuid": payload.order_local_uuid,
+        "order_cloud_id": order_cloud_id,
+    }).to_string();
+
+    tx.execute(
+        "INSERT INTO offline_events (
+            event_uuid, idempotency_key, company_id, branch_id, terminal_id, user_id,
+            entity_type, entity_uuid, event_type, payload, created_at, notes, sync_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, 'pending')",
+        rusqlite::params![
+            event_uuid,
+            audit_idempotency_key,
+            company_id,
+            branch_id,
+            payload.terminal_id,
+            payload.user_id,
+            "payment",
+            payload.local_uuid,
+            "CREATE_PAYMENT",
+            payload_json,
+            "Pago creado atómicamente en Rust"
+        ],
+    ).map_err(|e| format!("Error registrando evento de auditoría: {}", e))?;
 
     tx.commit().map_err(|e| format!("Error en COMMIT: {e}"))?;
 
@@ -733,6 +772,11 @@ mod payment_idempotency_tests {
       table_uuid TEXT PRIMARY KEY, pending_status TEXT NOT NULL, pending_order_uuid TEXT,
       company_id TEXT NOT NULL, branch_id TEXT NOT NULL, action TEXT DEFAULT 'update',
       payload TEXT DEFAULT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+    CREATE TABLE offline_events (
+      event_uuid TEXT PRIMARY KEY, idempotency_key TEXT NOT NULL, company_id TEXT NOT NULL,
+      branch_id TEXT NOT NULL, terminal_id TEXT, user_id TEXT, entity_type TEXT NOT NULL,
+      entity_uuid TEXT NOT NULL, event_type TEXT NOT NULL, payload TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      notes TEXT, sync_status TEXT DEFAULT 'pending');
     ";
 
     fn db() -> Connection {
@@ -768,6 +812,8 @@ mod payment_idempotency_tests {
             total_amount: 10000,
             reference_code: None,
             notes: None,
+            terminal_id: None,
+            user_id: None,
         };
 
         // Primer intento: debe crear el pago
@@ -806,6 +852,8 @@ mod payment_idempotency_tests {
             total_amount: 10000,
             reference_code: None,
             notes: None,
+            terminal_id: None,
+            user_id: None,
         };
 
         register_payment_tx(&mut state.0.lock().unwrap(), payload1).unwrap();
@@ -821,6 +869,8 @@ mod payment_idempotency_tests {
             total_amount: 5000,
             reference_code: None,
             notes: None,
+            terminal_id: None,
+            user_id: None,
         };
 
         let err = register_payment_tx(&mut state.0.lock().unwrap(), payload2).unwrap_err();
