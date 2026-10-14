@@ -292,7 +292,7 @@ mod tests {
         CreateOrderPayload {
             company_id: "c1".into(),
             branch_id: "b1".into(),
-            terminal_id: None,
+            terminal_id: "test-terminal".to_string(),
             table_id: table.map(String::from),
             order_type: None,
             guest_count: None,
@@ -759,7 +759,7 @@ mod payment_idempotency_tests {
 
     const SCHEMA: &str = "
     CREATE TABLE local_orders (
-      local_uuid TEXT PRIMARY KEY, company_id TEXT NOT NULL, branch_id TEXT NOT NULL,
+      local_uuid TEXT PRIMARY KEY, cloud_id TEXT, company_id TEXT NOT NULL, branch_id TEXT NOT NULL,
       order_number TEXT NOT NULL, order_type TEXT DEFAULT 'dine_in', status TEXT DEFAULT 'draft',
       grand_total INTEGER NOT NULL DEFAULT 0, amount_due INTEGER NOT NULL DEFAULT 0,
       table_id TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
@@ -820,8 +820,8 @@ mod payment_idempotency_tests {
             total_amount: 10000,
             reference_code: None,
             notes: None,
-            terminal_id: None,
-            user_id: None,
+            terminal_id: "test-terminal".to_string(),
+            user_id: "test-user".to_string(),
         };
 
         // Primer intento: debe crear el pago
@@ -860,8 +860,8 @@ mod payment_idempotency_tests {
             total_amount: 10000,
             reference_code: None,
             notes: None,
-            terminal_id: None,
-            user_id: None,
+            terminal_id: "test-terminal".to_string(),
+            user_id: "test-user".to_string(),
         };
 
         register_payment_tx(&mut state.0.lock().unwrap(), payload1).unwrap();
@@ -877,8 +877,8 @@ mod payment_idempotency_tests {
             total_amount: 5000,
             reference_code: None,
             notes: None,
-            terminal_id: None,
-            user_id: None,
+            terminal_id: "test-terminal".to_string(),
+            user_id: "test-user".to_string(),
         };
 
         let err = register_payment_tx(&mut state.0.lock().unwrap(), payload2).unwrap_err();
