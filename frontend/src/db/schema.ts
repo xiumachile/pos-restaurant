@@ -1,5 +1,7 @@
 // @ts-nocheck
 import { localDb } from "./localDb";
+import migrationsChecksumMigration from './migrations/022_add_migrations_checksum.sql?raw';
+
 import initialMigration from "./migrations/001_initial.sql?raw";
 import tableMutationsMigration from "./migrations/002_table_local_mutations.sql?raw";
 import backendIdMigration from "./migrations/003_add_backend_id_to_categories.sql?raw";
@@ -48,7 +50,8 @@ export async function runMigrations(): Promise<void> {
     `);
 
     // 2. Aplicar migraciones secuencialmente. Rust verifica si ya fueron aplicadas.
-    await applyMigration("001", initialMigration);
+    await applyMigration("001", initialMigration);    await applyMigration('022', migrationsChecksumMigration); // AUD-04 FIX
+
     await applyMigration("002", tableMutationsMigration);
     await applyMigration("003", backendIdMigration);
     await applyMigration("004", localBillsMigration);

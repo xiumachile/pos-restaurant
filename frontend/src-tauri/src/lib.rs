@@ -167,7 +167,7 @@ fn get_trusted_migration(version: &str) -> Option<&'static str> {
         "019" => Some(include_str!("../../src/db/migrations/019_fix_table_status_pending.sql")),
         "020" => Some(include_str!("../../src/db/migrations/020_clean_table_mutations.sql")),
         "021" => Some(include_str!("../../src/db/migrations/021_enforce_table_mutation_schema.sql")),
-        "022" => Some("ALTER TABLE migrations ADD COLUMN checksum TEXT;"), // AUD-04 FIX: Reparar bases antiguas
+        "022" => Some(include_str!("../../src/db/migrations/022_add_migrations_checksum.sql")), // AUD-04 FIX: Reparar bases antiguas
         _ => None, // Cualquier otra versión será rechazada por seguridad
     }
 }
