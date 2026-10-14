@@ -256,10 +256,13 @@ describe("AUD: Concurrencia y Consistencia de Estado (Pago vs Cancelación)", ()
 
     try {
       // 1. Limpiar y crear esquema mínimo compartido
-      conn1.exec(`DROP TABLE IF EXISTS local_orders; DROP TABLE IF EXISTS local_tables;`);
+      conn1.exec(`DROP TABLE IF EXISTS local_orders; DROP TABLE IF EXISTS local_tables; DROP TABLE IF EXISTS local_payments; DROP TABLE IF EXISTS table_local_mutations; DROP TABLE IF EXISTS sync_queue;`);
       conn1.exec(`
         CREATE TABLE local_orders (local_uuid TEXT PRIMARY KEY, status TEXT);
         CREATE TABLE local_tables (uuid TEXT PRIMARY KEY, status TEXT, current_order_uuid TEXT);
+        CREATE TABLE local_payments (local_uuid TEXT PRIMARY KEY, order_local_uuid TEXT, amount INTEGER);
+        CREATE TABLE table_local_mutations (table_uuid TEXT PRIMARY KEY, pending_status TEXT);
+        CREATE TABLE sync_queue (id TEXT PRIMARY KEY, entity_local_uuid TEXT, action TEXT);
         INSERT INTO local_orders (local_uuid, status) VALUES ('race-order', 'confirmed');
         INSERT INTO local_tables (uuid, status, current_order_uuid) VALUES ('race-table', 'occupied', 'race-order');
       `);
@@ -280,6 +283,8 @@ describe("AUD: Concurrencia y Consistencia de Estado (Pago vs Cancelación)", ()
           const stmt = conn1.prepare("UPDATE local_orders SET status = 'paid' WHERE local_uuid = 'race-order' AND status = 'confirmed'");
           const result = stmt.run();
           if (result.changes === 1) {
+            // AUD-02 FIX: Simular la creación real del pago dentro de la misma transacción ganadora
+            conn1.prepare("INSERT INTO local_payments (local_uuid, order_local_uuid, amount) VALUES ('pay-race-1', 'race-order', 10000)").run();
             conn1.exec("COMMIT");
             winner = 'payment';
           } else {
@@ -316,21 +321,33 @@ describe("AUD: Concurrencia y Consistencia de Estado (Pago vs Cancelación)", ()
       // 4. Ejecutar simultáneamente
       await Promise.all([doPayment(), doCancel()]);
 
-      // 5. Verificaciones
+      // 5. Verificaciones exhaustivas de efectos secundarios
       expect(winner).toMatch(/payment|cancel/);
       
       const finalOrder = conn1.prepare("SELECT status FROM local_orders WHERE local_uuid = 'race-order'").get() as any;
+      const finalTable = conn1.prepare("SELECT status, current_order_uuid FROM local_tables WHERE uuid = 'race-table'").get() as any;
       
       if (winner === 'payment') {
         expect(finalOrder.status).toBe('paid');
+        // La mesa no debe liberarse en este flujo simplificado (solo cancelación libera)
+        expect(finalTable.status).toBe('occupied');
+        expect(finalTable.current_order_uuid).toBe('race-order');
       } else {
         expect(finalOrder.status).toBe('cancelled');
-        const finalTable = conn1.prepare("SELECT status FROM local_tables WHERE uuid = 'race-table'").get() as any;
         expect(finalTable.status).toBe('available');
+        expect(finalTable.current_order_uuid).toBeNull();
+      }
+      
+      // Verificar que no hay efectos huérfanos del perdedor
+      const paymentCount = conn1.prepare("SELECT COUNT(*) as count FROM local_payments WHERE order_local_uuid = 'race-order'").get() as any;
+      if (winner === 'payment') {
+        expect(paymentCount.count).toBe(1); // Solo el ganador dejó rastro
+      } else {
+        expect(paymentCount.count).toBe(0); // El perdedor no dejó pagos huérfanos
       }
     } finally {
       // Limpiar al final para no afectar otras pruebas si se reutiliza el URI
-      try { conn1.exec(`DROP TABLE IF EXISTS local_orders; DROP TABLE IF EXISTS local_tables;`); } catch(e) {}
+      try { conn1.exec(`DROP TABLE IF EXISTS local_orders; DROP TABLE IF EXISTS local_tables; DROP TABLE IF EXISTS local_payments; DROP TABLE IF EXISTS table_local_mutations; DROP TABLE IF EXISTS sync_queue;`); } catch(e) {}
       conn1.close();
       conn2.close();
     }

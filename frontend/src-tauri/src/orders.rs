@@ -964,9 +964,15 @@ pub fn transition_order_status(
 
         // 5b. Registrar mutación de mesa
         tx.execute(
-            "INSERT INTO table_local_mutations (table_uuid, pending_status, pending_order_uuid, company_id, branch_id, action, payload, created_at)
-             SELECT table_id, 'available', NULL, company_id, branch_id, 'update', json_object('status', 'available', 'current_order_uuid', null), CURRENT_TIMESTAMP
-             FROM local_orders WHERE local_uuid = ?1 AND table_id IS NOT NULL",
+            "INSERT INTO table_local_mutations (table_uuid, pending_status, pending_order_uuid, company_id, branch_id, action, payload, created_at, updated_at)
+             SELECT table_id, 'available', NULL, company_id, branch_id, 'update', json_object('status', 'available', 'current_order_uuid', null), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+             FROM local_orders WHERE local_uuid = ?1 AND table_id IS NOT NULL
+             ON CONFLICT(table_uuid) DO UPDATE SET
+               pending_status = excluded.pending_status,
+               pending_order_uuid = excluded.pending_order_uuid,
+               action = excluded.action,
+               payload = excluded.payload,
+               updated_at = CURRENT_TIMESTAMP",
             rusqlite::params![payload.order_uuid],
         ).map_err(|e| format!("Error registrando mutación de mesa: {}", e))?;
 
@@ -976,11 +982,12 @@ pub fn transition_order_status(
             "status": "cancelled"
         }).to_string();
         
+        let sync_id = format!("sync_cancel_{}", payload.order_uuid);
         tx.execute(
-            "INSERT INTO sync_queue (company_id, branch_id, entity_type, entity_local_uuid, action, payload, created_at)
-             SELECT company_id, branch_id, 'order', ?1, 'update', ?2, CURRENT_TIMESTAMP
+            "INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid, action, payload, created_at)
+             SELECT ?3, company_id, branch_id, 'order', ?1, 'update', ?2, CURRENT_TIMESTAMP
              FROM local_orders WHERE local_uuid = ?1",
-            rusqlite::params![payload.order_uuid, sync_payload],
+            rusqlite::params![payload.order_uuid, sync_payload, sync_id],
         ).map_err(|e| format!("Error encolando en sync_queue: {}", e))?;
     }
 
@@ -988,4 +995,93 @@ pub fn transition_order_status(
     tx.commit().map_err(|e| format!("Error confirmando transacción: {}", e))?;
     
     Ok(payload.order_uuid)
+}
+
+#[cfg(test)]
+mod cancel_with_pending_mutation_tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    fn setup_db() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("
+            CREATE TABLE local_orders (
+                local_uuid TEXT PRIMARY KEY, cloud_id TEXT, company_id TEXT NOT NULL, branch_id TEXT NOT NULL,
+                table_id TEXT, status TEXT DEFAULT 'confirmed',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE local_tables (
+                uuid TEXT PRIMARY KEY, status TEXT DEFAULT 'available', current_order_uuid TEXT
+            );
+            CREATE TABLE table_local_mutations (
+                table_uuid TEXT PRIMARY KEY,
+                pending_status TEXT,
+                pending_order_uuid TEXT,
+                company_id TEXT,
+                branch_id TEXT,
+                action TEXT,
+                payload TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE sync_queue (
+                id TEXT PRIMARY KEY,
+                company_id TEXT,
+                branch_id TEXT,
+                entity_type TEXT,
+                entity_local_uuid TEXT,
+                action TEXT,
+                payload TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+        ").unwrap();
+        conn
+    }
+
+    #[test]
+    fn cancel_order_with_existing_mutation_succeeds() {
+        let conn = setup_db();
+        
+        conn.execute(
+            "INSERT INTO local_tables (uuid, status, current_order_uuid) VALUES ('table-1', 'occupied', 'order-1')",
+            [],
+        ).unwrap();
+        
+        conn.execute(
+            "INSERT INTO local_orders (local_uuid, company_id, branch_id, table_id, status) VALUES ('order-1', 'comp-1', 'branch-1', 'table-1', 'confirmed')",
+            [],
+        ).unwrap();
+        
+        // Simular mutación pendiente existente
+        conn.execute(
+            "INSERT INTO table_local_mutations (table_uuid, pending_status, pending_order_uuid, company_id, branch_id, action, payload) 
+             VALUES ('table-1', 'occupied', 'order-1', 'comp-1', 'branch-1', 'update', '{\"status\":\"occupied\"}')",
+            [],
+        ).unwrap();
+        
+        // Ejecutar la lógica de actualización con ON CONFLICT (la misma que usamos en la corrección)
+        let result = conn.execute(
+            "INSERT INTO table_local_mutations (table_uuid, pending_status, pending_order_uuid, company_id, branch_id, action, payload, created_at, updated_at)
+             SELECT table_id, 'available', NULL, company_id, branch_id, 'update', json_object('status', 'available', 'current_order_uuid', null), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+             FROM local_orders WHERE local_uuid = ?1 AND table_id IS NOT NULL
+             ON CONFLICT(table_uuid) DO UPDATE SET
+               pending_status = excluded.pending_status,
+               pending_order_uuid = excluded.pending_order_uuid,
+               action = excluded.action,
+               payload = excluded.payload,
+               updated_at = CURRENT_TIMESTAMP",
+            rusqlite::params!["order-1"],
+        );
+        
+        assert!(result.is_ok(), "La cancelación debe actualizar la mutación existente sin fallar por conflicto de clave primaria");
+        
+        let mutation: (String, String) = conn.query_row(
+            "SELECT pending_status, action FROM table_local_mutations WHERE table_uuid = 'table-1'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        ).unwrap();
+        
+        assert_eq!(mutation.0, "available");
+        assert_eq!(mutation.1, "update");
+    }
 }
