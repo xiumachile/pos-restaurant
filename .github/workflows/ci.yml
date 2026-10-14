@@ -201,10 +201,10 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-  # ═══════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════
   # GATE: Todos los checks deben pasar para permitir merge
   # ═══════════════════════════════════════════════════════════════
-    ci-gate:
+  ci-gate:
     name: ✅ CI Gate (Required for merge)
     runs-on: ubuntu-latest
     needs: [backend-tests, frontend-tests, rust-check, build-check]
