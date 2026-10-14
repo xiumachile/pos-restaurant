@@ -144,7 +144,7 @@ jobs:
   # ═══════════════════════════════════════════════════════════════
   # RUST CHECK (Tauri Backend)
   # ═══════════════════════════════════════════════════════════════
-   rust-check:
+  rust-check:
     name: 🦀 Rust Check (Tauri)
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -215,7 +215,7 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-    # ═══════════════════════════════════════════════════════════════
+  # ═══════════════════════════════════════════════════════════════
   # GATE: Todos los checks deben pasar para permitir merge
   # ═══════════════════════════════════════════════════════════════
   ci-gate:
