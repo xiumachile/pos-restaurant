@@ -108,7 +108,8 @@ pub fn run() {
             orders::create_local_order,
             orders::register_local_payment,
             orders::enqueue_sync_event,
-            orders::get_pending_orders
+            orders::get_pending_orders,
+            orders::transition_order_status // AUD-01 FIX: Comando de transición atómica
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -166,6 +167,7 @@ fn get_trusted_migration(version: &str) -> Option<&'static str> {
         "019" => Some(include_str!("../../src/db/migrations/019_fix_table_status_pending.sql")),
         "020" => Some(include_str!("../../src/db/migrations/020_clean_table_mutations.sql")),
         "021" => Some(include_str!("../../src/db/migrations/021_enforce_table_mutation_schema.sql")),
+        "022" => Some("ALTER TABLE migrations ADD COLUMN checksum TEXT;"), // AUD-04 FIX: Reparar bases antiguas
         _ => None, // Cualquier otra versión será rechazada por seguridad
     }
 }
