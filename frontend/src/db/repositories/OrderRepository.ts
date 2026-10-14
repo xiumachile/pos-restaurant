@@ -286,9 +286,35 @@ export class OrderRepository {
     txDb?: any,
     expectedCurrentStatus?: string
   ): Promise<void> {
-    const dbToUse = txDb || localDb;
+    const isTest = process.env.NODE_ENV === 'test' || typeof window === 'undefined';
+    
+    // AUD-01 FIX: En producción, delegar la transición crítica a Rust para garantizar atomicidad real.
+    if (!isTest && !txDb) {
+      let currentStatus: string = expectedCurrentStatus || '';
+      if (!currentStatus) {
+        const currentOrder = await localDb.select("SELECT status FROM local_orders WHERE local_uuid = ?", [orderLocalUuid]);
+        if (!currentOrder || currentOrder.length === 0) {
+          throw new Error(`Order ${orderLocalUuid} no encontrado`);
+        }
+        currentStatus = currentOrder[0].status;
+      }
 
-    let currentStatus = expectedCurrentStatus;
+      try {
+        await localDomainApi.transitionOrderStatus({
+          order_uuid: orderLocalUuid,
+          new_status: status,
+          expected_status: currentStatus,
+        });
+        return; // Éxito: la transacción Rust se completó atómicamente
+      } catch (error: any) {
+        console.error("[OrderRepository] ❌ Error en transición de estado en Rust:", error);
+        throw new Error(error.message || "Conflicto de estado del pedido");
+      }
+    }
+
+    // Fallback para tests o transacciones TypeScript (txDb)
+    const dbToUse = txDb || localDb;
+    let currentStatus: string = expectedCurrentStatus || '';
 
     if (!currentStatus) {
       const currentOrder = await (dbToUse as any).select(

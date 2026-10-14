@@ -1,4 +1,10 @@
 import { invoke } from '@tauri-apps/api/core';
+export interface TransitionOrderStatusPayload {
+  order_uuid: string;
+  new_status: string;
+  expected_status: string;
+}
+
 
 export interface CreateOrderPayload {
   company_id: string;
@@ -42,6 +48,7 @@ export interface EnqueueSyncEventPayload {
 }
 
 export const localDomainApi = {
+  
   async createOrder(payload: CreateOrderPayload): Promise<{ local_uuid: string }> {
     return await invoke<{ local_uuid: string }>('create_local_order', { payload });
   },
@@ -65,5 +72,9 @@ export const localDomainApi = {
 
   async printRaw(ip: string, port: number, dataBase64: string): Promise<number> {
     return await invoke<number>('print_raw', { ip, port, data: dataBase64 });
+  },
+
+  async transitionOrderStatus(payload: TransitionOrderStatusPayload): Promise<string> {
+    return await invoke<string>('transition_order_status', { payload });
   }
 };

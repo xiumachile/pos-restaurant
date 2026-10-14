@@ -877,3 +877,50 @@ mod payment_idempotency_tests {
         assert!(err.contains("Conflicto de idempotencia"));
     }
 }
+
+#[derive(Debug, Deserialize)]
+pub struct TransitionOrderStatusPayload {
+    pub order_uuid: String,
+    pub new_status: String,
+    pub expected_status: String,
+}
+
+#[tauri::command]
+pub fn transition_order_status(
+    state: tauri::State<crate::database::DbState>,
+    payload: TransitionOrderStatusPayload,
+) -> Result<String, String> {
+    let mut conn = state.0.lock().map_err(|e| format!("Lock error: {}", e))?;
+    
+    // 1. Iniciar transacción IMMEDIATE (toma el lock de escritura al inicio)
+    let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+        .map_err(|e| format!("Error iniciando transacción: {}", e))?;
+
+    // 2. Ejecutar UPDATE condicional
+    let changed = tx.execute(
+        "UPDATE local_orders
+         SET status = ?1, updated_at = CURRENT_TIMESTAMP
+         WHERE local_uuid = ?2 AND status = ?3",
+        rusqlite::params![payload.new_status, payload.order_uuid, payload.expected_status],
+    ).map_err(|e| format!("Error ejecutando UPDATE: {}", e))?;
+
+    // 3. Comprobar que se modificó exactamente una fila
+    if changed != 1 {
+        return Err(format!("Conflicto de estado del pedido: se esperaba '{}', pero no se pudo actualizar", payload.expected_status));
+    }
+
+    // 4. Si se cancela, liberar la mesa atómicamente dentro de la misma transacción
+    if payload.new_status == "cancelled" {
+        tx.execute(
+            "UPDATE local_tables 
+             SET status = 'available', current_order_uuid = NULL 
+             WHERE uuid = (SELECT table_id FROM local_orders WHERE local_uuid = ?1 AND table_id IS NOT NULL)",
+            rusqlite::params![payload.order_uuid],
+        ).map_err(|e| format!("Error liberando mesa: {}", e))?;
+    }
+
+    // 5. Confirmar con COMMIT únicamente si todo salió bien
+    tx.commit().map_err(|e| format!("Error confirmando transacción: {}", e))?;
+    
+    Ok(payload.order_uuid)
+}

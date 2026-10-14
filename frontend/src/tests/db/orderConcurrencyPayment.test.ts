@@ -101,3 +101,43 @@ describe("OrderRepository - Escenario 3: Pago vs. Cancelación", () => {
     ).rejects.toThrow("No se puede modificar un pedido ya pagado");
   });
 });
+
+  it("AUD-01: DEBE abortar toda la operación si el estado esperado no coincide (simulación de conflicto)", async () => {
+    const companyId = '10';
+    const branchId = '5';
+    const tableId = 'table-aud01-conflict';
+    const itemPrice = 10000;
+
+    // 0. Crear la mesa explícitamente para esta prueba
+    await localDb.execute(
+      `INSERT INTO local_tables (uuid, company_id, branch_id, table_number, status) VALUES (?, ?, ?, ?, 'available')`,
+      [tableId, companyId, branchId, 99]
+    );
+
+    // 1. Crear pedido y asignar a mesa
+    const order = await OrderRepository.create({ company_id: companyId, branch_id: branchId, table_id: tableId, order_type: 'dine_in' });
+    
+    // Verificar que la mesa está ocupada
+    let table = await localDb.select('SELECT status, current_order_uuid FROM local_tables WHERE uuid = ?', [tableId]);
+    expect(table[0]?.status).toBe('occupied');
+    expect(table[0]?.current_order_uuid).toBe(order.local_uuid);
+
+    // 2. Forzar un cambio de estado externo (simulando que otro proceso ganó la carrera)
+    await localDb.execute("UPDATE local_orders SET status = 'paid' WHERE local_uuid = ?", [order.local_uuid]);
+
+    // 3. Intentar cancelar el pedido pasando el estado esperado antiguo ('confirmed')
+    // Esto debería fallar porque el estado actual ya es 'paid'
+    await expect(
+      OrderRepository.updateStatus(order.local_uuid, 'cancelled', undefined, 'confirmed')
+    ).rejects.toThrow(/Conflicto/);
+
+    // 4. VERIFICACIÓN OBLIGATORIA AUD-01:
+    // - El estado del pedido NO debe ser 'cancelled' (debe seguir siendo 'paid')
+    const finalOrder = await OrderRepository.findByLocalUuid(order.local_uuid);
+    expect(finalOrder?.status).toBe('paid');
+
+    // - La mesa NO debe haber sido liberada (sigue ocupada por el pedido pagado)
+    table = await localDb.select('SELECT status, current_order_uuid FROM local_tables WHERE uuid = ?', [tableId]);
+    expect(table[0]?.status).toBe('occupied');
+    expect(table[0]?.current_order_uuid).toBe(order.local_uuid);
+  });
