@@ -241,4 +241,98 @@ describe("AUD: Concurrencia y Consistencia de Estado (Pago vs Cancelación)", ()
     expect(typeof payload.terminal_id).toBe('string');
     expect(typeof payload.user_id).toBe('string');
   });
+
+  it("AUD-02: DEBE manejar carrera real entre dos conexiones SQLite independientes", async () => {
+    const sqlite3 = require('better-sqlite3');
+    // Usamos un URI único para esta prueba para no interferir con la DB principal de Vitest
+    const dbUri = 'file:memory_concurrency_test?cache=shared';
+    
+    const conn1 = new sqlite3(dbUri, { readonly: false });
+    const conn2 = new sqlite3(dbUri, { readonly: false });
+
+    // Configurar busy_timeout para que las conexiones esperen por el lock
+    conn1.pragma('busy_timeout = 5000');
+    conn2.pragma('busy_timeout = 5000');
+
+    try {
+      // 1. Limpiar y crear esquema mínimo compartido
+      conn1.exec(`DROP TABLE IF EXISTS local_orders; DROP TABLE IF EXISTS local_tables;`);
+      conn1.exec(`
+        CREATE TABLE local_orders (local_uuid TEXT PRIMARY KEY, status TEXT);
+        CREATE TABLE local_tables (uuid TEXT PRIMARY KEY, status TEXT, current_order_uuid TEXT);
+        INSERT INTO local_orders (local_uuid, status) VALUES ('race-order', 'confirmed');
+        INSERT INTO local_tables (uuid, status, current_order_uuid) VALUES ('race-table', 'occupied', 'race-order');
+      `);
+
+      let winner = '';
+      let loserError = '';
+
+      // Helper seguro para rollback
+      const safeRollback = (conn: any) => {
+        try { conn.exec("ROLLBACK"); } catch (e) { /* Ignorar si ya fue revertido */ }
+      };
+
+      // 2. Transacción de pago en Conn1
+      const doPayment = async () => {
+        try {
+          conn1.exec("BEGIN IMMEDIATE");
+          await new Promise(r => setTimeout(r, 20));
+          const stmt = conn1.prepare("UPDATE local_orders SET status = 'paid' WHERE local_uuid = 'race-order' AND status = 'confirmed'");
+          const result = stmt.run();
+          if (result.changes === 1) {
+            conn1.exec("COMMIT");
+            winner = 'payment';
+          } else {
+            safeRollback(conn1);
+            loserError = 'payment_conflict';
+          }
+        } catch (e: any) {
+          safeRollback(conn1);
+          loserError = 'payment_error: ' + e.message;
+        }
+      };
+
+      // 3. Transacción de cancelación en Conn2
+      const doCancel = async () => {
+        try {
+          conn2.exec("BEGIN IMMEDIATE");
+          await new Promise(r => setTimeout(r, 20));
+          const stmt = conn2.prepare("UPDATE local_orders SET status = 'cancelled' WHERE local_uuid = 'race-order' AND status = 'confirmed'");
+          const result = stmt.run();
+          if (result.changes === 1) {
+            conn2.exec("UPDATE local_tables SET status = 'available', current_order_uuid = NULL WHERE uuid = 'race-table'");
+            conn2.exec("COMMIT");
+            winner = 'cancel';
+          } else {
+            safeRollback(conn2);
+            loserError = 'cancel_conflict';
+          }
+        } catch (e: any) {
+          safeRollback(conn2);
+          loserError = 'cancel_error: ' + e.message;
+        }
+      };
+
+      // 4. Ejecutar simultáneamente
+      await Promise.all([doPayment(), doCancel()]);
+
+      // 5. Verificaciones
+      expect(winner).toMatch(/payment|cancel/);
+      
+      const finalOrder = conn1.prepare("SELECT status FROM local_orders WHERE local_uuid = 'race-order'").get() as any;
+      
+      if (winner === 'payment') {
+        expect(finalOrder.status).toBe('paid');
+      } else {
+        expect(finalOrder.status).toBe('cancelled');
+        const finalTable = conn1.prepare("SELECT status FROM local_tables WHERE uuid = 'race-table'").get() as any;
+        expect(finalTable.status).toBe('available');
+      }
+    } finally {
+      // Limpiar al final para no afectar otras pruebas si se reutiliza el URI
+      try { conn1.exec(`DROP TABLE IF EXISTS local_orders; DROP TABLE IF EXISTS local_tables;`); } catch(e) {}
+      conn1.close();
+      conn2.close();
+    }
+  });
 });

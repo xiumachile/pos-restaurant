@@ -913,6 +913,22 @@ pub fn transition_order_status(
 
     let current_status = current_status.ok_or_else(|| format!("Pedido {} no encontrado", payload.order_uuid))?;
 
+    // AUD-01 FIX: Matriz estricta de transiciones de estado permitidas
+    let is_valid_transition = match (current_status.as_str(), payload.new_status.as_str()) {
+        ("confirmed", "paid") => true,
+        ("confirmed", "cancelled") => true,
+        ("pending", "confirmed") => true,
+        ("pending", "cancelled") => true,
+        _ => false,
+    };
+
+    if !is_valid_transition {
+        return Err(format!(
+            "Transición de estado inválida: de '{}' a '{}'",
+            current_status, payload.new_status
+        ));
+    }
+
     // 3. Validar matriz de transiciones permitidas (AUD-01 FIX)
     if current_status == "paid" && payload.new_status == "cancelled" {
         return Err("No se puede cancelar un pedido que ya está pagado".to_string());
