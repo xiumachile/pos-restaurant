@@ -108,6 +108,8 @@ export class PaymentRepository {
           total_amount: payload.amount, // P0 Fix: Total pagado (venta + propina)
           reference_code: payload.reference_code || null,
           notes: payload.notes || null,
+          terminal_id: getTerminalId(),
+          user_id: getAuthContextSafe()?.user_id ?? 'system',
         });
         console.log("[PaymentRepository] 📤 Pago registrado atómicamente (Rust):", local_uuid);
       } catch (error) {

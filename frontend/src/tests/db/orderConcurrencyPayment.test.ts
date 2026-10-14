@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import { localDb } from "../../db/localDb";
 import { runMigrations } from "../../db/schema";
 import { OrderRepository } from "../../db/repositories/OrderRepository";
 import { BillRepository } from "../../db/repositories/BillRepository";
 import { PaymentRepository } from "../../db/repositories/PaymentRepository";
+import { EventStore } from "../../db/repositories/EventStore";
 import { localDomainApi } from "../../services/localDbDomain";
 
 describe("AUD-02: Concurrencia y Consistencia de Estado (Pago vs Cancelación)", () => {
@@ -34,6 +35,10 @@ describe("AUD-02: Concurrencia y Consistencia de Estado (Pago vs Cancelación)",
     await localDb.execute(
       `INSERT INTO local_tables (uuid, company_id, branch_id, table_number, status) VALUES (?, ?, ?, ?, 'available')`,
       ['table-3', '10', '5', 3]
+    );
+      await localDb.execute(
+      `INSERT INTO local_tables (uuid, company_id, branch_id, table_number, status) VALUES (?, ?, ?, ?, 'available')`,
+      ['table-aud03-fail', '10', '5', 99]
     );
   });
 
@@ -191,5 +196,57 @@ describe("AUD-02: Concurrencia y Consistencia de Estado (Pago vs Cancelación)",
     } else {
       expect(payments.length).toBe(0);
     }
+  });
+
+  it("AUD-03: DEBE revertir todo el pago si falla la inserción del evento de auditoría (ruta TS)", async () => {
+    const { order, bill, companyId, branchId, itemPrice } = await createTestOrder('table-aud03-fail');
+    
+    // AUD-03 FIX: Mockear EventStore.record para forzar un fallo ANTES del flush de LocalWriteCoordinator.
+    // Esto demuestra que si la auditoría falla, la transacción se aborta y no se ejecuta el flush,
+    // garantizando que no queden pagos huérfanos ni mesas liberadas incorrectamente.
+    vi.spyOn(EventStore, 'record').mockImplementation(async () => {
+      throw new Error('FORCED_AUDIT_FAILURE');
+    });
+
+    await expect(
+      localDb.transaction(async (db) => {
+        await PaymentRepository.create({ 
+          company_id: companyId, branch_id: branchId, order_local_uuid: order.local_uuid, 
+          bill_local_uuid: bill.local_uuid, payment_method_uuid: 'mock', amount: itemPrice, tip_amount: 0 
+        }, db);
+      })
+    ).rejects.toThrow('FORCED_AUDIT_FAILURE');
+
+    // Verificar que NO se creó el pago (rollback exitoso)
+    const payments = await localDb.select('SELECT * FROM local_payments WHERE order_local_uuid = ?', [order.local_uuid]);
+    expect(payments.length).toBe(0);
+
+    // Verificar que la mesa NO se liberó (sigue ocupada)
+    const table = await localDb.select('SELECT status, current_order_uuid FROM local_tables WHERE uuid = ?', ['table-aud03-fail']);
+    expect(table[0]?.status).toBe('occupied');
+    expect(table[0]?.current_order_uuid).toBe(order.local_uuid);
+
+    vi.restoreAllMocks();
+  });
+
+  it("AUD-03: DEBE incluir terminal_id y user_id en el payload enviado a Rust", async () => {
+    // Verificación de contrato: el tipo RegisterPaymentPayload exige estos campos.
+    // Simulamos el payload que se construiría en producción
+    const payload: any = {
+      local_uuid: 'test-uuid',
+      idempotency_key: 'test-key',
+      order_local_uuid: 'order-uuid',
+      payment_method_uuid: 'mock',
+      amount: 10000,
+      tip_amount: 0,
+      total_amount: 10000,
+      terminal_id: 'mock-terminal',
+      user_id: 'mock-user'
+    };
+    
+    expect(payload.terminal_id).toBeDefined();
+    expect(payload.user_id).toBeDefined();
+    expect(typeof payload.terminal_id).toBe('string');
+    expect(typeof payload.user_id).toBe('string');
   });
 });

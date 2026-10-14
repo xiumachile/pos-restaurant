@@ -31,12 +31,14 @@ export interface RegisterPaymentPayload {
   local_uuid: string;
   idempotency_key: string;
   order_local_uuid: string;
-  payment_method_uuid: string; // P0 Fix: Alineado con Rust
+  payment_method_uuid: string;
   amount: number;
   tip_amount: number;
   total_amount: number;
   reference_code?: string | null;
   notes?: string | null;
+  terminal_id: string;      // AUD-03 FIX: Obligatorio para auditoría
+  user_id: string;          // AUD-03 FIX: Obligatorio para auditoría
 }
 
 export interface EnqueueSyncEventPayload {
