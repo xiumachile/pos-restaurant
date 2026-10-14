@@ -142,6 +142,37 @@ jobs:
         run: npm run test -- --run
 
   # ═══════════════════════════════════════════════════════════════
+  # RUST CHECK (Tauri Backend)
+  # ═══════════════════════════════════════════════════════════════
+  rust-check:
+    name: 🦀 Rust Check (Tauri)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ./frontend/src-tauri
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "frontend/src-tauri -> target"
+
+      - name: Rust Check (cargo check)
+        run: cargo check
+
+      - name: Rust Tests (cargo test)
+        run: cargo test
+
+  # ═══════════════════════════════════════════════════════════════
   # BUILD VERIFICATION (Tauri + Vite)
   # ═══════════════════════════════════════════════════════════════
   build-check:
@@ -173,10 +204,10 @@ jobs:
   # ═══════════════════════════════════════════════════════════════
   # GATE: Todos los checks deben pasar para permitir merge
   # ═══════════════════════════════════════════════════════════════
-  ci-gate:
+    ci-gate:
     name: ✅ CI Gate (Required for merge)
     runs-on: ubuntu-latest
-    needs: [backend-tests, frontend-tests, build-check]
+    needs: [backend-tests, frontend-tests, rust-check, build-check]
     if: always()
 
     steps:
@@ -185,6 +216,7 @@ jobs:
           echo "📊 Resultados de jobs:"
           echo "  Backend Tests: ${{ needs.backend-tests.result }}"
           echo "  Frontend Tests: ${{ needs.frontend-tests.result }}"
+          echo "  Rust Check: ${{ needs.rust-check.result }}"
           echo "  Build Check: ${{ needs.build-check.result }}"
           echo ""
 
@@ -195,6 +227,11 @@ jobs:
 
           if [[ "${{ needs.frontend-tests.result }}" != "success" ]]; then
             echo "❌ Frontend tests fallaron. Merge bloqueado."
+            exit 1
+          fi
+
+          if [[ "${{ needs.rust-check.result }}" != "success" ]]; then
+            echo "❌ Rust check falló. Merge bloqueado."
             exit 1
           fi
 

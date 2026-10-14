@@ -92,6 +92,28 @@ export class PaymentRepository {
     const billLocalUuid = payload.bill_local_uuid || null;
 
     // P0-02 / O-05 FIX: Usar comando de dominio seguro en entorno Tauri
+    // AUD-03 FIX: Declarar 'payment' aquí para permitir retorno temprano en producción
+    const payment: LocalPayment = {
+      local_uuid,
+      cloud_id: null,
+      company_id: payload.company_id,
+      branch_id: payload.branch_id,
+      order_local_uuid: payload.order_local_uuid || null,
+      order_cloud_id: payload.order_cloud_id || null,
+      bill_local_uuid: billLocalUuid,
+      payment_method: payload.payment_method,
+      payment_method_uuid: paymentMethodUuid || "",
+      amount: payload.amount,
+      sale_amount: saleAmount,
+      tip_amount: tipAmount,
+      reference_code: payload.reference_code || null,
+      status: 'pending',
+      idempotency_key,
+      sync_status: 'pending',
+      created_at: new Date().toISOString(), // Aproximación, la BD usa CURRENT_TIMESTAMP
+      notes: payload.notes || null,
+    } as LocalPayment;
+
     const isTest = process.env.NODE_ENV === 'test' || typeof window === 'undefined';
     if (!isTest && !txDb) {
       try {
@@ -112,6 +134,7 @@ export class PaymentRepository {
           user_id: getAuthContextSafe()?.user_id ?? 'system',
         });
         console.log("[PaymentRepository] 📤 Pago registrado atómicamente (Rust):", local_uuid);
+        return payment;
       } catch (error) {
         console.error("[PaymentRepository] ❌ Error registrando pago en Rust:", error);
         throw error;
@@ -143,26 +166,7 @@ export class PaymentRepository {
     }
 
     // Construir el objeto payment en memoria (más seguro y rápido dentro de transacción)
-    const payment: LocalPayment = {
-      local_uuid,
-      cloud_id: null,
-      company_id: payload.company_id,
-      branch_id: payload.branch_id,
-      order_local_uuid: payload.order_local_uuid || null,
-      order_cloud_id: payload.order_cloud_id || null,
-      bill_local_uuid: billLocalUuid,
-      payment_method: payload.payment_method,
-      payment_method_uuid: paymentMethodUuid || "",
-      amount: payload.amount,
-      sale_amount: saleAmount,
-      tip_amount: tipAmount,
-      reference_code: payload.reference_code || null,
-      status: 'pending',
-      idempotency_key,
-      sync_status: 'pending',
-      created_at: new Date().toISOString(), // Aproximación, la BD usa CURRENT_TIMESTAMP
-      notes: payload.notes || null,
-    } as LocalPayment;
+
     // P1 Fix: El encolado en producción lo maneja Rust atómicamente (INSERT OR IGNORE).
     // En pruebas o transacciones externas (txDb), TypeScript debe encolar porque se salta Rust.
     if (isTest || txDb) {
