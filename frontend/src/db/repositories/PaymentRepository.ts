@@ -71,6 +71,13 @@ export class PaymentRepository {
    * Registra un pago local y lo encola automáticamente para sincronización.
    */
   static async create(payload: CreatePaymentPayload, txDb?: any): Promise<LocalPayment> {
+    // AUD-03 FIX (P1): Validación de identidad como PRIMERA operación absoluta.
+    // Garantiza que sin operador válido, no se ejecute NINGUNA otra lógica (ni validaciones, ni queries a BD).
+    const operatorId = getAuthContextSafe()?.user_id;
+    if (!operatorId) {
+      throw new Error("AUD-03: Usuario autenticado requerido para registrar un pago interactivo.");
+    }
+
     // P2-003: Local Money Guard - Validar contrato monetario antes de insertar
     validateLocalMoneyPayload(payload as unknown as Record<string, unknown>, 'payment');
     
@@ -92,7 +99,6 @@ export class PaymentRepository {
     const billLocalUuid = payload.bill_local_uuid || null;
 
     // P0-02 / O-05 FIX: Usar comando de dominio seguro en entorno Tauri
-    // AUD-03 FIX: Declarar 'payment' aquí para permitir retorno temprano en producción
     const payment: LocalPayment = {
       local_uuid,
       cloud_id: null,
@@ -117,12 +123,6 @@ export class PaymentRepository {
     const isTest = process.env.NODE_ENV === 'test' || typeof window === 'undefined';
     if (!isTest && !txDb) {
       try {
-        // AUD-03 FIX: Rechazo explícito de operaciones interactivas sin operador autenticado.
-        const operatorId = getAuthContextSafe()?.user_id;
-        if (!operatorId) {
-          throw new Error("AUD-03: Usuario autenticado requerido para registrar un pago interactivo.");
-        }
-
         // P0 Fix: Alinear contrato con Rust. 
         // Rust espera: total_amount = amount (venta) + tip_amount
         // saleAmount ya fue calculado antes como: payload.amount - tipAmount
@@ -199,10 +199,7 @@ export class PaymentRepository {
     }
 
     // AUD-03 FIX: Registrar evento CREATE_PAYMENT dentro de la misma transacción.
-    const operatorId = getAuthContextSafe()?.user_id;
-    if (!operatorId) {
-      throw new Error("AUD-03: Usuario autenticado requerido para registrar un pago interactivo.");
-    }
+    // operatorId ya fue validado estrictamente al inicio de la función.
     await EventStore.record(
       {
         company_id: payload.company_id,

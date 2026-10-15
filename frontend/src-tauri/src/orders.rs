@@ -1102,105 +1102,317 @@ mod rollback_tests {
 #[cfg(test)]
 
 #[cfg(test)]
+
+#[cfg(test)]
+
+#[cfg(test)]
+
+#[cfg(test)]
+
+#[cfg(test)]
+
+#[cfg(test)]
+
+#[cfg(test)]
+
+#[cfg(test)]
+
+#[cfg(test)]
+
+#[cfg(test)]
+
+#[cfg(test)]
 mod real_concurrency_tests {
     use super::*;
-    use rusqlite::{Connection, TransactionBehavior};
+    use rusqlite::Connection;
     use std::sync::{Arc, Barrier};
     use std::thread;
     use std::env;
 
-    #[test]
-    fn test_real_os_level_concurrency_payment_vs_cancel() {
-        let db_path = env::temp_dir().join(format!("test_concurrency_{}.db", std::process::id()));
-        let db_path_str = db_path.to_str().unwrap().to_string();
-        
-        // CRÍTICO: Limpiar archivo residual de ejecuciones anteriores en el mismo proceso de cargo test
-        let _ = std::fs::remove_file(&db_path_str);
-        
-        let mut conn = Connection::open(&db_path_str).unwrap();
+    fn create_complete_schema(conn: &Connection) {
         conn.execute_batch("
-            CREATE TABLE local_orders (local_uuid TEXT PRIMARY KEY, status TEXT DEFAULT 'confirmed');
-            CREATE TABLE local_tables (uuid TEXT PRIMARY KEY, status TEXT DEFAULT 'available', current_order_uuid TEXT);
-            CREATE TABLE local_payments (local_uuid TEXT PRIMARY KEY, order_local_uuid TEXT, amount INTEGER);
-            CREATE TABLE table_local_mutations (table_uuid TEXT PRIMARY KEY, pending_status TEXT, pending_order_uuid TEXT);
-            CREATE TABLE sync_queue (id TEXT PRIMARY KEY, entity_local_uuid TEXT, action TEXT, payload TEXT);
-            INSERT INTO local_orders (local_uuid, status) VALUES ('race-order', 'confirmed');
-            INSERT INTO local_tables (uuid, status, current_order_uuid) VALUES ('race-table', 'occupied', 'race-order');
+            CREATE TABLE local_orders (
+                local_uuid TEXT PRIMARY KEY, 
+                status TEXT DEFAULT 'confirmed', 
+                table_id TEXT,
+                company_id TEXT DEFAULT 'test-company',
+                branch_id TEXT DEFAULT 'test-branch',
+                grand_total INTEGER DEFAULT 10000,
+                amount_due INTEGER DEFAULT 10000,
+                cloud_id TEXT,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE local_tables (
+                uuid TEXT PRIMARY KEY, 
+                table_number TEXT NOT NULL, 
+                area_name TEXT, 
+                capacity INTEGER DEFAULT 4,
+                status TEXT DEFAULT 'available', 
+                current_order_uuid TEXT,
+                last_updated TEXT DEFAULT CURRENT_TIMESTAMP, 
+                company_id TEXT, 
+                branch_id TEXT
+            );
+            CREATE TABLE local_payments (
+                local_uuid TEXT PRIMARY KEY, 
+                company_id TEXT, 
+                branch_id TEXT, 
+                order_local_uuid TEXT, 
+                payment_method TEXT, 
+                amount INTEGER, 
+                tip_amount INTEGER, 
+                total_amount INTEGER, 
+                reference_code TEXT, 
+                notes TEXT, 
+                status TEXT, 
+                idempotency_key TEXT, 
+                sync_status TEXT, 
+                created_at TEXT
+            );
+            CREATE TABLE table_local_mutations (
+                table_uuid TEXT PRIMARY KEY,
+                pending_status TEXT NOT NULL,
+                pending_order_uuid TEXT, 
+                company_id TEXT NOT NULL, 
+                branch_id TEXT NOT NULL,
+                action TEXT DEFAULT 'update', 
+                payload TEXT DEFAULT NULL, 
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE sync_queue (
+                id TEXT PRIMARY KEY, 
+                company_id TEXT, 
+                branch_id TEXT, 
+                entity_type TEXT, 
+                entity_local_uuid TEXT, 
+                action TEXT, 
+                payload TEXT, 
+                sync_status TEXT, 
+                created_at TEXT
+            );
+            CREATE TABLE offline_events (
+                event_uuid TEXT PRIMARY KEY, 
+                idempotency_key TEXT NOT NULL, 
+                company_id TEXT NOT NULL,
+                branch_id TEXT NOT NULL, 
+                terminal_id TEXT, 
+                user_id TEXT, 
+                entity_type TEXT NOT NULL,
+                entity_uuid TEXT NOT NULL, 
+                event_type TEXT NOT NULL, 
+                payload TEXT, 
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                notes TEXT, 
+                sync_status TEXT DEFAULT 'pending'
+            );
+            
+            INSERT INTO local_orders (local_uuid, status, table_id, grand_total, amount_due) 
+            VALUES ('race-order', 'confirmed', 'race-table', 10000, 10000);
+            INSERT INTO local_tables (uuid, table_number, status, current_order_uuid, company_id, branch_id) 
+            VALUES ('race-table', '1', 'occupied', 'race-order', 'test-company', 'test-branch');
         ").unwrap();
-        drop(conn);
+    }
 
-        let barrier = Arc::new(Barrier::new(2));
-        
-        let db_path_pay = db_path_str.clone();
-        let barrier_pay = Arc::clone(&barrier);
-        let handle_pay = thread::spawn(move || {
-            let mut conn = Connection::open(&db_path_pay).unwrap();
-            conn.execute_batch("PRAGMA busy_timeout = 5000").unwrap();
-            barrier_pay.wait();
+    #[test]
+    fn test_real_os_level_concurrency_domain_payment_vs_cancel() {
+        // Ejecutar 20 iteraciones para demostrar estabilidad no determinista
+        for iteration in 0..20 {
+            let db_path = env::temp_dir().join(format!("test_concurrency_final_{}_{}.db", std::process::id(), iteration));
+            let db_path_str = db_path.to_str().unwrap().to_string();
             
-            // Transacción IMMEDIATE explícita para forzar el bloqueo de escritura inmediato
-            let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate).unwrap();
-            let changes = tx.execute("UPDATE local_orders SET status = 'paid' WHERE local_uuid = 'race-order' AND status = 'confirmed'", []).unwrap();
+            let _ = std::fs::remove_file(&db_path_str);
             
-            if changes == 1 {
-                thread::sleep(std::time::Duration::from_millis(50));
-                tx.execute("INSERT INTO local_payments (local_uuid, order_local_uuid, amount) VALUES ('pay-1', 'race-order', 10000)", []).unwrap();
-                tx.execute("INSERT INTO sync_queue (id, entity_local_uuid, action, payload) VALUES ('sync-1', 'race-order', 'create', '{}')", []).unwrap();
-                tx.commit().unwrap();
-                "PAY_WIN"
+            let conn = Connection::open(&db_path_str).unwrap();
+            create_complete_schema(&conn);
+            drop(conn);
+
+            let barrier = Arc::new(Barrier::new(2));
+            
+            let db_path_pay = db_path_str.clone();
+            let barrier_pay = Arc::clone(&barrier);
+            let handle_pay = thread::spawn(move || {
+                let mut conn = Connection::open(&db_path_pay).unwrap();
+                conn.execute_batch("PRAGMA busy_timeout = 5000").unwrap();
+                barrier_pay.wait();
+                
+                let payload = RegisterPaymentPayload {
+                    local_uuid: format!("pay-{}", iteration),
+                    idempotency_key: format!("idem-{}", iteration),
+                    order_local_uuid: "race-order".to_string(),
+                    payment_method_uuid: "method-uuid".to_string(),
+                    amount: 10000,
+                    tip_amount: 0,
+                    total_amount: 10000,
+                    reference_code: None,
+                    notes: None,
+                    terminal_id: "term-1".to_string(),
+                    user_id: "user-1".to_string(),
+                };
+                
+                let result = register_payment_tx(&mut conn, payload);
+                if result.is_ok() { "PAY_WIN" } else { "PAY_LOSE" }
+            });
+
+            let db_path_cancel = db_path_str.clone();
+            let barrier_cancel = Arc::clone(&barrier);
+            let handle_cancel = thread::spawn(move || {
+                let mut conn = Connection::open(&db_path_cancel).unwrap();
+                conn.execute_batch("PRAGMA busy_timeout = 5000").unwrap();
+                barrier_cancel.wait();
+                
+                let payload = TransitionOrderStatusPayload {
+                    order_uuid: "race-order".to_string(),
+                    new_status: "cancelled".to_string(),
+                    expected_status: "confirmed".to_string(),
+                };
+                
+                let result = process_order_transition(&mut conn, &payload);
+                if result.is_ok() { "CANCEL_WIN" } else { "CANCEL_LOSE" }
+            });
+
+            let res_pay = handle_pay.join().unwrap();
+            let res_cancel = handle_cancel.join().unwrap();
+
+            // 1. VERIFICACIÓN: Exclusión mutua garantizada
+            assert!(
+                (res_pay == "PAY_WIN" && res_cancel == "CANCEL_LOSE") || 
+                (res_pay == "PAY_LOSE" && res_cancel == "CANCEL_WIN"),
+                "Iteración {}: Debe haber exactamente un ganador y un perdedor. Pay: {}, Cancel: {}", 
+                iteration, res_pay, res_cancel
+            );
+
+            // 2. VERIFICACIÓN: Estado final y coherencia del dominio
+            let mut conn = Connection::open(&db_path_str).unwrap();
+            let order_status: String = conn.query_row("SELECT status FROM local_orders WHERE local_uuid = 'race-order'", [], |row| row.get(0)).unwrap();
+            let payment_count: i64 = conn.query_row("SELECT COUNT(*) FROM local_payments WHERE order_local_uuid = 'race-order'", [], |row| row.get(0)).unwrap();
+            let mutation_count: i64 = conn.query_row("SELECT COUNT(*) FROM table_local_mutations WHERE table_uuid = 'race-table'", [], |row| row.get(0)).unwrap();
+            
+            // NOTA CRÍTICA: register_payment_tx encola el pago con entity_local_uuid = payload.local_uuid (el UUID del pago).
+            // process_order_transition encola la cancelación con entity_local_uuid = order_uuid ('race-order').
+            // Por lo tanto, buscamos eventos de sync para la orden O para el pago específico de esta iteración.
+            let sync_count_order: i64 = conn.query_row("SELECT COUNT(*) FROM sync_queue WHERE entity_local_uuid = 'race-order'", [], |row| row.get(0)).unwrap();
+            let sync_count_payment: i64 = conn.query_row("SELECT COUNT(*) FROM sync_queue WHERE entity_local_uuid = ?", [format!("pay-{}", iteration)], |row| row.get(0)).unwrap();
+            let total_sync_count = sync_count_order + sync_count_payment;
+
+            if res_pay == "PAY_WIN" {
+                assert_eq!(order_status, "paid", "Iteración {}: El estado debe ser paid", iteration);
+                assert_eq!(payment_count, 1, "Iteración {}: El ganador debe dejar 1 pago", iteration);
+                assert_eq!(mutation_count, 1, "Iteración {}: PAY ganador también libera la mesa (1 mutación)", iteration);
+                assert_eq!(total_sync_count, 1, "Iteración {}: Solo 1 evento de sync del ganador (payment)", iteration);
             } else {
-                let _ = tx.rollback();
-                "PAY_LOSE"
+                assert_eq!(order_status, "cancelled", "Iteración {}: El estado debe ser cancelled", iteration);
+                assert_eq!(payment_count, 0, "Iteración {}: El perdedor no debe dejar pagos huérfanos", iteration);
+                assert_eq!(mutation_count, 1, "Iteración {}: CANCEL ganador libera la mesa (1 mutación)", iteration);
+                assert_eq!(total_sync_count, 1, "Iteración {}: Solo 1 evento de sync del ganador (order)", iteration);
             }
-        });
-
-        let db_path_cancel = db_path_str.clone();
-        let barrier_cancel = Arc::clone(&barrier);
-        let handle_cancel = thread::spawn(move || {
-            let mut conn = Connection::open(&db_path_cancel).unwrap();
-            conn.execute_batch("PRAGMA busy_timeout = 5000").unwrap();
-            barrier_cancel.wait();
             
-            let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate).unwrap();
-            let changes = tx.execute("UPDATE local_orders SET status = 'cancelled' WHERE local_uuid = 'race-order' AND status = 'confirmed'", []).unwrap();
-            
-            if changes == 1 {
-                thread::sleep(std::time::Duration::from_millis(50));
-                tx.execute("UPDATE local_tables SET status = 'available', current_order_uuid = NULL WHERE uuid = 'race-table'", []).unwrap();
-                tx.execute("INSERT INTO table_local_mutations (table_uuid, pending_status, pending_order_uuid) VALUES ('race-table', 'available', NULL)", []).unwrap();
-                tx.execute("INSERT INTO sync_queue (id, entity_local_uuid, action, payload) VALUES ('sync-2', 'race-order', 'update', '{}')", []).unwrap();
-                tx.commit().unwrap();
-                "CANCEL_WIN"
-            } else {
-                let _ = tx.rollback();
-                "CANCEL_LOSE"
-            }
-        });
-
-        let res_pay = handle_pay.join().unwrap();
-        let res_cancel = handle_cancel.join().unwrap();
-
-        let mut conn = Connection::open(&db_path_str).unwrap();
-        let order_status: String = conn.query_row("SELECT status FROM local_orders WHERE local_uuid = 'race-order'", [], |row| row.get(0)).unwrap();
-        let payment_count: i64 = conn.query_row("SELECT COUNT(*) FROM local_payments", [], |row| row.get(0)).unwrap();
-        let mutation_count: i64 = conn.query_row("SELECT COUNT(*) FROM table_local_mutations", [], |row| row.get(0)).unwrap();
-        let sync_count: i64 = conn.query_row("SELECT COUNT(*) FROM sync_queue", [], |row| row.get(0)).unwrap();
-
-        if res_pay == "PAY_WIN" {
-            assert_eq!(order_status, "paid");
-            assert_eq!(payment_count, 1, "El ganador debe dejar 1 pago");
-            assert_eq!(mutation_count, 0, "El perdedor no debe dejar mutaciones huérfanas (hizo rollback)");
-            assert_eq!(sync_count, 1, "Solo 1 evento de sync del ganador");
-        } else {
-            assert_eq!(order_status, "cancelled");
-            assert_eq!(payment_count, 0, "El perdedor no debe dejar pagos huérfanos (hizo rollback)");
-            assert_eq!(mutation_count, 1, "El ganador debe dejar 1 mutación");
-            assert_eq!(sync_count, 1, "Solo 1 evento de sync del ganador");
+            let _ = std::fs::remove_file(&db_path_str);
         }
-        
-        assert!((res_pay == "PAY_WIN" && res_cancel == "CANCEL_LOSE") || (res_pay == "PAY_LOSE" && res_cancel == "CANCEL_WIN"), 
-            "Debe haber exactamente un ganador y un perdedor. Pay: {}, Cancel: {}", res_pay, res_cancel);
+    }
+}
+
+#[cfg(test)]
+mod rollback_integration_tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    #[test]
+    fn test_rollback_on_secondary_write_failure() {
+        // 1. Configurar esquema con una restricción de prueba que forzará el fallo 
+        // en la escritura secundaria (inserción de mutación de mesa).
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("
+            CREATE TABLE local_orders (
+                local_uuid TEXT PRIMARY KEY, 
+                status TEXT DEFAULT 'confirmed', 
+                table_id TEXT,
+                company_id TEXT DEFAULT 'test-company',
+                branch_id TEXT DEFAULT 'test-branch',
+                grand_total INTEGER DEFAULT 10000,
+                amount_due INTEGER DEFAULT 10000,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE local_tables (
+                uuid TEXT PRIMARY KEY, 
+                table_number TEXT NOT NULL, 
+                status TEXT DEFAULT 'available', 
+                current_order_uuid TEXT,
+                last_updated TEXT DEFAULT CURRENT_TIMESTAMP, 
+                company_id TEXT, 
+                branch_id TEXT
+            );
+            -- RESTRICCIÓN DE PRUEBA: Forzamos que pending_status NO pueda ser 'available' 
+            -- para que la inserción real de mutación de mesa falle con CHECK constraint.
+            CREATE TABLE table_local_mutations (
+                table_uuid TEXT PRIMARY KEY,
+                pending_status TEXT NOT NULL CHECK (pending_status != 'available'),
+                pending_order_uuid TEXT, 
+                company_id TEXT NOT NULL, 
+                branch_id TEXT NOT NULL,
+                action TEXT DEFAULT 'update', 
+                payload TEXT, 
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE sync_queue (
+                id TEXT PRIMARY KEY, 
+                company_id TEXT, 
+                branch_id TEXT, 
+                entity_type TEXT, 
+                entity_local_uuid TEXT, 
+                action TEXT, 
+                payload TEXT, 
+                sync_status TEXT, 
+                created_at TEXT
+            );
             
-        let _ = std::fs::remove_file(&db_path_str);
+            INSERT INTO local_orders (local_uuid, status, table_id, grand_total, amount_due) 
+            VALUES ('test-order', 'confirmed', 'test-table', 10000, 10000);
+            INSERT INTO local_tables (uuid, table_number, status, current_order_uuid, company_id, branch_id) 
+            VALUES ('test-table', '1', 'occupied', 'test-order', 'test-company', 'test-branch');
+        ").unwrap();
+
+        // 2. Capturar estado ANTES de la operación
+        let order_status_before: String = conn.query_row("SELECT status FROM local_orders WHERE local_uuid = 'test-order'", [], |row| row.get(0)).unwrap();
+        let table_status_before: String = conn.query_row("SELECT status FROM local_tables WHERE uuid = 'test-table'", [], |row| row.get(0)).unwrap();
+        let table_order_before: Option<String> = conn.query_row("SELECT current_order_uuid FROM local_tables WHERE uuid = 'test-table'", [], |row| row.get(0)).unwrap();
+        let mutations_before: i64 = conn.query_row("SELECT COUNT(*) FROM table_local_mutations", [], |row| row.get(0)).unwrap();
+        let sync_before: i64 = conn.query_row("SELECT COUNT(*) FROM sync_queue", [], |row| row.get(0)).unwrap();
+
+        assert_eq!(order_status_before, "confirmed");
+        assert_eq!(table_status_before, "occupied");
+        assert_eq!(table_order_before, Some("test-order".to_string()));
+        assert_eq!(mutations_before, 0);
+        assert_eq!(sync_before, 0);
+
+        // 3. Invocar la FUNCIÓN REAL de transición de estado
+        let payload = TransitionOrderStatusPayload {
+            order_uuid: "test-order".to_string(),
+            new_status: "cancelled".to_string(),
+            expected_status: "confirmed".to_string(),
+        };
+
+        let result = process_order_transition(&mut conn, &payload);
+
+        // 4. Verificar que la operación REAL falló debido a la restricción de la escritura secundaria
+        assert!(result.is_err(), "La operación debe fallar debido a la restricción de prueba en table_local_mutations");
+        let err_msg = result.unwrap_err().to_lowercase();
+        assert!(err_msg.contains("check constraint"), "Error inesperado en lugar de CHECK constraint: {}", err_msg);
+
+        // 5. Capturar estado DESPUÉS y verificar ROLLBACK COMPLETO (Atomicidad AUD-01)
+        let order_status_after: String = conn.query_row("SELECT status FROM local_orders WHERE local_uuid = 'test-order'", [], |row| row.get(0)).unwrap();
+        let table_status_after: String = conn.query_row("SELECT status FROM local_tables WHERE uuid = 'test-table'", [], |row| row.get(0)).unwrap();
+        let table_order_after: Option<String> = conn.query_row("SELECT current_order_uuid FROM local_tables WHERE uuid = 'test-table'", [], |row| row.get(0)).unwrap();
+        let mutations_after: i64 = conn.query_row("SELECT COUNT(*) FROM table_local_mutations", [], |row| row.get(0)).unwrap();
+        let sync_after: i64 = conn.query_row("SELECT COUNT(*) FROM sync_queue", [], |row| row.get(0)).unwrap();
+
+        // ASSERTS CRÍTICOS: Demuestran que la transacción IMMEDIATE hizo rollback de TODO
+        assert_eq!(order_status_after, order_status_before, "ROLLBACK FALLÓ: El estado del pedido cambió a pesar del error");
+        assert_eq!(table_status_after, table_status_before, "ROLLBACK FALLÓ: El estado de la mesa cambió a pesar del error");
+        assert_eq!(table_order_after, table_order_before, "ROLLBACK FALLÓ: La asociación de la mesa cambió a pesar del error");
+        assert_eq!(mutations_after, mutations_before, "ROLLBACK FALLÓ: Se dejó una mutación huérfana a pesar del error");
+        assert_eq!(sync_after, sync_before, "ROLLBACK FALLÓ: Se dejó un evento de sync huérfano a pesar del error");
     }
 }

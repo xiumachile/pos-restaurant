@@ -550,7 +550,7 @@ fn split_sql_statements(sql: &str) -> Vec<String> {
 
 /// Ejecuta una migración sentencia por sentencia. Salta PRAGMA y tolera
 /// "duplicate column name" / "already exists" (comportamiento del runner anterior).
-fn run_migration_script(
+pub(crate) fn run_migration_script(
     tx: &rusqlite::Transaction,
     version: &str,
     sql: &str,
@@ -739,60 +739,82 @@ mod claim_tests {
     }
 }
 
-#[cfg(test)]
 
 #[cfg(test)]
 mod migration_integration_tests {
     use super::*;
     use rusqlite::Connection;
 
+
     #[test]
     fn test_022_migration_on_legacy_schema() {
+        // PASO 1 y 2: Crear base SQLite con esquema heredado y datos representativos
         let mut conn = Connection::open_in_memory().unwrap();
-        
-        // 1. Crear esquema legacy (sin columna checksum)
         conn.execute(
             "CREATE TABLE migrations (version TEXT PRIMARY KEY, applied_at TEXT DEFAULT CURRENT_TIMESTAMP)",
             [],
         ).unwrap();
         conn.execute("INSERT INTO migrations (version) VALUES ('000_create_migrations_table')", []).unwrap();
+        conn.execute("INSERT INTO migrations (version) VALUES ('017_enforce_integer_money')", []).unwrap();
 
-        // 2. Obtener el SQL de la lista blanca de Rust
+        // PASO 3: Invocar el mismo ejecutor que utiliza la aplicación
         let migration_sql = crate::get_trusted_migration("022").expect("La migración 022 debe estar en la lista blanca");
         
-        // 3. Ejecutar el FLUJO REAL DEL EJECUTOR: Transacción + Ejecución + Manejo de errores + Registro
-        conn.execute_batch("BEGIN").unwrap();
-        
-        let exec_result = conn.execute_batch(&migration_sql);
-        if let Err(e) = exec_result {
-            let err_msg = e.to_string().to_lowercase();
-            // El ejecutor de producción ignora gracefulmente los errores de columna duplicada
-            assert!(err_msg.contains("duplicate column") || err_msg.contains("already exists"), 
-                "Error inesperado en migración: {}", e);
-        }
-        
-        // Registro de versión (parte integral del ejecutor)
-        conn.execute("INSERT OR IGNORE INTO migrations (version) VALUES ('022')", []).unwrap();
-        conn.execute_batch("COMMIT").unwrap();
+        {
+            let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate).unwrap();
+            let exec_result = crate::run_migration_script(&tx, "022", migration_sql);
+            assert!(exec_result.is_ok(), "El ejecutor real debe completar la migración 022 sin errores fatales");
+            
+            if exec_result.is_ok() {
+                tx.execute("INSERT OR REPLACE INTO migrations (version, applied_at) VALUES ('022', CURRENT_TIMESTAMP)", []).unwrap();
+            }
+            tx.commit().unwrap();
+        } // tx se destruye aquí, liberando el borrow mutable
 
-        // 4. Verificar idempotencia: una segunda ejecución del flujo real no debe corromper nada
-        conn.execute_batch("BEGIN").unwrap();
-        let exec_result_2 = conn.execute_batch(&migration_sql);
-        if let Err(e) = exec_result_2 {
-            assert!(e.to_string().to_lowercase().contains("duplicate column") || e.to_string().to_lowercase().contains("already exists"));
-        }
-        conn.execute("INSERT OR IGNORE INTO migrations (version) VALUES ('022')", []).unwrap();
-        conn.execute_batch("COMMIT").unwrap();
-
-        // 5. Aserciones finales de integridad
-        let mut stmt = conn.prepare("PRAGMA table_info(migrations)").unwrap();
-        let columns: Vec<String> = stmt.query_map([], |row| row.get::<_, String>(1)).unwrap().map(|r| r.unwrap()).collect();
+        // PASO 4 y 5: Comprobar esquema final, conservación de datos y versión registrada
+        let columns: Vec<String> = {
+            let mut stmt = conn.prepare("PRAGMA table_info(migrations)").unwrap();
+            stmt.query_map([], |row| row.get::<_, String>(1)).unwrap().map(|r| r.unwrap()).collect()
+        }; // stmt se destruye aquí
         assert!(columns.contains(&"checksum".to_string()), "Falta columna checksum tras el flujo real");
         
-        let version: String = conn.query_row("SELECT version FROM migrations WHERE version = '000_create_migrations_table'", [], |row| row.get(0)).unwrap();
-        assert_eq!(version, "000_create_migrations_table", "Los datos legacy no se conservaron");
-        
+        let legacy_version: String = conn.query_row("SELECT version FROM migrations WHERE version = '000_create_migrations_table'", [], |row| row.get(0)).unwrap();
+        assert_eq!(legacy_version, "000_create_migrations_table", "Los datos legacy no se conservaron");
+
         let applied: String = conn.query_row("SELECT version FROM migrations WHERE version = '022'", [], |row| row.get(0)).unwrap();
-        assert_eq!(applied, "022", "La versión no se registró correctamente mediante el flujo real");
+        assert_eq!(applied, "022", "La versión no se registró correctamente");
+
+        // PASO 6: Ejecutar nuevamente la migración y comprobar idempotencia
+        {
+            let tx2 = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate).unwrap();
+            let exec_result_2 = crate::run_migration_script(&tx2, "022", migration_sql);
+            assert!(exec_result_2.is_ok(), "La segunda ejecución debe ser idempotente y no fallar");
+            tx2.commit().unwrap();
+        } // tx2 se destruye aquí
+        
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM migrations WHERE version = '022'", [], |row| row.get(0)).unwrap();
+        assert_eq!(count, 1, "La idempotencia falló: se duplicó el registro de migración");
+
+        // PASO 7: Provocar un error SQL real y verificar que no se marque como exitosa
+        let bad_sql = "ALTER TABLE migrations ADD COLUMN bad_column TEXT; INSERT INTO migrations (version) VALUES ('BAD_MIGRATION'); SYNTAX ERROR HERE;";
+        {
+            let tx3 = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate).unwrap();
+            let bad_result = crate::run_migration_script(&tx3, "999", bad_sql);
+            
+            // El ejecutor debe fallar en la sentencia con error de sintaxis
+            assert!(bad_result.is_err(), "El ejecutor debe fallar ante un error SQL real no manejado");
+            // tx3 se revierte automáticamente al salir del scope porque no se hizo commit
+        } // tx3 se destruye aquí, haciendo rollback implícito y liberando el borrow
+        
+        // Verificar que la transacción se revirtió y NO se registró la versión '999'
+        let bad_count: i64 = conn.query_row("SELECT COUNT(*) FROM migrations WHERE version = '999'", [], |row| row.get(0)).unwrap();
+        assert_eq!(bad_count, 0, "El rollback falló: se registró una migración con error SQL");
+        
+        // Verificar que NO se aplicó parcialmente la columna 'bad_column'
+        let bad_columns: Vec<String> = {
+            let mut stmt = conn.prepare("PRAGMA table_info(migrations)").unwrap();
+            stmt.query_map([], |row| row.get::<_, String>(1)).unwrap().map(|r| r.unwrap()).collect()
+        }; // stmt se destruye aquí
+        assert!(!bad_columns.contains(&"bad_column".to_string()), "El rollback falló: se aplicó parcialmente la migración con error");
     }
 }
