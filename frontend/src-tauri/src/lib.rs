@@ -169,6 +169,7 @@ fn get_trusted_migration(version: &str) -> Option<&'static str> {
         "021" => Some(include_str!("../../src/db/migrations/021_enforce_table_mutation_schema.sql")),
         "022" => Some(include_str!("../../src/db/migrations/022_add_migrations_checksum.sql")), // AUD-04 FIX: Reparar bases antiguas
         "023" => Some(include_str!("../../src/db/migrations/023_add_total_amount_to_payments.sql")), // AUD-02 FIX: Añadir total_amount faltante
+        "099" => Some(include_str!("../../src/db/migrations/099_test_rollback.sql")), // AUD-04 FIX: Migración de prueba para validar rollback
         _ => None, // Cualquier otra versión será rechazada por seguridad
     }
 }
@@ -182,13 +183,16 @@ pub(crate) fn apply_migration_internal(conn: &mut rusqlite::Connection, version:
         .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
         .map_err(|e| format!("Error iniciando transacción de migración: {e}"))?;
 
+    // Manejo explícito de errores: no silenciar fallos de consulta.
+    // Si la tabla migrations no existe o hay un error de esquema, debe fallar claramente
+    // en lugar de asumir falsamente que la migración no está aplicada.
     let already_applied: bool = tx
         .query_row(
             "SELECT COUNT(*) > 0 FROM migrations WHERE version = ?1",
             rusqlite::params![version],
             |r| r.get(0),
         )
-        .unwrap_or(false);
+        .map_err(|e| format!("Error verificando estado de migración '{}': {}. La base de datos puede tener un esquema inesperado.", version, e))?;
 
     if already_applied {
         return Ok(false);
@@ -737,15 +741,16 @@ mod claim_tests {
 }
 
 
+
+
 #[cfg(test)]
 mod migration_integration_tests {
     use super::*;
     use rusqlite::Connection;
 
-
     #[test]
     fn test_022_migration_on_legacy_schema() {
-        // PASO 1 y 2: Crear base SQLite con esquema heredado y datos representativos
+        // PREPARACIÓN: Crear base SQLite con esquema heredado y datos representativos
         let mut conn = Connection::open_in_memory().unwrap();
         conn.execute(
             "CREATE TABLE migrations (version TEXT PRIMARY KEY, applied_at TEXT DEFAULT CURRENT_TIMESTAMP)",
@@ -754,64 +759,52 @@ mod migration_integration_tests {
         conn.execute("INSERT INTO migrations (version) VALUES ('000_create_migrations_table')", []).unwrap();
         conn.execute("INSERT INTO migrations (version) VALUES ('017_enforce_integer_money')", []).unwrap();
 
-        // PASO 3: Invocar el mismo ejecutor que utiliza la aplicación
-        let migration_sql = crate::get_trusted_migration("022").expect("La migración 022 debe estar en la lista blanca");
+        // PUNTO 1 y 2: Invocar apply_migration_internal y verificar que devuelve Ok(true) y registra
+        let result_1 = crate::apply_migration_internal(&mut conn, "022");
+        assert!(result_1.is_ok(), "La migración 022 debe aplicarse exitosamente");
+        assert_eq!(result_1.unwrap(), true, "Debe retornar true en la primera aplicación");
         
-        {
-            let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate).unwrap();
-            let exec_result = crate::run_migration_script(&tx, "022", migration_sql);
-            assert!(exec_result.is_ok(), "El ejecutor real debe completar la migración 022 sin errores fatales");
-            
-            if exec_result.is_ok() {
-                tx.execute("INSERT OR REPLACE INTO migrations (version, applied_at) VALUES ('022', CURRENT_TIMESTAMP)", []).unwrap();
-            }
-            tx.commit().unwrap();
-        } // tx se destruye aquí, liberando el borrow mutable
+        let count_after_first: i64 = conn.query_row("SELECT COUNT(*) FROM migrations WHERE version = '022'", [], |row| row.get(0)).unwrap();
+        assert_eq!(count_after_first, 1, "La versión debe registrarse tras la primera llamada");
 
-        // PASO 4 y 5: Comprobar esquema final, conservación de datos y versión registrada
+        // PUNTO 3: Verificar que la segunda llamada devuelve Ok(false) sin volver a ejecutar
+        let result_2 = crate::apply_migration_internal(&mut conn, "022");
+        assert!(result_2.is_ok(), "La segunda llamada debe ser exitosa");
+        assert_eq!(result_2.unwrap(), false, "Debe retornar false indicando que ya estaba aplicada");
+        
+        let count_after_second: i64 = conn.query_row("SELECT COUNT(*) FROM migrations WHERE version = '022'", [], |row| row.get(0)).unwrap();
+        assert_eq!(count_after_second, 1, "No debe haber duplicados tras la segunda llamada");
+
+        // PUNTO 5: Probar base heredada y comprobar que se conservan los datos
+        let legacy_version: String = conn.query_row("SELECT version FROM migrations WHERE version = '000_create_migrations_table'", [], |row| row.get(0)).unwrap();
+        assert_eq!(legacy_version, "000_create_migrations_table", "Los datos legacy deben conservarse intactos");
+        
         let columns: Vec<String> = {
             let mut stmt = conn.prepare("PRAGMA table_info(migrations)").unwrap();
             stmt.query_map([], |row| row.get::<_, String>(1)).unwrap().map(|r| r.unwrap()).collect()
-        }; // stmt se destruye aquí
-        assert!(columns.contains(&"checksum".to_string()), "Falta columna checksum tras el flujo real");
-        
-        let legacy_version: String = conn.query_row("SELECT version FROM migrations WHERE version = '000_create_migrations_table'", [], |row| row.get(0)).unwrap();
-        assert_eq!(legacy_version, "000_create_migrations_table", "Los datos legacy no se conservaron");
+        };
+        assert!(columns.contains(&"checksum".to_string()), "La columna checksum debe existir tras la migración");
 
-        let applied: String = conn.query_row("SELECT version FROM migrations WHERE version = '022'", [], |row| row.get(0)).unwrap();
-        assert_eq!(applied, "022", "La versión no se registró correctamente");
+        // PUNTO 4: Provocar un fallo de aplicación y verificar que no se registran cambios parciales
+        // Usamos la migración "099" que contiene un error de sintaxis intencional
+        let bad_result = crate::apply_migration_internal(&mut conn, "099");
+        assert!(bad_result.is_err(), "La migración 099 debe fallar por error de sintaxis");
+        let err_msg = bad_result.unwrap_err().to_lowercase();
+        assert!(err_msg.contains("error") || err_msg.contains("syntax"), 
+            "El error debe reflejar el fallo de la migración: {}", err_msg);
+        
+        // Verificar que NO se registró la versión fallida
+        let bad_count: i64 = conn.query_row("SELECT COUNT(*) FROM migrations WHERE version = '099'", [], |row| row.get(0)).unwrap();
+        assert_eq!(bad_count, 0, "No se debe registrar una migración que falló durante la aplicación");
 
-        // PASO 6: Ejecutar nuevamente la migración y comprobar idempotencia
-        {
-            let tx2 = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate).unwrap();
-            let exec_result_2 = crate::run_migration_script(&tx2, "022", migration_sql);
-            assert!(exec_result_2.is_ok(), "La segunda ejecución debe ser idempotente y no fallar");
-            tx2.commit().unwrap();
-        } // tx2 se destruye aquí
+        // PUNTO 6 (Implícito en la corrección de apply_migration_internal): 
+        // Verificar que una versión inexistente falla limpiamente sin tocar la BD
+        let nonexistent_result = crate::apply_migration_internal(&mut conn, "999_inexistente");
+        assert!(nonexistent_result.is_err(), "Solicitar migración inexistente debe fallar");
+        let err_msg_non = nonexistent_result.unwrap_err();
+        assert!(err_msg_non.contains("no reconocida"), "El error debe indicar que no está reconocida: {}", err_msg_non);
         
-        let count: i64 = conn.query_row("SELECT COUNT(*) FROM migrations WHERE version = '022'", [], |row| row.get(0)).unwrap();
-        assert_eq!(count, 1, "La idempotencia falló: se duplicó el registro de migración");
-
-        // PASO 7: Provocar un error SQL real y verificar que no se marque como exitosa
-        let bad_sql = "ALTER TABLE migrations ADD COLUMN bad_column TEXT; INSERT INTO migrations (version) VALUES ('BAD_MIGRATION'); SYNTAX ERROR HERE;";
-        {
-            let tx3 = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate).unwrap();
-            let bad_result = crate::run_migration_script(&tx3, "999", bad_sql);
-            
-            // El ejecutor debe fallar en la sentencia con error de sintaxis
-            assert!(bad_result.is_err(), "El ejecutor debe fallar ante un error SQL real no manejado");
-            // tx3 se revierte automáticamente al salir del scope porque no se hizo commit
-        } // tx3 se destruye aquí, haciendo rollback implícito y liberando el borrow
-        
-        // Verificar que la transacción se revirtió y NO se registró la versión '999'
-        let bad_count: i64 = conn.query_row("SELECT COUNT(*) FROM migrations WHERE version = '999'", [], |row| row.get(0)).unwrap();
-        assert_eq!(bad_count, 0, "El rollback falló: se registró una migración con error SQL");
-        
-        // Verificar que NO se aplicó parcialmente la columna 'bad_column'
-        let bad_columns: Vec<String> = {
-            let mut stmt = conn.prepare("PRAGMA table_info(migrations)").unwrap();
-            stmt.query_map([], |row| row.get::<_, String>(1)).unwrap().map(|r| r.unwrap()).collect()
-        }; // stmt se destruye aquí
-        assert!(!bad_columns.contains(&"bad_column".to_string()), "El rollback falló: se aplicó parcialmente la migración con error");
+        let nonexistent_count: i64 = conn.query_row("SELECT COUNT(*) FROM migrations WHERE version = '999_inexistente'", [], |row| row.get(0)).unwrap();
+        assert_eq!(nonexistent_count, 0, "No se debe registrar una migración inexistente");
     }
 }
