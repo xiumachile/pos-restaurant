@@ -131,7 +131,7 @@ export class PaymentRepository {
           reference_code: payload.reference_code || null,
           notes: payload.notes || null,
           terminal_id: getTerminalId(),
-          user_id: getAuthContextSafe()?.user_id ?? 'system',
+          user_id: getAuthContextSafe()?.user_id || "system-automated", // Fallback solo para procesos automáticos no interactivos
         });
         console.log("[PaymentRepository] 📤 Pago registrado atómicamente (Rust):", local_uuid);
         return payment;
@@ -193,21 +193,14 @@ export class PaymentRepository {
     }
 
     // AUD-03 FIX: Registrar evento CREATE_PAYMENT dentro de la misma transacción.
-    // Se elimina el try/catch general para garantizar fail-fast ante errores de BD.
-    // Sin embargo, protegemos la obtención del user_id para evitar fallos por mocks incompletos en tests.
-    let userId = "system";
-    try {
-      userId = getAuthContextSafe()?.user_id ?? "system";
-    } catch (e) {
-      // Fallback seguro para entornos de prueba con mocks incompletos de authContext
-    }
+    const authUser = getAuthContextSafe()?.user_id || "system-automated";
 
     await EventStore.record(
       {
         company_id: payload.company_id,
         branch_id: payload.branch_id,
         terminal_id: getTerminalId(),
-        user_id: userId,
+        user_id: authUser,
         entity_type: "payment",
         entity_uuid: local_uuid,
         event_type: "CREATE_PAYMENT",
@@ -335,7 +328,7 @@ export class PaymentRepository {
       company_id: payment.company_id,
       branch_id: payment.branch_id,
       terminal_id: getTerminalId(),
-      user_id: getAuthContextSafe()?.user_id ?? "system",
+      user_id: getAuthContextSafe()?.user_id || "system-automated",
       entity_type: "payment",
       entity_uuid: localUuid,
       event_type: "ADJUST_PAYMENT",

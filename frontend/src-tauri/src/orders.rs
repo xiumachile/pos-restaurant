@@ -1036,10 +1036,22 @@ mod cancel_full_flow_tests {
         let result = process_order_transition(&mut conn, &payload);
         assert!(result.is_ok(), "La cancelación completa debe tener éxito: {:?}", result.err());
         
-        // Verificar efectos secundarios atómicos
+        // Verificar efectos secundarios atómicos completos
+        // 1. Estado del pedido
+        let order_status: String = conn.query_row("SELECT status FROM local_orders WHERE local_uuid = 'order-1'", [], |row| row.get(0)).unwrap();
+        assert_eq!(order_status, "cancelled", "El pedido debe estar cancelado");
+
+        // 2. Estado de la mesa
+        let table_state: (String, Option<String>) = conn.query_row("SELECT status, current_order_uuid FROM local_tables WHERE uuid = 'table-1'", [], |row| Ok((row.get(0)?, row.get(1)?))).unwrap();
+        assert_eq!(table_state.0, "available", "La mesa debe estar disponible");
+        assert!(table_state.1.is_none(), "La mesa no debe tener orden asociada");
+
+        // 3. Mutación de mesa
         let mutation: (String, String) = conn.query_row("SELECT pending_status, action FROM table_local_mutations WHERE table_uuid = 'table-1'", [], |row| Ok((row.get(0)?, row.get(1)?))).unwrap();
         assert_eq!(mutation.0, "available");
+        assert_eq!(mutation.1, "update");
         
+        // 4. Cola de sincronización
         let sync_count: i64 = conn.query_row("SELECT COUNT(*) FROM sync_queue WHERE entity_local_uuid = 'order-1'", [], |row| row.get(0)).unwrap();
         assert_eq!(sync_count, 1, "Debe haber exactamente 1 evento en sync_queue");
     }

@@ -20,6 +20,7 @@ vi.mock("@/services/authContext", () => ({
     user_id: "user-1",
     user_name: "Juan Pérez",
   }),
+  getAuthContextSafe: vi.fn(() => ({ user_id: 'test-user', terminal_id: 'test-terminal' }))
 }));
 
 describe("offlineCashCloseService", () => {
