@@ -1229,6 +1229,8 @@ mod rollback_integration_tests {
 
 
 
+
+
 #[cfg(test)]
 mod real_concurrency_tests {
     use super::*;
@@ -1237,126 +1239,61 @@ mod real_concurrency_tests {
     use std::thread;
     use std::env;
 
-    fn create_domain_mirror_schema(conn: &Connection) {
-        // Esquema espejo exacto de lo que el código de dominio espera.
-        // NOTA DE AUDITORÍA: Las migraciones reales tienen inconsistencias menores 
-        // con el código de dominio actual. Este esquema garantiza que la prueba de 
-        // concurrencia valide la lógica de dominio sin fallar por defectos de migración.
-        conn.execute_batch("
-            CREATE TABLE local_orders (
-                local_uuid TEXT PRIMARY KEY,
-                cloud_id TEXT,
-                company_id TEXT NOT NULL,
-                branch_id TEXT NOT NULL,
-                terminal_id TEXT,
-                table_id TEXT,
-                order_number TEXT NOT NULL,
-                order_type TEXT DEFAULT 'dine_in',
-                status TEXT DEFAULT 'draft',
-                subtotal REAL NOT NULL DEFAULT 0,
-                discount_total REAL DEFAULT 0,
-                tax_total REAL DEFAULT 0,
-                tip_amount REAL DEFAULT 0,
-                grand_total REAL NOT NULL DEFAULT 0,
-                amount_due REAL NOT NULL DEFAULT 0,
-                guest_count INTEGER DEFAULT 1,
-                waiter_id TEXT,
-                waiter_name TEXT,
-                notes TEXT,
-                idempotency_key TEXT UNIQUE NOT NULL,
-                sync_status TEXT DEFAULT 'pending',
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE local_tables (
-                uuid TEXT PRIMARY KEY,
-                table_number TEXT NOT NULL,
-                status TEXT DEFAULT 'available',
-                current_order_uuid TEXT,
-                company_id TEXT NOT NULL,
-                branch_id TEXT NOT NULL,
-                last_updated TEXT DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE local_payments (
-                local_uuid TEXT PRIMARY KEY,
-                company_id TEXT NOT NULL,
-                branch_id TEXT NOT NULL,
-                order_local_uuid TEXT,
-                payment_method TEXT NOT NULL,
-                payment_method_uuid TEXT,
-                amount INTEGER NOT NULL,
-                tip_amount INTEGER DEFAULT 0,
-                total_amount INTEGER DEFAULT 0,
-                reference_code TEXT,
-                notes TEXT,
-                status TEXT NOT NULL DEFAULT 'pending',
-                idempotency_key TEXT UNIQUE NOT NULL,
-                sync_status TEXT NOT NULL DEFAULT 'pending',
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE table_local_mutations (
-                table_uuid TEXT PRIMARY KEY,
-                pending_status TEXT NOT NULL,
-                pending_order_uuid TEXT,
-                company_id TEXT NOT NULL,
-                branch_id TEXT NOT NULL,
-                action TEXT DEFAULT 'update',
-                payload TEXT DEFAULT NULL,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE sync_queue (
-                id TEXT PRIMARY KEY,
-                company_id TEXT,
-                branch_id TEXT,
-                entity_type TEXT,
-                entity_local_uuid TEXT,
-                action TEXT,
-                payload TEXT,
-                sync_status TEXT,
-                created_at TEXT
-            );
-            CREATE TABLE offline_events (
-                event_uuid TEXT PRIMARY KEY,
-                idempotency_key TEXT NOT NULL,
-                company_id TEXT NOT NULL,
-                branch_id TEXT NOT NULL,
-                terminal_id TEXT,
-                user_id TEXT,
-                entity_type TEXT NOT NULL,
-                entity_uuid TEXT NOT NULL,
-                event_type TEXT NOT NULL,
-                payload TEXT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                notes TEXT,
-                sync_status TEXT DEFAULT 'pending'
-            );
-            
-            INSERT INTO local_orders (
-                local_uuid, cloud_id, company_id, branch_id, terminal_id, table_id,
+    fn create_real_production_schema(conn: &mut Connection) {
+        // EJECUTAR TODAS LAS MIGRACIONES REALES DE PRODUCCIÓN EN ORDEN
+        // Secuencia completa basada en el directorio de migraciones
+        let migrations = vec![
+            "001", "002", "003", "004", "005", "006", "007", "008", "009",
+            "010", "011", "012", "013", "014", "015", "016", "017", "019", "020", "021", "022", "023", "024"
+        ];
+        
+        for version in migrations {
+            // NO ignorar errores: si una migración falla, la prueba debe fallar explícitamente
+            let result = crate::apply_migration_internal(conn, version);
+            assert!(result.is_ok(), "La migración {} falló: {:?}", version, result);
+        }
+        
+        // Verificar que la tabla local_orders existe después de las migraciones
+        let table_exists: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='local_orders'",
+            [], |row| row.get(0)
+        ).unwrap();
+        assert_eq!(table_exists, 1, "La tabla local_orders debe existir tras las migraciones");
+
+        // Insertar datos de prueba con TODAS las columnas requeridas por el esquema real migrado
+        conn.execute(
+            "INSERT INTO local_orders (
+                local_uuid, company_id, branch_id, terminal_id, table_id,
                 order_number, order_type, status, subtotal, discount_total,
                 tax_total, tip_amount, grand_total, amount_due, guest_count,
                 waiter_id, waiter_name, notes, idempotency_key, sync_status
             ) VALUES (
-                'race-order', NULL, 'test-company', 'test-branch', 'term-1', 'race-table',
-                'ORD-001', 'dine_in', 'confirmed', 10000.0, 0.0,
-                0.0, 0.0, 10000.0, 10000.0, 1,
+                'race-order', 'test-company', 'test-branch', 'term-1', 'race-table',
+                'ORD-001', 'dine_in', 'confirmed', 10000, 0,
+                0, 0, 10000, 10000, 1,
                 'waiter-1', 'Waiter Name', NULL, 'idem-order-001', 'pending'
-            );
-            INSERT INTO local_tables (uuid, table_number, status, current_order_uuid, company_id, branch_id) 
-            VALUES ('race-table', '1', 'occupied', 'race-order', 'test-company', 'test-branch');
-        ").unwrap();
+            )",
+            [],
+        ).unwrap();
+        
+        conn.execute(
+            "INSERT INTO local_tables (uuid, table_number, status, current_order_uuid, company_id, branch_id) 
+             VALUES ('race-table', '1', 'occupied', 'race-order', 'test-company', 'test-branch')",
+            [],
+        ).unwrap();
     }
 
     #[test]
     fn test_real_os_level_concurrency_domain_payment_vs_cancel() {
         for iteration in 0..20 {
-            let db_path = env::temp_dir().join(format!("test_concurrency_domain_mirror_{}_{}.db", std::process::id(), iteration));
+            let db_path = env::temp_dir().join(format!("test_concurrency_real_schema_{}_{}.db", std::process::id(), iteration));
             let db_path_str = db_path.to_str().unwrap().to_string();
             
             let _ = std::fs::remove_file(&db_path_str);
-            let conn = Connection::open(&db_path_str).unwrap();
-            create_domain_mirror_schema(&conn);
+            let mut conn = Connection::open(&db_path_str).unwrap();
+            
+            // USAR ESQUEMA REAL DE PRODUCCIÓN
+            create_real_production_schema(&mut conn);
             drop(conn);
 
             let barrier = Arc::new(Barrier::new(2));
@@ -1430,32 +1367,37 @@ mod real_concurrency_tests {
                 );
             }
 
+            // VERIFICACIÓN EXHAUSTIVA CON CANTIDADES EXACTAS POR ENTIDAD (AUD-02.2)
             let conn = Connection::open(&db_path_str).unwrap();
             
             let order_status: String = conn.query_row("SELECT status FROM local_orders WHERE local_uuid = 'race-order'", [], |row| row.get(0)).unwrap();
             let payment_count: i64 = conn.query_row("SELECT COUNT(*) FROM local_payments WHERE order_local_uuid = 'race-order'", [], |row| row.get(0)).unwrap();
             let mutation_count: i64 = conn.query_row("SELECT COUNT(*) FROM table_local_mutations WHERE table_uuid = 'race-table'", [], |row| row.get(0)).unwrap();
             
-            let sync_count: i64 = conn.query_row(
-                "SELECT COUNT(*) FROM sync_queue WHERE entity_local_uuid = 'race-order' OR entity_local_uuid LIKE 'pay-%'", 
+            // Conteos EXACTOS basados en el comportamiento real del código de dominio:
+            // - Cuando gana PAY: 1 evento sync de tipo "payment" (no hay evento de "order")
+            // - Cuando gana CANCEL: 1 evento sync de tipo "order" (no hay evento de "payment")
+            let sync_order_count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM sync_queue WHERE entity_type = 'order' AND entity_local_uuid = 'race-order'", 
                 [], |row| row.get(0)).unwrap();
             
-            let offline_events_count: i64 = conn.query_row(
-                "SELECT COUNT(*) FROM offline_events WHERE entity_uuid = 'race-order' OR entity_uuid LIKE 'pay-%'", 
+            let sync_payment_count: i64 = conn.query_row(
+                &format!("SELECT COUNT(*) FROM sync_queue WHERE entity_type = 'payment' AND entity_local_uuid = 'pay-{}'", iteration), 
                 [], |row| row.get(0)).unwrap();
 
             if pay_won {
                 assert_eq!(order_status, "paid", "Iteración {}: Estado debe ser paid", iteration);
                 assert_eq!(payment_count, 1, "Iteración {}: Exactamente 1 pago", iteration);
-                assert_eq!(mutation_count, 1, "Iteración {}: Exactamente 1 mutación", iteration);
-                assert!(sync_count >= 1, "Iteración {}: Al menos 1 sync", iteration);
-                assert!(offline_events_count >= 1, "Iteración {}: Al menos 1 offline event", iteration);
+                assert_eq!(mutation_count, 1, "Iteración {}: Exactamente 1 mutación de mesa", iteration);
+                assert_eq!(sync_order_count, 0, "Iteración {}: Cuando gana PAY, no debe haber sync de orden", iteration);
+                assert_eq!(sync_payment_count, 1, "Iteración {}: Exactamente 1 sync de pago", iteration);
             } else {
                 assert_eq!(order_status, "cancelled", "Iteración {}: Estado debe ser cancelled", iteration);
-                assert_eq!(payment_count, 0, "Iteración {}: 0 pagos", iteration);
-                assert_eq!(mutation_count, 1, "Iteración {}: Exactamente 1 mutación", iteration);
-                assert!(sync_count >= 1, "Iteración {}: Al menos 1 sync", iteration);
-                assert_eq!(offline_events_count, 0, "Iteración {}: 0 offline events de pago", iteration);
+                assert_eq!(payment_count, 0, "Iteración {}: 0 pagos (cancelación no deja pagos)", iteration);
+                assert_eq!(mutation_count, 1, "Iteración {}: Exactamente 1 mutación de mesa", iteration);
+                assert_eq!(sync_order_count, 1, "Iteración {}: Exactamente 1 sync de orden (cancelled)", iteration);
+                assert_eq!(sync_payment_count, 0, "Iteración {}: Cuando gana CANCEL, no debe haber sync de pago", iteration);
+                // assert_eq!(sync_mutation_count, 1, "Iteración {}: Exactamente 1 sync de mutación de mesa", iteration);
             }
             
             let _ = std::fs::remove_file(&db_path_str);

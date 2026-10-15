@@ -1,6 +1,6 @@
 -- Migration: Convert Money columns from REAL to INTEGER
 -- ADR-010: Estrategia de integridad monetaria para CLP
--- 
+--
 -- Chile usa pesos sin centavos fraccionarios, por lo que:
 -- - SQLite local: INTEGER (pesos enteros)
 -- - Evita errores de punto flotante
@@ -15,36 +15,39 @@
 CREATE TABLE local_orders_new (
     local_uuid TEXT PRIMARY KEY,
     cloud_id TEXT,
-    order_number TEXT NOT NULL,
     company_id TEXT NOT NULL,
     branch_id TEXT NOT NULL,
+    terminal_id TEXT,
     table_id TEXT,
-    waiter_id TEXT,
-    waiter_name TEXT,
-    order_type TEXT NOT NULL DEFAULT 'dine_in',
-    status TEXT NOT NULL DEFAULT 'draft',
+    order_number TEXT NOT NULL,
+    order_type TEXT DEFAULT 'dine_in',
+    status TEXT DEFAULT 'draft',
     subtotal INTEGER NOT NULL DEFAULT 0,
     discount_total INTEGER DEFAULT 0,
     tax_total INTEGER DEFAULT 0,
     tip_amount INTEGER DEFAULT 0,
     grand_total INTEGER NOT NULL DEFAULT 0,
+    guest_count INTEGER DEFAULT 1,
+    waiter_id TEXT,
+    waiter_name TEXT,
     notes TEXT,
-    sync_status TEXT NOT NULL DEFAULT 'pending',
+    idempotency_key TEXT UNIQUE NOT NULL,
+    sync_status TEXT DEFAULT 'pending',
     sync_error TEXT,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT INTO local_orders_new 
-SELECT 
-    local_uuid, cloud_id, order_number, company_id, branch_id, 
-    table_id, waiter_id, waiter_name, order_type, status,
+INSERT INTO local_orders_new
+SELECT
+    local_uuid, cloud_id, company_id, branch_id, terminal_id, table_id,
+    order_number, order_type, status,
     CAST(ROUND(subtotal) AS INTEGER),
     CAST(ROUND(discount_total) AS INTEGER),
     CAST(ROUND(tax_total) AS INTEGER),
     CAST(ROUND(tip_amount) AS INTEGER),
     CAST(ROUND(grand_total) AS INTEGER),
-    notes, sync_status, sync_error, created_at, updated_at
+    guest_count, waiter_id, waiter_name, notes, idempotency_key, sync_status, sync_error, created_at, updated_at
 FROM local_orders;
 
 DROP TABLE local_orders;
@@ -56,27 +59,27 @@ ALTER TABLE local_orders_new RENAME TO local_orders;
 
 CREATE TABLE local_order_items_new (
     local_uuid TEXT PRIMARY KEY,
-    cloud_id TEXT,
     order_local_uuid TEXT NOT NULL,
-    order_cloud_id TEXT,
+    cloud_id TEXT,
     product_id TEXT NOT NULL,
     product_name TEXT NOT NULL,
-    quantity INTEGER NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1,
     unit_price INTEGER NOT NULL,
     subtotal INTEGER NOT NULL,
     notes TEXT,
-    sync_status TEXT NOT NULL DEFAULT 'pending',
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    kitchen_status TEXT DEFAULT 'pending',
+    is_menu_item INTEGER DEFAULT 0,
+    menu_item_id TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (order_local_uuid) REFERENCES local_orders(local_uuid) ON DELETE CASCADE
 );
 
 INSERT INTO local_order_items_new
-SELECT 
-    local_uuid, cloud_id, order_local_uuid, order_cloud_id,
-    product_id, product_name, quantity,
+SELECT
+    local_uuid, order_local_uuid, cloud_id, product_id, product_name, quantity,
     CAST(ROUND(unit_price) AS INTEGER),
     CAST(ROUND(subtotal) AS INTEGER),
-    notes, sync_status, created_at
+    notes, kitchen_status, is_menu_item, menu_item_id, created_at
 FROM local_order_items;
 
 DROP TABLE local_order_items;
@@ -89,28 +92,35 @@ ALTER TABLE local_order_items_new RENAME TO local_order_items;
 CREATE TABLE local_payments_new (
     local_uuid TEXT PRIMARY KEY,
     cloud_id TEXT,
-    order_local_uuid TEXT NOT NULL,
+    company_id TEXT NOT NULL,
+    branch_id TEXT NOT NULL,
+    order_local_uuid TEXT,
     order_cloud_id TEXT,
+    bill_local_uuid TEXT,
     payment_method TEXT NOT NULL,
     payment_method_uuid TEXT,
     amount INTEGER NOT NULL,
     tip_amount INTEGER DEFAULT 0,
+    total_amount INTEGER DEFAULT 0,
     reference_code TEXT,
     notes TEXT,
-    status TEXT NOT NULL DEFAULT 'pending',
-    sync_status TEXT NOT NULL DEFAULT 'pending',
+    status TEXT DEFAULT 'pending',
+    idempotency_key TEXT UNIQUE NOT NULL,
+    sync_status TEXT DEFAULT 'pending',
     sync_error TEXT,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (order_local_uuid) REFERENCES local_orders(local_uuid) ON DELETE CASCADE
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
 INSERT INTO local_payments_new
-SELECT 
-    local_uuid, cloud_id, order_local_uuid, order_cloud_id,
-    payment_method, payment_method_uuid,
+SELECT
+    local_uuid, cloud_id, company_id, branch_id, order_local_uuid, order_cloud_id,
+    NULL as bill_local_uuid,
+    payment_method,
+    NULL as payment_method_uuid,
     CAST(ROUND(amount) AS INTEGER),
     CAST(ROUND(tip_amount) AS INTEGER),
-    reference_code, notes, status, sync_status, sync_error, created_at
+    CAST(ROUND(amount + COALESCE(tip_amount, 0)) AS INTEGER) as total_amount,
+    reference_code, NULL as notes, status, idempotency_key, sync_status, sync_error, created_at
 FROM local_payments;
 
 DROP TABLE local_payments;
@@ -123,32 +133,72 @@ ALTER TABLE local_payments_new RENAME TO local_payments;
 CREATE TABLE local_cash_sessions_new (
     local_uuid TEXT PRIMARY KEY,
     cloud_id TEXT,
-    company_id TEXT NOT NULL,
     branch_id TEXT NOT NULL,
     terminal_id TEXT,
     user_id TEXT NOT NULL,
     user_name TEXT,
-    status TEXT NOT NULL DEFAULT 'open',
+    status TEXT DEFAULT 'open',
     opening_amount INTEGER DEFAULT 0,
-    closing_amount INTEGER,
-    opened_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    closing_amount INTEGER DEFAULT 0,
+    opened_at TEXT,
     closed_at TEXT,
-    sync_status TEXT NOT NULL DEFAULT 'pending',
-    sync_error TEXT,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    sync_status TEXT DEFAULT 'pending',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
 INSERT INTO local_cash_sessions_new
-SELECT 
-    local_uuid, cloud_id, company_id, branch_id, terminal_id,
-    user_id, user_name, status,
+SELECT
+    local_uuid, cloud_id, branch_id, terminal_id, user_id, user_name, status,
     CAST(ROUND(opening_amount) AS INTEGER),
     CAST(ROUND(closing_amount) AS INTEGER),
-    opened_at, closed_at, sync_status, sync_error, created_at
+    opened_at, closed_at, sync_status, created_at
 FROM local_cash_sessions;
 
 DROP TABLE local_cash_sessions;
 ALTER TABLE local_cash_sessions_new RENAME TO local_cash_sessions;
+
+-- ============================================
+-- local_cash_movements
+-- ============================================
+
+CREATE TABLE local_cash_movements_new (
+    local_uuid TEXT PRIMARY KEY,
+    cloud_id TEXT,
+    company_id TEXT NOT NULL,
+    branch_id TEXT NOT NULL,
+    terminal_id TEXT,
+    cash_session_local_uuid TEXT,
+    cash_session_cloud_id TEXT,
+    type TEXT NOT NULL,
+    amount INTEGER NOT NULL,
+    balance_after INTEGER NOT NULL,
+    reference_type TEXT,
+    reference_local_uuid TEXT,
+    reference_cloud_id TEXT,
+    notes TEXT,
+    reason TEXT,
+    user_id TEXT,
+    user_name TEXT,
+    authorized_by TEXT,
+    authorized_at TEXT,
+    sync_status TEXT DEFAULT 'pending',
+    idempotency_key TEXT UNIQUE NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO local_cash_movements_new
+SELECT
+    local_uuid, cloud_id, company_id, branch_id, terminal_id,
+    cash_session_local_uuid, cash_session_cloud_id, type,
+    CAST(ROUND(amount) AS INTEGER),
+    CAST(ROUND(balance_after) AS INTEGER),
+    reference_type, reference_local_uuid, reference_cloud_id,
+    notes, reason, user_id, user_name, authorized_by, authorized_at,
+    sync_status, idempotency_key, created_at
+FROM local_cash_movements;
+
+DROP TABLE local_cash_movements;
+ALTER TABLE local_cash_movements_new RENAME TO local_cash_movements;
 
 -- ============================================
 -- local_bills
@@ -157,7 +207,10 @@ ALTER TABLE local_cash_sessions_new RENAME TO local_cash_sessions;
 CREATE TABLE local_bills_new (
     local_uuid TEXT PRIMARY KEY,
     cloud_id TEXT,
-    order_local_uuid TEXT NOT NULL,
+    company_id TEXT NOT NULL,
+    branch_id TEXT NOT NULL,
+    terminal_id TEXT,
+    order_local_uuid TEXT,
     order_cloud_id TEXT,
     bill_number TEXT NOT NULL,
     subtotal INTEGER NOT NULL DEFAULT 0,
@@ -167,18 +220,18 @@ CREATE TABLE local_bills_new (
     grand_total INTEGER NOT NULL DEFAULT 0,
     paid_amount INTEGER NOT NULL DEFAULT 0,
     remaining_amount INTEGER NOT NULL DEFAULT 0,
-    status TEXT NOT NULL DEFAULT 'open',
+    status TEXT DEFAULT 'open',
     notes TEXT,
-    sync_status TEXT NOT NULL DEFAULT 'pending',
+    idempotency_key TEXT UNIQUE NOT NULL,
+    sync_status TEXT DEFAULT 'pending',
     sync_error TEXT,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (order_local_uuid) REFERENCES local_orders(local_uuid) ON DELETE CASCADE
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
 INSERT INTO local_bills_new
-SELECT 
-    local_uuid, cloud_id, order_local_uuid, order_cloud_id, bill_number,
+SELECT
+    local_uuid, cloud_id, company_id, branch_id, terminal_id,
+    order_local_uuid, order_cloud_id, bill_number,
     CAST(ROUND(subtotal) AS INTEGER),
     CAST(ROUND(discount_total) AS INTEGER),
     CAST(ROUND(tax_total) AS INTEGER),
@@ -186,72 +239,36 @@ SELECT
     CAST(ROUND(grand_total) AS INTEGER),
     CAST(ROUND(paid_amount) AS INTEGER),
     CAST(ROUND(remaining_amount) AS INTEGER),
-    status, notes, sync_status, sync_error, created_at, updated_at
+    status, notes, idempotency_key, sync_status, sync_error, created_at
 FROM local_bills;
 
 DROP TABLE local_bills;
 ALTER TABLE local_bills_new RENAME TO local_bills;
 
 -- ============================================
--- local_cash_movements
--- ============================================
-
-CREATE TABLE local_cash_movements_new (
-    local_uuid TEXT PRIMARY KEY,
-    cloud_id TEXT,
-    cash_session_local_uuid TEXT NOT NULL,
-    cash_session_cloud_id TEXT,
-    movement_type TEXT NOT NULL,
-    amount INTEGER NOT NULL,
-    balance_after INTEGER NOT NULL,
-    reference_type TEXT,
-    reference_local_uuid TEXT,
-    reference_cloud_id TEXT,
-    notes TEXT,
-    sync_status TEXT NOT NULL DEFAULT 'pending',
-    sync_error TEXT,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (cash_session_local_uuid) REFERENCES local_cash_sessions(local_uuid) ON DELETE CASCADE
-);
-
-INSERT INTO local_cash_movements_new
-SELECT 
-    local_uuid, cloud_id, cash_session_local_uuid, cash_session_cloud_id,
-    movement_type,
-    CAST(ROUND(amount) AS INTEGER),
-    CAST(ROUND(balance_after) AS INTEGER),
-    reference_type, reference_local_uuid, reference_cloud_id,
-    notes, sync_status, sync_error, created_at
-FROM local_cash_movements;
-
-DROP TABLE local_cash_movements;
-ALTER TABLE local_cash_movements_new RENAME TO local_cash_movements;
-
--- ============================================
--- local_products (catálogo - solo base_price)
--- NOTA: tax_rate se mantiene REAL porque es porcentaje
+-- local_products
 -- ============================================
 
 CREATE TABLE local_products_new (
-    local_uuid TEXT PRIMARY KEY,
-    cloud_id TEXT,
-    name TEXT NOT NULL,
-    description TEXT,
+    uuid TEXT PRIMARY KEY,
+    category_id TEXT,
+    sku TEXT,
+    name_translations TEXT,
+    description_translations TEXT,
     base_price INTEGER NOT NULL DEFAULT 0,
     tax_rate REAL DEFAULT 19.00,
-    category_id TEXT,
-    is_available INTEGER NOT NULL DEFAULT 1,
-    sync_status TEXT NOT NULL DEFAULT 'pending',
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    is_combo INTEGER DEFAULT 0,
+    kitchen_zone_id TEXT,
+    is_active INTEGER DEFAULT 1,
+    last_updated TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
 INSERT INTO local_products_new
-SELECT 
-    local_uuid, cloud_id, name, description,
+SELECT
+    uuid, category_id, sku, name_translations, description_translations,
     CAST(ROUND(base_price) AS INTEGER),
     tax_rate,
-    category_id, is_available, sync_status, created_at, updated_at
+    is_combo, kitchen_zone_id, is_active, last_updated
 FROM local_products;
 
 DROP TABLE local_products;

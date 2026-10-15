@@ -157,6 +157,7 @@ fn get_trusted_migration(version: &str) -> Option<&'static str> {
         "007" => Some(include_str!("../../src/db/migrations/007_create_offline_events.sql")),
         "008" => Some(include_str!("../../src/db/migrations/008_create_local_print_jobs.sql")),
         "009" => Some(include_str!("../../src/db/migrations/009_create_printer_configs.sql")),
+        "010" => Some(include_str!("../../src/db/migrations/010_convert_money_to_integer.sql")),
         "011" => Some(include_str!("../../src/db/migrations/011_add_chilean_columns.sql")),
         "012" => Some(include_str!("../../src/db/migrations/012_add_tenant_to_local_tables.sql")),
         "013" => Some(include_str!("../../src/db/migrations/013_add_tenant_to_table_mutations.sql")),
@@ -169,6 +170,7 @@ fn get_trusted_migration(version: &str) -> Option<&'static str> {
         "021" => Some(include_str!("../../src/db/migrations/021_enforce_table_mutation_schema.sql")),
         "022" => Some(include_str!("../../src/db/migrations/022_add_migrations_checksum.sql")), // AUD-04 FIX: Reparar bases antiguas
         "023" => Some(include_str!("../../src/db/migrations/023_add_total_amount_to_payments.sql")), // AUD-02 FIX: Añadir total_amount faltante
+        "024" => Some(include_str!("../../src/db/migrations/024_add_updated_at_to_table_mutations.sql")), // AUD-02 FIX: Añadir updated_at faltante
         "099" => Some(include_str!("../../src/db/migrations/099_test_rollback.sql")), // AUD-04 FIX: Migración de prueba para validar rollback
         _ => None, // Cualquier otra versión será rechazada por seguridad
     }
@@ -183,16 +185,28 @@ pub(crate) fn apply_migration_internal(conn: &mut rusqlite::Connection, version:
         .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
         .map_err(|e| format!("Error iniciando transacción de migración: {e}"))?;
 
-    // Manejo explícito de errores: no silenciar fallos de consulta.
-    // Si la tabla migrations no existe o hay un error de esquema, debe fallar claramente
-    // en lugar de asumir falsamente que la migración no está aplicada.
-    let already_applied: bool = tx
+    // Manejo explícito de bases de datos frescas:
+    // Verificar si la tabla 'migrations' existe antes de consultarla.
+    // Esto evita errores "no such table" antes de que la migración 001 la cree,
+    // cumpliendo con la exigencia de no silenciar errores indiscriminadamente.
+    let table_exists: bool = tx
         .query_row(
+            "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='migrations'",
+            [],
+            |r| r.get(0),
+        )
+        .map_err(|e| format!("Error verificando existencia de tabla migrations: {}", e))?;
+
+    let already_applied: bool = if table_exists {
+        tx.query_row(
             "SELECT COUNT(*) > 0 FROM migrations WHERE version = ?1",
             rusqlite::params![version],
             |r| r.get(0),
         )
-        .map_err(|e| format!("Error verificando estado de migración '{}': {}. La base de datos puede tener un esquema inesperado.", version, e))?;
+        .map_err(|e| format!("Error consultando tabla migrations: {}", e))?
+    } else {
+        false // La tabla no existe, por lo tanto esta migración no puede estar aplicada.
+    };
 
     if already_applied {
         return Ok(false);
