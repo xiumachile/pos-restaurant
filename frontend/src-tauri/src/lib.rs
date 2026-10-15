@@ -171,49 +171,33 @@ fn get_trusted_migration(version: &str) -> Option<&'static str> {
         _ => None, // Cualquier otra versión será rechazada por seguridad
     }
 }
-#[tauri::command]
-fn apply_migration(
-    state: tauri::State<crate::database::DbState>,
-    version: String,
-) -> Result<bool, String> {
-    // 1. Obtener el script confiable incorporado en el binario
-    let sql_script = get_trusted_migration(&version)
+/// Función interna reutilizable que abarca la lógica transaccional completa
+/// de aplicación y registro de una migración. Usada por producción y pruebas.
+pub(crate) fn apply_migration_internal(conn: &mut rusqlite::Connection, version: &str) -> Result<bool, String> {
+    let sql_script = crate::get_trusted_migration(version)
         .ok_or_else(|| format!("Migración no reconocida o no permitida: {}", version))?;
-
-    // 2. Validación de defensa en profundidad: rechazar patrones peligrosos
-    // P1-04 FIX: No se valida el contenido del script porque proviene de
-    // get_trusted_migration (include_str!), que es una whitelist compilada en el binario.
-    // El frontend solo puede solicitar una versión de esta lista, imposibilitando la inyección.
-
-    let mut conn = state
-        .0
-        .lock()
-        .map_err(|e| format!("Mutex envenenado: {e}"))?;
 
     let tx = conn
         .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
         .map_err(|e| format!("Error iniciando transacción de migración: {e}"))?;
 
-    // Verificar si ya está aplicada
     let already_applied: bool = tx
         .query_row(
             "SELECT COUNT(*) > 0 FROM migrations WHERE version = ?1",
-            params![version],
+            rusqlite::params![version],
             |r| r.get(0),
         )
         .unwrap_or(false);
 
     if already_applied {
-        return Ok(false); // Ya aplicada, no hacer nada
+        return Ok(false);
     }
 
-    // Ejecutar el script de migración
-    run_migration_script(&tx, &version, &sql_script)?;
+    crate::run_migration_script(&tx, version, &sql_script)?;
 
-    // Registrar como aplicada
     tx.execute(
         "INSERT OR IGNORE INTO migrations (version, applied_at) VALUES (?1, CURRENT_TIMESTAMP)",
-        params![version],
+        rusqlite::params![version],
     )
     .map_err(|e| format!("Error registrando migración {version}: {e}"))?;
 
@@ -221,6 +205,18 @@ fn apply_migration(
         .map_err(|e| format!("Error en COMMIT de migración: {e}"))?;
 
     Ok(true)
+}
+
+#[tauri::command]
+fn apply_migration(
+    state: tauri::State<crate::database::DbState>,
+    version: String,
+) -> Result<bool, String> {
+    let mut conn = state
+        .0
+        .lock()
+        .map_err(|e| format!("Mutex envenenado: {e}"))?;
+    crate::apply_migration_internal(&mut conn, &version)
 }
 #[tauri::command]
 fn execute_read_query(
