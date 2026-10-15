@@ -1056,3 +1056,151 @@ mod cancel_full_flow_tests {
         assert_eq!(sync_count, 1, "Debe haber exactamente 1 evento en sync_queue");
     }
 }
+
+#[cfg(test)]
+mod rollback_tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    #[test]
+    fn test_rollback_on_intermediate_failure() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("
+            CREATE TABLE local_orders (local_uuid TEXT PRIMARY KEY, status TEXT DEFAULT 'confirmed');
+            CREATE TABLE local_tables (uuid TEXT PRIMARY KEY, status TEXT DEFAULT 'available', current_order_uuid TEXT);
+        ").unwrap();
+        
+        conn.execute("INSERT INTO local_orders (local_uuid, status) VALUES ('order-1', 'confirmed')", []).unwrap();
+        conn.execute("INSERT INTO local_tables (uuid, status, current_order_uuid) VALUES ('table-1', 'occupied', 'order-1')", []).unwrap();
+
+        // Simular el comportamiento de la transacción IMMEDIATE con fallo intermedio
+        conn.execute_batch("BEGIN IMMEDIATE").unwrap();
+        
+        // 1. Escritura parcial exitosa
+        conn.execute("UPDATE local_orders SET status = 'cancelled' WHERE local_uuid = 'order-1'", []).unwrap();
+        conn.execute("UPDATE local_tables SET status = 'available', current_order_uuid = NULL WHERE uuid = 'table-1'", []).unwrap();
+        
+        // 2. Fallo intermedio simulado (tabla inexistente)
+        let intermediate_result = conn.execute("INSERT INTO non_existent_sync_queue (id) VALUES (1)", []);
+        assert!(intermediate_result.is_err(), "Debe fallar en la escritura intermedia");
+        
+        // 3. Rollback explícito (como lo haría el manejador de errores de producción)
+        conn.execute_batch("ROLLBACK").unwrap();
+        
+        // 4. VERIFICACIÓN DE CIERRE: Ningún cambio parcial sobrevivió
+        let order_status: String = conn.query_row("SELECT status FROM local_orders WHERE local_uuid = 'order-1'", [], |row| row.get(0)).unwrap();
+        assert_eq!(order_status, "confirmed", "El estado del pedido debe revertirse al original");
+        
+        let table_state: (String, String) = conn.query_row("SELECT status, current_order_uuid FROM local_tables WHERE uuid = 'table-1'", [], |row| Ok((row.get(0)?, row.get(1)?))).unwrap();
+        assert_eq!(table_state.0, "occupied", "El estado de la mesa debe revertirse al original");
+        assert_eq!(table_state.1, "order-1", "La asociación de la mesa debe revertirse al original");
+    }
+}
+
+#[cfg(test)]
+
+#[cfg(test)]
+
+#[cfg(test)]
+mod real_concurrency_tests {
+    use super::*;
+    use rusqlite::{Connection, TransactionBehavior};
+    use std::sync::{Arc, Barrier};
+    use std::thread;
+    use std::env;
+
+    #[test]
+    fn test_real_os_level_concurrency_payment_vs_cancel() {
+        let db_path = env::temp_dir().join(format!("test_concurrency_{}.db", std::process::id()));
+        let db_path_str = db_path.to_str().unwrap().to_string();
+        
+        // CRÍTICO: Limpiar archivo residual de ejecuciones anteriores en el mismo proceso de cargo test
+        let _ = std::fs::remove_file(&db_path_str);
+        
+        let mut conn = Connection::open(&db_path_str).unwrap();
+        conn.execute_batch("
+            CREATE TABLE local_orders (local_uuid TEXT PRIMARY KEY, status TEXT DEFAULT 'confirmed');
+            CREATE TABLE local_tables (uuid TEXT PRIMARY KEY, status TEXT DEFAULT 'available', current_order_uuid TEXT);
+            CREATE TABLE local_payments (local_uuid TEXT PRIMARY KEY, order_local_uuid TEXT, amount INTEGER);
+            CREATE TABLE table_local_mutations (table_uuid TEXT PRIMARY KEY, pending_status TEXT, pending_order_uuid TEXT);
+            CREATE TABLE sync_queue (id TEXT PRIMARY KEY, entity_local_uuid TEXT, action TEXT, payload TEXT);
+            INSERT INTO local_orders (local_uuid, status) VALUES ('race-order', 'confirmed');
+            INSERT INTO local_tables (uuid, status, current_order_uuid) VALUES ('race-table', 'occupied', 'race-order');
+        ").unwrap();
+        drop(conn);
+
+        let barrier = Arc::new(Barrier::new(2));
+        
+        let db_path_pay = db_path_str.clone();
+        let barrier_pay = Arc::clone(&barrier);
+        let handle_pay = thread::spawn(move || {
+            let mut conn = Connection::open(&db_path_pay).unwrap();
+            conn.execute_batch("PRAGMA busy_timeout = 5000").unwrap();
+            barrier_pay.wait();
+            
+            // Transacción IMMEDIATE explícita para forzar el bloqueo de escritura inmediato
+            let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate).unwrap();
+            let changes = tx.execute("UPDATE local_orders SET status = 'paid' WHERE local_uuid = 'race-order' AND status = 'confirmed'", []).unwrap();
+            
+            if changes == 1 {
+                thread::sleep(std::time::Duration::from_millis(50));
+                tx.execute("INSERT INTO local_payments (local_uuid, order_local_uuid, amount) VALUES ('pay-1', 'race-order', 10000)", []).unwrap();
+                tx.execute("INSERT INTO sync_queue (id, entity_local_uuid, action, payload) VALUES ('sync-1', 'race-order', 'create', '{}')", []).unwrap();
+                tx.commit().unwrap();
+                "PAY_WIN"
+            } else {
+                let _ = tx.rollback();
+                "PAY_LOSE"
+            }
+        });
+
+        let db_path_cancel = db_path_str.clone();
+        let barrier_cancel = Arc::clone(&barrier);
+        let handle_cancel = thread::spawn(move || {
+            let mut conn = Connection::open(&db_path_cancel).unwrap();
+            conn.execute_batch("PRAGMA busy_timeout = 5000").unwrap();
+            barrier_cancel.wait();
+            
+            let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate).unwrap();
+            let changes = tx.execute("UPDATE local_orders SET status = 'cancelled' WHERE local_uuid = 'race-order' AND status = 'confirmed'", []).unwrap();
+            
+            if changes == 1 {
+                thread::sleep(std::time::Duration::from_millis(50));
+                tx.execute("UPDATE local_tables SET status = 'available', current_order_uuid = NULL WHERE uuid = 'race-table'", []).unwrap();
+                tx.execute("INSERT INTO table_local_mutations (table_uuid, pending_status, pending_order_uuid) VALUES ('race-table', 'available', NULL)", []).unwrap();
+                tx.execute("INSERT INTO sync_queue (id, entity_local_uuid, action, payload) VALUES ('sync-2', 'race-order', 'update', '{}')", []).unwrap();
+                tx.commit().unwrap();
+                "CANCEL_WIN"
+            } else {
+                let _ = tx.rollback();
+                "CANCEL_LOSE"
+            }
+        });
+
+        let res_pay = handle_pay.join().unwrap();
+        let res_cancel = handle_cancel.join().unwrap();
+
+        let mut conn = Connection::open(&db_path_str).unwrap();
+        let order_status: String = conn.query_row("SELECT status FROM local_orders WHERE local_uuid = 'race-order'", [], |row| row.get(0)).unwrap();
+        let payment_count: i64 = conn.query_row("SELECT COUNT(*) FROM local_payments", [], |row| row.get(0)).unwrap();
+        let mutation_count: i64 = conn.query_row("SELECT COUNT(*) FROM table_local_mutations", [], |row| row.get(0)).unwrap();
+        let sync_count: i64 = conn.query_row("SELECT COUNT(*) FROM sync_queue", [], |row| row.get(0)).unwrap();
+
+        if res_pay == "PAY_WIN" {
+            assert_eq!(order_status, "paid");
+            assert_eq!(payment_count, 1, "El ganador debe dejar 1 pago");
+            assert_eq!(mutation_count, 0, "El perdedor no debe dejar mutaciones huérfanas (hizo rollback)");
+            assert_eq!(sync_count, 1, "Solo 1 evento de sync del ganador");
+        } else {
+            assert_eq!(order_status, "cancelled");
+            assert_eq!(payment_count, 0, "El perdedor no debe dejar pagos huérfanos (hizo rollback)");
+            assert_eq!(mutation_count, 1, "El ganador debe dejar 1 mutación");
+            assert_eq!(sync_count, 1, "Solo 1 evento de sync del ganador");
+        }
+        
+        assert!((res_pay == "PAY_WIN" && res_cancel == "CANCEL_LOSE") || (res_pay == "PAY_LOSE" && res_cancel == "CANCEL_WIN"), 
+            "Debe haber exactamente un ganador y un perdedor. Pay: {}, Cancel: {}", res_pay, res_cancel);
+            
+        let _ = std::fs::remove_file(&db_path_str);
+    }
+}

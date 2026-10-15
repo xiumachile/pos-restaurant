@@ -1,3 +1,15 @@
+
+vi.mock("@/services/authContext", () => ({
+  getCashierContextSafe: vi.fn(() => ({
+    company_id: "test-company",
+    branch_id: "test-branch",
+    terminal_id: "test-terminal",
+    user_id: "test-user",
+    user_name: "Test User"
+  })),
+  getAuthContextSafe: vi.fn(() => ({ user_id: "test-user", terminal_id: "test-terminal" }))
+}));
+
 /**
  * P0-1: Test de protección contra split bill ambiguo.
  *

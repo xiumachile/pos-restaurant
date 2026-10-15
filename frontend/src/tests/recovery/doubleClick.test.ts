@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeAll, beforeEach, vi, afterEach } from "vitest";
 
+vi.mock("@/services/authContext", () => ({
+  getAuthContextSafe: vi.fn(() => ({ user_id: "test-user", terminal_id: "test-terminal" }))
+}));
+
+
 vi.mock("@tauri-apps/plugin-sql", async () => {
   const mod = await import("../mocks/tauriSql");
   return { default: mod.default };

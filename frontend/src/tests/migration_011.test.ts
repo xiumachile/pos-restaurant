@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
+vi.mock("@/services/authContext", () => ({
+  getAuthContextSafe: vi.fn(() => ({ user_id: "test-user", terminal_id: "test-terminal" }))
+}));
+
+
 // Mocks de Tauri ANTES de importar localDb
 vi.mock('@tauri-apps/plugin-sql', async () => {
   const mod = await import('./mocks/tauriSql');

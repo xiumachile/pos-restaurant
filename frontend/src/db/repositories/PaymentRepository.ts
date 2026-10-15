@@ -117,6 +117,12 @@ export class PaymentRepository {
     const isTest = process.env.NODE_ENV === 'test' || typeof window === 'undefined';
     if (!isTest && !txDb) {
       try {
+        // AUD-03 FIX: Rechazo explícito de operaciones interactivas sin operador autenticado.
+        const operatorId = getAuthContextSafe()?.user_id;
+        if (!operatorId) {
+          throw new Error("AUD-03: Usuario autenticado requerido para registrar un pago interactivo.");
+        }
+
         // P0 Fix: Alinear contrato con Rust. 
         // Rust espera: total_amount = amount (venta) + tip_amount
         // saleAmount ya fue calculado antes como: payload.amount - tipAmount
@@ -131,7 +137,7 @@ export class PaymentRepository {
           reference_code: payload.reference_code || null,
           notes: payload.notes || null,
           terminal_id: getTerminalId(),
-          user_id: getAuthContextSafe()?.user_id || "system-automated", // Fallback solo para procesos automáticos no interactivos
+          user_id: operatorId, // Fallback solo para procesos automáticos no interactivos
         });
         console.log("[PaymentRepository] 📤 Pago registrado atómicamente (Rust):", local_uuid);
         return payment;
@@ -193,14 +199,16 @@ export class PaymentRepository {
     }
 
     // AUD-03 FIX: Registrar evento CREATE_PAYMENT dentro de la misma transacción.
-    const authUser = getAuthContextSafe()?.user_id || "system-automated";
-
+    const operatorId = getAuthContextSafe()?.user_id;
+    if (!operatorId) {
+      throw new Error("AUD-03: Usuario autenticado requerido para registrar un pago interactivo.");
+    }
     await EventStore.record(
       {
         company_id: payload.company_id,
         branch_id: payload.branch_id,
         terminal_id: getTerminalId(),
-        user_id: authUser,
+        user_id: operatorId,
         entity_type: "payment",
         entity_uuid: local_uuid,
         event_type: "CREATE_PAYMENT",
@@ -323,12 +331,18 @@ export class PaymentRepository {
       throw new Error(`Payment ${localUuid} not found`);
     }
 
+    // AUD-03 FIX: Rechazo explícito de ajustes sin operador autenticado.
+    const operatorId = getAuthContextSafe()?.user_id;
+    if (!operatorId) {
+      throw new Error("AUD-03: Usuario autenticado requerido para ajustar un pago.");
+    }
+
     // Registrar evento ADJUST_PAYMENT (append-only)
     await EventStore.record({
       company_id: payment.company_id,
       branch_id: payment.branch_id,
       terminal_id: getTerminalId(),
-      user_id: getAuthContextSafe()?.user_id || "system-automated",
+      user_id: operatorId,
       entity_type: "payment",
       entity_uuid: localUuid,
       event_type: "ADJUST_PAYMENT",
