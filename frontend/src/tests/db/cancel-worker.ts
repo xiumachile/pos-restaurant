@@ -16,8 +16,24 @@ try {
     
     if (result.changes === 1) {
       db.prepare("UPDATE local_tables SET status = 'available', current_order_uuid = NULL WHERE uuid = 'race-table'").run();
-      db.prepare("INSERT INTO table_local_mutations (table_uuid, pending_status, pending_order_uuid) VALUES ('race-table', 'available', NULL)").run();
-      db.prepare("INSERT INTO sync_queue (id, entity_local_uuid, action, payload) VALUES ('sync-cancel-1', 'race-order', 'update', '{\"status\":\"cancelled\"}')").run();
+      
+      // INSERT completo con columnas NOT NULL requeridas por el esquema espejo
+      db.prepare(`
+        INSERT INTO table_local_mutations (
+          table_uuid, company_id, branch_id, pending_status, pending_order_uuid, action, payload
+        ) VALUES (
+          'race-table', 'test-company', 'test-branch', 'available', NULL, 'update', '{"status":"available"}'
+        )
+      `).run();
+      
+      db.prepare(`
+        INSERT INTO sync_queue (
+          id, entity_type, entity_local_uuid, action, payload
+        ) VALUES (
+          'sync-cancel-1', 'order', 'race-order', 'update', '{"status":"cancelled"}'
+        )
+      `).run();
+      
       console.log("WORKER_CANCEL:SUCCESS");
     } else {
       console.log("WORKER_CANCEL:CONFLICT");

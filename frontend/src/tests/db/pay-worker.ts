@@ -16,8 +16,25 @@ try {
     const result = stmt.run();
     
     if (result.changes === 1) {
-      db.prepare("INSERT INTO local_payments (local_uuid, order_local_uuid, amount) VALUES ('pay-race-1', 'race-order', 10000)").run();
-      db.prepare("INSERT INTO sync_queue (id, entity_local_uuid, action, payload) VALUES ('sync-pay-1', 'race-order', 'create', '{\"type\":\"payment\"}')").run();
+      // INSERT completo con columnas NOT NULL requeridas por el esquema espejo
+      db.prepare(`
+        INSERT INTO local_payments (
+          local_uuid, company_id, branch_id, order_local_uuid, amount, 
+          payment_method, idempotency_key, status, sync_status
+        ) VALUES (
+          'pay-race-1', 'test-company', 'test-branch', 'race-order', 10000, 
+          'cash', 'idem-pay-1', 'pending', 'pending'
+        )
+      `).run();
+      
+      db.prepare(`
+        INSERT INTO sync_queue (
+          id, entity_type, entity_local_uuid, action, payload
+        ) VALUES (
+          'sync-pay-1', 'payment', 'pay-race-1', 'create', '{"type":"payment"}'
+        )
+      `).run();
+      
       console.log("WORKER_PAY:SUCCESS");
     } else {
       console.log("WORKER_PAY:CONFLICT");
