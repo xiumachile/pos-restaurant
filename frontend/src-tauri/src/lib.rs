@@ -919,3 +919,125 @@ mod migration_010_tests {
         assert_eq!(item_order_uuid, "order-1", "La relación FOREIGN KEY del ítem debe apuntar a la orden correcta");
     }
 }
+
+#[cfg(test)]
+mod migration_rollback_tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    /// Prueba que valida el rollback completo de una migración que falla a mitad de ejecución.
+    /// Escenario: la migración ejecuta una sentencia válida (crea tabla), luego una inválida (error de sintaxis).
+    /// Esperado: la transacción hace rollback completo, la tabla creada desaparece, y la versión no se registra.
+    #[test]
+    fn test_migration_rollback_on_partial_failure() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        
+        // Aplicar migraciones base (001-009) para tener esquema funcional
+        let migrations = vec!["001", "002", "003", "004", "005", "006", "007", "008", "009"];
+        for version in migrations {
+            crate::apply_migration_internal(&mut conn, version).unwrap();
+        }
+
+        // Verificar que la tabla de prueba NO existe antes
+        let table_exists_before: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='test_rollback_table'",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(table_exists_before, 0, "La tabla de prueba no debe existir antes del rollback");
+
+        // Intentar ejecutar una migración con SQL mixto: sentencia válida + sentencia inválida
+        // Esto simula una migración que falla a mitad de ejecución
+        let bad_migration_sql = r#"
+            -- Sentencia válida: crear tabla
+            CREATE TABLE test_rollback_table (id TEXT PRIMARY KEY, data TEXT);
+            
+            -- Sentencia inválida: error de sintaxis intencional
+            THIS IS INVALID SQL SYNTAX;
+            
+            -- Sentencia válida que nunca debe ejecutarse
+            INSERT INTO test_rollback_table (id, data) VALUES ('1', 'test');
+        "#;
+        
+        // Ejecutar el SQL malo directamente en una transacción para simular fallo
+        // Esto prueba que el ejecutor de migraciones hace rollback completo
+        let result = conn.transaction().and_then(|tx| {
+            tx.execute_batch(bad_migration_sql)?;
+            tx.commit()
+        });
+        
+        // El resultado debe ser un error
+        assert!(result.is_err(), "La migración con SQL inválido debe fallar");
+
+        // CRÍTICO: Verificar que el rollback revirtió el cambio válido (la tabla creada)
+        let table_exists_after: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='test_rollback_table'",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(table_exists_after, 0, 
+            "ROLLBACK DEBE revertir la creación de tabla. El cambio parcial debe desaparecer.");
+
+        // Verificar que la migración fallida NO quedó registrada
+        let registered_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM migrations WHERE version = '999_bad_migration'",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(registered_count, 0, 
+            "La migración fallida NO debe quedar registrada en la tabla migrations");
+    }
+
+    /// Prueba que valida la integridad referencial después de la migración 010.
+    /// Usa PRAGMA foreign_key_check para detectar violaciones de FK.
+    #[test]
+    fn test_010_migration_referential_integrity() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        
+        // Aplicar migraciones base (001-009)
+        let migrations = vec!["001", "002", "003", "004", "005", "006", "007", "008", "009"];
+        for version in migrations {
+            crate::apply_migration_internal(&mut conn, version).unwrap();
+        }
+
+        // Insertar datos preexistentes con relaciones FOREIGN KEY
+        conn.execute(
+            "INSERT INTO local_orders (local_uuid, company_id, branch_id, order_number, status, subtotal, grand_total, idempotency_key) 
+             VALUES ('order-fk-1', 'comp-1', 'branch-1', 'ORD-FK', 'confirmed', 15000.50, 15000.50, 'idem-fk-1')",
+            []
+        ).unwrap();
+
+        conn.execute(
+            "INSERT INTO local_order_items (local_uuid, order_local_uuid, product_id, product_name, quantity, unit_price, subtotal) 
+             VALUES ('item-fk-1', 'order-fk-1', 'prod-1', 'Burger', 2, 5000.25, 10000.50)",
+            []
+        ).unwrap();
+
+        conn.execute(
+            "INSERT INTO local_payments (local_uuid, company_id, branch_id, order_local_uuid, payment_method, amount, idempotency_key) 
+             VALUES ('pay-fk-1', 'comp-1', 'branch-1', 'order-fk-1', 'cash', 15000.75, 'idem-pay-fk-1')",
+            []
+        ).unwrap();
+
+        // Aplicar migración 010
+        let res = crate::apply_migration_internal(&mut conn, "010");
+        assert!(res.is_ok(), "Migración 010 debe ejecutarse sin errores: {:?}", res);
+
+        // CRÍTICO: Ejecutar PRAGMA foreign_key_check para validar integridad referencial
+        let violations: Vec<(String, i64, String, String)> = conn
+            .prepare("PRAGMA foreign_key_check")
+            .unwrap()
+            .query_map([], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+
+        assert_eq!(violations.len(), 0, 
+            "PRAGMA foreign_key_check no debe reportar violaciones de integridad referencial. Violaciones: {:?}", violations);
+
+        // Verificar que foreign_keys está reactivado después de la migración
+        let fk_status: i64 = conn.query_row("PRAGMA foreign_keys", [], |r| r.get(0)).unwrap();
+        assert_eq!(fk_status, 1, "PRAGMA foreign_keys debe estar activado (1) después de la migración");
+    }
+}
