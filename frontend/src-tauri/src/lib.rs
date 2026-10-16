@@ -180,49 +180,66 @@ pub(crate) fn apply_migration_internal(conn: &mut rusqlite::Connection, version:
     let sql_script = crate::get_trusted_migration(version)
         .ok_or_else(|| format!("Migración no reconocida o no permitida: {}", version))?;
 
-    let tx = conn
-        .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
-        .map_err(|e| format!("Error iniciando transacción de migración: {e}"))?;
-
-    // Manejo explícito de bases de datos frescas:
-    // Verificar si la tabla 'migrations' existe antes de consultarla.
-    // Esto evita errores "no such table" antes de que la migración 001 la cree,
-    // cumpliendo con la exigencia de no silenciar errores indiscriminadamente.
-    let table_exists: bool = tx
-        .query_row(
-            "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='migrations'",
-            [],
-            |r| r.get(0),
-        )
-        .map_err(|e| format!("Error verificando existencia de tabla migrations: {}", e))?;
-
-    let already_applied: bool = if table_exists {
-        tx.query_row(
-            "SELECT COUNT(*) > 0 FROM migrations WHERE version = ?1",
-            rusqlite::params![version],
-            |r| r.get(0),
-        )
-        .map_err(|e| format!("Error consultando tabla migrations: {}", e))?
-    } else {
-        false // La tabla no existe, por lo tanto esta migración no puede estar aplicada.
-    };
-
-    if already_applied {
-        return Ok(false);
+    // CRÍTICO: SQLite ignora PRAGMA foreign_keys dentro de una transacción activa.
+    // Si el script lo requiere (ej. migración 010 para evitar CASCADE al dropear tablas padre),
+    // debemos ejecutarlo FUERA de la transacción, antes de iniciarla.
+    let needs_fk_off = sql_script.contains("PRAGMA foreign_keys = OFF") || sql_script.contains("PRAGMA foreign_keys=OFF");
+    
+    if needs_fk_off {
+        conn.execute_batch("PRAGMA foreign_keys = OFF;")
+            .map_err(|e| format!("Error desactivando foreign_keys antes de migración: {}", e))?;
     }
 
-    crate::run_migration_script(&tx, version, &sql_script)?;
+    // Ejecutar la lógica de migración en un closure para garantizar la restauración del PRAGMA
+    let result = (|| -> Result<bool, String> {
+        // Manejo explícito de bases de datos frescas:
+        let table_exists: bool = conn
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='migrations'",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(|e| format!("Error verificando existencia de tabla migrations: {}", e))?;
 
-    tx.execute(
-        "INSERT OR IGNORE INTO migrations (version, applied_at) VALUES (?1, CURRENT_TIMESTAMP)",
-        rusqlite::params![version],
-    )
-    .map_err(|e| format!("Error registrando migración {version}: {e}"))?;
+        let already_applied: bool = if table_exists {
+            conn.query_row(
+                "SELECT COUNT(*) > 0 FROM migrations WHERE version = ?1",
+                rusqlite::params![version],
+                |r| r.get(0),
+            )
+            .map_err(|e| format!("Error consultando tabla migrations: {}", e))?
+        } else {
+            false
+        };
 
-    tx.commit()
-        .map_err(|e| format!("Error en COMMIT de migración: {e}"))?;
+        if already_applied {
+            return Ok(false);
+        }
 
-    Ok(true)
+        let tx = conn
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(|e| format!("Error iniciando transacción de migración: {e}"))?;
+
+        crate::run_migration_script(&tx, version, &sql_script)?;
+
+        tx.execute(
+            "INSERT OR IGNORE INTO migrations (version, applied_at) VALUES (?1, CURRENT_TIMESTAMP)",
+            rusqlite::params![version],
+        )
+        .map_err(|e| format!("Error registrando migración {version}: {e}"))?;
+
+        tx.commit()
+            .map_err(|e| format!("Error en COMMIT de migración: {e}"))?;
+
+        Ok(true)
+    })();
+
+    // Siempre restaurar foreign_keys si se desactivó, incluso en caso de error
+    if needs_fk_off {
+        conn.execute_batch("PRAGMA foreign_keys = ON;").ok();
+    }
+
+    result
 }
 
 #[tauri::command]
@@ -817,5 +834,88 @@ mod migration_integration_tests {
         assert_eq!(table_count_before, 0, "No debe haber tablas de prueba creadas");
 
 
+    }
+}
+
+#[cfg(test)]
+mod migration_010_tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    #[test]
+    fn test_010_migration_on_populated_db() {
+        // PASO 1: Crear base con esquema pre-010 (migraciones 001-009)
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        
+        let migrations = vec!["001", "002", "003", "004", "005", "006", "007", "008", "009"];
+        for version in migrations {
+            let res = crate::apply_migration_internal(&mut conn, version);
+            assert!(res.is_ok(), "Migración {} falló: {:?}", version, res);
+        }
+
+        // PASO 2: Insertar datos preexistentes (Pedidos, Ítems, Pagos)
+        conn.execute(
+            "INSERT INTO local_orders (local_uuid, company_id, branch_id, order_number, status, subtotal, grand_total, idempotency_key) 
+             VALUES ('order-1', 'comp-1', 'branch-1', 'ORD-001', 'confirmed', 15000.50, 15000.50, 'idem-1')",
+            []
+        ).unwrap();
+
+        conn.execute(
+            "INSERT INTO local_order_items (local_uuid, order_local_uuid, product_id, product_name, quantity, unit_price, subtotal) 
+             VALUES ('item-1', 'order-1', 'prod-1', 'Burger', 2, 5000.25, 10000.50)",
+            []
+        ).unwrap();
+
+        conn.execute(
+            "INSERT INTO local_order_items (local_uuid, order_local_uuid, product_id, product_name, quantity, unit_price, subtotal) 
+             VALUES ('item-2', 'order-1', 'prod-2', 'Fries', 1, 5000.00, 5000.00)",
+            []
+        ).unwrap();
+
+        conn.execute(
+            "INSERT INTO local_payments (local_uuid, company_id, branch_id, order_local_uuid, payment_method, amount, tip_amount, idempotency_key) 
+             VALUES ('pay-1', 'comp-1', 'branch-1', 'order-1', 'cash', 15000.75, 1000.25, 'idem-pay-1')",
+            []
+        ).unwrap();
+
+        // PASO 3: Verificar conteos y valores ANTES de la migración
+        let order_count_before: i64 = conn.query_row("SELECT COUNT(*) FROM local_orders", [], |r| r.get(0)).unwrap();
+        let item_count_before: i64 = conn.query_row("SELECT COUNT(*) FROM local_order_items", [], |r| r.get(0)).unwrap();
+        let payment_count_before: i64 = conn.query_row("SELECT COUNT(*) FROM local_payments", [], |r| r.get(0)).unwrap();
+        
+        assert_eq!(order_count_before, 1, "Debe haber 1 orden antes de migrar");
+        assert_eq!(item_count_before, 2, "Debe haber 2 ítems antes de migrar");
+        assert_eq!(payment_count_before, 1, "Debe haber 1 pago antes de migrar");
+
+        // PASO 4: Ejecutar la migración 010
+        let res_010 = crate::apply_migration_internal(&mut conn, "010");
+        assert!(res_010.is_ok(), "La migración 010 debe ejecutarse sin errores: {:?}", res_010);
+
+        // PASO 5: Verificar conteos DESPUÉS de la migración (NO debe haber pérdida de datos por CASCADE)
+        let order_count_after: i64 = conn.query_row("SELECT COUNT(*) FROM local_orders", [], |r| r.get(0)).unwrap();
+        let item_count_after: i64 = conn.query_row("SELECT COUNT(*) FROM local_order_items", [], |r| r.get(0)).unwrap();
+        let payment_count_after: i64 = conn.query_row("SELECT COUNT(*) FROM local_payments", [], |r| r.get(0)).unwrap();
+        
+        assert_eq!(order_count_after, 1, "NO debe perderse la orden tras la migración");
+        assert_eq!(item_count_after, 2, "NO deben perderse los ítems tras la migración (protegido por PRAGMA foreign_keys = OFF)");
+        assert_eq!(payment_count_after, 1, "NO debe perderse el pago tras la migración");
+
+        // PASO 6: Verificar que los valores monetarios se convirtieron correctamente a INTEGER
+        let order_grand_total: i64 = conn.query_row("SELECT grand_total FROM local_orders WHERE local_uuid = 'order-1'", [], |r| r.get(0)).unwrap();
+        assert_eq!(order_grand_total, 15001, "grand_total debe redondearse a INTEGER (15000.50 -> 15001)");
+
+        let item1_subtotal: i64 = conn.query_row("SELECT subtotal FROM local_order_items WHERE local_uuid = 'item-1'", [], |r| r.get(0)).unwrap();
+        assert_eq!(item1_subtotal, 10001, "item subtotal debe redondearse a INTEGER (10000.50 -> 10001)");
+
+        let pay_amount: i64 = conn.query_row("SELECT amount FROM local_payments WHERE local_uuid = 'pay-1'", [], |r| r.get(0)).unwrap();
+        assert_eq!(pay_amount, 15001, "payment amount debe redondearse a INTEGER (15000.75 -> 15001)");
+
+        let pay_tip: i64 = conn.query_row("SELECT tip_amount FROM local_payments WHERE local_uuid = 'pay-1'", [], |r| r.get(0)).unwrap();
+        assert_eq!(pay_tip, 1000, "tip amount debe redondearse a INTEGER (1000.25 -> 1000)");
+
+        // PASO 7: Verificar que las relaciones FOREIGN KEY siguen intactas
+        let item_order_uuid: String = conn.query_row("SELECT order_local_uuid FROM local_order_items WHERE local_uuid = 'item-1'", [], |r| r.get(0)).unwrap();
+        assert_eq!(item_order_uuid, "order-1", "La relación FOREIGN KEY del ítem debe apuntar a la orden correcta");
     }
 }

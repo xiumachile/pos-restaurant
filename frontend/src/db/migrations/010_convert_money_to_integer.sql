@@ -8,6 +8,11 @@
 --
 -- NOTA: tax_rate se mantiene REAL porque es un porcentaje (19.00), no dinero
 
+-- Desactivar claves foráneas temporalmente para evitar CASCADE
+-- durante la reconstrucción de tablas padre/hijo.
+PRAGMA foreign_keys = OFF;
+
+
 -- ============================================
 -- local_orders
 -- ============================================
@@ -273,3 +278,7 @@ FROM local_products;
 
 DROP TABLE local_products;
 ALTER TABLE local_products_new RENAME TO local_products;
+
+
+-- Reactivar claves foráneas
+PRAGMA foreign_keys = ON;
