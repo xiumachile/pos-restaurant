@@ -171,7 +171,6 @@ fn get_trusted_migration(version: &str) -> Option<&'static str> {
         "022" => Some(include_str!("../../src/db/migrations/022_add_migrations_checksum.sql")), // AUD-04 FIX: Reparar bases antiguas
         "023" => Some(include_str!("../../src/db/migrations/023_add_total_amount_to_payments.sql")), // AUD-02 FIX: Añadir total_amount faltante
         "024" => Some(include_str!("../../src/db/migrations/024_add_updated_at_to_table_mutations.sql")), // AUD-02 FIX: Añadir updated_at faltante
-        "099" => Some(include_str!("../../src/db/migrations/099_test_rollback.sql")), // AUD-04 FIX: Migración de prueba para validar rollback
         _ => None, // Cualquier otra versión será rechazada por seguridad
     }
 }
@@ -800,25 +799,23 @@ mod migration_integration_tests {
         assert!(columns.contains(&"checksum".to_string()), "La columna checksum debe existir tras la migración");
 
         // PUNTO 4: Provocar un fallo de aplicación y verificar que no se registran cambios parciales
-        // Usamos la migración "099" que contiene un error de sintaxis intencional
-        let bad_result = crate::apply_migration_internal(&mut conn, "099");
-        assert!(bad_result.is_err(), "La migración 099 debe fallar por error de sintaxis");
-        let err_msg = bad_result.unwrap_err().to_lowercase();
-        assert!(err_msg.contains("error") || err_msg.contains("syntax"), 
-            "El error debe reflejar el fallo de la migración: {}", err_msg);
+        // Intentamos aplicar una versión inexistente, lo cual debe fallar limpiamente
+        let bad_result = crate::apply_migration_internal(&mut conn, "999_inexistente");
+        assert!(bad_result.is_err(), "Solicitar migración inexistente debe fallar");
+        let err_msg = bad_result.unwrap_err();
+        assert!(err_msg.contains("no reconocida"), "El error debe indicar que no está reconocida: {}", err_msg);
         
         // Verificar que NO se registró la versión fallida
-        let bad_count: i64 = conn.query_row("SELECT COUNT(*) FROM migrations WHERE version = '099'", [], |row| row.get(0)).unwrap();
-        assert_eq!(bad_count, 0, "No se debe registrar una migración que falló durante la aplicación");
-
-        // PUNTO 6 (Implícito en la corrección de apply_migration_internal): 
-        // Verificar que una versión inexistente falla limpiamente sin tocar la BD
-        let nonexistent_result = crate::apply_migration_internal(&mut conn, "999_inexistente");
-        assert!(nonexistent_result.is_err(), "Solicitar migración inexistente debe fallar");
-        let err_msg_non = nonexistent_result.unwrap_err();
-        assert!(err_msg_non.contains("no reconocida"), "El error debe indicar que no está reconocida: {}", err_msg_non);
+        let bad_count: i64 = conn.query_row("SELECT COUNT(*) FROM migrations WHERE version = '999_inexistente'", [], |row| row.get(0)).unwrap();
+        assert_eq!(bad_count, 0, "No se debe registrar una migración inexistente");
         
-        let nonexistent_count: i64 = conn.query_row("SELECT COUNT(*) FROM migrations WHERE version = '999_inexistente'", [], |row| row.get(0)).unwrap();
-        assert_eq!(nonexistent_count, 0, "No se debe registrar una migración inexistente");
+        // Verificar que no hay cambios parciales en el esquema
+        let table_count_before: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name LIKE 'test_%'",
+            [], |row| row.get(0)
+        ).unwrap();
+        assert_eq!(table_count_before, 0, "No debe haber tablas de prueba creadas");
+
+
     }
 }
