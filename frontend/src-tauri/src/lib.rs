@@ -170,7 +170,10 @@ fn get_trusted_migration(version: &str) -> Option<&'static str> {
         "021" => Some(include_str!("../../src/db/migrations/021_enforce_table_mutation_schema.sql")),
         "022" => Some(include_str!("../../src/db/migrations/022_add_migrations_checksum.sql")), // AUD-04 FIX: Reparar bases antiguas
         "023" => Some(include_str!("../../src/db/migrations/023_add_total_amount_to_payments.sql")), // AUD-02 FIX: Añadir total_amount faltante
-        "024" => Some(include_str!("../../src/db/migrations/024_add_updated_at_to_table_mutations.sql")), // AUD-02 FIX: Añadir updated_at faltante
+        "024" => Some(include_str!("../../src/db/migrations/024_add_updated_at_to_table_mutations.sql")),
+        "025" => Some(include_str!("../../src/db/migrations/025_add_floor_plan_coordinates.sql")),
+        "026" => Some(include_str!("../../src/db/migrations/026_create_local_customers.sql")),
+        "027" => Some(include_str!("../../src/db/migrations/027_add_customer_to_local_orders.sql")), // AUD-02 FIX: Añadir updated_at faltante
         _ => None, // Cualquier otra versión será rechazada por seguridad
     }
 }
@@ -365,58 +368,74 @@ fn json_to_sql_values(params: &[serde_json::Value]) -> Vec<rusqlite::types::Valu
 fn validate_write_sql(sql: &str) -> Result<(), String> {
     let lower = sql.trim_start().to_lowercase();
 
-    // 1. Verificar operación permitida
-    if !lower.starts_with("insert into")
-        && !lower.starts_with("update ")
-        && !lower.starts_with("delete from")
-    {
-        return Err("Operación no permitida. Solo INSERT INTO, UPDATE o DELETE FROM".into());
+    // 1. Verificar operación permitida (soporte para CTEs con WITH)
+    let is_insert = lower.starts_with("insert") || (lower.starts_with("with") && lower.contains("insert into"));
+    let is_update = lower.starts_with("update ") || (lower.starts_with("with") && lower.contains("update "));
+    let is_delete = lower.starts_with("delete from") || (lower.starts_with("with") && lower.contains("delete from"));
+
+    if !is_insert && !is_update && !is_delete {
+        return Err(format!("Operación no permitida. Solo INSERT, UPDATE o DELETE FROM (o CTEs). SQL: {}", lower.chars().take(60).collect::<String>()));
     }
 
-    // 2. Extraer nombre de la tabla de forma segura (usando strip_prefix para evitar problemas de lifetime)
-    let prefix_stripped = if lower.starts_with("insert into") {
-        lower.strip_prefix("insert into").unwrap_or("")
-    } else if lower.starts_with("update ") {
-        lower.strip_prefix("update ").unwrap_or("")
-    } else if lower.starts_with("delete from") {
-        lower.strip_prefix("delete from").unwrap_or("")
+    // 2. Extraer nombre de la tabla (soporte robusto para CTEs con WITH)
+    let table_name = if is_insert {
+        if let Some(into_idx) = lower.find("into") {
+            let after_into = &lower[into_idx + 4..];
+            after_into.trim_start().split_whitespace().next().unwrap_or("")
+        } else {
+            ""
+        }
+    } else if is_update {
+        // Buscar "update " en cualquier parte (funciona para "UPDATE tabla" y "WITH ... UPDATE tabla")
+        if let Some(update_idx) = lower.find("update ") {
+            let after_update = &lower[update_idx + 7..];
+            after_update.trim_start().split_whitespace().next().unwrap_or("")
+        } else {
+            ""
+        }
+    } else if is_delete {
+        // Buscar "from " en cualquier parte
+        if let Some(from_idx) = lower.find("from ") {
+            let after_from = &lower[from_idx + 5..];
+            after_from.trim_start().split_whitespace().next().unwrap_or("")
+        } else {
+            ""
+        }
     } else {
         ""
     };
 
-    let table_name = prefix_stripped
-        .split_whitespace()
-        .next()
-        .unwrap_or("")
-        .trim_matches(|c: char| c == '`' || c == '"' || c == '[' || c == ']');
+    if table_name.is_empty() {
+        return Err(format!("Acceso denegado: No se pudo extraer nombre de tabla de: {}", sql.chars().take(50).collect::<String>()));
+    }
 
-    // 3. P1 FIX: Whitelist estricta de tablas permitidas para escritura genérica
+    // 3. Verificar que la tabla está en la lista blanca
     let allowed_tables = [
         "local_orders",
         "local_order_items",
         "local_payments",
-        "local_bills",
-        "sync_queue",
         "local_tables",
+        "local_categories",
+        "local_products",
+        "local_customers",
+        "sync_queue",
+        "table_mutations",
         "table_local_mutations",
-        "local_cash_sessions",
-        "local_cash_movements",
-        "migrations",
-        "local_print_jobs",
         "printer_configs",
         "offline_events",
         "idempotency_keys",
+        "sync_state",
     ];
 
     if !allowed_tables.contains(&table_name) {
-        return Err(format!(
-            "Acceso denegado: Escritura en tabla no permitida o desconocida '{}'",
-            table_name
-        ));
+        return Err(format!("Acceso denegado: Escritura en tabla '{}' no permitida", table_name));
     }
 
     // 4. Bloquear comandos peligrosos a nivel de sistema
     for banned in [
+        "drop",
+        "alter",
+        "truncate",
         "attach",
         "detach",
         "load_extension",
@@ -434,8 +453,6 @@ fn validate_write_sql(sql: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Escrituras en UNA transacción atómica (todo o nada).
-/// Devuelve { success, count (sentencias), rowsAffected (filas realmente modificadas) }.
 #[tauri::command]
 fn execute_write_statements(
     state: tauri::State<crate::database::DbState>,

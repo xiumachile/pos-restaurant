@@ -283,7 +283,7 @@ export const paymentsService = {
     return session;
   },
 
-  async listTablesWithBills(): Promise<TableBill[]> {
+  async listTablesWithBills(): Promise<any[]> {
     const syncStatus = useSyncStore.getState().status;
     const isOffline = syncStatus === "offline";
 
@@ -292,7 +292,7 @@ export const paymentsService = {
     // En offline: reconstruir desde SQLite directamente (sin fetch al backend)
     if (isOffline) {
       try {
-        const result = await localPaymentsService.listTablesWithBillsOffline();
+        const result = await localPaymentsService.listPendingAccountsOffline();
         console.debug(`[paymentsService] ✅ Offline: ${result.length} mesas con cuenta`);
         return result;
       } catch (error: any) {
@@ -313,7 +313,7 @@ export const paymentsService = {
     } catch (error: any) {
       console.warn("[paymentsService] ⚠️ Backend inaccesible, usando SQLite:", error?.message);
       try {
-        const result = await localPaymentsService.listTablesWithBillsOffline();
+        const result = await localPaymentsService.listPendingAccountsOffline();
         console.debug(`[paymentsService] ✅ Fallback SQLite: ${result.length} mesas con cuenta`);
         return result;
       } catch (fallbackError: any) {

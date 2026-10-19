@@ -15,7 +15,12 @@ import type { ChannelType } from "@/stores/useActiveChannelStore";
 export function useActiveMenu(channel: ChannelType) {
   return useQuery<ActiveMenuResponse | null, Error>({
     queryKey: ["pos", "active-menu", channel],
-    queryFn: () => menuActiveService.getActive(channel),
+    queryFn: async () => {
+      console.log(`[useActiveMenu] 🔍 Buscando menú activo para canal: ${channel}`);
+      const result = await menuActiveService.getActive(channel);
+      console.log(`[useActiveMenu] 📊 Resultado para ${channel}:`, result ? `OK (${result.items.length} items)` : "NULL (sin menú activo o error)");
+      return result;
+    },
     staleTime: 30 * 1000,
     retry: 1,
     enabled: !!channel,

@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { NavLink } from "react-router-dom";
 import {
   LayoutGrid,
+  ClipboardList,
   UtensilsCrossed,
   ChefHat,
   CreditCard,
@@ -55,7 +56,21 @@ export function Sidebar() {
       // 1. Operación principal (Todos los roles operativos)
       { to: "/", label: t("tables.title"), icon: LayoutGrid, end: true, allowedRoles: ROLES.ALL },
       
-      // 2. Áreas específicas por rol
+      // 2. Pedidos y Canales (Restaurado para flujo de trabajo)
+      { 
+        to: "/orders", 
+        label: t("orders.title"), 
+        icon: ClipboardList, 
+        allowedRoles: ROLES.FRONT_OF_HOUSE 
+      },
+      { 
+        to: "/orders/new", 
+        label: t("orders.new_order"), 
+        icon: Package, 
+        allowedRoles: ROLES.FRONT_OF_HOUSE 
+      },
+
+      // 3. Áreas específicas por rol
       {
         to: "/kitchen",
         label: t("kitchen.title"),

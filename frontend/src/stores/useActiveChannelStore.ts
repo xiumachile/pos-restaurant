@@ -51,14 +51,14 @@ export const useActiveChannelStore = create<ActiveChannelState>((set) => ({
  * - CreateOrderPayload.order_type usa "take_out" (convención Orders del backend)
  * Este mapper aísla esa inconsistencia en un solo lugar.
  */
-export function channelToOrderType(channel: ChannelType): "dine_in" | "take_out" | "delivery" {
+export function channelToOrderType(channel: ChannelType): "dine_in" | "takeout" | "delivery" {
   switch (channel) {
     case "dine_in":
       return "dine_in";
     case "delivery":
       return "delivery";
     case "takeout":
-      return "take_out";
+      return "takeout"; // Backend espera 'takeout', no 'take_out'
     default:
       return "delivery";
   }

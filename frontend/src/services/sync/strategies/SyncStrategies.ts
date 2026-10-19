@@ -14,13 +14,28 @@ export class SyncStrategies {
         const orderItems = await OrderRepository.findItemsByOrderUuid(item.entity_local_uuid);
 
         // Construir payload con mapeo correcto de campos
-        // Backend espera: type (no order_type), table_uuid (no table_id)
-        // NO enviar status aquí: backend crea en DRAFT por defecto (necesario para agregar items)
-        const orderPayload = {
+        // Backend espera: type, table_uuid (solo para dine_in)
+        // Para delivery, backend REQUIERE: customer_name, customer_phone, delivery_address
+        const orderPayload: any = {
           type: payload.order_type || payload.type,
-          table_uuid: payload.table_id || payload.table_uuid,
           notes: payload.notes || null,
         };
+
+        // Solo enviar table_uuid si es dine_in (backend lo prohíbe para delivery/takeout)
+        if (orderPayload.type === 'dine_in') {
+          orderPayload.table_uuid = payload.table_id || payload.table_uuid;
+        }
+
+        // Añadir datos del cliente para delivery (requeridos por backend)
+        if (payload.customer_name) orderPayload.customer_name = payload.customer_name;
+        if (payload.customer_phone) orderPayload.customer_phone = payload.customer_phone;
+        if (payload.customer_address) orderPayload.delivery_address = payload.customer_address;
+        if (payload.customer_reference) orderPayload.delivery_notes = payload.customer_reference;
+
+        // Solo enviar table_uuid si es dine_in (backend lo prohíbe para delivery/takeout)
+        if (orderPayload.type === 'dine_in') {
+          orderPayload.table_uuid = payload.table_id || payload.table_uuid;
+        }
 
         console.log(`[SyncEngine] 📤 Creando orden (items: ${orderItems.length})...`);
         console.log("[SyncEngine] Payload:", JSON.stringify(orderPayload, null, 2));

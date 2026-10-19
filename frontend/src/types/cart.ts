@@ -31,6 +31,13 @@ export interface TableCart {
   items: CartItem[];
   /** Timestamp de creación */
   createdAt: string;
+  /** Datos del cliente (solo para delivery) */
+  customerName?: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  customerReference?: string;
+  /** IDs de los items originales (para modo edición) */
+  originalItemIds?: string[];
 }
 
 export interface CartTotals {

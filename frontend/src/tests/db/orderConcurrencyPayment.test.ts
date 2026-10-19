@@ -27,6 +27,7 @@ describe("AUD: Concurrencia y Consistencia de Estado (Pago vs Cancelación)", ()
         tax_total REAL DEFAULT 0, tip_amount REAL DEFAULT 0, grand_total REAL DEFAULT 0,
         amount_due REAL DEFAULT 0, guest_count INTEGER DEFAULT 1, waiter_id TEXT, waiter_name TEXT,
         notes TEXT, idempotency_key TEXT UNIQUE NOT NULL, sync_status TEXT DEFAULT 'pending',
+        customer_name TEXT, customer_phone TEXT, delivery_address TEXT, delivery_notes TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP
       );
       CREATE TABLE local_tables (

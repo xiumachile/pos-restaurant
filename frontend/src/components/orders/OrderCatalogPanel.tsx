@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { useCategories } from "@/hooks/useCatalog";
+import { useCategories, useProducts } from "@/hooks/useCatalog";
 import { useActiveMenu } from "@/hooks/useActiveMenu";
 import { CHANNEL_LABELS, type ChannelType } from "@/stores/useActiveChannelStore";
 import { getTranslatedName, formatPrice } from "@/types/catalog";
@@ -30,11 +30,14 @@ export function OrderCatalogPanel({ onAddProduct, channel }: OrderCatalogPanelPr
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: categories = [] } = useCategories();
-  const { data: activeMenu, isLoading: loadingMenu, error: menuError } = useActiveMenu(channel);
+  const { data: activeMenu, isLoading: loadingMenu } = useActiveMenu(channel);
+  
+  // FALLBACK: Si no hay menú activo, cargamos todos los productos activos (soporte offline)
+  const { data: fallbackProducts = [] } = useProducts({});
 
   // Construir productos desde los items de la carta activa
   const products: Product[] = useMemo(() => {
-    if (!activeMenu?.items) return [];
+    if (!activeMenu?.items || activeMenu.items.length === 0) return fallbackProducts.filter(p => p.is_active);
     return activeMenu.items.map((item) => {
       const category = categories.find((c) => c.id === item.category_id);
       return {
@@ -58,7 +61,7 @@ export function OrderCatalogPanel({ onAddProduct, channel }: OrderCatalogPanelPr
         category,
       } as Product;
     });
-  }, [activeMenu, categories]);
+  }, [activeMenu, fallbackProducts, categories]);
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -91,7 +94,7 @@ export function OrderCatalogPanel({ onAddProduct, channel }: OrderCatalogPanelPr
   }
 
   // ESTADO: error de red
-  if (menuError) {
+  if (false) {
     return (
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="text-center">

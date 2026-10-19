@@ -58,3 +58,24 @@ export interface ChargeTableResponse {
   table_freed: boolean;
   table_number: string;
 }
+
+/**
+ * Cuenta pendiente de cobro (unifica mesas, delivery y takeout).
+ */
+export interface PendingAccount {
+  id: string; // table_uuid para mesas, local_uuid para delivery/takeout
+  type: 'table' | 'delivery' | 'takeout';
+  identifier: string; // Número de mesa, teléfono o "Para llevar"
+  area_code?: string;
+  orders_count: number;
+  total_items: number;
+  subtotal: number;
+  tax_amount: number;
+  total_amount: number;
+  first_order_at: string | null;
+  last_order_at: string | null;
+  has_unserved_orders: boolean;
+  unserved_orders_count: number;
+  unserved_items_count: number;
+  orders: TableBillOrder[];
+}

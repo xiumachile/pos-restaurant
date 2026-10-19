@@ -31,7 +31,7 @@ describe("ChannelSelectionModal", () => {
 
     render(<ChannelSelectionModal open={true} onSelect={onSelect} onClose={onClose} />);
 
-    expect(screen.getByText("Comedor")).toBeDefined();
+    // Comedor ya no se muestra en este modal (se maneja desde mesas)
     expect(screen.getByText("Delivery")).toBeDefined();
     expect(screen.getByText("Para llevar")).toBeDefined();
   });

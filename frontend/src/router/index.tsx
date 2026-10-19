@@ -190,6 +190,21 @@ export const router = createBrowserRouter([
           }
         ]
       },
+      // Edición de pedido existente (delivery/takeout)
+      {
+        path: "orders/takeaway/edit/:orderLocalUuid",
+        element: <RoleProtectedRoute allowedRoles={ROLES.FRONT_OF_HOUSE} />,
+        children: [
+          {
+            index: true,
+            element: (
+              <Suspense fallback={<LoadingFallback />}>
+                <TakeawayOrderPage />
+              </Suspense>
+            )
+          }
+        ]
+      },
       // Catálogo: Front of house
       { 
         path: "catalog", 

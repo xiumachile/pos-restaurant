@@ -21,6 +21,7 @@ import enforceIntegerMoneyMigration from "./migrations/017_enforce_integer_money
 import fixTableStatusMigration from "./migrations/019_fix_table_status_pending.sql?raw";
 import cleanTableMutationsMigration from "./migrations/020_clean_table_mutations.sql?raw";
 import enforceTableMutationSchemaMigration from "./migrations/021_enforce_table_mutation_schema.sql?raw";
+import customerDeliveryColumnsMigration from './migrations/023_add_customer_delivery_columns.sql?raw';
 
 import { parseSqlStatements } from "./utils/sqlParser";
 import { applyMigration } from "./nativeDb";
@@ -70,6 +71,7 @@ export async function runMigrations(): Promise<void> {
     await applyMigration("019", fixTableStatusMigration);
     await applyMigration("020", cleanTableMutationsMigration);
     await applyMigration("021", enforceTableMutationSchemaMigration);
+    await applyMigration("023", customerDeliveryColumnsMigration);
 
     console.log("[Migrations] ✅ Todas las migraciones aplicadas exitosamente");
   })();

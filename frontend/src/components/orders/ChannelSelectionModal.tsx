@@ -14,7 +14,9 @@ interface ChannelSelectionModalProps {
  * Se muestra como primer paso del flujo "Pedido nuevo" (delivery/takeout).
  * El canal elegido queda fijado al pedido desde su creación.
  * 
- * NO incluye uber_eats/rappi (son canales externos, no de toma manual).
+ * NO incluye:
+ * - dine_in: ya tiene ruta propia en el sidebar ("/" - Mesas)
+ * - uber_eats/rappi: son canales externos, no de toma manual
  */
 export function ChannelSelectionModal({ open, onSelect, onClose }: ChannelSelectionModalProps) {
   const { t } = useTranslation();
@@ -22,7 +24,7 @@ export function ChannelSelectionModal({ open, onSelect, onClose }: ChannelSelect
   if (!open) return null;
 
   // Solo canales relevantes para toma manual (excluye uber_eats/rappi)
-  const channels: ChannelType[] = ["dine_in", "delivery", "takeout"];
+  const channels: ChannelType[] = ["delivery", "takeout"];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
@@ -56,7 +58,7 @@ export function ChannelSelectionModal({ open, onSelect, onClose }: ChannelSelect
               >
                 <span className="text-3xl">{icon}</span>
                 <span className="text-lg font-medium text-white group-hover:text-orange-400 transition-colors">
-                  {t(`orders.channel_${ch}`)}
+                  {ch === "dine_in" ? t("orders.dine_in") : t(`orders.channel_${ch}`)}
                 </span>
               </button>
             );

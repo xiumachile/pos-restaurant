@@ -17,6 +17,7 @@ import { useSyncStore } from "@/store/useSyncStore";
 import { OrderRepository } from "@/db/repositories/OrderRepository";
 import { Plus, Minus, Trash2, Send, ShoppingCart, Loader2, CheckCircle2, AlertCircle, WifiOff } from "lucide-react";
 import { ActiveOrderItems } from "./ActiveOrderItems";
+import { AdminAuthModal } from "./AdminAuthModal";
 import { mergeAuthContext } from "@/services/authContext";
 import { channelToOrderType } from "@/stores/useActiveChannelStore";
 
@@ -57,9 +58,18 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
   const [noteEditingId, setNoteEditingId] = useState<string | null>(null);
   const [noteInput, setNoteInput] = useState("");
   const { notes: defaultNotes, isLoading: isLoadingNotes } = useDefaultNotes();
+  
+  // Estado para autorización de administrador
+  const [authModal, setAuthModal] = useState<{ open: boolean; action: "remove" | "reduce"; itemName: string; itemLocalUuid?: string }>({
+    open: false,
+    action: "remove",
+    itemName: "",
+  });
 
   const totals = getTotals(cartKey);
   const items = cart?.items ?? [];
+  const isEditMode = cartKey.startsWith("edit-");
+  const orderLocalUuid = isEditMode ? cartKey.replace("edit-", "") : null;
 
   const aggregated = aggregateOrders(activeOrders);
   const previousOrdersTotal = aggregated.total;
@@ -71,25 +81,94 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
     setFeedback({ type: "loading", message: `💾 ${t("orders.sending")} ${items.length} items...` });
 
     try {
-      // 1. Crear pedido (operación crítica)
-      const order = await OrderRepository.createWithItems(
-        mergeAuthContext({
-          // Solo dine_in lleva mesa. Delivery/takeout usan clave "takeaway-{uuid}"
-          // y no tienen mesa real (regla del backend: CreateOrderRequest).
-          table_id:
-            channelToOrderType(cart.channel) === "dine_in"
-              ? (cart.tableUuid ?? null)
-              : null,
-          order_type: channelToOrderType(cart.channel),
-        }),
-        items.map(item => ({
-          product_id: item.product.uuid,
-          product_name: getTranslatedName(item.product.name_translations),
-          quantity: item.quantity,
-          unit_price: parsePrice(item.product.base_price),
-          notes: item.notes,
-        }))
-      );
+      const isDineIn = channelToOrderType(cart.channel) === "dine_in";
+      const isEditMode = cartKey.startsWith("edit-");
+      const orderLocalUuid = isEditMode ? cartKey.replace("edit-", "") : null;
+
+      let order;
+
+      if (isEditMode && orderLocalUuid) {
+        // CASO 1: MODO EDICIÓN (Delivery/Takeaway existente)
+        console.log("[OrderCartPanel] Guardando cambios en pedido existente:", orderLocalUuid);
+        
+        const originalItemIds = (cart as any).originalItemIds || [];
+        const currentItemIds = items.map(i => i.id);
+
+        // 1. Eliminar items originales que el usuario quitó del carrito
+        for (const originalId of originalItemIds) {
+          if (!currentItemIds.includes(originalId)) {
+            console.log("[OrderCartPanel] Eliminando item:", originalId);
+            await OrderRepository.removeItem(orderLocalUuid, originalId);
+          }
+        }
+
+        // 2. Actualizar cantidades o agregar items nuevos
+        for (const item of items) {
+          if (originalItemIds.includes(item.id)) {
+            // Es un item original: actualizar cantidad
+            if (item.quantity > 0) {
+              console.log("[OrderCartPanel] Actualizando cantidad del item:", item.id, "a", item.quantity);
+              await OrderRepository.updateItemQuantity(orderLocalUuid, item.id, item.quantity);
+            }
+          } else {
+            // Es un item nuevo: agregar
+            console.log("[OrderCartPanel] Agregando nuevo item:", item.product.uuid);
+            await OrderRepository.addItem(orderLocalUuid, {
+              product_id: item.product.uuid,
+              product_name: getTranslatedName(item.product.name_translations),
+              quantity: item.quantity,
+              unit_price: parsePrice(item.product.base_price),
+              notes: item.notes,
+            });
+          }
+        }
+        order = { local_uuid: orderLocalUuid } as any;
+
+      } else {
+        // CASO 2 y 3: Nuevo pedido o Mesa ocupada
+        const existingActiveOrder = isDineIn ? activeOrders.find(o => o.status !== 'paid' && o.status !== 'cancelled') : null;
+
+        if (existingActiveOrder) {
+          // CASO 2: Mesa ocupada, agregar items al pedido existente
+          const orderUuid = (existingActiveOrder as any)._localUuid || (existingActiveOrder as any).local_uuid || (existingActiveOrder as any).uuid;
+          
+          if (!orderUuid) {
+            throw new Error("No se pudo identificar el UUID del pedido existente para agregar items.");
+          }
+
+          console.log("[OrderCartPanel] Agregando items a pedido existente en mesa:", orderUuid);
+          for (const item of items) {
+            await OrderRepository.addItem(orderUuid, {
+              product_id: item.product.uuid,
+              product_name: getTranslatedName(item.product.name_translations),
+              quantity: item.quantity,
+              unit_price: parsePrice(item.product.base_price),
+              notes: item.notes,
+            });
+          }
+          order = existingActiveOrder;
+        } else {
+          // CASO 3: Crear un pedido completamente nuevo
+          console.log("[OrderCartPanel] Creando nuevo pedido");
+          order = await OrderRepository.createWithItems(
+            mergeAuthContext({
+              table_id: isDineIn ? (cart.tableUuid ?? null) : null,
+              order_type: channelToOrderType(cart.channel) === "takeout" ? "take_out" : channelToOrderType(cart.channel),
+              customer_name: (cart as any).customerName || null,
+              customer_phone: (cart as any).customerPhone || null,
+              customer_address: (cart as any).customerAddress || null, // Mantenemos este nombre si OrderRepository lo mapea
+              customer_reference: (cart as any).customerReference || null,
+            } as any), // Usamos 'as any' temporalmente para evitar conflictos de tipado estricto mientras unificamos interfaces
+            items.map(item => ({
+              product_id: item.product.uuid,
+              product_name: getTranslatedName(item.product.name_translations),
+              quantity: item.quantity,
+              unit_price: parsePrice(item.product.base_price),
+              notes: item.notes,
+            }))
+          );
+        }
+      }
 
       // 2. Limpiar carrito y actualizar UI inmediatamente
       clearCart(cartKey);
@@ -109,7 +188,6 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
         await invalidateCashier();
       } catch (cacheError) {
         console.warn("[OrderCartPanel] Error invalidando cache (no crítico):", cacheError);
-        // No mostramos error al usuario porque el pedido ya se guardó exitosamente
       }
 
       // 5. Redirección inteligente según configuración de la empresa
@@ -123,7 +201,7 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
         }
       }, 1200);
     } catch (error: any) {
-      console.error("[OrderCartPanel] Error creando pedido:", error);
+      console.error("[OrderCartPanel] Error creando/actualizando pedido:", error);
       setFeedback({
         type: "error",
         message: error?.message || "Error al guardar el pedido",
@@ -201,7 +279,13 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
                   </p>
                 </div>
                 <button
-                  onClick={() => removeItem(cartKey, item.id)}
+                  onClick={() => {
+                    if (isEditMode) {
+                      setAuthModal({ open: true, action: "remove", itemName: getTranslatedName(item.product.name_translations), itemLocalUuid: item.id });
+                    } else {
+                      removeItem(cartKey, item.id);
+                    }
+                  }}
                   disabled={isProcessing}
                   className="min-w-[44px] min-h-[44px] p-2 hover:bg-red-500/20 rounded-lg ml-2 disabled:opacity-40 flex items-center justify-center"
                  aria-label="Eliminar"><Trash2 size={20} className="text-red-400" />
@@ -228,7 +312,13 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
               <div className="flex items-center justify-between mt-2">
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => updateQuantity(cartKey, item.id, item.quantity - 1)}
+                    onClick={() => {
+                      if (isEditMode && item.quantity <= 1) {
+                        setAuthModal({ open: true, action: "reduce", itemName: getTranslatedName(item.product.name_translations), itemLocalUuid: item.id });
+                      } else {
+                        updateQuantity(cartKey, item.id, item.quantity - 1);
+                      }
+                    }}
                     disabled={isProcessing}
                     className="min-w-[44px] min-h-[44px] p-2 bg-slate-700 hover:bg-slate-600 rounded-lg disabled:opacity-40 flex items-center justify-center"
                    aria-label="Disminuir cantidad"><Minus size={20} />
@@ -418,6 +508,47 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
           </div>
         </div>
       )}
+
+      {/* Modal de Autorización de Administrador */}
+      <AdminAuthModal
+        open={authModal.open}
+        action={authModal.action}
+        itemName={authModal.itemName}
+        onConfirm={() => {
+          if (authModal.itemLocalUuid && orderLocalUuid) {
+            if (authModal.action === "remove") {
+              OrderRepository.removeItem(orderLocalUuid, authModal.itemLocalUuid).then(() => {
+                // Actualizar el carrito localmente para reflejar el cambio inmediatamente
+                const currentCart = useCartStore.getState().carts[cartKey];
+                if (currentCart) {
+                  useCartStore.getState().setCart(cartKey, {
+                    ...currentCart,
+                    items: currentCart.items.filter(i => i.id !== authModal.itemLocalUuid),
+                  });
+                }
+              }).catch(err => {
+                console.error("Error eliminando item:", err);
+                alert("Error al eliminar el item");
+              });
+            } else if (authModal.action === "reduce") {
+              OrderRepository.updateItemQuantity(orderLocalUuid, authModal.itemLocalUuid, 0).then(() => {
+                const currentCart = useCartStore.getState().carts[cartKey];
+                if (currentCart) {
+                  useCartStore.getState().setCart(cartKey, {
+                    ...currentCart,
+                    items: currentCart.items.filter(i => i.id !== authModal.itemLocalUuid),
+                  });
+                }
+              }).catch(err => {
+                console.error("Error actualizando cantidad:", err);
+                alert("Error al actualizar la cantidad");
+              });
+            }
+          }
+          setAuthModal({ open: false, action: "remove", itemName: "" });
+        }}
+        onCancel={() => setAuthModal({ open: false, action: "remove", itemName: "" })}
+      />
     </aside>
   );
 }

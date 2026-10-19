@@ -16,6 +16,11 @@ export interface CreateOrderPayload {
   waiter_id?: string | null;
   waiter_name?: string | null;
   notes?: string | null;
+  // Campos de cliente para delivery/takeout
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  delivery_address?: string | null;
+  delivery_notes?: string | null;
   items: Array<{
     product_id: string;
     product_name: string;

@@ -25,7 +25,7 @@ pub struct NewOrderItem {
 pub struct CreateOrderPayload {
     pub company_id: String,
     pub branch_id: String,
-    pub terminal_id: String, // AUD-03 FIX: Obligatorio para auditoría
+    pub terminal_id: String,
     pub table_id: Option<String>,
     pub order_type: Option<String>,
     pub guest_count: Option<i64>,
@@ -34,6 +34,15 @@ pub struct CreateOrderPayload {
     pub notes: Option<String>,
     #[serde(default)]
     pub items: Vec<NewOrderItem>,
+    // Campos de cliente para delivery/takeout (coinciden con backend Laravel)
+    #[serde(default)]
+    pub customer_name: Option<String>,
+    #[serde(default)]
+    pub customer_phone: Option<String>,
+    #[serde(default)]
+    pub delivery_address: Option<String>,
+    #[serde(default)]
+    pub delivery_notes: Option<String>,
 }
 
 /// Neto a partir de precio bruto (IVA 19% incluido), redondeo half-up.
@@ -123,9 +132,10 @@ pub fn create_order_tx(conn: &mut Connection, p: &CreateOrderPayload) -> Result<
             order_number, order_type, status, subtotal, discount_total,
             net_amount, tax_total, tip_amount, grand_total, amount_due, guest_count,
             waiter_id, waiter_name, notes, idempotency_key, sync_status,
+            customer_name, customer_phone, delivery_address, delivery_notes,
             created_at, updated_at
          ) VALUES (?1,?2,?3,?4,?5,?6,?7,'confirmed',?8,0,?9,?10,0,?8,?8,?11,?12,?13,?14,?15,
-                   'pending',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
+                   'pending', ?16, ?17, ?18, ?19, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
         params![
             local_uuid,
             p.company_id,
@@ -141,7 +151,11 @@ pub fn create_order_tx(conn: &mut Connection, p: &CreateOrderPayload) -> Result<
             p.waiter_id,
             p.waiter_name,
             p.notes,
-            idempotency_key
+            idempotency_key,
+            p.customer_name,
+            p.customer_phone,
+            p.delivery_address,
+            p.delivery_notes,
         ],
     )
     .map_err(|e| format!("Error creando orden: {e}"))?;
@@ -175,7 +189,11 @@ pub fn create_order_tx(conn: &mut Connection, p: &CreateOrderPayload) -> Result<
         "terminal_id": p.terminal_id, "table_id": p.table_id,
         "order_number": order_number, "order_type": order_type, "status": "confirmed",
         "guest_count": guest_count, "waiter_id": p.waiter_id, "waiter_name": p.waiter_name,
-        "notes": p.notes, "idempotency_key": idempotency_key
+        "notes": p.notes, "idempotency_key": idempotency_key,
+        "customer_name": p.customer_name,
+        "customer_phone": p.customer_phone,
+        "delivery_address": p.delivery_address,
+        "delivery_notes": p.delivery_notes,
     });
     tx.execute(
         "INSERT INTO sync_queue (id, company_id, branch_id, entity_type, entity_local_uuid,

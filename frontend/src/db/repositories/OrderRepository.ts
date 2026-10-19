@@ -85,6 +85,11 @@ export interface CreateOrderPayload {
   waiter_name?: string;
   guest_count?: number;
   notes?: string;
+  // Campos de cliente para delivery/takeout
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  customer_address?: string | null;
+  customer_reference?: string | null;
 }
 
 export class OrderRepository {
@@ -118,20 +123,34 @@ export class OrderRepository {
         }
       }
 
-      // 2. Crear order con modelo chileno (ADR-011)
+            // 2. Crear order con modelo chileno (ADR-011) y campos de cliente
       await db.execute(
         `INSERT INTO local_orders (
           local_uuid, company_id, branch_id, terminal_id, table_id,
           order_number, order_type, status, subtotal, discount_total,
           net_amount, tax_total, tip_amount, grand_total, amount_due, guest_count,
           waiter_id, waiter_name, notes, idempotency_key, sync_status,
+          customer_name, customer_phone, delivery_address, delivery_notes,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
         [
-          local_uuid, payload.company_id, payload.branch_id, payload.terminal_id || null,
-          payload.table_id || null, order_number, payload.order_type || "dine_in", "confirmed",
-          payload.guest_count || 1, payload.waiter_id || null, payload.waiter_name || null,
-          payload.notes || null, idempotency_key,
+          local_uuid, 
+          payload.company_id, 
+          payload.branch_id, 
+          payload.terminal_id || null,
+          payload.table_id || null, 
+          order_number, 
+          payload.order_type || "dine_in", 
+          "confirmed",
+          payload.guest_count || 1, 
+          payload.waiter_id || null, 
+          payload.waiter_name || null,
+          payload.notes || null, 
+          idempotency_key,
+          payload.customer_name || null,
+          payload.customer_phone || null,
+          payload.customer_address || (payload as any).delivery_address || null,
+          payload.customer_reference || (payload as any).delivery_notes || null,
         ]
       );
 
@@ -213,6 +232,131 @@ export class OrderRepository {
     });
 
     return await this.findItemByLocalUuid(itemUuid) as LocalOrderItem;
+  }
+
+  /**
+   * Elimina un item del pedido y recalcula totales.
+   */
+  static async removeItem(orderLocalUuid: string, itemLocalUuid: string): Promise<void> {
+    await localWriteCoordinator.run(async (db) => {
+      // 1. Eliminar el item
+      await (db as any).execute(
+        "DELETE FROM local_order_items WHERE local_uuid = ? AND order_local_uuid = ?",
+        [itemLocalUuid, orderLocalUuid]
+      );
+
+      // 2. Recalcular totales del pedido
+      await this.recalculateOrderTotals(orderLocalUuid, db);
+    });
+    
+    // 3. Sincronizar cambios con el backend/KDS
+    await this.syncOrderChanges(orderLocalUuid);
+  }
+
+  /**
+   * Actualiza la cantidad de un item existente. Si llega a 0, lo elimina.
+   */
+  static async updateItemQuantity(
+    orderLocalUuid: string, 
+    itemLocalUuid: string, 
+    newQuantity: number
+  ): Promise<void> {
+    if (newQuantity <= 0) {
+      await this.removeItem(orderLocalUuid, itemLocalUuid);
+      return;
+    }
+
+    await localWriteCoordinator.run(async (db) => {
+      // 1. Actualizar cantidad y subtotal
+      const item = await this.findItemByLocalUuid(itemLocalUuid);
+      if (!item) throw new Error("Item no encontrado");
+
+      const newSubtotal = newQuantity * item.unit_price;
+      await (db as any).execute(
+        "UPDATE local_order_items SET quantity = ?, subtotal = ? WHERE local_uuid = ?",
+        [newQuantity, newSubtotal, itemLocalUuid]
+      );
+
+      // 2. Recalcular totales del pedido
+      await this.recalculateOrderTotals(orderLocalUuid, db);
+    });
+    
+    // 3. Sincronizar cambios con el backend/KDS
+    await this.syncOrderChanges(orderLocalUuid);
+  }
+
+  /**
+   * Busca un pedido específico por su local_uuid (incluyendo sus items).
+   */
+  static async findOrderWithItems(localUuid: string): Promise<(LocalOrder & { items: LocalOrderItem[] }) | null> {
+    const order = await this.findByLocalUuid(localUuid);
+    if (!order) return null;
+
+    const items = await this.findItemsByOrderLocalUuid(localUuid);
+    return { ...order, items };
+  }
+
+    /**
+   * Marca el pedido como pendiente de sincronización después de una modificación local.
+   * El SyncWorker se encargará de generar el evento correcto con todos los datos validados.
+   */
+  static async syncOrderChanges(orderLocalUuid: string): Promise<void> {
+    await localWriteCoordinator.run(async (db) => {
+      // 1. Marcar el pedido como pendiente de sincronización
+      await (db as any).execute(
+        "UPDATE local_orders SET sync_status = 'pending', sync_error = NULL WHERE local_uuid = ?",
+        [orderLocalUuid]
+      );
+      
+      // 2. Si ya existe un evento 'create' pendiente en la cola, actualizar su payload
+      // para que el SyncWorker envíe la versión más reciente del pedido.
+      await (db as any).execute(
+        `UPDATE sync_queue 
+         SET payload = (
+           SELECT json_object(
+             'company_id', company_id,
+             'branch_id', branch_id,
+             'terminal_id', terminal_id,
+             'table_id', table_id,
+             'order_type', order_type,
+             'guest_count', guest_count,
+             'waiter_id', waiter_id,
+             'waiter_name', waiter_name,
+             'notes', notes,
+             'customer_name', customer_name,
+             'customer_phone', customer_phone,
+             'delivery_address', delivery_address,
+             'delivery_notes', delivery_notes,
+             'items', (
+               SELECT json_group_array(
+                 json_object(
+                   'product_id', product_id,
+                   'product_name', product_name,
+                   'quantity', quantity,
+                   'unit_price', unit_price,
+                   'notes', notes,
+                   'is_menu_item', is_menu_item,
+                   'menu_item_id', menu_item_id
+                 )
+               )
+               FROM local_order_items 
+               WHERE order_local_uuid = local_orders.local_uuid
+             )
+           )
+           FROM local_orders 
+           WHERE local_uuid = ?
+         ),
+         sync_status = 'pending',
+         attempts = 0,
+         last_error = NULL,
+         created_at = CURRENT_TIMESTAMP
+         WHERE entity_type = 'order' 
+           AND entity_local_uuid = ? 
+           AND action = 'create' 
+           AND sync_status = 'pending'`,
+        [orderLocalUuid, orderLocalUuid]
+      );
+    });
   }
 
   /**
@@ -412,13 +556,17 @@ export class OrderRepository {
       const res = await localDomainApi.createOrder({
         company_id: String(payload.company_id),
         branch_id: String(payload.branch_id),
-        terminal_id: payload.terminal_id ?? null,
+        terminal_id: payload.terminal_id ?? "unknown",
         table_id: payload.table_id ?? null,
         order_type: payload.order_type ?? "dine_in",
         guest_count: payload.guest_count ?? 1,
         waiter_id: payload.waiter_id ?? null,
         waiter_name: payload.waiter_name ?? null,
         notes: payload.notes ?? null,
+        customer_name: (payload as any).customer_name ?? null,
+        customer_phone: (payload as any).customer_phone ?? null,
+        delivery_address: (payload as any).customer_address ?? (payload as any).delivery_address ?? null,
+        delivery_notes: (payload as any).customer_reference ?? (payload as any).delivery_notes ?? null,
         items: items.map((i) => ({
           product_id: String(i.product_id),
           product_name: i.product_name,
@@ -449,6 +597,10 @@ export class OrderRepository {
         [
           local_uuid, payload.company_id, payload.branch_id, payload.terminal_id || null,
           payload.table_id || null, order_number, payload.order_type || "dine_in", "confirmed",
+          payload.customer_name || null, payload.customer_phone || null, 
+          payload.customer_address || null, payload.customer_reference || null,
+          payload.customer_name || null, payload.customer_phone || null, 
+          payload.customer_address || null, payload.customer_reference || null,
           payload.guest_count || 1, payload.waiter_id || null, payload.waiter_name || null,
           payload.notes || null, idempotency_key,
         ]
@@ -479,6 +631,7 @@ export class OrderRepository {
       await this.recalculateOrderTotals(local_uuid, db);
 
       // 4. Encolar evento de sincronización usando la misma conexión de transacción
+            // 4. Encolar evento de sincronización usando la misma conexión de transacción
       const syncPayload = {
         local_uuid, company_id: payload.company_id, branch_id: payload.branch_id,
         terminal_id: payload.terminal_id || null, table_id: payload.table_id || null,
@@ -486,6 +639,11 @@ export class OrderRepository {
         guest_count: payload.guest_count || 1, waiter_id: payload.waiter_id || null,
         waiter_name: payload.waiter_name || null, notes: payload.notes || null,
         idempotency_key,
+        // Datos del cliente para sincronización con backend
+        customer_name: (payload as any).customer_name || null,
+        customer_phone: (payload as any).customer_phone || null,
+        customer_address: (payload as any).customer_address || null,
+        customer_reference: (payload as any).customer_reference || null,
       };
 
       // Usamos directamente execute de db para encolar en sync_queue

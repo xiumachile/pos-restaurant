@@ -15,7 +15,8 @@
     "inactive": "Inactivo",
     "pos_system": "Sistema POS",
     "confirm_delete": "Confirmar eliminación",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "authorize": "Autorizar"
   },
   "auth": {
     "login": "Ingresar",
@@ -55,7 +56,7 @@
     "new_order": "Nueva Cuenta",
     "add_item": "Agregar Producto",
     "split_bill": "Dividir Cuenta",
-    "title": "Pedidos",
+    "title": "Pedidos Activos",
     "order": "pedido",
     "orders": "pedidos",
     "sync_status": "Estado técnico de sincronización de datos",
@@ -110,7 +111,25 @@
     "menu_load_error": "Error al cargar la carta",
     "menu_load_error_hint": "Verifica tu conexión e intenta nuevamente.",
     "no_active_menu": "No hay carta activa para {{icon}} {{channel}}",
-    "no_active_menu_hint": "Configura una carta default o una regla de activación para este canal desde Administración → Cartas."
+    "no_active_menu_hint": "Configura una carta default o una regla de activación para este canal desde Administración → Cartas.",
+    "new_order_title": "Nuevo Pedido",
+    "select_channel": "Selecciona el canal del pedido",
+    "cancel": "Cancelar",
+    "customer_search_title": "Buscar Cliente",
+    "customer_existing_title": "Cliente Encontrado",
+    "customer_create_title": "Nuevo Cliente",
+    "customer_search_hint": "Ingresa el teléfono para buscar o crear un cliente",
+    "customer_existing_hint": "Verifica o actualiza los datos de entrega",
+    "customer_create_hint": "Completa los datos del nuevo cliente",
+    "customer_not_found": "Cliente no encontrado. Completa los datos para registrarlo.",
+    "delivery_address": "Dirección de entrega",
+    "delivery_reference": "Referencia / Indicaciones",
+    "customer_name_required": "El nombre es obligatorio",
+    "customer_phone_required": "El teléfono es obligatorio",
+    "active_delivery": "Delivery",
+    "active_takeout": "Para llevar",
+    "edit_order": "Editar pedido",
+    "no_active_orders": "No hay pedidos activos"
   },
   "sync": {
     "sync_status": "Estado de sincronización",
@@ -1081,5 +1100,12 @@
   },
   "navigation": {
     "floor_plan": "Plano del Restaurante"
+  },
+  "admin_auth": {
+    "title": "Autorización Requerida",
+    "invalid_pin": "PIN de administrador inválido",
+    "remove_warning": "Está a punto de eliminar el item",
+    "reduce_warning": "Está a punto de reducir la cantidad a 0",
+    "pin_required": "Ingrese el PIN de administrador para continuar."
   }
 }

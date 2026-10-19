@@ -58,6 +58,9 @@ interface CartState {
 
   /** Actualiza las notas de un item */
   updateItemNotes: (cartKey: string, itemId: string, notes: string) => void;
+  
+  /** Actualiza los datos del cliente (para delivery) */
+  updateCustomer: (cartKey: string, data: { name: string; phone: string; address?: string; reference?: string }) => void;
 
   /** Vacía el carrito */
   clearCart: (cartKey: string) => void;
@@ -65,14 +68,50 @@ interface CartState {
   /** Obtiene el carrito (o null) */
   getCart: (cartKey: string) => TableCart | null;
 
+  /** Establece un carrito completo (útil para modo edición) */
+  setCart: (cartKey: string, cart: TableCart) => void;
+
   /** Calcula totales */
   getTotals: (cartKey: string) => CartTotals;
+}
+
+
+/**
+ * Limpia carritos vacíos del store para evitar acumulación en localStorage.
+ * Se ejecuta automáticamente al iniciar la app.
+ */
+function cleanupEmptyCarts(carts: Record<string, TableCart>): Record<string, TableCart> {
+  const cleaned: Record<string, TableCart> = {};
+  let removedCount = 0;
+  
+  for (const [key, cart] of Object.entries(carts)) {
+    if (cart.items && cart.items.length > 0) {
+      cleaned[key] = cart;
+    } else {
+      removedCount++;
+    }
+  }
+  
+  // Limpieza silenciosa de carritos vacíos
+  
+  return cleaned;
 }
 
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       carts: {},
+
+      /** Limpieza automática de carritos vacíos al iniciar */
+      _initialized: false,
+
+      setCart: (cartKey, cart) =>
+        set((state) => ({
+          carts: {
+            ...state.carts,
+            [cartKey]: cart,
+          },
+        })),
 
       initOrder: (params) => {
         const { tableUuid, tableNumber = "", areaName, channel } = params;
@@ -179,7 +218,24 @@ export const useCartStore = create<CartState>()(
         });
       },
 
-      updateItemNotes: (cartKey, itemId, notes) => {
+      updateCustomer: (cartKey, data) =>
+      set((state) => {
+        const cart = state.carts[cartKey];
+        if (!cart) return state;
+        return {
+          carts: {
+            ...state.carts,
+            [cartKey]: { 
+              ...cart, 
+              customerName: data.name, 
+              customerPhone: data.phone,
+              customerAddress: data.address,
+              customerReference: data.reference,
+            },
+          },
+        };
+      }),
+    updateItemNotes: (cartKey, itemId, notes) => {
         set((state) => {
           const cart = state.carts[cartKey];
           if (!cart) return state;
@@ -220,21 +276,40 @@ export const useCartStore = create<CartState>()(
           return { subtotal: 0, tax: 0, total: 0, itemCount: 0 };
         }
 
-        const subtotal = cart.items.reduce((sum, item) => {
+        // En Chile, los precios base YA incluyen IVA.
+        // Por lo tanto: Total = suma de precios, Neto = Total / 1.19, IVA = Total - Neto
+        const totalWithTax = cart.items.reduce((sum, item) => {
           const price = parsePrice(item.product.base_price);
           return sum + price * item.quantity;
         }, 0);
 
-        const tax = calculateTax(subtotal, IVA_RATE);
-        const total = subtotal + tax;
+        const netAmount = Math.round(totalWithTax / (1 + IVA_RATE));
+        const taxAmount = totalWithTax - netAmount;
         const itemCount = cart.items.reduce((sum, i) => sum + i.quantity, 0);
 
-        return { subtotal, tax, total, itemCount };
+        // Mantenemos las claves 'subtotal' y 'tax' por compatibilidad con UI existente,
+        // pero 'subtotal' ahora representa el Neto y 'tax' el IVA real.
+        return { 
+          subtotal: netAmount, 
+          tax: taxAmount, 
+          total: totalWithTax, 
+          itemCount 
+        };
       },
     }),
     {
       name: "pos-cart-storage",
       partialize: (state) => ({ carts: state.carts }),
+      onRehydrateStorage: () => {
+        return (state, error) => {
+          if (state && state.carts) {
+            const cleaned = cleanupEmptyCarts(state.carts);
+            if (Object.keys(cleaned).length !== Object.keys(state.carts).length) {
+              state.carts = cleaned;
+            }
+          }
+        };
+      },
     }
   )
 );

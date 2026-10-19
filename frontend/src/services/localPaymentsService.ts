@@ -1,34 +1,51 @@
-// @ts-nocheck
 import { localDb } from "@/db/localDb";
 import type { TableBill, TableBillOrder, TableBillOrderItem } from "@/types/tableBill";
 
 interface LocalOrderRow {
   local_uuid: string;
-  table_id: string;
+  table_id: string | null;
+  order_type: string;
   order_number: string;
   status: string;
   subtotal: number;
   tax_total: number;
   grand_total: number;
   created_at: string;
+  customer_phone?: string;
 }
 
 interface LocalItemRow {
   local_uuid: string;
   order_local_uuid: string;
-  product_id: string;
   product_name: string;
   quantity: number;
   unit_price: number;
   notes: string | null;
 }
 
-// FIX: área_code no existe en local_tables, solo area_name
 interface TableInfoRow {
   uuid: string;
   table_number: string;
   area_name: string | null;
-  capacity: number | null;
+  capacity: number;
+}
+
+export interface PendingAccount {
+  id: string;
+  type: 'table' | 'delivery' | 'takeout';
+  identifier: string;
+  area_code?: string;
+  orders_count: number;
+  total_items: number;
+  subtotal: number;
+  tax_amount: number;
+  total_amount: number;
+  first_order_at: string | null;
+  last_order_at: string | null;
+  has_unserved_orders: boolean;
+  unserved_orders_count: number;
+  unserved_items_count: number;
+  orders: TableBillOrder[];
 }
 
 /**
@@ -36,152 +53,199 @@ interface TableInfoRow {
  */
 export const localPaymentsService = {
   /**
-   * Reconstruye la lista de mesas con cuentas pendientes desde SQLite.
+   * Reconstruye la lista de TODAS las cuentas pendientes (mesas, delivery, takeout) desde SQLite.
    */
-  async listTablesWithBillsOffline(): Promise<TableBill[]> {
-    console.log("[localPaymentsService] 📋 listTablesWithBillsOffline() llamado");
+  async listPendingAccountsOffline(): Promise<PendingAccount[]> {
+    console.log("[localPaymentsService] 📋 listPendingAccountsOffline() llamado");
 
     const db = await localDb.getConnection();
 
-    // 1. Obtener pedidos activos (no cerrados ni cancelados)
-    const orders = await db.select<LocalOrderRow[]>(`
-      SELECT local_uuid, table_id, order_number, status, 
-             subtotal, tax_total, grand_total, created_at
+    // 1. Obtener TODOS los pedidos activos (no cerrados, cancelados o pagados)
+    const ordersResult = await db.select<LocalOrderRow[]>(`
+      SELECT local_uuid, table_id, order_type, order_number, status, 
+             subtotal, tax_total, grand_total, created_at, customer_phone
       FROM local_orders
-      WHERE table_id IS NOT NULL
-        AND status NOT IN ('closed', 'cancelled')
+      WHERE status NOT IN ('closed', 'cancelled', 'paid')
       ORDER BY created_at ASC
     `);
+
+    // Aplanar resultados de SQLite (a veces vienen como array de arrays o array de objetos)
+    const orders = ordersResult.map((row: any) => (Array.isArray(row) ? row[0] : row));
 
     console.log(`[localPaymentsService] 📦 Pedidos activos encontrados: ${orders.length}`);
 
     if (orders.length === 0) {
-      console.log("[localPaymentsService] ⚠️ Sin pedidos activos, retornando []");
       return [];
     }
 
-    // 2. Agrupar pedidos por table_id
-    const ordersByTable = new Map<string, LocalOrderRow[]>();
+    // 2. Agrupar pedidos por cuenta (mesa o pedido individual de delivery/takeout)
+    const accountsMap = new Map<string, any>();
+
     for (const order of orders) {
-      const existing = ordersByTable.get((order as any)[0]?.table_id ?? (order as any).table_id) || [];
-      existing.push(order);
-      ordersByTable.set((order as any)[0]?.table_id ?? (order as any).table_id, existing);
+      const isTable = !!order.table_id;
+      const accountId = isTable ? order.table_id : order.local_uuid;
+      
+      if (!accountsMap.has(accountId)) {
+        if (isTable) {
+          accountsMap.set(accountId, {
+            id: accountId,
+            type: 'table' as const,
+            table_id: order.table_id,
+            orders: [],
+          });
+        } else {
+          accountsMap.set(accountId, {
+            id: accountId,
+            type: (order.order_type === 'delivery' ? 'delivery' : 'takeout') as 'delivery' | 'takeout',
+            identifier: order.customer_phone || 'Sin cliente',
+            orders: [],
+          });
+        }
+      }
+      accountsMap.get(accountId).orders.push(order);
     }
 
-    console.log(`[localPaymentsService] 🍽️  Mesas con pedidos: ${ordersByTable.size}`);
-
-    // 3. Obtener info de mesas (FIX: usar area_name, no area_code)
-    const tableUuids = Array.from(ordersByTable.keys());
-    const tablesInfo = await db.select<TableInfoRow[]>(`
-      SELECT uuid, table_number, area_name, capacity
-      FROM local_tables
-      WHERE uuid IN (${tableUuids.map(() => "?").join(",")})
-    `, tableUuids);
-
-    console.log(`[localPaymentsService] 📊 Mesas encontradas en local_tables: ${tablesInfo.length}`);
-
-    const tablesMap = new Map(tablesInfo.map(t => [t.uuid, t]));
+    // 3. Obtener info de mesas para las cuentas de tipo 'table'
+    const tableUuids = Array.from(accountsMap.values())
+      .filter((a: any) => a.type === 'table')
+      .map((a: any) => a.table_id);
+    
+    let tablesMap = new Map<string, TableInfoRow>();
+    if (tableUuids.length > 0) {
+      const tablesInfoResult = await db.select<TableInfoRow[]>(`
+        SELECT uuid, table_number, area_name, capacity
+        FROM local_tables
+        WHERE uuid IN (${tableUuids.map(() => "?").join(",")})
+      `, tableUuids);
+      
+      const tablesInfo = tablesInfoResult.map((row: any) => (Array.isArray(row) ? row[0] : row));
+      tablesMap = new Map(tablesInfo.map((t: TableInfoRow) => [t.uuid, t]));
+    }
 
     // 4. Obtener todos los items de estos pedidos
-    const orderUuids = orders.map(o => o.local_uuid);
-    const items = await db.select<LocalItemRow[]>(`
-      SELECT local_uuid, order_local_uuid, product_id, product_name,
-             quantity, unit_price, notes
+    const orderUuids = orders.map((o: LocalOrderRow) => o.local_uuid);
+    const itemsResult = await db.select<LocalItemRow[]>(`
+      SELECT local_uuid, order_local_uuid, product_name, quantity, unit_price, notes
       FROM local_order_items
       WHERE order_local_uuid IN (${orderUuids.map(() => "?").join(",")})
     `, orderUuids);
 
-    console.log(`[localPaymentsService] 🍔 Items totales: ${items.length}`);
+    const items = itemsResult.map((row: any) => (Array.isArray(row) ? row[0] : row));
 
-    // Agrupar items por pedido
     const itemsByOrder = new Map<string, LocalItemRow[]>();
     for (const item of items) {
-      const existing = itemsByOrder.get((item as any)[0]?.order_local_uuid ?? (item as any).order_local_uuid) || [];
+      const existing = itemsByOrder.get(item.order_local_uuid) || [];
       existing.push(item);
-      itemsByOrder.set((item as any)[0]?.order_local_uuid ?? (item as any).order_local_uuid, existing);
+      itemsByOrder.set(item.order_local_uuid, existing);
     }
 
-    // 5. Construir TableBill[] para cada mesa
-    const result: TableBill[] = [];
+    // 5. Construir el resultado final
+    const result: PendingAccount[] = [];
 
-    for (const [tableUuid, tableOrders] of ordersByTable.entries()) {
-      const tableInfo = tablesMap.get(tableUuid);
-      if (!tableInfo) {
-        console.warn(`[localPaymentsService] ⚠️ Mesa ${tableUuid} no encontrada en local_tables, saltando`);
-        continue;
+    for (const account of accountsMap.values()) {
+      if (account.type === 'table') {
+        const tableInfo = tablesMap.get(account.table_id);
+        if (!tableInfo) continue;
+
+        const areaCode = (tableInfo.area_name || "sin_area").toLowerCase().replace(/\s+/g, "_");
+        
+        const tableOrders: TableBillOrder[] = account.orders.map((o: LocalOrderRow) => {
+          const orderItems = itemsByOrder.get(o.local_uuid) || [];
+          return {
+            uuid: o.local_uuid,
+            order_number: o.order_number,
+            status: o.status,
+            subtotal: o.subtotal || 0,
+            tax_amount: o.tax_total || 0,
+            total: o.grand_total || 0,
+            waiter_name: null,
+            served_at: null,
+            items: orderItems.map((i: LocalItemRow) => ({
+              uuid: i.local_uuid,
+              name: i.product_name,
+              quantity: i.quantity,
+              unit_price: i.unit_price,
+              subtotal: i.quantity * i.unit_price,
+              notes: i.notes,
+            })),
+            bills: [],
+          };
+        });
+
+        const subtotal = tableOrders.reduce((sum: number, o: TableBillOrder) => sum + o.subtotal, 0);
+        const taxAmount = tableOrders.reduce((sum: number, o: TableBillOrder) => sum + o.tax_amount, 0);
+        const totalAmount = tableOrders.reduce((sum: number, o: TableBillOrder) => sum + o.total, 0);
+        const totalItems = tableOrders.reduce((sum: number, o: TableBillOrder) => sum + o.items.reduce((s: number, i: any) => s + i.quantity, 0), 0);
+
+        const dates: string[] = account.orders.map((o: LocalOrderRow) => o.created_at).sort();
+        const unservedOrders = account.orders.filter((o: LocalOrderRow) => o.status === "confirmed" || o.status === "preparing");
+        const unservedItemsCount = unservedOrders.reduce((sum: number, o: LocalOrderRow) => sum + (itemsByOrder.get(o.local_uuid)?.length || 0), 0);
+
+        result.push({
+          id: account.table_id,
+          type: 'table',
+          identifier: tableInfo.table_number,
+          area_code: areaCode,
+          orders_count: account.orders.length,
+          total_items: totalItems,
+          subtotal,
+          tax_amount: taxAmount,
+          total_amount: totalAmount,
+          first_order_at: dates[0] || null,
+          last_order_at: dates[dates.length - 1] || null,
+          has_unserved_orders: unservedOrders.length > 0,
+          unserved_orders_count: unservedOrders.length,
+          unserved_items_count: unservedItemsCount,
+          orders: tableOrders,
+        });
+      } else {
+        // Delivery o Takeout (cada pedido es una cuenta individual)
+        for (const o of account.orders) {
+          const orderItems = itemsByOrder.get(o.local_uuid) || [];
+          const totalItems = orderItems.reduce((sum: number, i: LocalItemRow) => sum + i.quantity, 0);
+          const dates = [o.created_at];
+          const unservedOrdersCount = (o.status === "confirmed" || o.status === "preparing") ? 1 : 0;
+
+          result.push({
+            id: o.local_uuid,
+            type: account.type,
+            identifier: account.identifier,
+            area_code: o.order_type === 'delivery' ? 'delivery' : 'takeout',
+            orders_count: 1,
+            total_items: totalItems,
+            subtotal: o.subtotal || 0,
+            tax_amount: o.tax_total || 0,
+            total_amount: o.grand_total || 0,
+            first_order_at: dates[0] || null,
+            last_order_at: dates[0] || null,
+            has_unserved_orders: unservedOrdersCount > 0,
+            unserved_orders_count: unservedOrdersCount,
+            unserved_items_count: unservedOrdersCount > 0 ? totalItems : 0,
+            orders: [{
+              uuid: o.local_uuid,
+              order_number: o.order_number,
+              status: o.status,
+              subtotal: o.subtotal || 0,
+              tax_amount: o.tax_total || 0,
+              total: o.grand_total || 0,
+              waiter_name: null,
+              served_at: null,
+              items: orderItems.map((i: LocalItemRow) => ({
+                uuid: i.local_uuid,
+                name: i.product_name,
+                quantity: i.quantity,
+                unit_price: i.unit_price,
+                subtotal: i.quantity * i.unit_price,
+                notes: i.notes,
+              })),
+              bills: [],
+            }],
+          });
+        }
       }
-
-      // Generar area_code desde area_name (mismo patrón que localTablesService)
-      const areaCode = (tableInfo.area_name || "sin_area")
-        .toLowerCase()
-        .replace(/\s+/g, "_");
-
-      const tableBillOrders: TableBillOrder[] = tableOrders.map(order => {
-        const orderItems = itemsByOrder.get((order as any)[0]?.local_uuid ?? (order as any).local_uuid) || [];
-
-        const items: TableBillOrderItem[] = orderItems.map(item => ({
-          uuid: item.local_uuid,
-          name: item.product_name,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          subtotal: item.quantity * item.unit_price,
-          notes: item.notes,
-        }));
-
-        return {
-          uuid: (order as any)[0]?.local_uuid ?? (order as any).local_uuid,
-          order_number: order.order_number,
-          status: order.status,
-          subtotal: order.subtotal || 0,
-          tax_amount: order.tax_total || 0,
-          total: order.grand_total || 0,
-          waiter_name: null,
-          served_at: null,
-          items,
-          bills: [],
-        };
-      });
-
-      // Calcular totales
-      const subtotal = tableBillOrders.reduce((sum, o) => sum + o.subtotal, 0);
-      const taxAmount = tableBillOrders.reduce((sum, o) => sum + o.tax_amount, 0);
-      const totalAmount = tableBillOrders.reduce((sum, o) => sum + o.total, 0);
-      const totalItems = tableBillOrders.reduce(
-        (sum, o) => sum + o.items.reduce((s, i) => s + i.quantity, 0), 0
-      );
-
-      const dates = tableOrders.map(o => o.created_at).sort();
-      const firstOrderAt = dates[0] || null;
-      const lastOrderAt = dates[dates.length - 1] || null;
-
-      const unservedOrders = tableOrders.filter(o =>
-        o.status === "confirmed" || o.status === "preparing"
-      );
-      const unservedItemsCount = unservedOrders.reduce(
-        (sum, o) => sum + (itemsByOrder.get(o.local_uuid)?.length || 0),
-        0
-      );
-
-      result.push({
-        table_uuid: tableUuid,
-        table_number: tableInfo.table_number,
-        area_code: areaCode,
-        capacity: tableInfo.capacity || 4,
-        orders_count: tableOrders.length,
-        total_items: totalItems,
-        subtotal,
-        tax_amount: taxAmount,
-        total_amount: totalAmount,
-        first_order_at: firstOrderAt,
-        last_order_at: lastOrderAt,
-        has_unserved_orders: unservedOrders.length > 0,
-        unserved_orders_count: unservedOrders.length,
-        unserved_items_count: unservedItemsCount,
-        orders: tableBillOrders,
-      });
     }
 
-    console.log(`[localPaymentsService] ✅ Retornando ${result.length} mesas con cuenta`);
+    console.log(`[localPaymentsService] ✅ Retornando ${result.length} cuentas pendientes`);
     return result;
   },
 };
