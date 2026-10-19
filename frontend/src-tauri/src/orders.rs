@@ -317,6 +317,10 @@ mod tests {
             waiter_id: None,
             waiter_name: None,
             notes: None,
+            customer_name: None,
+            customer_phone: None,
+            delivery_address: None,
+            delivery_notes: None,
             items,
         }
     }
