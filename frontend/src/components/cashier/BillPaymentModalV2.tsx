@@ -323,7 +323,7 @@ export function BillPaymentModalV2({
               amount: Math.round(amountForBill),
               payment_method_uuid: payment.payment_method_uuid,
               tip_amount: Math.round(tipForBill),
-              reference_code: payment.reference_code || (selectedMethod?.requires_reference && !requirePaymentReference ? "REF-AUTO" : null), // <-- AGREGADO: Enviar código de referencia
+              reference_code: payment.reference_code || (selectedMethod?.requires_reference && !requirePaymentReference ? "REF-AUTO" : undefined), // <-- AGREGADO: Enviar código de referencia
               idempotency_key: payment.idempotency_key, // USAR CLAVE ORIGINAL PARA IDEMPOTENCIA
             },
           });
