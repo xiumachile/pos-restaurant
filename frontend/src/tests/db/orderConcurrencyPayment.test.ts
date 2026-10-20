@@ -66,13 +66,25 @@ describe("AUD: Concurrencia y Consistencia de Estado (Pago vs Cancelación)", ()
 
     const results = await Promise.allSettled([payPromise, cancelPromise]);
     
-    const payOutput = results[0].status === 'fulfilled' ? results[0].value.stdout : '';
-    const cancelOutput = results[1].status === 'fulfilled' ? results[1].value.stdout : '';
+    // Capturar tanto stdout como stderr para depuración en CI
+    const payResult = results[0].status === 'fulfilled' ? results[0].value : { stdout: '', stderr: JSON.stringify(results[0].reason) };
+    const cancelResult = results[1].status === 'fulfilled' ? results[1].value : { stdout: '', stderr: JSON.stringify(results[1].reason) };
+
+    const payOutput = payResult.stdout + (payResult.stderr ? `\nSTDERR: ${payResult.stderr}` : '');
+    const cancelOutput = cancelResult.stdout + (cancelResult.stderr ? `\nSTDERR: ${cancelResult.stderr}` : '');
 
     // 3. Verificar que exactamente uno tuvo éxito a nivel de dominio
     const paySuccess = payOutput.includes("WORKER_PAY:SUCCESS");
     const cancelSuccess = cancelOutput.includes("WORKER_CANCEL:SUCCESS");
     
+    // DEBUG: Si ambos fallan, imprimir la salida real para ver qué pasó en el CI
+    if (!paySuccess && !cancelSuccess) {
+      console.error("=== 🚨 DEBUG CONCURRENCY TEST FAILED 🚨 ===");
+      console.error("Pay Worker Output:", payOutput);
+      console.error("Cancel Worker Output:", cancelOutput);
+      console.error("============================================");
+    }
+
     expect(paySuccess || cancelSuccess).toBe(true);
     expect(paySuccess && cancelSuccess).toBe(false); // Exclusión mutua garantizada por SQLite IMMEDIATE
 
