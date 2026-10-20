@@ -5,6 +5,19 @@ import { syncApi } from "../../syncApi";
 import { useToastStore } from "../../../store/useToastStore";
 
 
+
+// Error especial para indicar que una dependencia debe sincronizarse primero
+export class DependencyError extends Error {
+  constructor(
+    message: string,
+    public dependencyType: string,
+    public dependencyId: string
+  ) {
+    super(message);
+    this.name = 'DependencyError';
+  }
+}
+
 export class SyncStrategies {
   static async processOrder(item: SyncQueueItem, payload: any): Promise<string | null> {
     switch (item.action) {
@@ -14,10 +27,11 @@ export class SyncStrategies {
         const orderItems = await OrderRepository.findItemsByOrderUuid(item.entity_local_uuid);
 
         // Construir payload con mapeo correcto de campos
-        // Backend espera: type, table_uuid (solo para dine_in)
-        // Para delivery, backend REQUIERE: customer_name, customer_phone, delivery_address
+        // Backend REQUIERE: company_id, branch_id, type
         const orderPayload: any = {
-          type: payload.order_type || payload.type,
+          type: payload.order_type || payload.type || 'dine_in',
+          company_id: payload.company_id,
+          branch_id: payload.branch_id,
           notes: payload.notes || null,
         };
 
@@ -29,7 +43,14 @@ export class SyncStrategies {
         // Añadir datos del cliente para delivery (requeridos por backend)
         if (payload.customer_name) orderPayload.customer_name = payload.customer_name;
         if (payload.customer_phone) orderPayload.customer_phone = payload.customer_phone;
-        if (payload.customer_address) orderPayload.delivery_address = payload.customer_address;
+        
+        // El backend EXIGE delivery_address para tipo 'delivery'. Si no existe, usamos un fallback.
+        if (payload.customer_address) {
+            orderPayload.delivery_address = payload.customer_address;
+        } else if (orderPayload.type === 'delivery') {
+            orderPayload.delivery_address = "Dirección por definir (Actualizar en pedido)";
+        }
+        
         if (payload.customer_reference) orderPayload.delivery_notes = payload.customer_reference;
 
         // Solo enviar table_uuid si es dine_in (backend lo prohíbe para delivery/takeout)
@@ -42,7 +63,7 @@ export class SyncStrategies {
 
         const response = await syncApi.createOrder({
           ...orderPayload,
-          idempotency_key: payload.idempotency_key,
+          idempotency_key: payload.idempotency_key || crypto.randomUUID(),
         });
 
         const cloudId = response.uuid || response.id;

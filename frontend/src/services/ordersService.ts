@@ -64,6 +64,8 @@ export const ordersService = {
    * Obtiene un pedido por UUID.
    */
   async show(orderUuid: string): Promise<Order> {
+  if (!tableUuid || tableUuid === 'null' || tableUuid === 'undefined') return [];
+
     const response = await apiClient.get<OrderResponse>(`/orders/${orderUuid}`);
     return response.data.data;
   },

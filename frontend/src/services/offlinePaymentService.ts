@@ -33,7 +33,7 @@ export interface CreatePaymentOfflineResult {
 }
 
 const PAYABLE_STATUSES: LocalOrder["status"][] = [
-  "served", "ready", "ready_for_pickup", "dispatched", "delivered",
+  "confirmed", "served", "ready", "ready_for_pickup", "dispatched", "delivered",
 ];
 
 export class OfflinePaymentError extends Error {
