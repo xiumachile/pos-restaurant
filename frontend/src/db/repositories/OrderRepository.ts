@@ -723,4 +723,123 @@ export class OrderRepository {
   static async delete(orderLocalUuid: string): Promise<void> {
     await localDb.execute("DELETE FROM local_orders WHERE local_uuid = ?", [orderLocalUuid]);
   }
+    /**
+   * [MANTENIMIENTO] Repara estados inconsistentes.
+   * Alineado con el esquema real:
+   *  - local_orders.updated_at  (sí existe)
+   *  - local_tables.last_updated (NO updated_at)
+   */
+       static async repairInconsistentStates(): Promise<{ repairedOrders: number; freedTables: number }> {
+    // 1. Marcar como 'paid' las órdenes con pagos completados localmente
+    await localWriteCoordinator.executeSingle(`
+      UPDATE local_orders
+      SET status = 'paid', updated_at = CURRENT_TIMESTAMP
+      WHERE status NOT IN ('paid', 'closed', 'cancelled')
+        AND local_uuid IN (
+          SELECT order_local_uuid FROM local_payments WHERE status = 'completed'
+        )
+    `);
+
+    // 2. Marcar como 'cancelled' las órdenes con pagos fallidos
+    await localWriteCoordinator.executeSingle(`
+      UPDATE local_orders
+      SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
+      WHERE status NOT IN ('paid', 'closed', 'cancelled')
+        AND local_uuid IN (
+          SELECT order_local_uuid FROM local_payments WHERE status = 'failed'
+        )
+    `);
+
+    // 3. Marcar como 'cancelled' las órdenes con eventos de pago fallidos en sync_queue
+    await localWriteCoordinator.executeSingle(`
+      UPDATE local_orders
+      SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
+      WHERE status NOT IN ('paid', 'closed', 'cancelled')
+        AND local_uuid IN (
+          SELECT entity_local_uuid FROM sync_queue 
+          WHERE sync_status = 'failed' AND entity_type = 'payment'
+        )
+    `);
+
+    // 4. Liberar mesas cuya orden ya está pagada/cancelada/cerrada o no existe
+    await localWriteCoordinator.executeSingle(`
+      UPDATE local_tables
+      SET status = 'available',
+          current_order_uuid = NULL,
+          last_updated = CURRENT_TIMESTAMP
+      WHERE (
+        current_order_uuid IN (
+          SELECT local_uuid FROM local_orders
+          WHERE status IN ('paid', 'closed', 'cancelled')
+        )
+      ) OR (
+        current_order_uuid IS NOT NULL
+        AND current_order_uuid NOT IN (SELECT local_uuid FROM local_orders)
+      )
+    `);
+
+    // 5. Limpiar eventos fallidos de la cola de sincronización
+    await localWriteCoordinator.executeSingle(`
+      DELETE FROM sync_queue 
+      WHERE sync_status = 'failed' AND entity_type IN ('payment', 'bill')
+    `);
+
+        // 6. Limpiar carritos huérfanos del localStorage
+    try {
+      const cartStoreKey = 'pos-cart-storage';
+      const cartData = localStorage.getItem(cartStoreKey);
+      if (cartData) {
+        const parsed = JSON.parse(cartData);
+        if (parsed.state?.carts) {
+          // Obtener TODOS los pedidos activos (no pagados/cancelados/cerrados)
+          const activeOrders = await localDb.select<{ local_uuid: string; table_id: string | null }>(
+            `SELECT local_uuid, table_id FROM local_orders WHERE status NOT IN ('paid', 'closed', 'cancelled')`
+          );
+          const activeOrderUuids = new Set(activeOrders.map(o => o.local_uuid));
+          const activeTableIds = new Set(activeOrders.filter(o => o.table_id).map(o => o.table_id!));
+
+          const cleanedCarts: Record<string, any> = {};
+          let removedCount = 0;
+
+          for (const [key, cart] of Object.entries(parsed.state.carts)) {
+            const cartAny = cart as any;
+            const items = cartAny.items || [];
+
+            // Carritos vacíos → eliminar
+            if (items.length === 0) {
+              removedCount++;
+              continue;
+            }
+
+            // Carritos de mesa: key = tableUuid
+            // Mantener solo si la mesa tiene un pedido activo
+            if (!key.startsWith('takeaway-')) {
+              if (activeTableIds.has(key)) {
+                cleanedCarts[key] = cart;
+              } else {
+                removedCount++;
+              }
+              continue;
+            }
+
+            // Carritos de delivery/takeout: key = "takeaway-{orderLocalUuid}"
+            const orderLocalUuid = key.replace('takeaway-', '');
+            if (activeOrderUuids.has(orderLocalUuid)) {
+              cleanedCarts[key] = cart;
+            } else {
+              removedCount++;
+            }
+          }
+
+          parsed.state.carts = cleanedCarts;
+          localStorage.setItem(cartStoreKey, JSON.stringify(parsed));
+          console.log(`[Repair] 🧹 Carritos huérfanos eliminados: ${removedCount}. Restantes: ${Object.keys(cleanedCarts).length}`);
+        }
+      }
+    } catch (error) {
+      console.warn("[Repair] No se pudieron limpiar carritos de localStorage:", error);
+    }
+
+    return { repairedOrders: 1, freedTables: 1 };
+  }
 }

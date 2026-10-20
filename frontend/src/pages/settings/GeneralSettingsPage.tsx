@@ -1,6 +1,10 @@
+import { useState } from 'react'; 
+import { useQueryClient } from '@tanstack/react-query';
+import { useCartStore } from '@/stores/useCartStore';
+import { OrderRepository } from '@/db/repositories/OrderRepository';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../store/useSettingsStore';
-import { Settings, DollarSign, Clock, CheckCircle2 } from 'lucide-react';
+import { Settings, DollarSign, Clock, CheckCircle2, Trash2, RefreshCw } from 'lucide-react';
 
 /**
  * Página de configuración general del sistema.
@@ -9,12 +13,63 @@ import { Settings, DollarSign, Clock, CheckCircle2 } from 'lucide-react';
  */
 export function GeneralSettingsPage() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  
   const {
     showChangePopup,
     changePopupDuration,
+    requirePaymentReference,
     setShowChangePopup,
     setChangePopupDuration,
+    setRequirePaymentReference,
   } = useSettingsStore();
+
+  const [isRepairing, setIsRepairing] = useState(false);
+  const [repairResult, setRepairResult] = useState<{ repairedOrders: number; freedTables: number } | null>(null);
+
+  const handleRepairState = async () => {
+    if (!confirm("¿Estás seguro de reparar estados inconsistentes? Esto liberará mesas bloqueadas y corregirá pedidos con pagos locales no sincronizados.")) return;
+    
+    setIsRepairing(true);
+    try {
+      // 1. Reparar base de datos local
+      const result = await OrderRepository.repairInconsistentStates();
+      
+      // 2. Limpiar el store en memoria (Zustand)
+      const cartStore = useCartStore.getState();
+      const currentCarts = cartStore.carts;
+      Object.keys(currentCarts).forEach(key => {
+        cartStore.clearCart(key);
+      });
+      
+      // 3. Limpiar localStorage completamente para forzar rehidratación limpia
+      localStorage.removeItem('pos-cart-storage');
+      
+      // 4. INVALIDAR CACHÉ DE REACT QUERY (Clave para que la UI se actualice)
+      await queryClient.invalidateQueries({ queryKey: ['pending-accounts'] });
+      await queryClient.invalidateQueries({ queryKey: ['orders'] });
+      await queryClient.invalidateQueries({ queryKey: ['tables'] });
+      await queryClient.invalidateQueries({ queryKey: ['tables-with-bills'] });
+      await queryClient.invalidateQueries({ queryKey: ['cashier-dashboard'] });
+      await queryClient.invalidateQueries({ queryKey: ['cashier'] });
+      await queryClient.invalidateQueries({ queryKey: ['active-orders'] });
+      await queryClient.invalidateQueries({ queryKey: ['sync-queue'] });
+      
+      // Invalidar TODAS las queries por si acaso alguna otra tiene datos obsoletos
+      await queryClient.invalidateQueries();
+      
+      setRepairResult(result);
+      alert("Reparación exitosa:\n- Pedidos corregidos: " + result.repairedOrders + "\n- Mesas liberadas: " + result.freedTables + "\n\nRecargando la aplicación...");
+      
+      // 5. Reload completo para que todo se reinicie desde cero limpio
+      window.location.reload();
+    } catch (error) {
+      console.error("Error reparando estados:", error);
+      alert("Error al reparar estados. Revisa la consola.");
+    } finally {
+      setIsRepairing(false);
+    }
+  };
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -61,6 +116,28 @@ export function GeneralSettingsPage() {
                 }`}
               />
             </button>
+          </div>
+
+          {/* Exigir Código de Autorización en Pagos */}
+          <div className="space-y-4 mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <label className="text-slate-900 dark:text-white font-medium block">
+                  Exigir código de autorización
+                </label>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                  Si está activado, se requerirá ingresar un código de referencia para pagos con Tarjeta, Transferencia o Gift Card. Si está desactivado, se enviará "REF-AUTO" automáticamente.
+                </p>
+              </div>
+              <button
+                onClick={() => setRequirePaymentReference(!requirePaymentReference)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ml-4 ${requirePaymentReference ? 'bg-green-500' : 'bg-slate-300 dark:bg-slate-600'}`}
+                role="switch"
+                aria-checked={requirePaymentReference}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${requirePaymentReference ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
           </div>
 
           {/* Duración */}
@@ -133,6 +210,34 @@ export function GeneralSettingsPage() {
           )}
         </div>
       </div>
+
+      {/* Sección de Mantenimiento y Reparación */}
+      <div className="bg-white dark:bg-slate-900 rounded-lg p-6 border border-red-200 dark:border-red-900/50 mt-8">
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+          <RefreshCw className="w-5 h-5 text-red-500" />
+          Mantenimiento de Estado
+        </h3>
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+          Utiliza esta herramienta si hay pedidos que aparecen como activos pero ya fueron pagados, o mesas que figuran ocupadas incorrectamente.
+        </p>
+        <button
+          onClick={handleRepairState}
+          disabled={isRepairing}
+          className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg font-medium transition-colors"
+        >
+          {isRepairing ? (
+            <><RefreshCw className="w-4 h-4 animate-spin" /> Reparando...</>
+          ) : (
+            <><Trash2 className="w-4 h-4" /> Reparar Estados Inconsistentes</>
+          )}
+        </button>
+        {repairResult && (
+          <p className="mt-3 text-sm text-green-600 dark:text-green-400">
+            Última reparación: {repairResult.repairedOrders} pedidos corregidos, {repairResult.freedTables} mesas liberadas.
+          </p>
+        )}
+      </div>
+
     </div>
   );
 }

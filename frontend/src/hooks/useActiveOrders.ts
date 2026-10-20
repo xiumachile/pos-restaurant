@@ -20,13 +20,8 @@ export function useActiveOrders() {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        // Consulta segura: usamos COALESCE o simplemente omitimos columnas si la migración no corrió
-        // Intentamos leer las columnas, si fallan, el catch lo manejará, pero lo ideal es que la migración 027 haya corrido.
-        // Para ser 100% seguros, usamos una consulta que funcione con o sin las columnas nuevas 
-        // (SQLite no soporta IF EXISTS en SELECT, así que dependemos de que la migración 027 se ejecute al iniciar Tauri).
-        
         const result = await localDb.select<any>(`
-          SELECT 
+          SELECT
             o.local_uuid,
             o.order_number,
             o.order_type,
@@ -38,12 +33,11 @@ export function useActiveOrders() {
             COUNT(i.local_uuid) as item_count
           FROM local_orders o
           LEFT JOIN local_order_items i ON o.local_uuid = i.order_local_uuid
-          WHERE o.status NOT IN ('completed', 'cancelled', 'voided')
+          WHERE o.status NOT IN ('paid', 'closed', 'cancelled')
           GROUP BY o.local_uuid
           ORDER BY o.created_at DESC
         `);
-        
-        // Mapear a la interfaz, manejando nulls
+
         const mappedOrders: ActiveOrder[] = (result || []).map((row: any) => ({
           local_uuid: row.local_uuid,
           order_number: row.order_number,
@@ -55,20 +49,19 @@ export function useActiveOrders() {
           created_at: row.created_at,
           item_count: row.item_count || 0,
         }));
-        
+
         setOrders(mappedOrders);
       } catch (error: any) {
         console.error("[useActiveOrders] Error fetching orders:", error.message);
-        // Si falla por columnas faltantes, intentamos una consulta fallback sin esas columnas
         try {
           const fallbackResult = await localDb.select<any>(`
-            SELECT 
+            SELECT
               o.local_uuid, o.order_number, o.order_type, o.status, o.grand_total,
               NULL as customer_name, NULL as customer_phone, o.created_at,
               COUNT(i.local_uuid) as item_count
             FROM local_orders o
             LEFT JOIN local_order_items i ON o.local_uuid = i.order_local_uuid
-            WHERE o.status NOT IN ('completed', 'cancelled', 'voided')
+            WHERE o.status NOT IN ('paid', 'closed', 'cancelled')
             GROUP BY o.local_uuid
             ORDER BY o.created_at DESC
           `);

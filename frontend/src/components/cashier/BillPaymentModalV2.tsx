@@ -49,9 +49,10 @@ interface PendingPayment {
   received_amount: number;
   change_amount: number; // [FIX] Vuelto para pagos en efectivo mayores al pendiente
   idempotency_key: string;
+  reference_code?: string;
 }
 
-type ActiveField = "amount" | "tip" | "received";
+type ActiveField = "amount" | "tip" | "received" | "reference";
 
 
 
@@ -69,6 +70,7 @@ export function BillPaymentModalV2({
   const [tipInput, setTipInput] = useState<string>("0");
   const [tipPct, setTipPct] = useState<number | null>(null); // [AUDIT FIX] Guardar intención (porcentaje o manual)
   const [receivedInput, setReceivedInput] = useState<string>("");
+  const [referenceCode, setReferenceCode] = useState<string>("");
   const [activeField, setActiveField] = useState<ActiveField>("amount");
   const [payments, setPayments] = useState<PendingPayment[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -77,7 +79,7 @@ export function BillPaymentModalV2({
   const [errors, setErrors] = useState<string[]>([]);
   
   // Configuración de popup de vuelto
-  const { showChangePopup: changePopupEnabled, changePopupDuration } = useSettingsStore();
+  const { showChangePopup: changePopupEnabled, changePopupDuration, requirePaymentReference } = useSettingsStore();
   const showPopup = usePopupStore((state) => state.showPopup);
 
   const [processedPaymentIds, setProcessedPaymentIds] = useState<Set<string>>(new Set());
@@ -88,6 +90,11 @@ export function BillPaymentModalV2({
   // Reglas de Hooks: llamar ambos incondicionalmente para evitar corrupción de estado si isOffline cambia
   const onlinePayBill = usePayBill();
   const offlinePayBill = useOfflinePayment();
+
+  // Usar flujo offline si estamos desconectados O si la bill no tiene cloud_id
+  // (aunque se haya sincronizado, el objeto en memoria aún no lo sabe)
+  const hasCloudId = effectiveBills.some((b: any) => b.cloud_id);
+  const forceOffline = isOffline || !hasCloudId;
   
   const invalidate = useInvalidateCashier();
 
@@ -136,10 +143,24 @@ export function BillPaymentModalV2({
 
   // Teclado escribe en el campo activo
   const handleKeyPress = useCallback((key: string) => {
+    // Si el campo activo es referencia, permitir cualquier tecla alfanumérica sin filtros restrictivos
+    if (activeField === "reference") {
+      if (key === "⌫") {
+        setReferenceCode((prev) => prev.slice(0, -1));
+        return;
+      }
+      // Permitir letras, números, guiones y espacios
+      if (/^[a-zA-Z0-9\s\-_]*$/.test(key)) {
+        setReferenceCode((prev) => prev + key);
+      }
+      return;
+    }
+
     const setters: Record<ActiveField, React.Dispatch<React.SetStateAction<string>>> = {
       amount: setAmountInput,
       tip: setTipInput,
       received: setReceivedInput,
+      reference: setReferenceCode,
     };
     const setter = setters[activeField];
     let current = activeField === "amount" ? amountInput : activeField === "tip" ? tipInput : receivedInput;
@@ -230,6 +251,7 @@ export function BillPaymentModalV2({
       received_amount: actualReceived,
       change_amount: changeAmount, // [FIX] Vuelto calculado
       idempotency_key: paymentId, // Usar paymentId directamente (UUID v4 válido)
+      reference_code: referenceCode.trim() || undefined,
     };
 
     setPayments([...payments, newPayment]);
@@ -238,6 +260,7 @@ export function BillPaymentModalV2({
     setTipInput("0");
     setTipPct(null); // [AUDIT FIX] Resetear porcentaje
     setReceivedInput("");
+    setReferenceCode("");
     setActiveField("amount");
   };
 
@@ -286,14 +309,21 @@ export function BillPaymentModalV2({
           const tipForBill = amountLeft === payment.amount ? tipLeft : 0;
 
           // Elegir la mutación correcta en tiempo de ejecución (seguro, no viola reglas de hooks)
-          const activeMutation = isOffline ? offlinePayBill : onlinePayBill;
+          const activeMutation = forceOffline ? offlinePayBill : onlinePayBill;
+          
+          // Si es offline, usar local_uuid; si es online, usar cloud_id
+          const billUuidForPayment = forceOffline ? nextBill.uuid : ((nextBill as any).cloud_id || nextBill.uuid);
+          console.log("[BillPaymentModalV2] Modo:", forceOffline ? "OFFLINE" : "ONLINE", "| billUuid:", billUuidForPayment);
+          
+          // Usar cloud_id si está disponible (bill ya sincronizada), sino fallback a local_uuid
           
           await activeMutation.mutateAsync({
-            billUuid: nextBill.uuid,
+            billUuid: billUuidForPayment,
             payload: {
               amount: Math.round(amountForBill),
               payment_method_uuid: payment.payment_method_uuid,
               tip_amount: Math.round(tipForBill),
+              reference_code: payment.reference_code || (selectedMethod?.requires_reference && !requirePaymentReference ? "REF-AUTO" : null), // <-- AGREGADO: Enviar código de referencia
               idempotency_key: payment.idempotency_key, // USAR CLAVE ORIGINAL PARA IDEMPOTENCIA
             },
           });
@@ -559,6 +589,25 @@ export function BillPaymentModalV2({
                   ${amountInput || "0"}
                 </div>
               </div>
+
+              {/* Código de Referencia (Condicional) */}
+              {(selectedMethod?.requires_reference && requirePaymentReference) && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-300">
+                    Código de Autorización / Referencia *
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="text"
+                    value={referenceCode}
+                    onChange={(e) => setReferenceCode(e.target.value)}
+                    onFocus={() => setActiveField("reference")}
+                    placeholder="Ej: AUTH123 o últimos 4 dígitos"
+                    className="w-full p-3 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+                    autoComplete="off"
+                  />
+                </div>
+              )}
 
               {/* Propina: Porcentajes sugeridos + Input */}
               <div className="space-y-2">
