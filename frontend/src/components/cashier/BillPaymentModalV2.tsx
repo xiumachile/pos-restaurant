@@ -1,17 +1,7 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-
-export const getPaymentConfig = (t: (key: string) => string): Record<string, { label: string; icon: any; color: string }> => ({
-  CASH: { label: t("bill_payment.payment_method_cash"), icon: Banknote, color: "bg-green-600" },
-  CARD: { label: t("bill_payment.payment_method_card"), icon: CreditCard, color: "bg-blue-600" },
-  TRANSFER: { label: t("bill_payment.payment_method_transfer"), icon: Building2, color: "bg-purple-600" },
-  GIFT_CARD: { label: t("bill_payment.payment_method_gift_card"), icon: Gift, color: "bg-amber-600" },
-  DEBIT_CARD: { label: t("bill_payment.payment_method_debit_card"), icon: CreditCard, color: "bg-blue-600" },
-});
-
 import { useSettingsStore } from "../../store/useSettingsStore";
 import { usePopupStore } from "../../store/usePopupStore";
-
 import { parseCLPAmount } from '@/utils/money';
 import type { Bill } from "@/types/bills";
 import type { PaymentMethod } from "@/types/payments";
@@ -32,6 +22,14 @@ import {
 } from "lucide-react";
 import { SUGGESTED_TIP_PERCENTAGES } from "@/constants/tips";
 
+export const getPaymentConfig = (t: (key: string) => string): Record<string, { label: string; icon: any; color: string }> => ({
+  CASH: { label: t("bill_payment.payment_method_cash"), icon: Banknote, color: "bg-green-600" },
+  CARD: { label: t("bill_payment.payment_method_card"), icon: CreditCard, color: "bg-blue-600" },
+  TRANSFER: { label: t("bill_payment.payment_method_transfer"), icon: Building2, color: "bg-purple-600" },
+  GIFT_CARD: { label: t("bill_payment.payment_method_gift_card"), icon: Gift, color: "bg-amber-600" },
+  DEBIT_CARD: { label: t("bill_payment.payment_method_debit_card"), icon: CreditCard, color: "bg-blue-600" },
+});
+
 interface BillPaymentModalV2Props {
   bill?: Bill | null;
   bills?: Bill[] | null;
@@ -47,14 +45,12 @@ interface PendingPayment {
   amount: number;
   tip_amount: number;
   received_amount: number;
-  change_amount: number; // [FIX] Vuelto para pagos en efectivo mayores al pendiente
+  change_amount: number;
   idempotency_key: string;
   reference_code?: string;
 }
 
 type ActiveField = "amount" | "tip" | "received" | "reference";
-
-
 
 export function BillPaymentModalV2({
   bill,
@@ -63,22 +59,21 @@ export function BillPaymentModalV2({
   onClose,
   onSuccess,
 }: BillPaymentModalV2Props) {
+  const { t } = useTranslation();
   const effectiveBills = bills && bills.length > 0 ? bills : bill ? [bill] : [];
 
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
   const [amountInput, setAmountInput] = useState<string>("");
   const [tipInput, setTipInput] = useState<string>("0");
-  const [tipPct, setTipPct] = useState<number | null>(null); // [AUDIT FIX] Guardar intención (porcentaje o manual)
+  const [tipPct, setTipPct] = useState<number | null>(null);
   const [receivedInput, setReceivedInput] = useState<string>("");
   const [referenceCode, setReferenceCode] = useState<string>("");
   const [activeField, setActiveField] = useState<ActiveField>("amount");
   const [payments, setPayments] = useState<PendingPayment[]>([]);
-    const [isProcessing, setIsProcessing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [networkError, setNetworkError] = useState<string | null>(null);
-  const { t } = useTranslation();
   const [errors, setErrors] = useState<string[]>([]);
   
-  // Configuración de popup de vuelto
   const { showChangePopup: changePopupEnabled, changePopupDuration, requirePaymentReference } = useSettingsStore();
   const showPopup = usePopupStore((state) => state.showPopup);
 
@@ -87,12 +82,9 @@ export function BillPaymentModalV2({
   const { data: methods = [] } = usePaymentMethods();
   const isOffline = useConnectionMode();
   
-  // Reglas de Hooks: llamar ambos incondicionalmente para evitar corrupción de estado si isOffline cambia
   const onlinePayBill = usePayBill();
   const offlinePayBill = useOfflinePayment();
 
-  // Usar flujo offline si estamos desconectados O si la bill no tiene cloud_id
-  // (aunque se haya sincronizado, el objeto en memoria aún no lo sabe)
   const hasCloudId = effectiveBills.some((b: any) => b.cloud_id);
   const forceOffline = isOffline || !hasCloudId;
   
@@ -106,50 +98,38 @@ export function BillPaymentModalV2({
   const canCharge = remaining === 0 && payments.length > 0 && !isProcessing;
 
   const currentAmount = parseCLPAmount(amountInput);
-  
-  // [FIX] La propina se calcula sobre el monto TOTAL de la cuenta, no sobre el monto ingresado
-  // Ejemplo: Cuenta $16.800, cajero ingresa $20.000 → 10% = $1.680 (no $2.000)
   const tipBase = billPending;
   const suggestedTipPercentages: number[] = SUGGESTED_TIP_PERCENTAGES;
   
-  // [AUDIT FIX] Derivar propina del porcentaje o del input manual
   const currentTip = tipPct !== null
     ? Math.round(tipBase * tipPct / 100)
     : parseCLPAmount(tipInput);
   const currentReceived = parseCLPAmount(receivedInput);
   
-  // [AUDIT FIX] Derivar "Recibido" automáticamente en lugar de useEffect duplicado
   const isCash = selectedMethod?.type === "cash";
   const amountToCharge = amountInput === "" ? remaining : currentAmount;
   const receivedEffective = receivedInput === "" ? amountToCharge + currentTip : currentReceived;
   const change = isCash ? Math.max(0, receivedEffective - (amountToCharge + currentTip)) : 0;
   
   const cashShort = isCash && receivedEffective < amountToCharge + currentTip;
-  // [FIX] En efectivo, permitir cobrar más del pendiente (el vuelto se calcula automáticamente)
-  // En otros métodos (tarjeta/transferencia), limitar al pendiente exacto
   const maxAmountAllowed = isCash ? Number.MAX_SAFE_INTEGER : remaining;
   const canAdd = !!selectedMethod && amountToCharge > 0 && amountToCharge <= maxAmountAllowed && !cashShort;
   
-  // Determinar motivo de deshabilitado del botón
   const getDisabledReason = () => {
     if (!selectedMethod) return t("bill_payment.error_select_method");
     if (amountToCharge <= 0) return t("bill_payment.error_amount_must_be_positive");
-    // En efectivo no hay límite superior, en otros métodos sí
-    if (!isCash && amountToCharge > remaining) return `${t("bill_payment.error_amount_exceeds_pending").split("{amount}")[0]}${formatPrice(remaining)}${t("bill_payment.error_amount_exceeds_pending").split("{pending}")[1] || ""}`;
-    if (cashShort) return `Falta ${formatPrice(amountToCharge + currentTip - receivedEffective)} de efectivo`;
+    if (!isCash && amountToCharge > remaining) return t("bill_payment.error_amount_exceeds", { amount: formatPrice(currentAmount), pending: formatPrice(remaining) });
+    if (cashShort) return t("bill_payment.error_cash_short", { amount: formatPrice(amountToCharge + currentTip - receivedEffective) });
     return null;
   };
   const disabledReason = getDisabledReason();
 
-  // Teclado escribe en el campo activo
   const handleKeyPress = useCallback((key: string) => {
-    // Si el campo activo es referencia, permitir cualquier tecla alfanumérica sin filtros restrictivos
     if (activeField === "reference") {
       if (key === "⌫") {
         setReferenceCode((prev) => prev.slice(0, -1));
         return;
       }
-      // Permitir letras, números, guiones y espacios
       if (/^[a-zA-Z0-9\s\-_]*$/.test(key)) {
         setReferenceCode((prev) => prev + key);
       }
@@ -172,7 +152,6 @@ export function BillPaymentModalV2({
       setter(current.slice(0, -1));
       return;
     } else if (key === "000") {
-      // Si el campo está en "0" o vacío, iniciar desde cero limpio
       if (current === "0" || current === "") {
         setter("000");
       } else {
@@ -181,7 +160,6 @@ export function BillPaymentModalV2({
       return;
     }
 
-    // Dígito normal: si el campo tiene solo "0", reemplazarlo
     if (current === "0") {
       setter(key);
     } else if (current === "" && key === "0") {
@@ -198,17 +176,11 @@ export function BillPaymentModalV2({
 
   const handleSelectMethod = (method: PaymentMethod) => {
     setSelectedMethod(method);
-    // Auto-cambiar al campo amount al seleccionar método
     setActiveField("amount");
-    // Si ya había monto en el campo, no resetear
   };
 
-  
-
-  
-
   const handleApplyTipPercentage = (percentage: number) => {
-    setTipPct(percentage); // [AUDIT FIX] Guardar porcentaje, derivar valor dinámicamente
+    setTipPct(percentage);
     const calculatedTip = Math.round(tipBase * (percentage / 100));
     setTipInput(calculatedTip.toString());
   };
@@ -221,44 +193,41 @@ export function BillPaymentModalV2({
       return;
     }
     if (currentAmount <= 0) {
-      setErrors(["El monto a cobrar debe ser mayor a 0"]);
+      setErrors([t("bill_payment.error_amount_positive")]);
       return;
     }
-    // [FIX] En efectivo, permitir pagos mayores al pendiente (con vuelto)
-    // En otros métodos, limitar al pendiente exacto
     if (!isCash && currentAmount > remaining) {
-      setErrors([`El monto (${formatPrice(currentAmount)}) excede el saldo pendiente (${formatPrice(remaining)}).`]);
+      setErrors([t("bill_payment.error_amount_exceeds", { amount: formatPrice(currentAmount), pending: formatPrice(remaining) })]);
       return;
     }
-    
-    
 
+    // ✅ VALIDACIÓN: Exigir código de referencia si está configurado
+    if (selectedMethod.requires_reference && requirePaymentReference && !referenceCode.trim()) {
+      setErrors([t("bill_payment.error_missing_reference")]);
+      return;
+    }
 
-
-    // [FIX] En efectivo, limitar monto al pendiente y calcular vuelto
     const actualAmount = isCash ? Math.min(currentAmount, remaining) : currentAmount;
     const actualReceived = isCash ? receivedEffective : 0;
     const changeAmount = isCash ? Math.max(0, actualReceived - actualAmount - currentTip) : 0;
 
-    // [AUDIT FIX] Generar ID única del pago, luego derivar idempotency_key
     const paymentId = crypto.randomUUID();
     const newPayment: PendingPayment = {
       id: paymentId,
       payment_method_uuid: selectedMethod.uuid,
       method_code: selectedMethod.code,
-      amount: actualAmount, // [FIX] Usar monto real a cobrar (limitado al pendiente)
+      amount: actualAmount,
       tip_amount: currentTip,
       received_amount: actualReceived,
-      change_amount: changeAmount, // [FIX] Vuelto calculado
-      idempotency_key: paymentId, // Usar paymentId directamente (UUID v4 válido)
+      change_amount: changeAmount,
+      idempotency_key: paymentId,
       reference_code: referenceCode.trim() || undefined,
     };
 
     setPayments([...payments, newPayment]);
-    // Resetear campos pero mantener método seleccionado
     setAmountInput("");
     setTipInput("0");
-    setTipPct(null); // [AUDIT FIX] Resetear porcentaje
+    setTipPct(null);
     setReceivedInput("");
     setReferenceCode("");
     setActiveField("amount");
@@ -275,7 +244,6 @@ export function BillPaymentModalV2({
     setIsProcessing(true);
     setErrors([]);
     
-    // Calcular vuelto total de todos los pagos
     const totalChange = payments.reduce((sum, p) => sum + (p.change_amount || 0), 0);
     console.log('[DEBUG handleCharge] totalChange:', totalChange, 'changePopupEnabled:', changePopupEnabled);
 
@@ -287,8 +255,14 @@ export function BillPaymentModalV2({
     const errorsList: string[] = [];
 
     for (const payment of payments) {
-      // Si este pago ya fue procesado exitosamente, saltarlo para evitar doble cobro en reintentos
       if (processedPaymentIds.has(payment.id)) {
+        continue;
+      }
+
+      // ✅ DEFENSA EN PROFUNDIDAD: Validar que el código de referencia exista si es requerido
+      const method = methods.find(m => m.uuid === payment.payment_method_uuid);
+      if (method?.requires_reference && requirePaymentReference && !payment.reference_code) {
+        errorsList.push(`${payment.method_code}: ${t("bill_payment.error_missing_reference")}`);
         continue;
       }
 
@@ -300,7 +274,7 @@ export function BillPaymentModalV2({
         while (amountLeft > 0) {
           const nextBill = billsRemaining.find(b => b.remaining > 0);
           if (!nextBill) {
-            errorsList.push(`${payment.method_code}: No hay bills con saldo`);
+            errorsList.push(`${payment.method_code}: ${t("bill_payment.error_no_bills_with_balance")}`);
             paymentSuccess = false;
             break;
           }
@@ -308,14 +282,9 @@ export function BillPaymentModalV2({
           const amountForBill = Math.min(amountLeft, nextBill.remaining);
           const tipForBill = amountLeft === payment.amount ? tipLeft : 0;
 
-          // Elegir la mutación correcta en tiempo de ejecución (seguro, no viola reglas de hooks)
           const activeMutation = forceOffline ? offlinePayBill : onlinePayBill;
-          
-          // Si es offline, usar local_uuid; si es online, usar cloud_id
           const billUuidForPayment = forceOffline ? nextBill.uuid : ((nextBill as any).cloud_id || nextBill.uuid);
           console.log("[BillPaymentModalV2] Modo:", forceOffline ? "OFFLINE" : "ONLINE", "| billUuid:", billUuidForPayment);
-          
-          // Usar cloud_id si está disponible (bill ya sincronizada), sino fallback a local_uuid
           
           await activeMutation.mutateAsync({
             billUuid: billUuidForPayment,
@@ -323,8 +292,8 @@ export function BillPaymentModalV2({
               amount: Math.round(amountForBill),
               payment_method_uuid: payment.payment_method_uuid,
               tip_amount: Math.round(tipForBill),
-              reference_code: payment.reference_code || (selectedMethod?.requires_reference && !requirePaymentReference ? "REF-AUTO" : undefined), // <-- AGREGADO: Enviar código de referencia
-              idempotency_key: payment.idempotency_key, // USAR CLAVE ORIGINAL PARA IDEMPOTENCIA
+              reference_code: payment.reference_code || (method?.requires_reference && !requirePaymentReference ? "REF-AUTO" : undefined),
+              idempotency_key: payment.idempotency_key,
             },
           });
 
@@ -333,7 +302,6 @@ export function BillPaymentModalV2({
           nextBill.remaining -= amountForBill;
         }
 
-        // Si el pago se completó sin errores, marcarlo como procesado
         if (paymentSuccess && amountLeft === 0) {
           setProcessedPaymentIds(prev => new Set(prev).add(payment.id));
         }
@@ -350,12 +318,10 @@ export function BillPaymentModalV2({
       return;
     }
 
-    // Cerrar el modal inmediatamente
     invalidate();
     onSuccess();
     onClose();
     
-    // Mostrar popup de vuelto DESPUÉS de cerrar el modal
     if (changePopupEnabled && totalChange > 0) {
       console.log('[DEBUG handleCharge] Mostrando popup con monto:', totalChange);
       showPopup('change', totalChange, changePopupDuration);
@@ -389,7 +355,6 @@ export function BillPaymentModalV2({
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
-      {/* Header */}
       <div className="bg-slate-900 border-b border-slate-700 px-4 py-3 flex items-center justify-between flex-shrink-0">
         <div>
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
@@ -411,11 +376,8 @@ export function BillPaymentModalV2({
         </button>
       </div>
 
-      {/* Contenido principal */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden bg-slate-950">
-        {/* Columna izquierda: Pagos agregados */}
         <div className="lg:w-1/2 flex flex-col border-r border-slate-800 overflow-hidden">
-          {/* Resumen */}
           <div className="bg-slate-900 border-b border-slate-800 p-3 grid grid-cols-3 gap-2 flex-shrink-0">
             <div className="text-center">
               <div className="text-xs text-slate-400 uppercase">{t("bill_payment.total")}</div>
@@ -433,7 +395,6 @@ export function BillPaymentModalV2({
             </div>
           </div>
 
-          {/* Lista de pagos */}
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {payments.length === 0 ? (
               <div className="text-center py-12 text-slate-600">
@@ -467,15 +428,15 @@ export function BillPaymentModalV2({
                           {formatPrice(p.amount)}
                           {p.change_amount > 0 && (
                             <span className="ml-2 text-green-400 font-semibold">
-                              (Vuelto: {formatPrice(p.change_amount)})
+                              ({t("bill_payment.change")}: {formatPrice(p.change_amount)})
                             </span>
                           )}
                           {p.tip_amount > 0 && (
-                            <span className="ml-2 text-orange-400">+ {formatPrice(p.tip_amount)} propina</span>
+                            <span className="ml-2 text-orange-400">+ {formatPrice(p.tip_amount)} {t("bill_payment.tip")}</span>
                           )}
                           {p.method_code.toUpperCase() === "CASH" && p.received_amount > (p.amount + p.tip_amount) && (
                             <span className="ml-2 text-green-400">
-                              · Cambio: {formatPrice(p.received_amount - p.amount - p.tip_amount)}
+                              · {t("bill_payment.cash_change")}: {formatPrice(p.received_amount - p.amount - p.tip_amount)}
                             </span>
                           )}
                         </div>
@@ -512,7 +473,7 @@ export function BillPaymentModalV2({
               <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-3 mt-2">
                 <div className="flex items-center gap-2 text-red-300 font-semibold text-xs mb-1">
                   <AlertCircle size={14} />
-                  Errores
+                  {t("bill_payment.errors_title")}
                 </div>
                 <ul className="text-xs text-red-200 space-y-0.5">
                   {errors.map((err, i) => <li key={i}>• {err}</li>)}
@@ -522,9 +483,7 @@ export function BillPaymentModalV2({
           </div>
         </div>
 
-        {/* Columna derecha: Teclado + inputs */}
         <div className="lg:w-1/2 flex flex-col overflow-hidden bg-slate-900">
-          {/* Pendiente destacado */}
           <div className={`p-3 border-b border-slate-800 flex-shrink-0 ${remaining > 0 ? "bg-orange-900/10" : "bg-green-900/10"}`}>
             <div className="text-xs text-slate-400 uppercase">{t("bill_payment.pending_to_pay")}</div>
             <div className={`text-2xl font-bold ${remaining > 0 ? "text-orange-400" : "text-green-400"}`}>
@@ -532,9 +491,8 @@ export function BillPaymentModalV2({
             </div>
           </div>
 
-          {/* Métodos de pago */}
           <div className="p-3 border-b border-slate-800 flex-shrink-0">
-            <div className="text-xs text-slate-400 uppercase mb-2">Método de pago</div>
+            <div className="text-xs text-slate-400 uppercase mb-2">{t("bill_payment.payment_method_label")}</div>
             <div className="grid grid-cols-4 gap-2">
               {methods.map((method) => {
                 const config = getPaymentConfig(t)[method.code.toUpperCase()] || {
@@ -566,10 +524,8 @@ export function BillPaymentModalV2({
             </div>
           </div>
 
-          {/* Inputs clickeables */}
           {selectedMethod && (
             <div className="p-3 border-b border-slate-800 flex-shrink-0 space-y-2">
-              {/* Monto (grande) */}
               <div
                 onClick={() => setActiveField("amount")}
                 className={fieldClass("amount", "orange")}
@@ -581,7 +537,7 @@ export function BillPaymentModalV2({
                       onClick={(e) => { e.stopPropagation(); handleFillRemaining(); }}
                       className="text-xs px-2 py-0.5 bg-orange-500/20 text-orange-300 rounded"
                     >
-                      Usar pendiente
+                      {t("bill_payment.use_remaining")}
                     </button>
                   )}
                 </div>
@@ -590,11 +546,10 @@ export function BillPaymentModalV2({
                 </div>
               </div>
 
-              {/* Código de Referencia (Condicional) */}
               {(selectedMethod?.requires_reference && requirePaymentReference) && (
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-300">
-                    Código de Autorización / Referencia *
+                    {t("bill_payment.reference_code_label")}
                   </label>
                   <input
                     type="text"
@@ -602,14 +557,13 @@ export function BillPaymentModalV2({
                     value={referenceCode}
                     onChange={(e) => setReferenceCode(e.target.value)}
                     onFocus={() => setActiveField("reference")}
-                    placeholder="Ej: AUTH123 o últimos 4 dígitos"
+                    placeholder={t("bill_payment.reference_code_placeholder")}
                     className="w-full p-3 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-orange-500 outline-none"
                     autoComplete="off"
                   />
                 </div>
               )}
 
-              {/* Propina: Porcentajes sugeridos + Input */}
               <div className="space-y-2">
                 <div className="flex gap-2">
                   {suggestedTipPercentages.map((pct: number) => {
@@ -642,12 +596,11 @@ export function BillPaymentModalV2({
                         : "bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700"
                     }`}
                   >
-                    Ninguna
+                    {t("bill_payment.no_tip")}
                     <span className="block text-[10px] font-normal opacity-80">$0</span>
                   </button>
                 </div>
                 
-                {/* Input de Propina + Recibido en fila */}
                 <div className="grid grid-cols-2 gap-2">
                   <div
                     onClick={() => setActiveField("tip")}
@@ -670,23 +623,21 @@ export function BillPaymentModalV2({
                   </div>
                 ) : (
                   <div className="bg-slate-800/50 border-2 border-slate-800 rounded-lg px-3 py-2 flex items-center justify-center">
-                    <span className="text-xs text-slate-400">Sin cambio</span>
+                    <span className="text-xs text-slate-400">{t("bill_payment.no_change")}</span>
                   </div>
                 )}
               </div>
               </div>
 
-              {/* Cambio */}
               {selectedMethod.type === "cash" && change > 0 && (
                 <div className="flex justify-between items-center bg-green-900/20 border border-green-700/50 rounded px-3 py-1.5">
-                  <span className="text-xs text-green-300">Cambio:</span>
+                  <span className="text-xs text-green-300">{t("bill_payment.change_label")}</span>
                   <span className="text-sm font-bold text-green-400">{formatPrice(change)}</span>
                 </div>
               )}
             </div>
           )}
 
-          {/* Teclado numérico */}
           <div className="flex-1 p-3 grid grid-cols-3 gap-2 overflow-hidden min-h-0">
             {["1", "2", "3", "4", "5", "6", "7", "8", "9", "000", "0", "⌫"].map((key) => (
               <button
@@ -705,7 +656,6 @@ export function BillPaymentModalV2({
             ))}
           </div>
 
-          {/* Botón Agregar */}
           {selectedMethod && (
             <div className="p-3 border-t border-slate-800 flex-shrink-0">
                 {errors.length > 0 && (
@@ -723,14 +673,13 @@ export function BillPaymentModalV2({
                 disabled={!canAdd}
                 className="w-full py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-700 disabled:text-slate-400 rounded-lg font-bold text-white flex items-center justify-center gap-2"
               >
-                + Agregar Pago
+                {t("bill_payment.add_payment")}
               </button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Footer */}
       <div className="bg-slate-900 border-t border-slate-700 p-3 flex gap-2 flex-shrink-0">
         <button
           onClick={handleClose}
@@ -747,7 +696,7 @@ export function BillPaymentModalV2({
           {isProcessing ? (
             <>
               <Loader2 size={18} className="animate-spin" />
-              Procesando...
+              {t("bill_payment.processing")}
             </>
           ) : (
             <>

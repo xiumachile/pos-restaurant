@@ -18,16 +18,14 @@ import {
   Wallet,
   Coins,
   ChevronRight,
-  HelpCircle,
 } from "lucide-react";
 import { PrintableTipVouchers } from "./PrintableTipVouchers";
-import { Tooltip } from "@/components/ui/Tooltip";
 
 interface CashCloseWizardProps {
   isOpen: boolean;
   onClose: () => void;
   sessionUuid: string;
-  expectedAmount: number; // Esperado BRUTO (incluye propinas)
+  expectedAmount: number;
   pendingTips: number;
 }
 
@@ -41,20 +39,12 @@ export function CashCloseWizard({
   pendingTips,
 }: CashCloseWizardProps) {
   const { t } = useTranslation();
-  // Datos en tiempo real del estado de propinas
   const { data: tipSummary } = useTipSummary(isOpen);
-  
-  // PENDING: propinas que faltan por entregar (para validaciones)
+
   const realPendingTips = tipSummary?.pending ?? pendingTips;
   const hasPendingTips = realPendingTips > 0;
-  
-  // TOTAL RECEIVED: propinas totales recibidas en la sesión
-  // ESTE es el monto que SIEMPRE debemos descontar del esperado
-  // Porque al momento del arqueo las propinas ya no están en caja
   const totalTipsReceived = tipSummary?.tips_received?.total ?? 0;
-  
-  // console.log de depuración eliminado para producción
-  
+
   const queryClient = useQueryClient();
   const [step, setStep] = useState<WizardStep>(1);
   const [generatedCashPayouts, setGeneratedCashPayouts] = useState<any[]>([]);
@@ -72,11 +62,9 @@ export function CashCloseWizard({
     enabled: isOpen && step === 1,
   });
 
-  // FIX: Defensive default para evitar crashes cuando el servicio
-  // retorna null o un objeto incompleto (backend sin propinas).
   const tipsByWaiter = tipsByWaiterRaw ?? {
     by_waiter: [],
-    policy: { label: "Sin política", key: "none" },
+    policy: { label: t("cashier.no_policy"), key: "none" },
     total_pending: 0,
     total_cash: 0,
     total_non_cash: 0,
@@ -90,7 +78,6 @@ export function CashCloseWizard({
       setPolicyUsed(data.policy_used);
       setTipsDelivered(true);
       setStep(2);
-      // Invalidar todas las queries de propinas para forzar refetch
       queryClient.invalidateQueries({ queryKey: ["cashier", "tip-payouts"] });
       queryClient.invalidateQueries({ queryKey: ["cashier", "tips-summary"] });
       queryClient.invalidateQueries({ queryKey: ["tips-by-waiter"] });
@@ -101,14 +88,9 @@ export function CashCloseWizard({
   const closeSession = useCloseSession();
   const invalidate = useInvalidateCashier();
 
-  // LÓGICA CORRECTA:
-  // expectedAmount es BRUTO (inicial + ventas efectivo + propinas)
-  // Las propinas siempre salen de caja antes del arqueo
-  // Por lo tanto, SIEMPRE restamos el TOTAL recibido (no el pendiente)
-  // Esto garantiza consistencia independientemente de cuándo se entregaron
   const cardHandling = tipSummary?.policy?.card_tip_handling ?? 'cash_payout';
   const tipsCash = tipSummary?.tips_received?.cash ?? 0;
-  
+
   let finalExpected = expectedAmount;
   if (cardHandling === 'cash_payout') {
     finalExpected = expectedAmount - totalTipsReceived;
@@ -147,10 +129,9 @@ export function CashCloseWizard({
   };
 
   const handleContinueToArqueo = () => {
-    // Si hay propinas pero no generó entregas, debe responder si las entregó
     if (hasPendingTips && generatedCashPayouts.length === 0) {
       if (tipsDelivered === null) {
-        useToastStore.getState().addToast("warning", "$1");
+        useToastStore.getState().addToast("warning", t("cashier.tips_not_delivered_warning"));
         return;
       }
     }
@@ -158,18 +139,17 @@ export function CashCloseWizard({
   };
 
   const handleConfirmClose = async () => {
-
     const denominationsSummary = denominations
       .filter((d) => d.quantity > 0)
       .map((d) => `${d.quantity}×${d.label}`)
       .join(", ");
 
-    const tipsNote = hasPendingTips 
-      ? (tipsDelivered ? "Propinas entregadas antes del cierre" : "Propinas pendientes en caja")
-      : "Sin propinas pendientes";
+    const tipsNote = hasPendingTips
+      ? (tipsDelivered ? t("cashier.tips_delivered_before_close") : t("cashier.tips_pending_in_cash"))
+      : t("cashier.no_pending_tips_note");
 
     const finalNotes = [
-      denominationsSummary ? `Arqueo: ${denominationsSummary}` : "",
+      denominationsSummary ? t("cashier.count_summary", { summary: denominationsSummary }) : "",
       tipsNote,
       notes || "",
     ].filter(Boolean).join(" | ");
@@ -191,7 +171,6 @@ export function CashCloseWizard({
 
   return (
     <>
-      {/* Componente imprimible para vouchers */}
       {step === 2 && generatedCashPayouts.length > 0 && (
         <div className="hidden">
           <PrintableTipVouchers payouts={generatedCashPayouts} />
@@ -204,7 +183,6 @@ export function CashCloseWizard({
           className="bg-slate-900 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header con indicador de pasos */}
           <div className="p-5 border-b border-slate-700">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold flex items-center gap-2">
@@ -216,12 +194,11 @@ export function CashCloseWizard({
               </button>
             </div>
 
-            {/* Indicador de pasos */}
             <div className="flex items-center gap-2">
               {[
-                { num: 1, label: "Propinas", done: step > 1 || !hasPendingTips },
-                { num: 2, label: "Entregar", done: step > 2 },
-                { num: 3, label: "Arqueo", done: false },
+                { num: 1, label: t("cashier.step_tips"), done: step > 1 || !hasPendingTips },
+                { num: 2, label: t("cashier.step_deliver"), done: step > 2 },
+                { num: 3, label: t("cashier.step_count"), done: false },
               ].map((s, i) => (
                 <div key={s.num} className="flex items-center gap-2 flex-1">
                   <div
@@ -245,16 +222,13 @@ export function CashCloseWizard({
           </div>
 
           <div className="flex-1 overflow-y-auto p-5">
-            {/* PASO 1: Propinas pendientes */}
             {step === 1 && (
               <div className="space-y-4">
                 {!hasPendingTips ? (
                   <div className="text-center py-8">
                     <CheckCircle2 size={48} className="mx-auto text-green-400 mb-3" />
-                    <h3 className="text-lg font-semibold mb-2">✅ No hay propinas pendientes</h3>
-                    <p className="text-slate-400">
-                      Todas las propinas ya fueron entregadas o no hay propinas en esta sesión.
-                    </p>
+                    <h3 className="text-lg font-semibold mb-2">{t("cashier.no_pending_tips_title")}</h3>
+                    <p className="text-slate-400">{t("cashier.no_pending_tips_desc")}</p>
                   </div>
                 ) : loadingTips ? (
                   <div className="flex items-center justify-center py-12">
@@ -266,25 +240,22 @@ export function CashCloseWizard({
                       <DollarSign size={20} className="text-amber-400 flex-shrink-0 mt-0.5" />
                       <div>
                         <div className="font-semibold text-amber-300">
-                          Hay {formatPrice(pendingTips)} en propinas pendientes
+                          {t("cashier.pending_tips_amount", { amount: formatPrice(pendingTips) })}
                         </div>
-                        <p className="text-sm text-amber-200/80 mt-1">
-                          Las propinas pertenecen a los garzones. Se generarán las entregas automáticamente.
-                        </p>
+                        <p className="text-sm text-amber-200/80 mt-1">{t("cashier.pending_tips_desc")}</p>
                       </div>
                     </div>
 
-                    {/* Tabla de propinas por garzón */}
                     {tipsByWaiter && Array.isArray(tipsByWaiter.by_waiter) && tipsByWaiter.by_waiter.length > 0 && (
                       <div className="bg-slate-800 rounded-lg overflow-hidden">
                         <div className="p-3 bg-slate-700/50 font-semibold text-sm flex items-center gap-2">
                           <Users size={16} className="text-blue-400" />
-                          Propinas por garzón ({tipsByWaiter.policy?.label || "Sin política"})
+                          {t("cashier.tips_by_waiter")} ({tipsByWaiter.policy?.label || t("cashier.no_policy")})
                         </div>
                         <table className="w-full text-sm">
                           <thead className="text-xs text-slate-400 bg-slate-800/80">
                             <tr>
-                              <th className="text-left p-3">Garzón</th>
+                              <th className="text-left p-3">{t("cashier.waiter")}</th>
                               <th className="text-right p-3">{t("cashier.cash")}</th>
                               <th className="text-right p-3">{t("cashier.card")}</th>
                               <th className="text-right p-3">{t("orders.total")}</th>
@@ -294,19 +265,13 @@ export function CashCloseWizard({
                             {(tipsByWaiter.by_waiter || []).map((w) => (
                               <tr key={w.waiter_id} className="border-t border-slate-700">
                                 <td className="p-3 font-medium text-white">{w.waiter_name}</td>
-                                <td className="p-3 text-right text-green-400">
-                                  {formatPrice(w.cash)}
-                                </td>
-                                <td className="p-3 text-right text-blue-400">
-                                  {formatPrice(w.card + w.transfer + w.gift_card)}
-                                </td>
-                                <td className="p-3 text-right font-bold text-orange-400">
-                                  {formatPrice(w.pending)}
-                                </td>
+                                <td className="p-3 text-right text-green-400">{formatPrice(w.cash)}</td>
+                                <td className="p-3 text-right text-blue-400">{formatPrice(w.card + w.transfer + w.gift_card)}</td>
+                                <td className="p-3 text-right font-bold text-orange-400">{formatPrice(w.pending)}</td>
                               </tr>
                             ))}
                             <tr className="border-t-2 border-slate-600 bg-slate-700/30">
-                              <td className="p-3 font-bold">TOTAL</td>
+                              <td className="p-3 font-bold">{t("common.total")}</td>
                               <td className="p-3 text-right font-bold text-green-400">
                                 {formatPrice((tipsByWaiter.by_waiter || []).reduce((s, w) => s + (w.cash || 0), 0))}
                               </td>
@@ -342,7 +307,7 @@ export function CashCloseWizard({
                       ) : (
                         <DollarSign size={16} />
                       )}
-                      Generar Entregas ({formatPrice(realPendingTips)})
+                      {t("cashier.generate_deliveries")} ({formatPrice(realPendingTips)})
                     </button>
                   ) : (
                     <button
@@ -350,29 +315,22 @@ export function CashCloseWizard({
                       className="flex-1 px-4 py-3 bg-green-500 hover:bg-green-600 rounded-lg font-bold text-white flex items-center justify-center gap-2"
                     >
                       <CheckCircle2 size={16} />
-                      Continuar al Arqueo
+                      {t("cashier.continue_to_count")}
                     </button>
                   )}
                 </div>
               </div>
             )}
 
-            {/* PASO 2: Procesar propinas según política */}
             {step === 2 && (
               <div className="space-y-4">
-                {/* ═══ POLÍTICA PAYROLL: Todo va a nómina ═══ */}
                 {policyUsed === 'payroll' && (
                   <>
                     <div className="bg-blue-900/30 border border-blue-700/40 rounded-lg p-4 flex items-start gap-3">
                       <Wallet size={20} className="text-blue-400 flex-shrink-0 mt-0.5" />
                       <div>
-                        <div className="font-semibold text-blue-300">
-                          📋 Política Nómina: Propinas registradas para pago por nómina
-                        </div>
-                        <p className="text-sm text-blue-200/80 mt-1">
-                          No hay entrega física. Las propinas se pagarán junto con el sueldo del garzón.
-                          Imprime el reporte para entregar a Recursos Humanos.
-                        </p>
+                        <div className="font-semibold text-blue-300">{t("cashier.policy_payroll_title")}</div>
+                        <p className="text-sm text-blue-200/80 mt-1">{t("cashier.policy_payroll_desc")}</p>
                       </div>
                     </div>
 
@@ -380,30 +338,20 @@ export function CashCloseWizard({
                       <div className="bg-slate-800 rounded-lg overflow-hidden">
                         <div className="p-3 bg-blue-700/30 font-semibold text-sm flex items-center gap-2">
                           <Users size={16} className="text-blue-400" />
-                          Propinas para Nómina
+                          {t("cashier.payroll_tips")}
                         </div>
                         <div className="space-y-2 p-3">
                           {generatedPayrollItems.map((item) => (
                             <div key={item.uuid} className="bg-slate-900/50 rounded-lg p-3">
                               <div className="flex items-center justify-between mb-2">
                                 <div className="font-semibold text-white">{item.waiter_name}</div>
-                                <span className="font-bold text-blue-400 text-lg">
-                                  {formatPrice(item.amount)}
-                                </span>
+                                <span className="font-bold text-blue-400 text-lg">{formatPrice(item.amount)}</span>
                               </div>
                               <div className="text-xs text-slate-400 space-y-0.5">
-                                {item.breakdown.card > 0 && (
-                                  <div>• Tarjeta: {formatPrice(item.breakdown.card)}</div>
-                                )}
-                                {item.breakdown.transfer > 0 && (
-                                  <div>• Transferencia: {formatPrice(item.breakdown.transfer)}</div>
-                                )}
-                                {item.breakdown.gift_card > 0 && (
-                                  <div>• Gift Card: {formatPrice(item.breakdown.gift_card)}</div>
-                                )}
-                                {item.breakdown.cash > 0 && (
-                                  <div>• Efectivo: {formatPrice(item.breakdown.cash)}</div>
-                                )}
+                                {item.breakdown.card > 0 && <div>• {t("cashier.card_tips")} {formatPrice(item.breakdown.card)}</div>}
+                                {item.breakdown.transfer > 0 && <div>• {t("cashier.transfer_tips")} {formatPrice(item.breakdown.transfer)}</div>}
+                                {item.breakdown.gift_card > 0 && <div>• {t("cashier.gift_card_tips")} {formatPrice(item.breakdown.gift_card)}</div>}
+                                {item.breakdown.cash > 0 && <div>• {t("cashier.cash_tips")} {formatPrice(item.breakdown.cash)}</div>}
                               </div>
                             </div>
                           ))}
@@ -424,30 +372,24 @@ export function CashCloseWizard({
                         className="flex-1 px-4 py-3 bg-blue-500 hover:bg-blue-600 rounded-lg font-medium flex items-center justify-center gap-2"
                       >
                         <Printer size={16} />
-                        Imprimir Reporte Nómina
+                        {t("cashier.print_payroll_report")}
                       </button>
                       <button
                         onClick={handleContinueToArqueo}
                         className="flex-1 px-4 py-3 bg-orange-500 hover:bg-orange-600 rounded-lg font-bold text-white flex items-center justify-center gap-2"
                       >
                         <ChevronRight size={16} />
-                        Continuar al Arqueo
+                        {t("cashier.continue_to_count")}
                       </button>
                     </div>
                   </>
                 )}
 
-                {/* ═══ POLÍTICA MIXED: Efectivo en caja + resto a nómina ═══ */}
                 {policyUsed === 'mixed' && (
                   <>
                     <div className="bg-purple-900/30 border border-purple-700/40 rounded-lg p-4">
-                      <div className="font-semibold text-purple-300 mb-1">
-                        🔄 Política Mixta
-                      </div>
-                      <p className="text-sm text-purple-200/80">
-                        Propinas en efectivo se entregan físicamente.
-                        Propinas de tarjeta/transferencia van a nómina.
-                      </p>
+                      <div className="font-semibold text-purple-300 mb-1">{t("cashier.policy_mixed_title")}</div>
+                      <p className="text-sm text-purple-200/80">{t("cashier.policy_mixed_desc")}</p>
                     </div>
 
                     {generatedCashPayouts.length > 0 && (
@@ -458,22 +400,17 @@ export function CashCloseWizard({
                         </div>
                         <div className="space-y-2 p-3">
                           {generatedCashPayouts.map((payout) => (
-                            <div
-                              key={payout.uuid}
-                              className="bg-slate-900/50 rounded-lg p-3 flex items-center justify-between"
-                            >
+                            <div key={payout.uuid} className="bg-slate-900/50 rounded-lg p-3 flex items-center justify-between">
                               <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center">
                                   <Users size={16} className="text-green-400" />
                                 </div>
                                 <div>
                                   <div className="font-semibold text-white">{payout.waiter_name}</div>
-                                  <div className="text-xs text-slate-400">{t("cashier.cash")} - sale de caja</div>
+                                  <div className="text-xs text-slate-400">{t("cashier.cash")} - {t("cashier.cash_out")}</div>
                                 </div>
                               </div>
-                              <span className="font-bold text-green-400 text-lg">
-                                {formatPrice(payout.amount)}
-                              </span>
+                              <span className="font-bold text-green-400 text-lg">{formatPrice(payout.amount)}</span>
                             </div>
                           ))}
                         </div>
@@ -497,13 +434,11 @@ export function CashCloseWizard({
                             <div key={item.uuid} className="bg-slate-900/50 rounded-lg p-3">
                               <div className="flex items-center justify-between mb-1">
                                 <div className="font-semibold text-white">{item.waiter_name}</div>
-                                <span className="font-bold text-blue-400">
-                                  {formatPrice(item.amount)}
-                                </span>
+                                <span className="font-bold text-blue-400">{formatPrice(item.amount)}</span>
                               </div>
                               <div className="text-xs text-slate-400">
-                                {item.breakdown.card > 0 && `Tarjeta: ${formatPrice(item.breakdown.card)} `}
-                                {item.breakdown.transfer > 0 && `· Transf: ${formatPrice(item.breakdown.transfer)}`}
+                                {item.breakdown.card > 0 && `${t("cashier.card")}: ${formatPrice(item.breakdown.card)} `}
+                                {item.breakdown.transfer > 0 && `· ${t("cashier.transfer")}: ${formatPrice(item.breakdown.transfer)}`}
                               </div>
                             </div>
                           ))}
@@ -523,40 +458,32 @@ export function CashCloseWizard({
                         className="flex-1 px-4 py-3 bg-blue-500 hover:bg-blue-600 rounded-lg font-medium flex items-center justify-center gap-2"
                       >
                         <Printer size={16} />
-                        Imprimir Todo
+                        {t("cashier.print_all")}
                       </button>
                       <button
                         onClick={handleContinueToArqueo}
                         className="flex-1 px-4 py-3 bg-orange-500 hover:bg-orange-600 rounded-lg font-bold text-white flex items-center justify-center gap-2"
                       >
                         <ChevronRight size={16} />
-                        Ya entregué, continuar
+                        {t("cashier.delivered_continue")}
                       </button>
                     </div>
                   </>
                 )}
 
-                {/* ═══ POLÍTICA CASH_PAYOUT: Todo en efectivo ═══ */}
                 {policyUsed === 'cash_payout' && (
                   <>
                     <div className="bg-green-900/30 border border-green-700/40 rounded-lg p-4 flex items-start gap-3">
                       <CheckCircle2 size={20} className="text-green-400 flex-shrink-0 mt-0.5" />
                       <div>
-                        <div className="font-semibold text-green-300">
-                          Entregas generadas correctamente
-                        </div>
-                        <p className="text-sm text-green-200/80 mt-1">
-                          Entrega físicamente el efectivo a cada garzón y luego continúa al arqueo.
-                        </p>
+                        <div className="font-semibold text-green-300">{t("cashier.deliveries_generated_title")}</div>
+                        <p className="text-sm text-green-200/80 mt-1">{t("cashier.deliveries_generated_desc")}</p>
                       </div>
                     </div>
 
                     <div className="space-y-2">
                       {generatedCashPayouts.map((payout) => (
-                        <div
-                          key={payout.uuid}
-                          className="bg-slate-800 rounded-lg p-3 flex items-center justify-between"
-                        >
+                        <div key={payout.uuid} className="bg-slate-800 rounded-lg p-3 flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 bg-orange-500/20 rounded-full flex items-center justify-center">
                               <Users size={16} className="text-orange-400" />
@@ -566,9 +493,7 @@ export function CashCloseWizard({
                               <div className="text-xs text-slate-400">{t("cashier.cash")}</div>
                             </div>
                           </div>
-                          <span className="font-bold text-orange-400 text-lg">
-                            {formatPrice(payout.amount)}
-                          </span>
+                          <span className="font-bold text-orange-400 text-lg">{formatPrice(payout.amount)}</span>
                         </div>
                       ))}
                     </div>
@@ -586,14 +511,14 @@ export function CashCloseWizard({
                         className="flex-1 px-4 py-3 bg-blue-500 hover:bg-blue-600 rounded-lg font-medium flex items-center justify-center gap-2"
                       >
                         <Printer size={16} />
-                        Imprimir Vouchers
+                        {t("cashier.print_vouchers")}
                       </button>
                       <button
                         onClick={handleContinueToArqueo}
                         className="flex-1 px-4 py-3 bg-orange-500 hover:bg-orange-600 rounded-lg font-bold text-white flex items-center justify-center gap-2"
                       >
                         <ChevronRight size={16} />
-                        Ya entregué, continuar
+                        {t("cashier.delivered_continue")}
                       </button>
                     </div>
                   </>
@@ -601,38 +526,29 @@ export function CashCloseWizard({
               </div>
             )}
 
-            
             {step === 3 && (
               <div className="space-y-4">
-                {/* Resumen */}
                 <div className="bg-slate-800/50 rounded-lg p-4 grid grid-cols-3 gap-3">
                   <div className="text-center">
-                    <div className="text-xs text-slate-400 mb-1">ESPERADO</div>
-                    <div className="text-lg font-bold text-orange-400">
-                      {formatPrice(finalExpected)}
-                    </div>
+                    <div className="text-xs text-slate-400 mb-1">{t("cashier.expected")}</div>
+                    <div className="text-lg font-bold text-orange-400">{formatPrice(finalExpected)}</div>
                     <div className="text-xs text-slate-400 mt-1">
-                      Inicial + Ventas efectivo
-                      {totalTipsReceived > 0 && (
-                        <> · -{formatPrice(totalTipsReceived)} propinas</>
-                      )}
+                      {t("cashier.initial_plus_cash_sales")}
+                      {totalTipsReceived > 0 && (<> · -{formatPrice(totalTipsReceived)} {t("cashier.tips")}</>)}
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="text-xs text-slate-400 mb-1">CONTADO</div>
-                    <div className="text-lg font-bold text-white">
-                      {formatPrice(total)}
-                    </div>
+                    <div className="text-xs text-slate-400 mb-1">{t("cashier.counted")}</div>
+                    <div className="text-lg font-bold text-white">{formatPrice(total)}</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-xs text-slate-400 mb-1">DIFERENCIA</div>
+                    <div className="text-xs text-slate-400 mb-1">{t("cashier.difference")}</div>
                     <div className={`text-lg font-bold ${isExact ? "text-green-400" : "text-red-400"}`}>
-                      {isExact ? "✓ Cuadra" : formatPrice(difference)}
+                      {isExact ? t("cashier.matches") : formatPrice(difference)}
                     </div>
                   </div>
                 </div>
 
-                {/* Selector de modo */}
                 <div className="flex gap-2">
                   <button
                     onClick={() => setUseDenominations(true)}
@@ -643,7 +559,7 @@ export function CashCloseWizard({
                     }`}
                   >
                     <Banknote size={14} className="inline mr-1" />
-                    Por denominaciones
+                    {t("cashier.by_denominations")}
                   </button>
                   <button
                     onClick={() => setUseDenominations(false)}
@@ -660,11 +576,10 @@ export function CashCloseWizard({
 
                 {useDenominations ? (
                   <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {/* Billetes */}
                     <div>
                       <h4 className="text-sm font-bold text-slate-300 mb-2 flex items-center gap-2">
                         <Banknote size={14} className="text-green-400" />
-                        Billetes
+                        {t("cashier.bills")}
                       </h4>
                       <div className="space-y-1.5">
                         {denominations.filter(d => d.type === "bill").map((d) => (
@@ -679,19 +594,16 @@ export function CashCloseWizard({
                               className="w-16 px-2 py-1 bg-slate-900 border border-slate-700 rounded text-white text-center text-sm font-bold"
                             />
                             <span className="text-slate-400 text-xs">=</span>
-                            <span className="font-semibold text-white ml-auto text-sm">
-                              {formatPrice(d.subtotal)}
-                            </span>
+                            <span className="font-semibold text-white ml-auto text-sm">{formatPrice(d.subtotal)}</span>
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    {/* Monedas */}
                     <div>
                       <h4 className="text-sm font-bold text-slate-300 mb-2 flex items-center gap-2">
                         <Coins size={14} className="text-amber-400" />
-                        Monedas
+                        {t("cashier.coins")}
                       </h4>
                       <div className="space-y-1.5">
                         {denominations.filter(d => d.type === "coin").map((d) => (
@@ -706,9 +618,7 @@ export function CashCloseWizard({
                               className="w-16 px-2 py-1 bg-slate-900 border border-slate-700 rounded text-white text-center text-sm font-bold"
                             />
                             <span className="text-slate-400 text-xs">=</span>
-                            <span className="font-semibold text-white ml-auto text-sm">
-                              {formatPrice(d.subtotal)}
-                            </span>
+                            <span className="font-semibold text-white ml-auto text-sm">{formatPrice(d.subtotal)}</span>
                           </div>
                         ))}
                       </div>
@@ -717,7 +627,7 @@ export function CashCloseWizard({
                 ) : (
                   <div className="bg-slate-800/60 rounded-lg p-4">
                     <label className="block text-sm text-slate-300 mb-2 font-semibold">
-                      ¿Cuánto efectivo cuentas físicamente?
+                      {t("cashier.how_much_cash_counted")}
                     </label>
                     <input
                       type="number"
@@ -731,18 +641,17 @@ export function CashCloseWizard({
                   </div>
                 )}
 
-                {/* Justificación si hay diferencia */}
                 {!isExact && total > 0 && (
                   <div className="bg-amber-900/20 border border-amber-700/40 rounded-lg p-3">
                     <label className="block text-sm text-amber-200 mb-1 font-semibold">
-                      ⚠️ Justifica la diferencia:
+                      {t("cashier.justify_difference")}
                     </label>
                     <textarea
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
                       rows={2}
                       className="w-full px-3 py-2 bg-slate-900 border border-amber-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-                      placeholder="Motivo de la diferencia..."
+                      placeholder={t("cashier.difference_reason_placeholder")}
                     />
                   </div>
                 )}
@@ -752,7 +661,7 @@ export function CashCloseWizard({
                     onClick={() => setStep(hasPendingTips ? 2 : 1)}
                     className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium"
                   >
-                    ← Volver
+                    {t("cashier.back")}
                   </button>
                   <button
                     onClick={handleConfirmClose}
@@ -764,7 +673,7 @@ export function CashCloseWizard({
                     ) : (
                       <CheckCircle2 size={16} />
                     )}
-                    Confirmar Cierre
+                    {t("cashier.confirm_close")}
                   </button>
                 </div>
               </div>

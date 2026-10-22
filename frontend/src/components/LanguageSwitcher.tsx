@@ -11,40 +11,42 @@ export function LanguageSwitcher() {
   const currentLang = i18n.language;
 
   const handleChange = (lang: 'es' | 'zh') => {
-    console.log('[LanguageSwitcher] 🖱️ Click en idioma:', lang, '| Idioma actual:', currentLang);
-    console.log('[LanguageSwitcher] 🧪 PRUEBA t(): auth.login en ES =', i18n.t('auth.login', { lng: 'es' }));
-    console.log('[LanguageSwitcher] 🧪 PRUEBA t(): auth.login en ZH =', i18n.t('auth.login', { lng: 'zh' }));
-    console.log('[LanguageSwitcher] 🧪 PRUEBA t(): auth.login en IDIOMA ACTUAL =', t('auth.login'));
-    if (lang !== currentLang) {
-      setTerminalLanguage(lang);
-    } else {
-      console.log('[LanguageSwitcher] ⏭️ Ya está en ese idioma, ignorando.');
-    }
+    // Ignorar si ya está en el idioma seleccionado (evita re-render innecesario)
+    if (lang === currentLang) return;
+    setTerminalLanguage(lang);
   };
 
   return (
-    <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700/50 rounded-lg p-1">
+    <div
+      className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700/50 rounded-lg p-1"
+      role="group"
+      aria-label={t('language_switcher.switch_to_spanish').split(' ').slice(0, -1).join(' ')}
+    >
       <button
+        type="button"
         onClick={() => handleChange('es')}
         className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
           currentLang === 'es'
             ? 'bg-blue-600 text-white shadow-sm'
             : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
         }`}
-        aria-label="Español"
-        title="Español"
+        aria-label={t('language_switcher.switch_to_spanish')}
+        aria-pressed={currentLang === 'es'}
+        title={t('language_switcher.spanish')}
       >
         ES
       </button>
       <button
+        type="button"
         onClick={() => handleChange('zh')}
         className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
           currentLang === 'zh'
             ? 'bg-red-600 text-white shadow-sm'
             : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
         }`}
-        aria-label="中文"
-        title="中文 (简体)"
+        aria-label={t('language_switcher.switch_to_chinese')}
+        aria-pressed={currentLang === 'zh'}
+        title={t('language_switcher.chinese_simplified')}
       >
         中文
       </button>

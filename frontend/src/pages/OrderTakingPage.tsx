@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTables } from "@/hooks/useTables";
 import { useTableOrders } from "@/hooks/useTableOrders";
@@ -7,16 +7,9 @@ import { OrderCatalogPanel } from "@/components/orders/OrderCatalogPanel";
 import { OrderCartPanel } from "@/components/orders/OrderCartPanel";
 import { flattenAreas, TABLE_STATUS_LABELS, TABLE_STATUS_STYLES } from "@/types/tables";
 import type { Product } from "@/types/catalog";
-import { ArrowLeft, Users, Loader2, AlertCircle, Scissors } from "lucide-react";
-import { useToastStore } from "@/store/useToastStore";
-import { CapabilityGate } from "@/components/CapabilityGate";
-import { CapabilityKey } from "@/types/capabilities";
+import { ArrowLeft, Users, Loader2, AlertCircle } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 
-/**
- * Vista de toma de pedido para una mesa específica.
- * Valida que la mesa tenga pedidos activos (no solo paid/closed).
- */
 export function OrderTakingPage() {
   const { t } = useTranslation();
   const { tableUuid } = useParams<{ tableUuid: string }>();
@@ -24,43 +17,28 @@ export function OrderTakingPage() {
 
   const { data: areas = [], isLoading } = useTables();
   const { data: activeOrders = [] } = useTableOrders(tableUuid || null);
-  const initCart = useCartStore((s) => s.initCart);
+  
+  // Selectores estáticos (Best Practice de Zustand)
   const addItem = useCartStore((s) => s.addItem);
+  const allCarts = useCartStore((s) => s.carts);
 
-  const table = flattenAreas(areas).find((t) => t.uuid === tableUuid);
-  const cart = useCartStore((s) => table?.uuid ? s.carts[table.uuid] : undefined);
+  const table = useMemo(() => flattenAreas(areas).find((t) => t.uuid === tableUuid), [areas, tableUuid]);
+  const cart = table?.uuid ? allCarts[table.uuid] : undefined;
 
+  // ✅ INICIALIZACIÓN AUTOMÁTICA DEL CARRITO AL ENTRAR A LA MESA
   useEffect(() => {
-    if (table) {
-      initCart(table.uuid, table.table_number, table.area_name);
+    if (table && !allCarts[table.uuid]) {
+      useCartStore.getState().initCart(table.uuid, table.table_number, table.area_name);
     }
-  }, [table, initCart]);
+  }, [table, allCarts]);
 
   // Refetch inmediato al entrar a la mesa (no esperar polling de 10s)
-  // Esto asegura que pedidos anteriores aparezcan al instante
   const { refetch: refetchOrders } = useTableOrders(tableUuid || null);
   useEffect(() => {
     if (tableUuid) {
       refetchOrders();
     }
   }, [tableUuid, refetchOrders]);
-
-  // UX-03: Advertir al usuario si intenta salir con cambios no guardados en el carrito
-  // IMPORTANTE: Este hook DEBE estar antes de cualquier return anticipado
-  useEffect(() => {
-    const hasUnsavedItems = cart?.items && cart.items.length > 0;
-
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedItems) {
-        e.preventDefault();
-        e.returnValue = 'Tienes cambios no guardados en este pedido. ¿Estás seguro de que deseas salir?';
-        return e.returnValue;
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [cart]);
 
   if (isLoading) {
     return (
@@ -84,31 +62,16 @@ export function OrderTakingPage() {
     );
   }
 
-  // ✅ Validación: si la mesa está disponible, es una nueva cuenta
-  const tableIsFree = table.status === "available" || table.status === "maintenance";
   const hasActiveOrders = activeOrders.length > 0;
-
   const statusStyle = TABLE_STATUS_STYLES[table.status as keyof typeof TABLE_STATUS_STYLES] || TABLE_STATUS_STYLES.available;
 
+  // ✅ INICIALIZACIÓN PEREZOSA (LA CLAVE PARA EVITAR LOOPS)
+    // ✅ INICIALIZACIÓN PEREZOSA
+    // ✅ AGREGAR PRODUCTO (la inicialización ya la hizo el useEffect)
   const handleAddProduct = (product: Product) => {
+    if (!table) return;
     addItem(table.uuid, product);
   };
-
-    // UX-03: Advertir al usuario si intenta salir con cambios no guardados en el carrito
-  useEffect(() => {
-    const hasUnsavedItems = cart?.items && cart.items.length > 0;
-    
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedItems) {
-        e.preventDefault();
-        e.returnValue = 'Tienes cambios no guardados en este pedido. ¿Estás seguro de que deseas salir?';
-        return e.returnValue;
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [cart]);
 
   return (
     <div className="flex flex-col h-full">
@@ -117,7 +80,7 @@ export function OrderTakingPage() {
           <button
             onClick={() => navigate("/")}
             className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
-            title="Volver a mesas"
+            title={t("tables.back_to_tables")}
           >
             <ArrowLeft size={20} />
           </button>
@@ -129,12 +92,9 @@ export function OrderTakingPage() {
                 <span
                   className={`text-xs px-2.5 py-1 rounded-full border ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}
                 >
-                  {TABLE_STATUS_LABELS[table.status]}
+                  {t(TABLE_STATUS_LABELS[table.status])}
                 </span>
               </h1>
-              
-          {/* TODO: Dividir Cuenta pendiente de integración */}
-          {/* TODO: Dividir Cuenta pendiente de integración */}
             </div>
             <p className="text-sm text-slate-400 mt-1 flex items-center gap-3">
               <span className="flex items-center gap-1">
@@ -155,12 +115,11 @@ export function OrderTakingPage() {
         </div>
       </div>
 
-      {/* Advertencia si la mesa está libre (nueva cuenta) */}
-      {tableIsFree && (
+      {(table.status === "available" || table.status === "maintenance") && (
         <div className="mb-4 bg-blue-900/20 border border-blue-700/50 rounded-lg p-3 flex items-center gap-2 text-sm text-blue-200">
           <AlertCircle size={16} className="flex-shrink-0" />
           <span>
-            Mesa libre. Al enviar un pedido se marcará como <strong>{t("tables.occupied")}</strong>.
+             {t("tables.available_hint_prefix")}<strong>{t("tables.occupied")}</strong>.
           </span>
         </div>
       )}

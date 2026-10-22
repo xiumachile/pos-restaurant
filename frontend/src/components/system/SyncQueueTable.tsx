@@ -5,34 +5,31 @@ import { SyncBadge } from "./SyncBadge";
 import { SyncItemDetailModal } from "./SyncItemDetailModal";
 import { RefreshCw, Trash2, Eye, Search, Filter } from "lucide-react";
 import type { SyncQueueItem } from "@/db/repositories/SyncQueueRepository";
-import { 
-  enrichSyncQueueItem, 
-  formatPaymentUuid, 
-  formatCashSession 
+import {
+  enrichSyncQueueItem,
+  formatPaymentUuid,
+  formatCashSession
 } from "@/services/sync/SyncQueueEnrichment";
 
 type StatusFilter = "all" | "pending" | "syncing" | "synced" | "failed";
 
 export function SyncQueueTable() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { data: items, isLoading } = useSyncQueueItems();
   const { retryItem, deleteItem } = useSyncQueueActions();
   const [selectedItem, setSelectedItem] = useState<SyncQueueItem | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Filtrar items por estado + búsqueda
   const filteredItems = useMemo(() => {
     if (!items) return [];
 
     let result = items;
 
-    // Filtrar por estado
     if (statusFilter !== "all") {
       result = result.filter((item) => item.sync_status === statusFilter);
     }
 
-    // Buscar en ID, payment_uuid, error
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter((item) => {
@@ -69,11 +66,12 @@ export function SyncQueueTable() {
     { value: "failed", labelKey: "orders.failed", color: "bg-red-500/20 text-red-400" },
   ];
 
+  // Determinar el locale para fechas según el idioma activo
+  const locale = i18n.language.startsWith('zh') ? 'zh-CN' : 'es-CL';
+
   return (
     <>
-      {/* Barra de filtros y búsqueda */}
       <div className="bg-slate-800 rounded-lg p-4 mb-4 space-y-3">
-        {/* Filtros por estado */}
         <div className="flex flex-wrap items-center gap-2">
           <Filter className="w-4 h-4 text-slate-400" />
           {filterButtons.map((btn) => (
@@ -90,11 +88,10 @@ export function SyncQueueTable() {
             </button>
           ))}
           <span className="ml-auto text-xs text-slate-400">
-            {filteredItems.length} de {items?.length || 0} items
+            {t("sync.results_of_total", { filtered: filteredItems.length, total: items?.length || 0 })}
           </span>
         </div>
 
-        {/* Búsqueda */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -107,7 +104,6 @@ export function SyncQueueTable() {
         </div>
       </div>
 
-      {/* Tabla */}
       {filteredItems.length === 0 ? (
         <div className="bg-slate-800 rounded-lg p-12 text-center">
           <div className="text-6xl mb-4">
@@ -233,7 +229,7 @@ export function SyncQueueTable() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="text-xs text-slate-400">
-                          {new Date(item.created_at).toLocaleString("es-CL", {
+                          {new Date(item.created_at).toLocaleString(locale, {
                             day: "2-digit",
                             month: "2-digit",
                             hour: "2-digit",

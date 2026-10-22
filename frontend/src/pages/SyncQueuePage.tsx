@@ -24,24 +24,27 @@ export function SyncQueuePage() {
         </div>
         <div className="flex gap-2">
           <button
+            type="button"
             onClick={() => triggerSync.mutate()}
             disabled={triggerSync.isPending}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
           >
             <Play className="w-4 h-4" />
-            Sincronizar Ahora
+            {t("sync.sync_now")}
           </button>
           {stats && stats.failed > 0 && (
             <>
               <button
+                type="button"
                 onClick={() => retryAllFailed.mutate()}
                 disabled={retryAllFailed.isPending}
                 className="flex items-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors disabled:opacity-50"
               >
                 <RefreshCw className="w-4 h-4" />
-                Reintentar Fallidos ({stats.failed})
+                {t("sync.retry_failed")} ({stats.failed})
               </button>
               <button
+                type="button"
                 onClick={() => {
                   useConfirmStore.getState().open({
                     title: t("common.confirm_delete"),
@@ -56,7 +59,7 @@ export function SyncQueuePage() {
                 className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
               >
                 <Trash2 className="w-4 h-4" />
-                Limpiar Fallidos
+                {t("sync.clear_failed")}
               </button>
             </>
           )}

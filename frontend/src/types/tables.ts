@@ -28,12 +28,12 @@ export interface TablesArea {
   tables: RestaurantTable[];
 }
 
-export const TABLE_STATUS_LABELS: Record<TableStatus, string> = {
-  available: "Disponible",
-  occupied: "Ocupada",
-  billing: "Por cobrar",
-  maintenance: "Mantenimiento",
-};
+export const TABLE_STATUS_LABELS = {
+  available: "table.available",
+  occupied: "tables.occupied",
+  billing: "tables.billing",
+  maintenance: "tables.maintenance", // Agrega los que tengas
+} as const;
 
 export const TABLE_STATUS_STYLES: Record<
   TableStatus,

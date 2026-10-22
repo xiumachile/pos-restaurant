@@ -55,19 +55,19 @@ export function Sidebar() {
     () => [
       // 1. Operación principal (Todos los roles operativos)
       { to: "/", label: t("tables.title"), icon: LayoutGrid, end: true, allowedRoles: ROLES.ALL },
-      
+
       // 2. Pedidos y Canales (Restaurado para flujo de trabajo)
-      { 
-        to: "/orders", 
-        label: t("orders.title"), 
-        icon: ClipboardList, 
-        allowedRoles: ROLES.FRONT_OF_HOUSE 
+      {
+        to: "/orders",
+        label: t("orders.title"),
+        icon: ClipboardList,
+        allowedRoles: ROLES.FRONT_OF_HOUSE
       },
-      { 
-        to: "/orders/new", 
-        label: t("orders.new_order"), 
-        icon: Package, 
-        allowedRoles: ROLES.FRONT_OF_HOUSE 
+      {
+        to: "/orders/new",
+        label: t("orders.new_order"),
+        icon: Package,
+        allowedRoles: ROLES.FRONT_OF_HOUSE
       },
 
       // 3. Áreas específicas por rol
@@ -77,32 +77,45 @@ export function Sidebar() {
         icon: ChefHat,
         allowedRoles: ROLES.BACK_OF_HOUSE, // kitchen, manager, admin
       },
-      { 
-        to: "/cashier", 
-        label: t("cashier.title"), 
-        icon: CreditCard, 
+      {
+        to: "/cashier",
+        label: t("cashier.title"),
+        icon: CreditCard,
         allowedRoles: ROLES.CASHIER_ONLY // cashier, manager, admin
       },
-      
-      // 3. Gestión y Administración (Solo Management)
-      // Se eliminó "/catalog" del sidebar principal: los garzones usan el catálogo dentro de la toma de pedidos en Mesas.
-      // Se eliminó "/orders" del sidebar: era confuso porque mostraba estado de sync en lugar de historial de pedidos.
+
+      // 4. Gestión y Administración (Solo Management)
       {
         to: "/inventory",
-        label: t("inventory.title", "Inventario"),
+        label: t("inventory.title"),
         icon: Package,
         allowedRoles: ROLES.MANAGEMENT,
         requiresCapability: CapabilityKey.CAN_MANAGE_RECIPES,
       },
-      { to: "/reports", label: t("reports.title"), icon: BarChart3, allowedRoles: ROLES.MANAGEMENT },
-      { to: "/floor-plan", label: t("navigation.floor_plan", "Plano del Restaurante"), icon: Map, allowedRoles: ROLES.MANAGEMENT },
+      { 
+        to: "/reports", 
+        label: t("reports.title"), 
+        icon: BarChart3, 
+        allowedRoles: ROLES.MANAGEMENT 
+      },
+      { 
+        to: "/floor-plan", 
+        label: t("navigation.floor_plan"), 
+        icon: Map, 
+        allowedRoles: ROLES.MANAGEMENT 
+      },
       {
         to: "/sync-queue",
         label: t("sidebar.sync"),
         icon: Database,
         allowedRoles: ROLES.MANAGEMENT,
       },
-      { to: "/settings", label: t("settings.title"), icon: Settings, allowedRoles: ROLES.MANAGEMENT },
+      { 
+        to: "/settings", 
+        label: t("settings.title"), 
+        icon: Settings, 
+        allowedRoles: ROLES.MANAGEMENT 
+      },
     ],
     [t]
   );
@@ -119,6 +132,11 @@ export function Sidebar() {
     return true;
   });
 
+  // Obtener el rol traducido, con fallback seguro al rol original en mayúsculas si la clave falta
+  const translatedRole = user 
+    ? t(`roles.${user.role.toLowerCase()}`, { defaultValue: user.role })
+    : "";
+
   return (
     <aside className="w-64 bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-800 flex flex-col h-full transition-colors duration-200">
       {/* Logo */}
@@ -126,7 +144,9 @@ export function Sidebar() {
         <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">
           🍜 Wok & Mesa
         </h1>
-        <p className="text-xs text-gray-600 dark:text-slate-400 mt-1">{t("common.pos_system", "Sistema POS")}</p>
+        <p className="text-xs text-gray-600 dark:text-slate-400 mt-1">
+          {t("common.pos_system")}
+        </p>
       </div>
 
       {/* Navegación */}
@@ -162,7 +182,7 @@ export function Sidebar() {
                 {user.name}
               </p>
               <p className="text-xs text-gray-600 dark:text-slate-400 truncate capitalize">
-                {t(`roles.${user.role.toLowerCase()}`, user.role)}
+                {translatedRole}
               </p>
             </div>
             <button

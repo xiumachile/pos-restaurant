@@ -240,7 +240,7 @@ export function CashierPage() {
       {/* Modal de precuenta + cobro */}
       {selectedAccountId && (
         <TableBillModal
-          tableUuid={selectedAccountId}
+          accountId={selectedAccountId}
           isOpen={!!selectedAccountId}
           onClose={() => setSelectedAccountId(null)}
           onSuccess={() => setSelectedAccountId(null)}

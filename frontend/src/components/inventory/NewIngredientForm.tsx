@@ -41,6 +41,7 @@ export function NewIngredientForm({ onCreated, onCancel }: NewIngredientFormProp
   const [initialCost, setInitialCost] = useState<number>(0);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
   const createMutation = useMutation({
     mutationFn: async (payload: any) => {
@@ -50,17 +51,49 @@ export function NewIngredientForm({ onCreated, onCancel }: NewIngredientFormProp
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["recipes", "ingredients"] });
       const uuid = data?.data?.uuid ?? data?.uuid;
+
       if (uuid) {
+        setErrorMessage(null);
         setSuccessMessage(`✅ ${t("inventory.purchase.new_ingredient.success_prefix")}: ${nameEs}`);
         setTimeout(() => onCreated(uuid), 800);
+      } else {
+        // Respuesta inesperada: no dejar al usuario sin feedback
+        setSuccessMessage(null);
+        setErrorMessage(
+          t("inventory.purchase.new_ingredient.error_prefix", {
+            message: t("inventory.purchase.new_ingredient.save_error"),
+          })
+        );
       }
     },
     onError: (error: any) => {
-      const message =
-        error?.response?.data?.message ??
-        error?.response?.data?.error ??
-        "Unknown error";
-      setErrorMessage(`Error: ${message}`);
+      const status = error?.response?.status;
+      const payload = error?.response?.data;
+
+      // El detalle crudo queda SOLO en consola (diagnóstico técnico).
+      // La UI muestra exclusivamente mensajes traducidos.
+      console.error("[NewIngredientForm] Error creando ingrediente:", {
+        status,
+        payload,
+        message: error?.message,
+      });
+
+      let translatedMessage: string;
+
+      if (status === 422) {
+        // Validación del backend (campos obligatorios / SKU duplicado / tipos)
+        translatedMessage = t("inventory.purchase.new_ingredient.validation_error");
+      } else if (status === 409) {
+        // Conflicto de unicidad
+        translatedMessage = t("inventory.purchase.new_ingredient.sku_duplicate");
+      } else {
+        // Red caída, timeout, 500, etc. Sin fallback en inglés.
+        translatedMessage = t("inventory.purchase.new_ingredient.unknown_error");
+      }
+
+      setErrorMessage(
+        t("inventory.purchase.new_ingredient.error_prefix", { message: translatedMessage })
+      );
       setSuccessMessage(null);
     },
   });
@@ -70,8 +103,19 @@ export function NewIngredientForm({ onCreated, onCancel }: NewIngredientFormProp
     nameEs.trim() !== "" &&
     !createMutation.isPending;
 
+  // Validación visible: solo después de un intento de envío y fuera del estado pending
+  const skuError =
+    sku.trim() === "" ? t("inventory.purchase.new_ingredient.validation_sku_required") : null;
+  const nameEsError =
+    nameEs.trim() === "" ? t("inventory.purchase.new_ingredient.validation_name_required") : null;
+  const showValidationErrors = attemptedSubmit && !createMutation.isPending;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAttemptedSubmit(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
     if (!canSubmit) return;
 
     const nameTranslations: Record<string, string> = { es: nameEs.trim() };
@@ -87,7 +131,8 @@ export function NewIngredientForm({ onCreated, onCancel }: NewIngredientFormProp
     });
   };
 
-  const availableUnits = BASE_UNITS[dimensionType as keyof typeof BASE_UNITS] || BASE_UNITS.mass;
+  const availableUnits =
+    BASE_UNITS[dimensionType as keyof typeof BASE_UNITS] || BASE_UNITS.mass;
 
   const dimensionLabel = (dim: string) => {
     if (dim === "mass") return t("inventory.purchase.new_ingredient.dimension_mass");
@@ -99,39 +144,69 @@ export function NewIngredientForm({ onCreated, onCancel }: NewIngredientFormProp
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* SKU */}
       <div>
-        <label className="block text-sm font-medium text-slate-300 mb-1">
+        <label
+          htmlFor="ingredient-sku"
+          className="block text-sm font-medium text-slate-300 mb-1"
+        >
           {t("inventory.purchase.new_ingredient.sku_label")}{" "}
-          <span className="text-red-400">{t("inventory.purchase.new_ingredient.sku_required")}</span>
+          <span className="text-red-400">
+            {t("inventory.purchase.new_ingredient.sku_required")}
+          </span>
         </label>
         <input
+          id="ingredient-sku"
           type="text"
           value={sku}
           onChange={(e) => setSku(e.target.value.toUpperCase())}
           placeholder={t("inventory.purchase.new_ingredient.sku_placeholder")}
+          aria-invalid={showValidationErrors && Boolean(skuError)}
+          aria-describedby={showValidationErrors && skuError ? "ingredient-sku-error" : undefined}
           className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono"
         />
+        {showValidationErrors && skuError && (
+          <p id="ingredient-sku-error" className="mt-1 text-xs text-red-400">
+            {skuError}
+          </p>
+        )}
       </div>
 
       {/* Nombre español */}
       <div>
-        <label className="block text-sm font-medium text-slate-300 mb-1">
+        <label
+          htmlFor="ingredient-name-es"
+          className="block text-sm font-medium text-slate-300 mb-1"
+        >
           {t("inventory.purchase.new_ingredient.name_es_label")}{" "}
-          <span className="text-red-400">{t("inventory.purchase.new_ingredient.sku_required")}</span>
+          <span className="text-red-400">
+            {t("inventory.purchase.new_ingredient.sku_required")}
+          </span>
         </label>
         <input
+          id="ingredient-name-es"
           type="text"
           value={nameEs}
           onChange={(e) => setNameEs(e.target.value)}
           placeholder={t("inventory.purchase.new_ingredient.name_es_placeholder")}
+          aria-invalid={showValidationErrors && Boolean(nameEsError)}
+          aria-describedby={
+            showValidationErrors && nameEsError ? "ingredient-name-es-error" : undefined
+          }
           className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500"
         />
+        {showValidationErrors && nameEsError && (
+          <p id="ingredient-name-es-error" className="mt-1 text-xs text-red-400">
+            {nameEsError}
+          </p>
+        )}
       </div>
 
       {/* Nombre chino (opcional) */}
       <div>
         <label className="block text-sm font-medium text-slate-300 mb-1">
           {t("inventory.purchase.new_ingredient.name_zh_label")}{" "}
-          <span className="text-slate-500 text-xs">({t("inventory.purchase.new_ingredient.name_zh_optional")})</span>
+          <span className="text-slate-500 text-xs">
+            ({t("inventory.purchase.new_ingredient.name_zh_optional")})
+          </span>
         </label>
         <input
           type="text"
@@ -216,14 +291,20 @@ export function NewIngredientForm({ onCreated, onCancel }: NewIngredientFormProp
 
       {/* Mensajes */}
       {successMessage && (
-        <div className="bg-emerald-900/30 border border-emerald-700 rounded-lg p-3 flex items-start gap-2">
+        <div
+          role="status"
+          className="bg-emerald-900/30 border border-emerald-700 rounded-lg p-3 flex items-start gap-2"
+        >
           <CheckCircle2 size={16} className="text-emerald-400 mt-0.5" />
           <p className="text-sm text-emerald-300">{successMessage}</p>
         </div>
       )}
 
       {errorMessage && (
-        <div className="bg-red-900/30 border border-red-700 rounded-lg p-3 flex items-start gap-2">
+        <div
+          role="alert"
+          className="bg-red-900/30 border border-red-700 rounded-lg p-3 flex items-start gap-2"
+        >
           <AlertTriangle size={16} className="text-red-400 mt-0.5" />
           <p className="text-sm text-red-300">{errorMessage}</p>
         </div>

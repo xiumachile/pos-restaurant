@@ -1,17 +1,12 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
-// Importación robusta de JSON
+// Importación robusta de JSON (compatible con Vite/Webpack)
 import * as esCLRaw from './locales/es-CL.json';
 import * as zhCNRaw from './locales/zh-CN.json';
 
 const esCL = (esCLRaw as any).default || esCLRaw;
 const zhCN = (zhCNRaw as any).default || zhCNRaw;
-
-console.log('🔥 [i18n] esCL cargado:', esCL);
-console.log('🔥 [i18n] zhCN cargado:', zhCN);
-console.log('🔑 [i18n] zhCN.auth.login =', (zhCN as any).auth?.login);
-console.log('🔑 [i18n] esCL.auth.login =', (esCL as any).auth?.login);
 
 const getTerminalLanguage = (): string => {
   const stored = localStorage.getItem('terminal_language');
@@ -20,7 +15,6 @@ const getTerminalLanguage = (): string => {
 };
 
 const targetLng = getTerminalLanguage();
-console.log('🎯 [i18n] Idioma objetivo forzado:', targetLng);
 
 i18n
   .use(initReactI18next)
@@ -42,17 +36,27 @@ i18n
       order: [], 
       caches: [],
     },
+    
+    // 🧹 LIMPIEZA: Solo activar modo debug en desarrollo
+    debug: process.env.NODE_ENV === 'development',
+    
+    // 🔍 VALIDACIÓN: Detectar y reportar claves que no existen en el idioma activo
+    missingKeyHandler: (lng, ns, key, fallbackValue) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(
+          `[i18n] ⚠️ Clave de traducción faltante: "${key}" en idioma "${lng}". ` +
+          `Se usará el fallback en español.`
+        );
+      }
+    },
   });
 
-console.log('✅ [i18n] Inicializado. i18n.language es ahora:', i18n.language);
-
 export const setTerminalLanguage = (lang: 'es' | 'zh') => {
-  console.log('[i18n] 🔄 Solicitando cambio de idioma a:', lang);
   localStorage.setItem('terminal_language', lang);
-  i18n.changeLanguage(lang).then(() => {
-    console.log('[i18n] ✅ Idioma cambiado exitosamente. i18n.language ahora es:', i18n.language);
-  }).catch((err) => {
-    console.error('[i18n] ❌ Error al cambiar idioma:', err);
+  i18n.changeLanguage(lang).catch((err) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[i18n] ❌ Error al cambiar idioma:', err);
+    }
   });
 };
 

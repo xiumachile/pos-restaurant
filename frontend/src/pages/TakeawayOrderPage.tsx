@@ -21,20 +21,15 @@ export function TakeawayOrderPage() {
   const isEditMode = !!orderLocalUuid;
   const effectiveCartKey = isEditMode ? `edit-${orderLocalUuid}` : (cartKey || "");
 
-  // Suscribirse SOLO al carrito específico que necesitamos
   const cart = useCartStore((s) => s.carts[effectiveCartKey]);
   const setCart = useCartStore((s) => s.setCart);
-  
   const addItem = useCartStore((s) => s.addItem);
   const clearCart = useCartStore((s) => s.clearCart);
   const updateCustomer = useCartStore((s) => s.updateCustomer);
 
   const [showCustomerModal, setShowCustomerModal] = useState(false);
 
-  // Cargar pedido existente en modo edición (Patrón seguro anti-loop)
   useEffect(() => {
-    // Si no es modo edición, o no hay orderLocalUuid, NO hacer nada.
-    // Si el carrito existe PERO está vacío (items.length === 0), forzar la recarga.
     const cartIsEmpty = cart && (!cart.items || cart.items.length === 0);
     if (!isEditMode || !orderLocalUuid || (cart && !cartIsEmpty)) return;
 
@@ -47,7 +42,7 @@ export function TakeawayOrderPage() {
           return;
         }
 
-        const mappedChannel: ChannelType = 
+        const mappedChannel: ChannelType =
           order.order_type === "take_out" ? "takeout" : (order.order_type as ChannelType);
 
         const editCart = {
@@ -81,12 +76,11 @@ export function TakeawayOrderPage() {
         if (isMounted) navigate("/");
       }
     };
-    
+
     loadOrder();
     return () => { isMounted = false; };
   }, [isEditMode, orderLocalUuid, cart, effectiveCartKey, navigate, setCart]);
 
-  // Redirigir si el cart no existe en modo normal (no edición)
   useEffect(() => {
     if (!isEditMode && cartKey && !cart) {
       navigate("/");
@@ -119,14 +113,14 @@ export function TakeawayOrderPage() {
   };
 
   const handleDiscard = () => {
-    if (confirm(t("orders.discard_confirm", { defaultValue: "¿Descartar este pedido?" }))) {
+    if (confirm(t("orders.discard_confirm"))) {
       clearCart(effectiveCartKey);
       navigate("/");
     }
   };
 
   const handleModalClose = () => {
-    if (confirm("¿Descartar el pedido? Se requieren datos del cliente para Delivery.")) {
+    if (confirm(t("orders.discard_customer_data_confirm"))) {
       clearCart(effectiveCartKey);
       navigate("/");
     }
@@ -134,7 +128,6 @@ export function TakeawayOrderPage() {
 
   return (
     <div className="flex flex-col h-full relative">
-      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-4">
           <button
@@ -149,22 +142,22 @@ export function TakeawayOrderPage() {
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold flex items-center gap-3">
                 <span className="text-2xl">{channelLabel.icon}</span>
-                {isEditMode ? t("orders.editing_order", "Editando Pedido") : t(`orders.channel_${cart.channel}`)}
+                {isEditMode ? t("orders.editing_order") : t(`orders.channel_${cart.channel}`)}
               </h1>
               {isEditMode ? (
                 <span className="text-xs px-2.5 py-1 rounded-full border border-yellow-500/50 bg-yellow-500/10 text-yellow-400">
-                  {t("orders.edit_mode", "Modo Edición")}
+                  {t("orders.edit_mode")}
                 </span>
               ) : (
                 <span className="text-xs px-2.5 py-1 rounded-full border border-blue-500/50 bg-blue-500/10 text-blue-400">
-                  {t("orders.takeaway_label", { defaultValue: "Fuera de mesa" })}
+                  {t("orders.takeaway_label")}
                 </span>
               )}
             </div>
             <p className="text-sm text-slate-400 mt-1">
-              {isEditMode 
-                ? t("orders.edit_hint", "Modificando pedido existente. Los cambios se guardarán al enviar.")
-                : t("orders.takeaway_hint", { defaultValue: "Pedido sin mesa asignada. Al enviar se enviará directamente." })}
+              {isEditMode
+                ? t("orders.edit_hint")
+                : t("orders.takeaway_hint")}
             </p>
           </div>
         </div>
@@ -179,17 +172,15 @@ export function TakeawayOrderPage() {
         </button>
       </div>
 
-      {/* Panel de catálogo + carrito */}
       <div className="flex-1 flex gap-4 overflow-hidden">
         <OrderCatalogPanel onAddProduct={handleAddProduct} channel={cart.channel} />
         <OrderCartPanel
           cartKey={effectiveCartKey}
           tableId={null}
-          title={isEditMode ? t("orders.editing_order", "Editando Pedido") : t(`orders.channel_${cart.channel}`)}
+          title={isEditMode ? t("orders.editing_order") : t(`orders.channel_${cart.channel}`)}
         />
       </div>
 
-      {/* Modal OBLIGATORIO de cliente para Delivery */}
       <CustomerModal
         open={showCustomerModal}
         initialPhone={cart.customerPhone || ""}

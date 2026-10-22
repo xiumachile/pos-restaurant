@@ -12,12 +12,6 @@ interface CustomerModalProps {
 
 type Step = "search" | "existing" | "create";
 
-/**
- * Modal de cliente con flujo de 2 pasos para Delivery:
- *   1. Ingresar teléfono → buscar
- *   2a. Si existe: mostrar datos (nombre, dirección, referencia) → confirmar
- *   2b. Si no existe: formulario completo (nombre, teléfono, dirección, referencia) → crear
- */
 export function CustomerModal({ open, initialPhone, onSave, onClose }: CustomerModalProps) {
   const { t } = useTranslation();
 
@@ -26,17 +20,14 @@ export function CustomerModal({ open, initialPhone, onSave, onClose }: CustomerM
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState("");
 
-  // Datos del cliente existente
   const [existingCustomer, setExistingCustomer] = useState<LocalCustomer | null>(null);
   const [editAddress, setEditAddress] = useState("");
   const [editReference, setEditReference] = useState("");
 
-  // Datos para nuevo cliente
   const [newName, setNewName] = useState("");
   const [newAddress, setNewAddress] = useState("");
   const [newReference, setNewReference] = useState("");
 
-  // Reset al abrir
   useEffect(() => {
     if (open) {
       setStep("search");
@@ -54,13 +45,13 @@ export function CustomerModal({ open, initialPhone, onSave, onClose }: CustomerM
   const handleSearch = async () => {
     const cleanPhone = phone.replace(/\s+/g, "").trim();
     if (!cleanPhone) {
-      setError(t("orders.customer_phone_required", "El teléfono es obligatorio"));
+      setError(t("orders.customer_phone_required"));
       return;
     }
-    
+
     setSearching(true);
     setError("");
-    
+
     try {
       const customer = await customerService.findByPhone(cleanPhone);
       if (customer) {
@@ -72,7 +63,7 @@ export function CustomerModal({ open, initialPhone, onSave, onClose }: CustomerM
         setStep("create");
       }
     } catch (err: any) {
-      setError(err.message || "Error al buscar cliente");
+      setError(err.message || t("orders.customer_search_error"));
     } finally {
       setSearching(false);
     }
@@ -80,16 +71,15 @@ export function CustomerModal({ open, initialPhone, onSave, onClose }: CustomerM
 
   const handleConfirmExisting = () => {
     if (!existingCustomer) return;
-    
-    // Actualizar dirección/referencia si cambió
-    if (editAddress !== (existingCustomer.delivery_address || "") || 
+
+    if (editAddress !== (existingCustomer.delivery_address || "") ||
         editReference !== (existingCustomer.delivery_reference || "")) {
       customerService.update(existingCustomer.uuid, {
         delivery_address: editAddress,
         delivery_reference: editReference,
       }).catch(err => console.error("Error actualizando cliente:", err));
     }
-    
+
     onSave({
       name: existingCustomer.name,
       phone: existingCustomer.phone,
@@ -100,11 +90,11 @@ export function CustomerModal({ open, initialPhone, onSave, onClose }: CustomerM
 
   const handleCreateNew = async () => {
     if (!newName.trim()) {
-      setError(t("orders.customer_name_required", "El nombre es obligatorio"));
+      setError(t("orders.customer_name_required"));
       return;
     }
     if (!phone.replace(/\s+/g, "").trim()) {
-      setError(t("orders.customer_phone_required", "El teléfono es obligatorio"));
+      setError(t("orders.customer_phone_required"));
       return;
     }
 
@@ -118,7 +108,7 @@ export function CustomerModal({ open, initialPhone, onSave, onClose }: CustomerM
         delivery_address: newAddress,
         delivery_reference: newReference,
       });
-      
+
       onSave({
         name: newName.trim(),
         phone: phone.replace(/\s+/g, "").trim(),
@@ -126,7 +116,7 @@ export function CustomerModal({ open, initialPhone, onSave, onClose }: CustomerM
         reference: newReference.trim(),
       });
     } catch (err: any) {
-      setError(err.message || "Error al crear cliente");
+      setError(err.message || t("orders.customer_create_error"));
     } finally {
       setSearching(false);
     }
@@ -146,14 +136,14 @@ export function CustomerModal({ open, initialPhone, onSave, onClose }: CustomerM
           <div>
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
               <User size={20} className="text-orange-500" />
-              {step === "search" && t("orders.customer_search_title", "Buscar Cliente")}
-              {step === "existing" && t("orders.customer_existing_title", "Cliente Encontrado")}
-              {step === "create" && t("orders.customer_create_title", "Nuevo Cliente")}
+              {step === "search" && t("orders.customer_search_title")}
+              {step === "existing" && t("orders.customer_existing_title")}
+              {step === "create" && t("orders.customer_create_title")}
             </h2>
             <p className="text-sm text-slate-400 mt-1">
-              {step === "search" && t("orders.customer_search_hint", "Ingresa el teléfono para buscar o crear un cliente")}
-              {step === "existing" && t("orders.customer_existing_hint", "Verifica o actualiza los datos de entrega")}
-              {step === "create" && t("orders.customer_create_hint", "Completa los datos del nuevo cliente")}
+              {step === "search" && t("orders.customer_search_hint")}
+              {step === "existing" && t("orders.customer_existing_hint")}
+              {step === "create" && t("orders.customer_create_hint")}
             </p>
           </div>
           <button
@@ -170,7 +160,7 @@ export function CustomerModal({ open, initialPhone, onSave, onClose }: CustomerM
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">
-                {t("orders.customer_phone", "Teléfono / WhatsApp")} *
+                {t("orders.customer_phone")} *
               </label>
               <div className="relative">
                 <Phone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -180,7 +170,7 @@ export function CustomerModal({ open, initialPhone, onSave, onClose }: CustomerM
                   onChange={(e) => setPhone(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
-                  placeholder="Ej: +56 9 1234 5678"
+                  placeholder={t("orders.customer_phone_placeholder")}
                   autoFocus
                 />
               </div>
@@ -200,12 +190,12 @@ export function CustomerModal({ open, initialPhone, onSave, onClose }: CustomerM
               {searching ? (
                 <>
                   <Loader2 size={18} className="animate-spin" />
-                  {t("common.searching", "Buscando...")}
+                  {t("common.searching")}
                 </>
               ) : (
                 <>
                   <Search size={18} />
-                  {t("common.search", "Buscar")}
+                  {t("common.search")}
                 </>
               )}
             </button>
@@ -229,28 +219,28 @@ export function CustomerModal({ open, initialPhone, onSave, onClose }: CustomerM
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">
                 <MapPin size={14} className="inline mr-1" />
-                {t("orders.delivery_address", "Dirección de entrega")}
+                {t("orders.delivery_address")}
               </label>
               <input
                 type="text"
                 value={editAddress}
                 onChange={(e) => setEditAddress(e.target.value)}
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 px-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50"
-                placeholder="Ej: Av. Principal 123, Depto 4B"
+                placeholder={t("orders.delivery_address_placeholder")}
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">
                 <FileText size={14} className="inline mr-1" />
-                {t("orders.delivery_reference", "Referencia / Indicaciones")}
+                {t("orders.delivery_reference")}
               </label>
               <textarea
                 value={editReference}
                 onChange={(e) => setEditReference(e.target.value)}
                 rows={2}
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 px-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 resize-none"
-                placeholder="Ej: Timbre no funciona, llamar al llegar"
+                placeholder={t("orders.delivery_reference_placeholder")}
               />
             </div>
 
@@ -266,13 +256,13 @@ export function CustomerModal({ open, initialPhone, onSave, onClose }: CustomerM
                 onClick={handleBackToSearch}
                 className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-300 font-medium transition-colors"
               >
-                {t("common.back", "Volver")}
+                {t("common.back")}
               </button>
               <button
                 onClick={handleConfirmExisting}
                 className="flex-1 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors"
               >
-                {t("common.continue", "Continuar")}
+                {t("common.continue")}
               </button>
             </div>
           </div>
@@ -283,12 +273,12 @@ export function CustomerModal({ open, initialPhone, onSave, onClose }: CustomerM
           <div className="space-y-4">
             <div className="bg-blue-900/20 border border-blue-800/50 rounded-lg p-3 text-sm text-blue-300 flex items-start gap-2">
               <Plus size={16} className="mt-0.5 flex-shrink-0" />
-              <span>{t("orders.customer_not_found", "Cliente no encontrado. Completa los datos para registrarlo.")}</span>
+              <span>{t("orders.customer_not_found")}</span>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">
-                {t("orders.customer_name", "Nombre del Cliente")} *
+                {t("orders.customer_name")} *
               </label>
               <div className="relative">
                 <User size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -297,7 +287,7 @@ export function CustomerModal({ open, initialPhone, onSave, onClose }: CustomerM
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50"
-                  placeholder="Ej: Juan Pérez"
+                  placeholder={t("orders.customer_name_placeholder")}
                   autoFocus
                 />
               </div>
@@ -306,42 +296,42 @@ export function CustomerModal({ open, initialPhone, onSave, onClose }: CustomerM
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">
                 <Phone size={14} className="inline mr-1" />
-                {t("orders.customer_phone", "Teléfono")} *
+                {t("orders.customer_phone")} *
               </label>
               <input
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 px-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50"
-                placeholder="Ej: +56 9 1234 5678"
+                placeholder={t("orders.customer_phone_placeholder")}
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">
                 <MapPin size={14} className="inline mr-1" />
-                {t("orders.delivery_address", "Dirección de entrega")}
+                {t("orders.delivery_address")}
               </label>
               <input
                 type="text"
                 value={newAddress}
                 onChange={(e) => setNewAddress(e.target.value)}
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 px-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50"
-                placeholder="Ej: Av. Principal 123, Depto 4B"
+                placeholder={t("orders.delivery_address_placeholder")}
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">
                 <FileText size={14} className="inline mr-1" />
-                {t("orders.delivery_reference", "Referencia / Indicaciones")}
+                {t("orders.delivery_reference")}
               </label>
               <textarea
                 value={newReference}
                 onChange={(e) => setNewReference(e.target.value)}
                 rows={2}
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 px-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 resize-none"
-                placeholder="Ej: Timbre no funciona, llamar al llegar"
+                placeholder={t("orders.delivery_reference_placeholder")}
               />
             </div>
 
@@ -357,7 +347,7 @@ export function CustomerModal({ open, initialPhone, onSave, onClose }: CustomerM
                 onClick={handleBackToSearch}
                 className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-300 font-medium transition-colors"
               >
-                {t("common.back", "Volver")}
+                {t("common.back")}
               </button>
               <button
                 onClick={handleCreateNew}
@@ -367,12 +357,12 @@ export function CustomerModal({ open, initialPhone, onSave, onClose }: CustomerM
                 {searching ? (
                   <>
                     <Loader2 size={18} className="animate-spin" />
-                    {t("common.saving", "Guardando...")}
+                    {t("common.saving")}
                   </>
                 ) : (
                   <>
                     <Plus size={18} />
-                    {t("common.create", "Crear y Continuar")}
+                    {t("common.create")}
                   </>
                 )}
               </button>

@@ -35,17 +35,7 @@ export function GeneralSettingsPage() {
       // 1. Reparar base de datos local
       const result = await OrderRepository.repairInconsistentStates();
       
-      // 2. Limpiar el store en memoria (Zustand)
-      const cartStore = useCartStore.getState();
-      const currentCarts = cartStore.carts;
-      Object.keys(currentCarts).forEach(key => {
-        cartStore.clearCart(key);
-      });
-      
-      // 3. Limpiar localStorage completamente para forzar rehidratación limpia
-      localStorage.removeItem('pos-cart-storage');
-      
-      // 4. INVALIDAR CACHÉ DE REACT QUERY (Clave para que la UI se actualice)
+      // 2. INVALIDAR CACHÉ DE REACT QUERY ANTES de limpiar stores
       await queryClient.invalidateQueries({ queryKey: ['pending-accounts'] });
       await queryClient.invalidateQueries({ queryKey: ['orders'] });
       await queryClient.invalidateQueries({ queryKey: ['tables'] });
@@ -54,15 +44,28 @@ export function GeneralSettingsPage() {
       await queryClient.invalidateQueries({ queryKey: ['cashier'] });
       await queryClient.invalidateQueries({ queryKey: ['active-orders'] });
       await queryClient.invalidateQueries({ queryKey: ['sync-queue'] });
-      
-      // Invalidar TODAS las queries por si acaso alguna otra tiene datos obsoletos
       await queryClient.invalidateQueries();
       
-      setRepairResult(result);
-      alert("Reparación exitosa:\n- Pedidos corregidos: " + result.repairedOrders + "\n- Mesas liberadas: " + result.freedTables + "\n\nRecargando la aplicación...");
+      // 3. PRIMERO: Eliminar localStorage completamente
+      localStorage.removeItem('pos-cart-storage');
       
-      // 5. Reload completo para que todo se reinicie desde cero limpio
-      window.location.reload();
+      // 4. SEGUNDO: Limpiar el store en memoria (Zustand)
+      const cartStore = useCartStore.getState();
+      const currentCarts = cartStore.carts;
+      Object.keys(currentCarts).forEach(key => {
+        cartStore.clearCart(key);
+      });
+      
+      // 5. TERCERO: Forzar recarga inmediata para que Zustand se rehidrate desde localStorage vacío
+      // Esto debe ser ANTES de que el middleware persist tenga tiempo de guardar el estado
+      setRepairResult(result);
+      
+      // Usar setTimeout(0) para asegurar que el reload sea lo más inmediato posible
+      setTimeout(() => {
+        alert("Reparación exitosa:\n- Pedidos corregidos: " + result.repairedOrders + "\n- Mesas liberadas: " + result.freedTables + "\n\nRecargando la aplicación...");
+        window.location.reload();
+      }, 0);
+      
     } catch (error) {
       console.error("Error reparando estados:", error);
       alert("Error al reparar estados. Revisa la consola.");

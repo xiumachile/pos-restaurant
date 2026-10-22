@@ -3,29 +3,27 @@ import { useSyncQueueStats } from "@/hooks/useSyncQueue";
 import { useSyncStore } from "@/store/useSyncStore";
 import { Clock, RefreshCw, CheckCircle, AlertCircle, History } from "lucide-react";
 
-/**
- * Formato de tiempo relativo desde un timestamp.
- */
-function formatTimeAgo(timestamp: string | null): string {
-  if (!timestamp) return "Nunca";
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  
-  if (diffMins < 1) return "Hace instantes";
-  if (diffMins < 60) return `Hace ${diffMins}m`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `Hace ${diffHours}h`;
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return `Hace ${diffDays}d`;
-  return date.toLocaleDateString("es-CL");
-}
-
 export function SyncQueueStats() {
   const { t } = useTranslation();
   const { data: stats, isLoading } = useSyncQueueStats();
   const lastSyncAt = useSyncStore((s) => s.lastSyncAt);
+
+  // Función de tiempo relativo 100% traducida
+  const formatTimeAgo = (timestamp: string | null) => {
+    if (!timestamp) return t("sync.never");
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 1) return t("sync.just_now");
+    if (diffMins < 60) return t("sync.mins_ago", { count: diffMins });
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return t("sync.hours_ago", { count: diffHours });
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return t("sync.days_ago", { count: diffDays });
+    return date.toLocaleDateString(); // Fallback seguro para fechas antiguas
+  };
 
   if (isLoading || !stats) {
     return (
@@ -40,7 +38,6 @@ export function SyncQueueStats() {
     );
   }
 
-  // Total histórico = todos los items en la cola visible
   const totalHistorical = stats.pending + stats.syncing + stats.synced + stats.failed;
 
   const cards = [

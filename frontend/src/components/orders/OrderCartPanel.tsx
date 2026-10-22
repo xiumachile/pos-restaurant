@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from 'react';
+import { CustomerModal } from './CustomerModal';
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from 'react-i18next';
 import { useCartStore } from "@/stores/useCartStore";
@@ -22,11 +23,8 @@ import { mergeAuthContext } from "@/services/authContext";
 import { channelToOrderType } from "@/stores/useActiveChannelStore";
 
 interface OrderCartPanelProps {
-  /** Clave del cart en el store (cartKey para mesa, "takeaway-{uuid}" para fuera de mesa) */
   cartKey: string;
-  /** ID de la mesa para el backend. null para pedidos fuera de mesa */
   tableId: string | null;
-  /** Identificador a mostrar junto al título del carrito (ej: número de mesa) */
   title: string;
 }
 
@@ -40,6 +38,17 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const cart = useCartStore((s) => s.carts[cartKey]);
+  
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const isDelivery = cart?.channel === 'delivery';
+  const hasCustomerData = (cart as any)?.customerPhone || (cart as any)?.customerName;
+
+  useEffect(() => {
+    if (isDelivery && !hasCustomerData) {
+      setIsCustomerModalOpen(true);
+    }
+  }, [isDelivery, hasCustomerData]);
+
   const { capabilities } = useCapabilities();
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
@@ -58,8 +67,7 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
   const [noteEditingId, setNoteEditingId] = useState<string | null>(null);
   const [noteInput, setNoteInput] = useState("");
   const { notes: defaultNotes, isLoading: isLoadingNotes } = useDefaultNotes();
-  
-  // Estado para autorización de administrador
+
   const [authModal, setAuthModal] = useState<{ open: boolean; action: "remove" | "reduce"; itemName: string; itemLocalUuid?: string }>({
     open: false,
     action: "remove",
@@ -78,42 +86,37 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
   const handleSendOrder = async () => {
     if (items.length === 0 || !user) return;
 
-    setFeedback({ type: "loading", message: `💾 ${t("orders.sending")} ${items.length} items...` });
+    setFeedback({ type: "loading", message: `💾 ${t("orders.sending")} ${items.length} ${t("orders.items_count")}...` });
 
     try {
-      const isDineIn = channelToOrderType(cart.channel) === "dine_in";
-      const isEditMode = cartKey.startsWith("edit-");
-      const orderLocalUuid = isEditMode ? cartKey.replace("edit-", "") : null;
+      const isDineIn = channelToOrderType(cart?.channel) === "dine_in";
+      const isEditModeLocal = cartKey.startsWith("edit-");
+      const orderLocalUuidLocal = isEditModeLocal ? cartKey.replace("edit-", "") : null;
 
       let order;
 
-      if (isEditMode && orderLocalUuid) {
-        // CASO 1: MODO EDICIÓN (Delivery/Takeaway existente)
-        console.log("[OrderCartPanel] Guardando cambios en pedido existente:", orderLocalUuid);
-        
+      if (isEditModeLocal && orderLocalUuidLocal) {
+        console.log("[OrderCartPanel] Guardando cambios en pedido existente:", orderLocalUuidLocal);
+
         const originalItemIds = (cart as any).originalItemIds || [];
         const currentItemIds = items.map(i => i.id);
 
-        // 1. Eliminar items originales que el usuario quitó del carrito
         for (const originalId of originalItemIds) {
           if (!currentItemIds.includes(originalId)) {
             console.log("[OrderCartPanel] Eliminando item:", originalId);
-            await OrderRepository.removeItem(orderLocalUuid, originalId);
+            await OrderRepository.removeItem(orderLocalUuidLocal, originalId);
           }
         }
 
-        // 2. Actualizar cantidades o agregar items nuevos
         for (const item of items) {
           if (originalItemIds.includes(item.id)) {
-            // Es un item original: actualizar cantidad
             if (item.quantity > 0) {
               console.log("[OrderCartPanel] Actualizando cantidad del item:", item.id, "a", item.quantity);
-              await OrderRepository.updateItemQuantity(orderLocalUuid, item.id, item.quantity);
+              await OrderRepository.updateItemQuantity(orderLocalUuidLocal, item.id, item.quantity);
             }
           } else {
-            // Es un item nuevo: agregar
             console.log("[OrderCartPanel] Agregando nuevo item:", item.product.uuid);
-            await OrderRepository.addItem(orderLocalUuid, {
+            await OrderRepository.addItem(orderLocalUuidLocal, {
               product_id: item.product.uuid,
               product_name: getTranslatedName(item.product.name_translations),
               quantity: item.quantity,
@@ -122,16 +125,14 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
             });
           }
         }
-        order = { local_uuid: orderLocalUuid } as any;
+        order = { local_uuid: orderLocalUuidLocal } as any;
 
       } else {
-        // CASO 2 y 3: Nuevo pedido o Mesa ocupada
         const existingActiveOrder = isDineIn ? activeOrders.find(o => o.status !== 'paid' && o.status !== 'cancelled') : null;
 
         if (existingActiveOrder) {
-          // CASO 2: Mesa ocupada, agregar items al pedido existente
           const orderUuid = (existingActiveOrder as any)._localUuid || (existingActiveOrder as any).local_uuid || (existingActiveOrder as any).uuid;
-          
+
           if (!orderUuid) {
             throw new Error("No se pudo identificar el UUID del pedido existente para agregar items.");
           }
@@ -148,17 +149,16 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
           }
           order = existingActiveOrder;
         } else {
-          // CASO 3: Crear un pedido completamente nuevo
           console.log("[OrderCartPanel] Creando nuevo pedido");
           order = await OrderRepository.createWithItems(
             mergeAuthContext({
-              table_id: isDineIn ? (cart.tableUuid ?? null) : null,
-              order_type: channelToOrderType(cart.channel) === "takeout" ? "take_out" : channelToOrderType(cart.channel),
-              customer_name: (cart as any).customerName || null,
-              customer_phone: (cart as any).customerPhone || null,
-              customer_address: (cart as any).customerAddress || null, // Mantenemos este nombre si OrderRepository lo mapea
+              table_id: isDineIn ? (cart?.tableUuid ?? null) : null,
+              order_type: channelToOrderType(cart?.channel) === "takeout" ? "take_out" : channelToOrderType(cart?.channel),
+              customer_name: (cart as any)?.customerName || null,
+              customer_phone: (cart as any)?.customerPhone || null,
+              customer_address: (cart as any).customerAddress || null,
               customer_reference: (cart as any).customerReference || null,
-            } as any), // Usamos 'as any' temporalmente para evitar conflictos de tipado estricto mientras unificamos interfaces
+            } as any),
             items.map(item => ({
               product_id: item.product.uuid,
               product_name: getTranslatedName(item.product.name_translations),
@@ -170,19 +170,16 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
         }
       }
 
-      // 2. Limpiar carrito y actualizar UI inmediatamente
       clearCart(cartKey);
       refetchActiveOrders();
 
-      // 3. Mostrar feedback de éxito
       setFeedback({
         type: "success",
         message: syncStatus === "offline"
-          ? "✓ Pedido guardado offline. Sincronizará al reconectar."
-          : "✓ Pedido enviado a cocina",
+          ? t("orders.saved_offline")
+          : t("orders.sent_to_kitchen"),
       });
 
-      // 4. Invalidar cache (operación no crítica, no debe fallar el flujo)
       try {
         await invalidateTables();
         await invalidateCashier();
@@ -190,7 +187,6 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
         console.warn("[OrderCartPanel] Error invalidando cache (no crítico):", cacheError);
       }
 
-      // 5. Redirección inteligente según configuración de la empresa
       setTimeout(async () => {
         const returnToLogin = capabilities[CapabilityKey.RETURN_TO_LOGIN_AFTER_ORDER]?.is_enabled;
         if (returnToLogin) {
@@ -204,7 +200,7 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
       console.error("[OrderCartPanel] Error creando/actualizando pedido:", error);
       setFeedback({
         type: "error",
-        message: error?.message || "Error al guardar el pedido",
+        message: error?.message || t("orders.save_order_error"),
       });
     }
   };
@@ -214,7 +210,6 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
 
   return (
     <aside className="w-full md:w-80 lg:w-96 bg-slate-800/50 border border-slate-700 rounded-xl flex flex-col overflow-hidden">
-      {/* Header */}
       <div className="p-4 border-b border-slate-700 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ShoppingCart size={20} className="text-orange-400" />
@@ -235,7 +230,6 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
         </div>
       </div>
 
-      {/* Scroll container */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         <ActiveOrderItems orders={activeOrders} />
 
@@ -288,11 +282,12 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
                   }}
                   disabled={isProcessing}
                   className="min-w-[44px] min-h-[44px] p-2 hover:bg-red-500/20 rounded-lg ml-2 disabled:opacity-40 flex items-center justify-center"
-                 aria-label="Eliminar"><Trash2 size={20} className="text-red-400" />
+                  aria-label={t("orders.remove_item")}
+                >
+                  <Trash2 size={20} className="text-red-400" />
                 </button>
               </div>
 
-              {/* Notas */}
               {item.notes && (
                 <div className="mt-2 mb-2 p-2 bg-yellow-900/20 border border-yellow-700/50 rounded text-xs text-yellow-200 flex items-start gap-2">
                   <span>📝</span>
@@ -304,7 +299,7 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
                     }}
                     className="text-yellow-400 hover:text-yellow-300"
                   >
-                    Editar
+                    {t("common.edit")}
                   </button>
                 </div>
               )}
@@ -321,7 +316,9 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
                     }}
                     disabled={isProcessing}
                     className="min-w-[44px] min-h-[44px] p-2 bg-slate-700 hover:bg-slate-600 rounded-lg disabled:opacity-40 flex items-center justify-center"
-                   aria-label="Disminuir cantidad"><Minus size={20} />
+                    aria-label={t("orders.decrease_quantity")}
+                  >
+                    <Minus size={20} />
                   </button>
                   <span className="text-base font-bold w-7 text-center">
                     {item.quantity}
@@ -330,7 +327,9 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
                     onClick={() => updateQuantity(cartKey, item.id, item.quantity + 1)}
                     disabled={isProcessing}
                     className="min-w-[44px] min-h-[44px] p-2 bg-slate-700 hover:bg-slate-600 rounded-lg disabled:opacity-40 flex items-center justify-center"
-                   aria-label="Aumentar cantidad"><Plus size={20} />
+                    aria-label={t("orders.increase_quantity")}
+                  >
+                    <Plus size={20} />
                   </button>
                   <button
                     onClick={() => {
@@ -353,7 +352,6 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
         )}
       </div>
 
-      {/* Feedback */}
       {feedback.type !== "idle" && (
         <div
           className={`mx-3 mb-2 p-3 rounded-lg text-sm flex items-start gap-2 ${
@@ -371,7 +369,6 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
         </div>
       )}
 
-      {/* Totales + acciones */}
       <div className="border-t border-slate-700 p-4 space-y-2 bg-slate-900/50">
         {hasActiveOrders ? (
           <>
@@ -393,11 +390,11 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
         ) : (
           <>
             <div className="flex justify-between text-sm">
-              <span className="text-slate-400">{t("orders.net_amount", "Neto")}</span>
+              <span className="text-slate-400">{t("orders.net_amount")}</span>
               <span>{formatPrice(totals.subtotal)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-slate-400">IVA ({IVA_PERCENTAGE}%)</span>
+              <span className="text-slate-400">{t("orders.tax")} ({IVA_PERCENTAGE}%)</span>
               <span>{formatPrice(totals.tax)}</span>
             </div>
             <div className="flex justify-between text-lg font-bold pt-2 border-t border-slate-700">
@@ -435,18 +432,16 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
         </div>
       </div>
 
-      {/* Modal de Notas */}
       {noteEditingId && (
         <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4" onClick={() => setNoteEditingId(null)}>
           <div className="bg-slate-800 rounded-xl p-6 w-full max-w-sm border border-slate-700" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-white mb-4">{t("orders.add_note")}</h3>
-            
-            {/* Notas predefinidas dinámicas */}
+
             <div className="flex flex-wrap gap-2 mb-4">
               {isLoadingNotes ? (
-                <span className="text-xs text-slate-400">Cargando notas...</span>
+                <span className="text-xs text-slate-400">{t("orders.loading_notes")}</span>
               ) : defaultNotes.length === 0 ? (
-                <span className="text-xs text-slate-400">No hay notas predefinidas configuradas</span>
+                <span className="text-xs text-slate-400">{t("orders.no_default_notes")}</span>
               ) : (
                 defaultNotes.map((note) => {
                   const noteText = getDefaultNoteText(note, i18n.language);
@@ -465,7 +460,6 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
               )}
             </div>
 
-            {/* Input personalizado */}
             <textarea
               value={noteInput}
               onChange={(e) => setNoteInput(e.target.value)}
@@ -509,7 +503,6 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
         </div>
       )}
 
-      {/* Modal de Autorización de Administrador */}
       <AdminAuthModal
         open={authModal.open}
         action={authModal.action}
@@ -518,7 +511,6 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
           if (authModal.itemLocalUuid && orderLocalUuid) {
             if (authModal.action === "remove") {
               OrderRepository.removeItem(orderLocalUuid, authModal.itemLocalUuid).then(() => {
-                // Actualizar el carrito localmente para reflejar el cambio inmediatamente
                 const currentCart = useCartStore.getState().carts[cartKey];
                 if (currentCart) {
                   useCartStore.getState().setCart(cartKey, {
@@ -528,7 +520,7 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
                 }
               }).catch(err => {
                 console.error("Error eliminando item:", err);
-                alert("Error al eliminar el item");
+                alert(t("orders.delete_item_error"));
               });
             } else if (authModal.action === "reduce") {
               OrderRepository.updateItemQuantity(orderLocalUuid, authModal.itemLocalUuid, 0).then(() => {
@@ -541,13 +533,37 @@ export function OrderCartPanel({ cartKey, tableId, title }: OrderCartPanelProps)
                 }
               }).catch(err => {
                 console.error("Error actualizando cantidad:", err);
-                alert("Error al actualizar la cantidad");
+                alert(t("orders.update_quantity_error"));
               });
             }
           }
           setAuthModal({ open: false, action: "remove", itemName: "" });
         }}
         onCancel={() => setAuthModal({ open: false, action: "remove", itemName: "" })}
+      />
+      
+      <CustomerModal
+        open={isCustomerModalOpen}
+        initialPhone={(cart as any)?.customerPhone || ''}
+        onSave={(customer) => {
+          const currentCart = useCartStore.getState().carts[cartKey];
+          if (currentCart) {
+            useCartStore.getState().setCart(cartKey, {
+              ...currentCart,
+              customerName: customer.name,
+              customerPhone: customer.phone,
+              customerAddress: customer.address || '',
+            } as any);
+          }
+          setIsCustomerModalOpen(false);
+        }}
+        onClose={() => {
+          if (isDelivery && !((cart as any)?.customerPhone || (cart as any)?.customerName)) {
+            setIsCustomerModalOpen(true);
+          } else {
+            setIsCustomerModalOpen(false);
+          }
+        }}
       />
     </aside>
   );

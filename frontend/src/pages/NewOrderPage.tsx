@@ -8,14 +8,6 @@ import type { ChannelType } from "@/stores/useActiveChannelStore";
 
 /**
  * Página de entrada para iniciar un pedido nuevo fuera de mesa.
- *
- * Flujo:
- *   1. Usuario llega a esta página desde el botón "+ Pedido nuevo" en TablesPage
- *   2. Se abre automáticamente el modal de selección de canal
- *   3. Al elegir un canal, se crea el cart con initOrder() y se navega al flujo
- *      de toma de pedido en /orders/takeaway/:cartKey
- *
- * Si el usuario cancela, vuelve a la página de mesas.
  */
 export function NewOrderPage() {
   const { t } = useTranslation();
@@ -62,9 +54,7 @@ export function NewOrderPage() {
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="text-center max-w-md">
           <p className="text-slate-300 mb-6">
-            {t("orders.new_order_hint", {
-              defaultValue: "Elige el canal de venta para iniciar el pedido.",
-            })}
+            {t("orders.new_order_hint")}
           </p>
           <button
             onClick={() => setModalOpen(true)}

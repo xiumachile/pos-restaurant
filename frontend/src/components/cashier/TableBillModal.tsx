@@ -3,11 +3,16 @@ import { useOfflinePrintJob } from '@/hooks/useOfflinePrintJob';
 import { formatPrecuenta, type PrecuentaData } from '@/services/printing/ticketFormatters';
 import { useTranslation, Trans } from 'react-i18next';
 import { useState, useMemo, useEffect } from "react";
+import { useConnectionMode } from "@/hooks/useConnectionMode";
 import type { Bill } from "@/types/bills";
-import {
-  useTablesWithBills,
-  usePrepareTableBills,
-} from "@/hooks/usePayments";
+import { usePrepareTableBills } from "@/hooks/usePayments";
+import { useQuery } from "@tanstack/react-query";
+import { localPaymentsService } from "@/services/localPaymentsService";
+import { billsService } from "@/services/billsService";
+import { v4 as uuidv4 } from "uuid";
+import { BillRepository } from "@/db/repositories/BillRepository";
+import { localDb } from "@/db/localDb";
+import { useAuthStore } from "@/store/useAuthStore";
 import { formatPrice } from "@/types/catalog";
 import { IVA_PERCENTAGE } from "@/config/tax";
 import {
@@ -22,24 +27,46 @@ import { BillPaymentModalV2 } from "./BillPaymentModalV2";
 import { PrintablePrecuenta } from "./PrintablePrecuenta";
 
 interface TableBillModalProps {
-  tableUuid: string;
+  accountId: string; // Puede ser table_uuid o local_uuid de un pedido
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
 
 export function TableBillModal({
-  tableUuid,
+  accountId,
   isOpen,
   onClose,
   onSuccess,
 }: TableBillModalProps) {
   const { t } = useTranslation();
-  const { data: tablesWithBills = [] } = useTablesWithBills();
-  const tableBill = useMemo(
-    () => tablesWithBills.find((t) => t.table_uuid === tableUuid),
-    [tablesWithBills, tableUuid]
+  const auth = useAuthStore();
+  // Fallback seguro: usamos auth si no está en local_orders
+  
+  const { data: pendingAccounts = [] } = useQuery({
+    queryKey: ['pending-accounts'],
+    queryFn: async () => {
+      return await localPaymentsService.listPendingAccountsOffline();
+    },
+  });
+
+  const account = useMemo(
+    () => pendingAccounts.find((a: any) => a.id === accountId),
+    [pendingAccounts, accountId]
   );
+
+  // Adaptar PendingAccount a Bill para BillPaymentModalV2
+  const bill = useMemo(() => {
+    if (!account) return null;
+    return {
+      uuid: account.id,
+      table_uuid: account.type === 'table' ? account.identifier : null,
+      table_number: account.type === 'table' ? account.identifier : (account.type === 'delivery' ? 'Delivery' : 'Takeout'),
+      total: account.total_amount,
+      remaining_amount: account.total_amount, // Asumimos que no hay pagos parciales en esta vista simplificada
+      orders: account.orders || [],
+    } as any; // Casting temporal para compatibilidad con BillPaymentModalV2
+  }, [account]);
 
   const [payingBills, setPayingBills] = useState<Bill[] | null>(null);
   
@@ -51,12 +78,12 @@ export function TableBillModal({
   const { enqueueReceipt } = useOfflinePrintJob();
 
   // Estado de impresión (persistido en sessionStorage)
-  const storageKey = `printed_${tableUuid}`;
-  const versionKey = `printed_version_${tableUuid}`;
+  const storageKey = `printed_${accountId}`;
+  const versionKey = `printed_version_${accountId}`;
   
   // Versión actual: string de UUIDs de items para detectar cambios en los pedidos
-  const currentVersion = tableBill 
-    ? JSON.stringify(tableBill.orders.flatMap((o: any) => o.items.map((item: any) => item.uuid)).sort())
+  const currentVersion = account 
+    ? JSON.stringify(account.orders.flatMap((o: any) => o.items.map((item: any) => item.uuid)).sort())
     : '';
   const [isPrinted, setIsPrinted] = useState(() => {
     try {
@@ -69,21 +96,21 @@ export function TableBillModal({
 
   // Resetear estado de impresión si cambian los pedidos (nuevos items, modificaciones)
   useEffect(() => {
-    if (isOpen && tableBill) {
+    if (isOpen && account) {
       const savedVersion = sessionStorage.getItem(versionKey);
       if (savedVersion !== currentVersion) {
         setIsPrinted(false);
       }
     }
-  }, [isOpen, tableUuid, currentVersion]);
+  }, [isOpen, accountId, currentVersion]);
 
 
 
   // Items agregados de todos los pedidos
   const aggregatedItems = useMemo(() => {
-    if (!tableBill) return [];
+    if (!account) return [];
     const map = new Map<string, { name: string; quantity: number; unitPrice: number; subtotal: number }>();
-    for (const order of tableBill.orders) {
+    for (const order of account.orders) {
       for (const item of order.items) {
         const existing = map.get(item.name);
         if (existing) {
@@ -100,27 +127,27 @@ export function TableBillModal({
       }
     }
     return Array.from(map.values());
-  }, [tableBill]);
+  }, [account]);
 
   // Imprimir precuenta usando el motor ESC/POS unificado
   const handlePrint = async () => {
-    if (!tableBill) return;
+    if (!account) return;
 
     try {
       const precuentaData: PrecuentaData = {
-        tableNumber: tableBill.table_number,
-        areaCode: tableBill.area_code,
-        ordersCount: tableBill.orders_count,
+        tableNumber: bill?.table_number || "N/A",
+        areaCode: account.area_code,
+        ordersCount: account.orders_count,
         items: aggregatedItems.map(item => ({
           name: item.name,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           subtotal: item.subtotal,
         })),
-        subtotal: tableBill.subtotal,
-        taxTotal: tableBill.tax_amount,
-        grandTotal: tableBill.total_amount,
-        totalItems: tableBill.total_items,
+        subtotal: account.subtotal,
+        taxTotal: account.tax_amount,
+        grandTotal: account.total_amount,
+        totalItems: account.total_items,
         createdAt: new Date(),
       };
 
@@ -128,12 +155,12 @@ export function TableBillModal({
       const escposBase64 = builder.buildBase64();
 
       await enqueueReceipt.mutateAsync({
-        entity_uuid: tableBill.table_uuid,
+        entity_uuid: bill?.table_uuid || account.id,
         entity_type: "table_bill",
         payload: precuentaData,
         escpos_base64: escposBase64,
         printer_name: "receipt-printer",
-        reference_number: t("table_bill.precuenta_reference") + " " + tableBill.table_number,
+        reference_number: t("table_bill.precuenta_reference") + " " + (bill?.table_number || "Pedido"),
       });
 
       sessionStorage.setItem(storageKey, "true");
@@ -149,10 +176,10 @@ export function TableBillModal({
 
   // Click en Cobrar: verifica no servidos, luego impresión
   const handleChargeClick = () => {
-    if (!tableBill || prepareTableBills.isPending) return;
+    if (!account || prepareTableBills.isPending) return;
 
     // Prioridad 1: advertir si hay productos sin servir
-    if (tableBill.has_unserved_orders) {
+    if (account.has_unserved_orders) {
       setShowUnservedWarning(true);
       return;
     }
@@ -169,7 +196,7 @@ export function TableBillModal({
   // Continuar después de advertencia de no servidos (verifica impresión)
   const handleContinueAfterUnserved = () => {
     setShowUnservedWarning(false);
-    if (!tableBill) return;
+    if (!account) return;
     if (!isPrinted) {
       setShowPrintWarning(true);
       return;
@@ -179,15 +206,92 @@ export function TableBillModal({
 
   // Continuar al modal de pago (después de verificar impresión)
   const proceedToPayment = async () => {
-    if (!tableBill) return;
+    if (!account) return;
     setShowPrintWarning(false);
 
     try {
-      const result = await prepareTableBills.mutateAsync(tableBill.table_uuid);
-      setPayingBills(result.bills);
+      // 1. El UUID real del pedido local está en orders[0].uuid (account.id puede ser table_id)
+      const firstOrder = account.orders?.[0];
+      if (!firstOrder) {
+        useToastStore.getState().addToast("error", "No se encontró el pedido asociado a esta cuenta.");
+        return;
+      }
+      
+      const orderLocalUuid = firstOrder.uuid;
+      
+      // 2. Intentar preparar bills en backend si es mesa y está online
+      if (account.type === 'table' && !prepareTableBills.isPending) {
+        try {
+          const result = await prepareTableBills.mutateAsync(account.identifier);
+          setPayingBills(result.bills);
+          return;
+        } catch (e) {
+          console.warn("Fallo prepareTableBills, creando bill local:", e);
+        }
+      }
+      
+      // 3. Obtener company_id y branch_id REALES del pedido en SQLite
+      const orderData = await localDb.select<any>(
+        "SELECT company_id, branch_id, cloud_id FROM local_orders WHERE local_uuid = ? LIMIT 1",
+        [orderLocalUuid]
+      );
+      
+      // Fallback: si no está en local_orders, usar el contexto del usuario autenticado
+      // Nota: auth.user.company_id podría ser un número o UUID, lo convertimos a string
+      const authCompanyId = String(auth.user?.company_id || auth.user?.company?.id || "c1");
+      const authBranchId = String(auth.user?.branch_id || auth.user?.branch?.id || "b1");
+      
+      const actualCompanyId = (orderData.length > 0 && orderData[0].company_id) 
+        ? String(orderData[0].company_id) 
+        : authCompanyId;
+        
+      const actualBranchId = (orderData.length > 0 && orderData[0].branch_id) 
+        ? String(orderData[0].branch_id) 
+        : authBranchId;
+        
+      const orderCloudId = orderData.length > 0 ? orderData[0].cloud_id : undefined;
+
+      // 3. Verificar si ya existe una bill local para este order
+      const existingBills = await localDb.select<any>(
+        "SELECT * FROM local_bills WHERE order_local_uuid = ? AND status != 'cancelled' LIMIT 1",
+        [orderLocalUuid]
+      );
+      let existingBill = existingBills.length > 0 ? existingBills[0] : null;
+      
+      if (!existingBill) {
+        console.log("[TableBillModal] Creando bill local para orderLocalUuid:", orderLocalUuid, "con company:", actualCompanyId);
+        // Crear bill local para que useOfflinePayment pueda encontrarla
+        const newLocalBill = await BillRepository.create({
+          company_id: actualCompanyId,
+          branch_id: actualBranchId,
+          terminal_id: "frontend-terminal",
+          order_local_uuid: orderLocalUuid,
+          order_cloud_id: orderCloudId,
+          bill_number: `TEMP-${orderLocalUuid.slice(0, 8).toUpperCase()}`,
+          subtotal: Number(account.subtotal || account.total_amount),
+          discount_total: 0,
+          tax_total: Number(account.tax_amount || 0),
+          tip_amount: 0,
+          grand_total: Number(account.total_amount),
+        });
+        existingBill = newLocalBill;
+      }
+      
+      // 3. Mapear la bill local al formato que espera BillPaymentModalV2
+      const billForModal = {
+        uuid: existingBill.local_uuid,
+        order_uuid: existingBill.order_cloud_id || undefined,
+        total: existingBill.grand_total,
+        remaining_amount: existingBill.remaining_amount,
+        paid_amount: existingBill.paid_amount,
+        status: existingBill.status,
+        orders: account.orders,
+      } as any;
+      
+      setPayingBills([billForModal]);
     } catch (e) {
-      console.error("Error preparando bills:", e);
-      useToastStore.getState().addToast("warning", "$1");
+      console.error("Error crítico preparando cobro:", e);
+      useToastStore.getState().addToast("error", "Error al preparar el cobro. Intente nuevamente.");
     }
   };
 
@@ -204,15 +308,15 @@ export function TableBillModal({
   };
 
   useEffect(() => {
-    if (isOpen && tableBill === undefined) {
+    if (isOpen && account === undefined) {
       onClose();
       onSuccess();
     }
-  }, [isOpen, tableBill, onClose, onSuccess]);
+  }, [isOpen, account, onClose, onSuccess]);
 
-  if (!isOpen || !tableBill) return null;
+  if (!isOpen || !account) return null;
 
-  const totalAmount = tableBill.total_amount;
+  const totalAmount = account.total_amount;
 
   return (
     <>
@@ -230,7 +334,7 @@ export function TableBillModal({
                 {t("cashier.table_consumption")}
               </h2>
               <p className="text-sm text-slate-400 mt-0.5">
-                {t("cashier.table")} {tableBill.table_number} · {tableBill.orders_count} {t("cashier.orders")} · {tableBill.total_items} {t("cashier.items")}
+                {account.type === "table" ? t("cashier.table") + " " + account.identifier : (account.type === "delivery" ? "Delivery" : "Takeout")} · {account.orders_count} {t("cashier.orders")} · {account.total_items} {t("cashier.items")}
               </p>
             </div>
             <button
@@ -274,11 +378,11 @@ export function TableBillModal({
             <div className="bg-slate-800/50 rounded-lg p-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-slate-400">{t("table_bill.subtotal")}</span>
-                <span className="text-white">{formatPrice(tableBill.subtotal)}</span>
+                <span className="text-white">{formatPrice(account.subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-slate-400">IVA ({IVA_PERCENTAGE}%)</span>
-                <span className="text-white">{formatPrice(tableBill.tax_amount)}</span>
+                <span className="text-white">{formatPrice(account.tax_amount)}</span>
               </div>
               <div className="flex justify-between text-2xl font-bold pt-3 border-t border-slate-700">
                 <span className="text-slate-200">{t("orders.total")}</span>
@@ -287,12 +391,12 @@ export function TableBillModal({
             </div>
 
             {/* Indicador de productos sin servir */}
-            {tableBill.has_unserved_orders && (
+            {account.has_unserved_orders && (
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs bg-red-900/20 border border-red-700/50 text-red-300">
                 <AlertTriangle size={14} />
                 <span>
-                  <strong>{tableBill.unserved_items_count}</strong> {t("table_bill.unserved_items_indicator", { count: "", plural: tableBill.unserved_items_count !== 1 ? "s" : "" }).replace("{count}", "")}
-                  {" "}{t("table_bill.preparing_orders_indicator", { count: tableBill.unserved_orders_count, plural: tableBill.unserved_orders_count !== 1 ? "s" : "" })}
+                  <strong>{account.unserved_items_count}</strong> {t("table_bill.unserved_items_indicator", { count: "", plural: account.unserved_items_count !== 1 ? "s" : "" }).replace("{count}", "")}
+                  {" "}{t("table_bill.preparing_orders_indicator", { count: account.unserved_orders_count, plural: account.unserved_orders_count !== 1 ? "s" : "" })}
                 </span>
               </div>
             )}
@@ -336,7 +440,7 @@ export function TableBillModal({
               </button>
               <button
                 onClick={handleChargeClick}
-                disabled={!tableBill || prepareTableBills.isPending}
+                disabled={!account || prepareTableBills.isPending}
                 className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-bold text-white disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {prepareTableBills.isPending ? (
@@ -357,7 +461,7 @@ export function TableBillModal({
       </div>
 
       {/* Modal de advertencia: productos sin servir */}
-      {showUnservedWarning && tableBill && (
+      {showUnservedWarning && account && (
         <>
           <div className="fixed inset-0 bg-black/70 z-[60]" />
           <div className="fixed inset-0 z-[61] flex items-center justify-center p-4">
@@ -370,18 +474,18 @@ export function TableBillModal({
                   <div>
                     <h3 className="text-lg font-bold text-white">{t("table_bill.products_not_served")}</h3>
                     <p className="text-sm text-slate-400">
-                      {t("table_bill.unserved_items_message", { count: tableBill.unserved_items_count, plural: tableBill.unserved_items_count !== 1 ? "s" : "", verb: tableBill.unserved_items_count !== 1 ? "están" : "está" })}
+                      {t("table_bill.unserved_items_message", { count: account.unserved_items_count, plural: account.unserved_items_count !== 1 ? "s" : "", verb: account.unserved_items_count !== 1 ? "están" : "está" })}
                     </p>
                   </div>
                 </div>
                 <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-3 space-y-2">
                   <p className="text-sm text-slate-200">
-                    {t("table_bill.unserved_orders_message", { count: tableBill.unserved_orders_count, plural: tableBill.unserved_orders_count !== 1 ? "s" : "", verb: tableBill.unserved_orders_count !== 1 ? "están" : "está" })}
+                    {t("table_bill.unserved_orders_message", { count: account.unserved_orders_count, plural: account.unserved_orders_count !== 1 ? "s" : "", verb: account.unserved_orders_count !== 1 ? "están" : "está" })}
                   </p>
                   <ul className="text-xs text-slate-300 space-y-1 pl-4">
-                    {tableBill.orders
-                      .filter((o) => o.status !== "served")
-                      .map((o) => (
+                    {account.orders
+                      .filter((o: any) => o.status !== "served")
+                      .map((o: any) => (
                         <li key={o.uuid}>
                           <strong>#{o.order_number}</strong> ·{" "}
                           {o.status === "confirmed" && t("table_bill.status_confirmed")}
@@ -488,7 +592,7 @@ export function TableBillModal({
       />
 
       {/* Componente oculto para impresión */}
-      <PrintablePrecuenta tableBill={tableBill} />
+      <PrintablePrecuenta tableBill={bill as any} />
 
 
     </>

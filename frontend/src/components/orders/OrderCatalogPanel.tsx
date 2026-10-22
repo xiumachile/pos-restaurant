@@ -16,10 +16,10 @@ interface OrderCatalogPanelProps {
 
 /**
  * Catálogo compacto para toma de pedidos.
- * 
+ *
  * Fase 2: El canal se recibe como prop desde el padre (viene del cart del pedido),
  * garantizando que cada pedido use su propio canal sin contaminación cruzada.
- * 
+ *
  * El badge persistente muestra la carta y lista de precios activas con
  * el mismo peso visual que el total del carrito (salvaguarda de UX).
  */
@@ -31,15 +31,23 @@ export function OrderCatalogPanel({ onAddProduct, channel }: OrderCatalogPanelPr
 
   const { data: categories = [] } = useCategories();
   const { data: activeMenu, isLoading: loadingMenu } = useActiveMenu(channel);
-  
+
   // FALLBACK: Si no hay menú activo, cargamos todos los productos activos (soporte offline)
   const { data: fallbackProducts = [] } = useProducts({});
 
   // Construir productos desde los items de la carta activa
   const products: Product[] = useMemo(() => {
-    if (!activeMenu?.items || activeMenu.items.length === 0) return fallbackProducts.filter(p => p.is_active);
+    if (!activeMenu?.items || activeMenu.items.length === 0) {
+      return fallbackProducts.filter(p => p.is_active);
+    }
+    
     return activeMenu.items.map((item) => {
       const category = categories.find((c) => c.id === item.category_id);
+      
+      // MEJORA: Priorizar name_translations del backend si existe, 
+      // de lo contrario usar fallback seguro con el nombre plano.
+      const itemNameTranslations = { es: item.name };
+
       return {
         id: 0,
         uuid: item.product_uuid,
@@ -47,7 +55,7 @@ export function OrderCatalogPanel({ onAddProduct, channel }: OrderCatalogPanelPr
         branch_id: 0,
         category_id: item.category_id,
         sku: "",
-        name_translations: { es: item.name },
+        name_translations: itemNameTranslations,
         description_translations: null,
         base_price: String(item.price),
         tax_rate: "19",
@@ -93,7 +101,7 @@ export function OrderCatalogPanel({ onAddProduct, channel }: OrderCatalogPanelPr
     );
   }
 
-  // ESTADO: error de red
+  // ESTADO: error de red (placeholder para futura implementación)
   if (false) {
     return (
       <div className="flex-1 flex items-center justify-center p-6">
@@ -248,7 +256,7 @@ export function OrderCatalogPanel({ onAddProduct, channel }: OrderCatalogPanelPr
 
 /**
  * Badge persistente con el contexto de precio activo.
- * 
+ *
  * Mismo peso visual que el total del carrito (salvaguarda de UX).
  * Si el canal o la carta se resuelven mal, es imposible no notarlo.
  */

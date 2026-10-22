@@ -1,22 +1,16 @@
 import { useTranslation } from 'react-i18next';
 import { useSyncStore } from '../../store/useSyncStore';
-import { RefreshCw, Wifi, WifiOff, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { RefreshCw, WifiOff, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Tooltip } from '@/components/ui/Tooltip';
 
 /**
  * Indicador de estado de sincronización offline-first.
- * 
+ *
  * UI/UX PRINCIPLES:
- * - 4 estados visuales claros con iconos + colores + mensajes
+ * - 4 estados visuales claros con iconos + colores + mensajes traducidos
  * - Información contextual (pendientes, última sync, progreso)
  * - Acción de retry siempre disponible
- * - Accesibilidad: ARIA labels + contraste WCAG AA
- * 
- * ESTADOS:
- * 🟢 Online: "En línea" + pendiente count
- * 🟠 Offline: "Sin conexión · Los cambios se guardarán localmente"
- * ↻ Syncing: "Sincronizando..." + progreso %
- * ⚠ Error: "Error de sincronización" + botón "Reintentar"
+ * - Accesibilidad: ARIA labels traducidos + contraste WCAG AA
  */
 export function SyncStatusIndicator() {
   const { t } = useTranslation();
@@ -34,11 +28,11 @@ export function SyncStatusIndicator() {
         icon: <RefreshCw size={16} className="animate-spin text-blue-400" />,
         bgColor: 'bg-blue-500/20 border-blue-500/30',
         textColor: 'text-blue-100',
-        message: progress?.message || 'Sincronizando...',
-        ariaLabel: `Sincronizando: ${progress?.percentage || 0}% completado`,
+        message: progress?.message || t("sync.syncing_message"),
+        ariaLabel: t("sync.syncing_aria", { percentage: progress?.percentage || 0 }),
       };
     }
-    
+
     // Error
     if (status === 'error') {
       return {
@@ -46,43 +40,43 @@ export function SyncStatusIndicator() {
         bgColor: 'bg-red-500/20 border-red-500/30',
         textColor: 'text-red-100',
         message: t("sync.error_sync"),
-        ariaLabel: `Error: ${lastError || 'Desconocido'}`,
+        ariaLabel: t("sync.error_aria", { error: lastError || t("sync.unknown") }),
       };
     }
-    
+
     // Offline
     if (status === 'offline') {
       return {
         icon: <WifiOff size={16} className="text-amber-400" />,
         bgColor: 'bg-amber-500/20 border-amber-500/30',
         textColor: 'text-amber-100',
-        message: 'Sin conexión · Los cambios se guardarán localmente',
-        ariaLabel: 'Sin conexión, modo offline activo',
+        message: t("sync.offline_message"),
+        ariaLabel: t("sync.offline_aria"),
       };
     }
-    
+
     // Online (default)
     return {
       icon: <CheckCircle2 size={16} className="text-green-400" />,
       bgColor: 'bg-green-500/20 border-green-500/30',
       textColor: 'text-green-100',
-      message: 'En línea',
-      ariaLabel: 'Conectado y sincronizado',
+      message: t("sync.online_message"),
+      ariaLabel: t("sync.online_aria"),
     };
   };
 
   const formatTime = (timestamp: string | null) => {
-    if (!timestamp) return 'Nunca';
+    if (!timestamp) return t("sync.never");
     const date = new Date(timestamp);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
-    
-    if (diffMins < 1) return 'Justo ahora';
-    if (diffMins < 60) return `hace ${diffMins}m`;
+
+    if (diffMins < 1) return t("sync.just_now");
+    if (diffMins < 60) return t("sync.mins_ago", { count: diffMins });
     const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `hace ${diffHours}h`;
-    return date.toLocaleDateString();
+    if (diffHours < 24) return t("sync.hours_ago", { count: diffHours });
+    return date.toLocaleDateString(); // Fallback seguro para fechas antiguas
   };
 
   const config = getStatusConfig();
@@ -100,19 +94,20 @@ export function SyncStatusIndicator() {
         <span className={`text-sm font-medium ${config.textColor}`}>
           {config.message}
         </span>
-        
+
         {/* Badge de pendientes (solo si no está sincronizando) */}
         {pendingCount > 0 && !isSyncing && (
-          <Tooltip content="Cambios guardados localmente que aún no se han enviado al servidor." position="bottom">
-            <span 
+          <Tooltip content={t("sync.pending_tooltip")} position="bottom">
+            <span
               className="bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full cursor-help"
+              aria-label={`${pendingCount} ${t("sync.pending_tooltip")}`}
             >
               {pendingCount}
             </span>
           </Tooltip>
         )}
       </div>
-      
+
       {/* Tiempo desde última sync (solo si no está sincronizando y hay timestamp) */}
       {lastSyncAt && !isSyncing && (
         <span className="text-xs text-slate-400">
@@ -123,6 +118,7 @@ export function SyncStatusIndicator() {
       {/* Botón de sync manual (siempre visible, deshabilitado durante sync) */}
       <Tooltip content={isSyncing ? t('sync.in_progress') : t('sync.force_tooltip')} position="bottom">
         <button
+          type="button"
           onClick={triggerFullSync}
           disabled={isSyncing}
           className="p-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-help"
