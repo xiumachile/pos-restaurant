@@ -7,46 +7,41 @@ import type { Order } from "@/types/orders";
 
 const KEY = (tableUuid: string) => ["table-orders", tableUuid];
 
-/**
- * Hook para obtener pedidos activos de una mesa.
- * 
- * OPTIMIZACIONES APLICADAS:
- * - useCallback para estabilizar loadLocalOrders
- * - useRef para comparar cambios reales antes de setState
- * - Signature-based comparison evita re-renders innecesarios
- * - Sin logs de debug
- */
 export function useTableOrders(tableUuid: string | null) {
+  // Todos los hooks están en el nivel superior, incondicionalmente (Regla de React)
   const [localOrders, setLocalOrders] = useState<OrderWithSource[]>([]);
+  const [localStatuses, setLocalStatuses] = useState<Map<string, string>>(new Map());
   const previousSignatureRef = useRef<string>("");
 
-  // useCallback estabiliza la referencia para evitar recreaciones
   const loadLocalOrders = useCallback(async () => {
     if (!tableUuid) {
       if (previousSignatureRef.current !== "") {
         previousSignatureRef.current = "";
         setLocalOrders([]);
+        setLocalStatuses(new Map());
       }
       return;
     }
 
     try {
+      // 1. Cargar pendientes (para mostrar en UI)
       const pendingLocal = await OrderRepository.findPendingByTable(tableUuid);
-      
       const adapted: OrderWithSource[] = [];
       for (const order of pendingLocal) {
         const items = await OrderRepository.findItemsByOrderLocalUuid(order.local_uuid);
         adapted.push(adaptLocalOrder(order, items));
       }
       
-      // OPTIMIZACIÓN: Solo actualiza estado si hay cambios reales
-      // Firma basada en uuids de pedidos para detectar cambios
       const signature = adapted.map(o => `${o.uuid}:${(o as any)._syncStatus || ''}`).join('|');
-      
       if (signature !== previousSignatureRef.current) {
         previousSignatureRef.current = signature;
         setLocalOrders(adapted);
       }
+
+      // 2. Cargar TODOS los estados locales de esta mesa (para filtrar la nube)
+      const statuses = await OrderRepository.getLocalOrderStatusesByTable(tableUuid);
+      setLocalStatuses(statuses);
+
     } catch (error) {
       console.error("[useTableOrders] Error cargando pedidos locales:", error);
     }
@@ -56,39 +51,63 @@ export function useTableOrders(tableUuid: string | null) {
     if (!tableUuid) {
       previousSignatureRef.current = "";
       setLocalOrders([]);
+      setLocalStatuses(new Map());
       return;
     }
 
-    // Cargar inmediatamente al montar
     loadLocalOrders();
-
-    // Polling cada 10s (balance entre frescura y performance)
     const interval = setInterval(loadLocalOrders, 10000);
     return () => clearInterval(interval);
   }, [tableUuid, loadLocalOrders]);
 
-  // Leer pedidos de la nube (React Query maneja cache y deduplicación)
   const cloudQuery = useQuery<Order[], Error>({
     queryKey: tableUuid ? KEY(tableUuid) : ["table-orders", "disabled"],
     queryFn: () => ordersService.listTableOrders(tableUuid!),
     enabled: !!tableUuid,
-    refetchInterval: 15000, // Polling cada 15s (menos agresivo)
+    refetchInterval: 15000,
     staleTime: 5000,
   });
 
-  // Fusionar: locales primero, cloud después (deduplicar por cloud_id)
   const cloudOrders = cloudQuery.data || [];
+  
   const localCloudIds = new Set(
     localOrders
       .filter(o => o._isLocal && (o as any).uuid && !String((o as any).uuid).startsWith("TEMP"))
       .map(o => (o as any).uuid)
   );
 
-  const deduplicatedCloud = cloudOrders.filter(
-    cloudOrder => !localCloudIds.has(cloudOrder.uuid)
-  );
+  // 🛡️ FILTRO OFFLINE-FIRST: La verdad local terminal prevalece sobre la nube
+  const deduplicatedCloud = cloudOrders.filter(cloudOrder => {
+    // A. Si ya está en la lista de pendientes locales, no duplicar
+    if (localCloudIds.has(cloudOrder.uuid)) {
+      return false;
+    }
+
+    // B. CRÍTICO: Si localmente tenemos registro de esta orden y está en estado terminal,
+    // IGNORAMOS la versión de la nube (que podría estar desactualizada por fallo de sync).
+    const localStatus = localStatuses.get(cloudOrder.uuid);
+    if (localStatus && ['paid', 'closed', 'cancelled'].includes(localStatus)) {
+      console.log(`[useTableOrders] 🛡️ Offline-First: Ignorando orden nube ${cloudOrder.uuid} (status nube: ${cloudOrder.status}) porque localmente ya está: ${localStatus}`);
+      return false;
+    }
+
+    // C. Filtro de seguridad estándar
+    if (cloudOrder.status === 'paid' || cloudOrder.status === 'closed' || cloudOrder.status === 'cancelled') {
+      return false;
+    }
+
+    return true;
+  });
 
   const merged: OrderWithSource[] = [...localOrders, ...deduplicatedCloud];
+
+  // Logs de diagnóstico
+  useEffect(() => {
+    console.log(`[useTableOrders] 📊 Mesa: ${tableUuid}`);
+    console.log(`[useTableOrders] 📱 Locales (pendientes):`, localOrders.map((o: any) => ({ uuid: o.uuid, status: o.status })));
+    console.log(`[useTableOrders] ☁️ Nube (RAW):`, cloudOrders.map((o: any) => ({ uuid: o.uuid, status: o.status })));
+    console.log(`[useTableOrders] 🔄 Fusionados finales (Activos):`, merged.map((o: any) => ({ uuid: o.uuid, status: o.status, source: o._isLocal ? 'local' : 'cloud' })));
+  }, [tableUuid, localOrders, cloudOrders, merged]);
 
   return {
     ...cloudQuery,
@@ -103,4 +122,3 @@ export function useInvalidateTableOrders(tableUuid: string) {
     queryClient.invalidateQueries({ queryKey: KEY(tableUuid) });
   };
 }
-// BUILD_HASH: 1788495805

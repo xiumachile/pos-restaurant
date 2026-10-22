@@ -46,4 +46,20 @@ export const billsService = {
     );
     return (response.data as any).data;
   },
+
+  /**
+   * Crea una bill (cuenta) para un order.
+   * Útil para delivery/takeout o cuando no se ha preparado la cuenta aún.
+   */
+  async createBill(orderUuid: string, idempotencyKey: string): Promise<Bill> {
+    const response = await apiClient.post<SingleResponse<Bill>>(
+      '/bills',
+      {
+        order_uuid: orderUuid,
+        type: 'single',
+        idempotency_key: idempotencyKey,
+      }
+    );
+    return (response.data as any).data;
+  },
 };

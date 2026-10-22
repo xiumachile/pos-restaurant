@@ -704,9 +704,31 @@ export class OrderRepository {
   }
   static async findPendingByTable(tableUuid: string): Promise<LocalOrder[]> {
     return await localDb.select<LocalOrder>(
-      "SELECT * FROM local_orders WHERE table_id = ? AND status NOT IN ('paid', 'cancelled')",
+      "SELECT * FROM local_orders WHERE table_id = ? AND status NOT IN ('paid', 'closed', 'cancelled')",
       [tableUuid]
     );
+  }
+  /**
+   * Obtiene un mapa de estados locales de todas las órdenes de una mesa.
+   * Clave: cloud_id (o local_uuid si no hay cloud_id)
+   * Valor: status local
+   * Esto es crucial para el principio Offline-First: ignorar datos de la nube 
+   * si localmente la orden ya está en estado terminal (paid, closed, cancelled).
+   */
+  static async getLocalOrderStatusesByTable(tableUuid: string): Promise<Map<string, string>> {
+    const orders = await localDb.select<{ cloud_id: string | null, local_uuid: string, status: string }>(
+      "SELECT cloud_id, local_uuid, status FROM local_orders WHERE table_id = ?",
+      [tableUuid]
+    );
+    
+    const statusMap = new Map<string, string>();
+    orders.forEach(o => {
+      // Usamos cloud_id como clave principal para emparejar con la nube, fallback a local_uuid
+      const key = o.cloud_id || o.local_uuid;
+      statusMap.set(key, o.status);
+    });
+    
+    return statusMap;
   }
   static async findItemsByOrderLocalUuid(orderLocalUuid: string): Promise<LocalOrderItem[]> {
     return await localDb.select<LocalOrderItem>(
@@ -784,60 +806,84 @@ export class OrderRepository {
       WHERE sync_status = 'failed' AND entity_type IN ('payment', 'bill')
     `);
 
-        // 6. Limpiar carritos huérfanos del localStorage
+           // 6. Limpiar carritos huérfanos del localStorage
     try {
       const cartStoreKey = 'pos-cart-storage';
       const cartData = localStorage.getItem(cartStoreKey);
+      console.log(`[Repair] 🔍 Iniciando limpieza de carritos. localStorage key: ${cartStoreKey}`);
+      
       if (cartData) {
         const parsed = JSON.parse(cartData);
+        console.log(`[Repair] 📦 Carritos encontrados en localStorage:`, Object.keys(parsed.state?.carts || {}));
+        
         if (parsed.state?.carts) {
-          // Obtener TODOS los pedidos activos (no pagados/cancelados/cerrados)
-          const activeOrders = await localDb.select<{ local_uuid: string; table_id: string | null }>(
-            `SELECT local_uuid, table_id FROM local_orders WHERE status NOT IN ('paid', 'closed', 'cancelled')`
-          );
-          const activeOrderUuids = new Set(activeOrders.map(o => o.local_uuid));
-          const activeTableIds = new Set(activeOrders.filter(o => o.table_id).map(o => o.table_id!));
-
           const cleanedCarts: Record<string, any> = {};
           let removedCount = 0;
 
-          for (const [key, cart] of Object.entries(parsed.state.carts)) {
+          for (const [cartKey, cart] of Object.entries(parsed.state.carts)) {
             const cartAny = cart as any;
             const items = cartAny.items || [];
 
+            console.log(`[Repair] 🔎 Analizando carrito: ${cartKey}, items: ${items.length}`);
+
             // Carritos vacíos → eliminar
             if (items.length === 0) {
+              console.log(`[Repair] 🗑️ Eliminando carrito vacío: ${cartKey}`);
               removedCount++;
               continue;
             }
 
-            // Carritos de mesa: key = tableUuid
-            // Mantener solo si la mesa tiene un pedido activo
-            if (!key.startsWith('takeaway-')) {
-              if (activeTableIds.has(key)) {
-                cleanedCarts[key] = cart;
+            // Carritos de delivery/takeout: key empieza con "takeaway-"
+            if (cartKey.startsWith('takeaway-')) {
+              const orderLocalUuid = cartKey.replace('takeaway-', '');
+              console.log(`[Repair] 🔎 Buscando orden activa para takeaway: ${orderLocalUuid}`);
+              
+              const activeOrder = await localDb.select<{ local_uuid: string }>(
+                `SELECT local_uuid FROM local_orders 
+                 WHERE local_uuid = ? AND status NOT IN ('paid', 'closed', 'cancelled')`,
+                [orderLocalUuid]
+              );
+              
+              console.log(`[Repair] 📊 Órdenes activas encontradas:`, activeOrder.length);
+              
+              if (activeOrder.length > 0) {
+                console.log(`[Repair] ✅ Conservando carrito takeaway: ${cartKey}`);
+                cleanedCarts[cartKey] = cart;
               } else {
+                console.log(`[Repair] 🗑️ Eliminando carrito takeaway huérfano: ${cartKey}`);
                 removedCount++;
               }
               continue;
             }
 
-            // Carritos de delivery/takeout: key = "takeaway-{orderLocalUuid}"
-            const orderLocalUuid = key.replace('takeaway-', '');
-            if (activeOrderUuids.has(orderLocalUuid)) {
-              cleanedCarts[key] = cart;
+            // Carritos de mesa: key es el tableUuid
+            console.log(`[Repair] 🔎 Buscando orden activa para mesa: ${cartKey}`);
+            const activeOrder = await localDb.select<{ local_uuid: string }>(
+              `SELECT local_uuid FROM local_orders 
+               WHERE table_id = ? AND status NOT IN ('paid', 'closed', 'cancelled')`,
+              [cartKey]
+            );
+
+            console.log(`[Repair] 📊 Órdenes activas encontradas para mesa ${cartKey}:`, activeOrder.length);
+
+            if (activeOrder.length > 0) {
+              console.log(`[Repair] ✅ Conservando carrito de mesa: ${cartKey}`);
+              cleanedCarts[cartKey] = cart;
             } else {
+              console.log(`[Repair] 🗑️ Eliminando carrito de mesa huérfano: ${cartKey}`);
               removedCount++;
             }
           }
 
           parsed.state.carts = cleanedCarts;
           localStorage.setItem(cartStoreKey, JSON.stringify(parsed));
-          console.log(`[Repair] 🧹 Carritos huérfanos eliminados: ${removedCount}. Restantes: ${Object.keys(cleanedCarts).length}`);
+          console.log(`[Repair] 🧹 Limpieza completada. Eliminados: ${removedCount}. Restantes: ${Object.keys(cleanedCarts).length}`);
         }
+      } else {
+        console.log(`[Repair] ⚠️ No hay datos en localStorage para la key: ${cartStoreKey}`);
       }
     } catch (error) {
-      console.warn("[Repair] No se pudieron limpiar carritos de localStorage:", error);
+      console.error("[Repair] ❌ Error limpiando carritos de localStorage:", error);
     }
 
     return { repairedOrders: 1, freedTables: 1 };

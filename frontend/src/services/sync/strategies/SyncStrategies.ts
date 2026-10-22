@@ -276,17 +276,40 @@ export class SyncStrategies {
       billUuid = bill.cloud_id;
     }
 
-    // Construir payload con el formato que espera el backend (StorePaymentRequest)
-    const paymentPayload = {
+    // ✅ CONSTRUIR PAYLOAD SIN CAMPOS NULL (Fix para error 422)
+    // Backend (StorePaymentRequest) requiere: order_uuid, payment_method_uuid, amount, idempotency_key
+    // Campos opcionales: bill_uuid (nullable), tip_amount, reference_code (nullable), notes (string, NO nullable)
+    const paymentPayload: any = {
       order_uuid: orderUuid,
       payment_method_uuid: payload.payment_method_uuid,
-      bill_uuid: billUuid,  // ADR-020: puede ser null si payment directo a order
-      amount: payload.sale_amount || (payload.amount - (payload.tip_amount || 0)),  // ADR-011: enviar sale_amount (venta sin propina)
-      tip_amount: payload.tip_amount || 0,
-      reference_code: payload.reference_code || null,
-      notes: payload.notes || null,
+      amount: payload.sale_amount || (payload.amount - (payload.tip_amount || 0)),
       idempotency_key: payload.idempotency_key,
     };
+
+    // bill_uuid: backend acepta null, pero solo agregar si existe o es explícitamente null
+    if (billUuid !== null && billUuid !== undefined) {
+      paymentPayload.bill_uuid = billUuid;
+    }
+
+    // tip_amount: backend tiene default 0, pero lo enviamos explícitamente
+    if (payload.tip_amount !== null && payload.tip_amount !== undefined) {
+      paymentPayload.tip_amount = payload.tip_amount;
+    } else {
+      paymentPayload.tip_amount = 0;
+    }
+
+    // reference_code: backend acepta null (nullable: true en OpenAPI)
+    if (payload.reference_code !== null && payload.reference_code !== undefined && payload.reference_code !== '') {
+      paymentPayload.reference_code = payload.reference_code;
+    }
+    // Si está vacío o es null, NO lo enviamos (backend usará null por defecto)
+
+    // notes: backend NO acepta null (type: string sin nullable)
+    // Solo agregar si tiene valor real
+    if (payload.notes !== null && payload.notes !== undefined && payload.notes !== '') {
+      paymentPayload.notes = payload.notes;
+    }
+    // Si es null/undefined/vacío, NO lo enviamos (backend usará string vacío o null por defecto)
 
     console.log("[SyncEngine] 📤 Creando payment:", JSON.stringify(paymentPayload, null, 2));
 
