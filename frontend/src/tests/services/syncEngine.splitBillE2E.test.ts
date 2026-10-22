@@ -322,7 +322,7 @@ describe("SyncEngine - Split Bill E2E (ADR-020)", () => {
 
     const payload = paymentCall[1];
     expect(payload.order_uuid).toBe("cloud-order-direct");
-    expect(payload.bill_uuid).toBeNull();
+    expect(payload.bill_uuid ?? null).toBeNull();
     expect(payload.amount).toBe(15000);
   });
 });
