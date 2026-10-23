@@ -26,49 +26,71 @@ interface Props {
   onTableSelect: (uuid: string | null) => void;
 }
 
-const GRID_SIZE = 40; // Cuadrícula más amplia y elegante
+const GRID_SIZE = 40;
 
 function snapToGrid(value: number): number {
   return Math.round(value / GRID_SIZE) * GRID_SIZE;
 }
 
 export function FloorPlanCanvas({
-  zones, tables, decorations, isEditMode, selectedTableUuid,
-  onTablePositionChange, onDecorationPositionChange, onTableClick, onTableSelect,
+  zones,
+  tables,
+  decorations,
+  isEditMode,
+  selectedTableUuid,
+  onTablePositionChange,
+  onDecorationPositionChange,
+  onTableClick,
+  onTableSelect,
 }: Props) {
   const { t } = useTranslation();
-  const [activeTable, setActiveTable] = useState<TablePosition | null>(null);
-  const [activeDecoration, setActiveDecoration] = useState<DecorationPosition | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeType, setActiveType] = useState<"table" | "decoration" | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
   const handleDragStart = (event: any) => {
-    const table = tables.find((t) => t.uuid === event.active.id);
-    if (table) { setActiveTable(table); return; }
-    const decoration = decorations.find((d) => d.uuid === event.active.id);
-    if (decoration) setActiveDecoration(decoration);
+    setActiveId(event.active.id);
+    if (tables.find((t) => t.uuid === event.active.id)) {
+      setActiveType("table");
+    } else if (decorations.find((d) => d.uuid === event.active.id)) {
+      setActiveType("decoration");
+    }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, delta } = event;
+    
     const table = tables.find((t) => t.uuid === active.id);
     if (table) {
-      onTablePositionChange(table.uuid, Math.max(0, snapToGrid(table.position_x + delta.x)), Math.max(0, snapToGrid(table.position_y + delta.y)));
-      setActiveTable(null);
-      return;
+      const newX = Math.max(0, snapToGrid(table.position_x + delta.x));
+      const newY = Math.max(0, snapToGrid(table.position_y + delta.y));
+      onTablePositionChange(table.uuid, newX, newY);
+    } else {
+      const decoration = decorations.find((d) => d.uuid === active.id);
+      if (decoration) {
+        const newX = Math.max(0, snapToGrid(decoration.position_x + delta.x));
+        const newY = Math.max(0, snapToGrid(decoration.position_y + delta.y));
+        onDecorationPositionChange(decoration.uuid, newX, newY);
+      }
     }
-    const decoration = decorations.find((d) => d.uuid === active.id);
-    if (decoration) {
-      onDecorationPositionChange(decoration.uuid, Math.max(0, snapToGrid(decoration.position_x + delta.x)), Math.max(0, snapToGrid(decoration.position_y + delta.y)));
-      setActiveDecoration(null);
-    }
+    setActiveId(null);
+    setActiveType(null);
+  };
+
+  const handleDragCancel = () => {
+    setActiveId(null);
+    setActiveType(null);
   };
 
   const handleTableClick = (table: TablePosition) => {
-    if (isEditMode) onTableSelect(table.uuid);
-    else onTableClick(table);
+    if (isEditMode) {
+      onTableSelect(table.uuid);
+    } else {
+      onTableClick(table);
+    }
   };
 
   if (tables.length === 0 && decorations.length === 0) {
@@ -82,29 +104,57 @@ export function FloorPlanCanvas({
     );
   }
 
+  const activeTable = activeType === "table" ? tables.find((t) => t.uuid === activeId) : null;
+  const activeDecoration = activeType === "decoration" ? decorations.find((d) => d.uuid === activeId) : null;
+
   return (
-    <DndContext sensors={sensors} modifiers={[restrictToWindowEdges]} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="relative w-full h-full min-h-[600px] rounded-2xl overflow-hidden border border-slate-700/50 shadow-2xl">
-        {/* Fondo Premium: Cuadrícula sutil + Viñeta */}
+    <DndContext
+      sensors={sensors}
+      modifiers={[restrictToWindowEdges]}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+    >
+      <div className="relative w-full h-full min-h-[600px] rounded-2xl overflow-hidden border border-slate-700/50 shadow-2xl bg-slate-900">
+        {/* Cuadrícula de fondo profesional */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
-            backgroundColor: "#0f172a", // slate-900
             backgroundImage: `linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px)`,
             backgroundSize: `${GRID_SIZE}px ${GRID_SIZE}px`,
           }}
         />
-        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.5)_100%)]" />
 
-        {zones.map((zone) => <DiningZoneBackground key={zone.uuid} zone={zone} tables={tables} />)}
-        {decorations.map((decoration) => <DraggableDecoration key={decoration.uuid} decoration={decoration} isEditMode={isEditMode} />)}
-        {tables.map((table) => (
-          <DraggableTable key={table.uuid} table={table} isEditMode={isEditMode} isSelected={table.uuid === selectedTableUuid} onClick={handleTableClick} />
+        {zones.map((zone) => (
+          <DiningZoneBackground key={zone.uuid} zone={zone} tables={tables} />
         ))}
 
-        <DragOverlay>
-          {activeTable && <DraggableTable table={activeTable} isEditMode={true} isSelected={false} onClick={() => {}} />}
-          {activeDecoration && <DraggableDecoration decoration={activeDecoration} isEditMode={true} />}
+        {decorations.map((decoration) => (
+          <DraggableDecoration
+            key={decoration.uuid}
+            decoration={decoration}
+            isEditMode={isEditMode}
+          />
+        ))}
+
+        {tables.map((table) => (
+          <DraggableTable
+            key={table.uuid}
+            table={table}
+            isEditMode={isEditMode}
+            isSelected={table.uuid === selectedTableUuid}
+            onClick={handleTableClick}
+          />
+        ))}
+
+        {/* DragOverlay con dropAnimation={null} para evitar duplicados visuales */}
+        <DragOverlay dropAnimation={null}>
+          {activeTable && (
+            <DraggableTable table={activeTable} isEditMode={true} isSelected={false} onClick={() => {}} />
+          )}
+          {activeDecoration && (
+            <DraggableDecoration decoration={activeDecoration} isEditMode={true} />
+          )}
         </DragOverlay>
       </div>
     </DndContext>
