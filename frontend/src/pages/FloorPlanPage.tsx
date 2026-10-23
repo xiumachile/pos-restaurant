@@ -295,7 +295,6 @@ export function FloorPlanPage() {
             selectedTable={selectedTable}
             onUpdateTable={handleUpdateTable}
             onDeleteTable={handleDeleteTable}
-            onDeleteDecoration={handleDeleteDecoration}
             onDuplicateTable={handleDuplicateTable}
             isEditMode={isEditMode}
           />
