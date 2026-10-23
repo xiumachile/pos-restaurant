@@ -1209,7 +1209,8 @@
       "zone_updated": "Zona actualizada correctamente",
       "zone_deleted": "Zona eliminada correctamente",
       "zone_delete_error": "No se pudo eliminar la zona",
-      "discard_changes_confirm": "Tienes cambios sin guardar. ¿Deseas descartarlos?"
+      "discard_changes_confirm": "Tienes cambios sin guardar. ¿Deseas descartarlos?",
+      "canvas_settings_saved": "Configuración del plano guardada"
     },
     "table": {
       "status": {
@@ -1242,6 +1243,17 @@
       "position": "Posición",
       "duplicate": "Duplicar",
       "delete": "Eliminar"
+    },
+    "canvas_settings": {
+      "title": "Configuración del Plano",
+      "width": "Ancho del Plano (px)",
+      "width_hint": "Recomendado: 1500-3000px",
+      "height": "Alto del Plano (px)",
+      "height_hint": "Recomendado: 1000-2000px",
+      "grid_size": "Tamaño de Cuadrícula (px)",
+      "grid_hint": "Distancia entre líneas de la cuadrícula",
+      "current_size": "Tamaño actual:",
+      "save": "Guardar Configuración"
     }
   },
   "navigation": {

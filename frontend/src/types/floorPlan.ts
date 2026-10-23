@@ -96,6 +96,19 @@ export interface CreateDiningZonePayload {
   sort_order?: number;
 }
 
+export interface CanvasConfig {
+  width: number;
+  height: number;
+  grid_size: number;
+}
+
+export interface FloorPlan {
+  zones: DiningZone[];
+  tables: TablePosition[];
+  decorations?: DecorationPosition[];
+  canvas: CanvasConfig; // ✅ Agregado
+}
+
 export interface UpdateDiningZonePayload {
   name_translations?: Record<string, string>;
   color?: string;

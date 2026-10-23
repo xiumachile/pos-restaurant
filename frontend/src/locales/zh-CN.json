@@ -1212,7 +1212,8 @@
       "zone_updated": "区域更新成功",
       "zone_deleted": "区域删除成功",
       "zone_delete_error": "无法删除区域",
-      "discard_changes_confirm": "您有未保存的更改。是否放弃?"
+      "discard_changes_confirm": "您有未保存的更改。是否放弃?",
+      "canvas_settings_saved": "平面图设置已保存"
     },
     "table": {
       "status": {
@@ -1245,6 +1246,17 @@
       "position": "位置",
       "duplicate": "复制",
       "delete": "删除"
+    },
+    "canvas_settings": {
+      "title": "平面图设置",
+      "width": "平面图宽度 (像素)",
+      "width_hint": "推荐：1500-3000像素",
+      "height": "平面图高度 (像素)",
+      "height_hint": "推荐：1000-2000像素",
+      "grid_size": "网格大小 (像素)",
+      "grid_hint": "网格线之间的距离",
+      "current_size": "当前尺寸:",
+      "save": "保存设置"
     }
   },
   "navigation": {

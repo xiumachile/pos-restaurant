@@ -1,7 +1,7 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Map, Edit3, Save, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Map, Edit3, Save, Loader2, CheckCircle2, AlertTriangle, Settings2 } from "lucide-react";
 import {
   useFloorPlan,
   useSaveFloorPlan,
@@ -16,6 +16,7 @@ import type {
   CreateDiningZonePayload,
   UpdateDiningZonePayload,
   FurnitureType,
+  CanvasConfig,
 } from "@/types/floorPlan";
 import { FURNITURE_CATALOG } from "@/components/floor-plan/AssetLibrary";
 import { FloorPlanCanvas } from "@/components/floor-plan/FloorPlanCanvas";
@@ -24,6 +25,7 @@ import { CreateZoneModal } from "@/components/floor-plan/CreateZoneModal";
 import { EditZoneModal } from "@/components/floor-plan/EditZoneModal";
 import { AssetLibrary } from "@/components/floor-plan/AssetLibrary";
 import { PropertiesPanel } from "@/components/floor-plan/PropertiesPanel";
+import { CanvasSettingsPanel } from "@/components/floor-plan/CanvasSettingsPanel";
 
 type Toast = { type: "success" | "error"; message: string } | null;
 
@@ -45,14 +47,25 @@ export function FloorPlanPage() {
   const [editingZone, setEditingZone] = useState<DiningZone | null>(null);
   const [selectedTableUuid, setSelectedTableUuid] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast>(null);
+  // ✅ Configuración del lienzo (canvas)
+  const [canvasConfig, setCanvasConfig] = useState<CanvasConfig>({
+    width: 2000,
+    height: 1500,
+    grid_size: 40,
+  });
+  // ✅ Modal de configuración del canvas
+  const [showCanvasSettings, setShowCanvasSettings] = useState(false);
 
-  // ✅ Sincronizar solo cuando data cambia desde el servidor
+  // ✅ Sincronizar cuando data cambia desde el servidor
   useEffect(() => {
     if (data && !hasChanges) {
-      setLocalTables(data.tables);
+      setLocalTables(data.tables || []);
       setLocalDecorations((data as any).decorations || []);
+      if ((data as any).canvas) {
+        setCanvasConfig((data as any).canvas);
+      }
     }
-  }, [data]);
+  }, [data, hasChanges]);
 
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ type, message });
@@ -67,6 +80,7 @@ export function FloorPlanPage() {
       if (data) {
         setLocalTables(data.tables);
         setLocalDecorations((data as any).decorations || []);
+        if ((data as any).canvas) setCanvasConfig((data as any).canvas);
       }
       setHasChanges(false);
     }
@@ -160,6 +174,41 @@ export function FloorPlanPage() {
     }
   };
 
+  // ✅ Guardar solo la configuración del canvas (el endpoint guarda todo el plano)
+  const handleCanvasConfigSave = async (newConfig: CanvasConfig) => {
+    try {
+      const payload = {
+        tables: localTables.map((t) => ({
+          uuid: t.uuid,
+          position_x: t.position_x,
+          position_y: t.position_y,
+          rotation: t.rotation,
+          shape: t.shape,
+          width: t.width,
+          height: t.height,
+          furniture_type: t.furniture_type,
+        })),
+        decorations: localDecorations.map((d) => ({
+          uuid: d.uuid,
+          type: d.type,
+          position_x: d.position_x,
+          position_y: d.position_y,
+          rotation: d.rotation,
+          width: d.width,
+          height: d.height,
+        })),
+        canvas: newConfig,
+      };
+
+      await saveMutation.mutateAsync(payload);
+      setCanvasConfig(newConfig);
+      setShowCanvasSettings(false);
+      showToast("success", t("floor_plan.messages.canvas_settings_saved", "Configuración del plano guardada"));
+    } catch (err: any) {
+      showToast("error", err?.response?.data?.message ?? t("floor_plan.messages.error_save", "Error al guardar"));
+    }
+  };
+
   const handleSave = async () => {
     try {
       const payload = {
@@ -182,6 +231,7 @@ export function FloorPlanPage() {
           width: d.width,
           height: d.height,
         })),
+        canvas: canvasConfig, // ✅ Enviar configuración del lienzo al backend
       };
       await saveMutation.mutateAsync(payload);
       showToast("success", t("floor_plan.messages.saved", "Plano guardado correctamente"));
@@ -196,6 +246,7 @@ export function FloorPlanPage() {
     if (data) {
       setLocalTables(data.tables);
       setLocalDecorations((data as any).decorations || []);
+      if ((data as any).canvas) setCanvasConfig((data as any).canvas);
     }
     setHasChanges(false);
     setIsEditMode(false);
@@ -251,6 +302,18 @@ export function FloorPlanPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* ✅ Botón de configuración del canvas */}
+          <button
+            onClick={() => setShowCanvasSettings(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm"
+            title={t("floor_plan.canvas_settings.title", "Configuración del Plano")}
+          >
+            <Settings2 size={16} />
+            <span className="hidden sm:inline">
+              {canvasConfig.width}×{canvasConfig.height}
+            </span>
+          </button>
+
           {isEditMode ? (
             <>
               <button onClick={handleCancel} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors">
@@ -288,6 +351,7 @@ export function FloorPlanPage() {
             onDecorationPositionChange={handleDecorationPositionChange}
             onTableClick={handleTableClick}
             onTableSelect={setSelectedTableUuid}
+            canvasConfig={canvasConfig}
           />
         </div>
         {isEditMode && (
@@ -300,6 +364,14 @@ export function FloorPlanPage() {
           />
         )}
       </div>
+
+      {/* ✅ Modal de configuración del canvas */}
+      <CanvasSettingsPanel
+        canvasConfig={canvasConfig}
+        onSave={handleCanvasConfigSave}
+        onClose={() => setShowCanvasSettings(false)}
+        isOpen={showCanvasSettings}
+      />
 
       <CreateZoneModal isOpen={showCreateZone} onClose={() => setShowCreateZone(false)} onSubmit={handleCreateZone} />
       <EditZoneModal isOpen={!!editingZone} zone={editingZone} onClose={() => setEditingZone(null)} onSubmit={handleUpdateZone} />
