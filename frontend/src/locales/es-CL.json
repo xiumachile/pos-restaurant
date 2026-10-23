@@ -1199,14 +1199,7 @@
         "cancel": "Cancelar"
       }
     },
-    "tables": {
-      "status": {
-        "available": "Disponible",
-        "occupied": "Ocupada",
-        "billing": "Pidiendo cuenta",
-        "maintenance": "Mantenimiento"
-      }
-    },
+    "tables": {},
     "messages": {
       "saved": "Plano guardado correctamente",
       "error_save": "Error al guardar el plano",
@@ -1222,9 +1215,8 @@
       "status": {
         "available": "Disponible",
         "occupied": "Ocupada",
-        "reserved": "Reservada",
-        "maintenance": "Mantenimiento",
-        "billing": "Pidiendo cuenta"
+        "billing": "Pidiendo cuenta",
+        "maintenance": "Mantenimiento"
       }
     },
     "decorations": {

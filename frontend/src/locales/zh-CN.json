@@ -1202,14 +1202,7 @@
         "cancel": "取消"
       }
     },
-    "tables": {
-      "status": {
-        "available": "空闲",
-        "occupied": "占用中",
-        "billing": "请求结账",
-        "maintenance": "维护中"
-      }
-    },
+    "tables": {},
     "messages": {
       "saved": "平面图已保存",
       "error_save": "保存平面图时出错",
@@ -1225,9 +1218,8 @@
       "status": {
         "available": "空闲",
         "occupied": "已占用",
-        "reserved": "已预订",
-        "maintenance": "维护中",
-        "billing": "请求结账"
+        "billing": "请求结账",
+        "maintenance": "维护中"
       }
     },
     "decorations": {
