@@ -3,104 +3,90 @@ import { CSS } from "@dnd-kit/utilities";
 import { useTranslation } from "react-i18next";
 import { GripVertical, Users } from "lucide-react";
 import type { TablePosition } from "@/types/floorPlan";
+import { FURNITURE_CATALOG } from "./AssetLibrary";
 import { cn } from "@/lib/utils";
 
 interface Props {
   table: TablePosition;
   isEditMode: boolean;
+  isSelected: boolean;
   onClick: (table: TablePosition) => void;
-  onDragEnd?: (table: TablePosition, x: number, y: number) => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  available: "#10b981", // emerald-500
-  occupied: "#ef4444", // red-500
-  billing: "#f59e0b", // amber-500
-  maintenance: "#64748b", // slate-500
+  available: "#10b981", occupied: "#ef4444", billing: "#f59e0b", maintenance: "#64748b",
 };
 
-const GRID_SIZE = 20;
-
-function snapToGrid(value: number): number {
-  return Math.round(value / GRID_SIZE) * GRID_SIZE;
-}
-
-export function DraggableTable({ table, isEditMode, onClick }: Props) {
+export function DraggableTable({ table, isEditMode, isSelected, onClick }: Props) {
   const { t } = useTranslation();
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: table.uuid, disabled: !isEditMode });
 
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({
-      id: table.uuid,
-      disabled: !isEditMode,
-    });
+  const furnitureConfig = FURNITURE_CATALOG.find((f) => f.id === table.furniture_type);
+  const style = transform ? { transform: CSS.Translate.toString(transform), left: table.position_x, top: table.position_y } : { left: table.position_x, top: table.position_y };
 
-  const style = transform
-    ? {
-        transform: CSS.Translate.toString(transform),
-        left: table.position_x,
-        top: table.position_y,
-      }
-    : {
-        left: table.position_x,
-        top: table.position_y,
-      };
+  const width = furnitureConfig?.width ?? (table.shape === "rectangle" ? (table.width ?? 120) : 80);
+  const height = furnitureConfig?.height ?? (table.shape === "rectangle" ? (table.height ?? 80) : 80);
 
-  const baseSize = 80;
-  const width = table.shape === "rectangle" ? (table.width ?? 120) : baseSize;
-  const height = table.shape === "rectangle" ? (table.height ?? 80) : baseSize;
-
-  const color = STATUS_COLORS[table.status] || STATUS_COLORS.available;
-  const statusLabel = t(`floor_plan.table.status.${table.status}`);
+  const isDecoration = table.capacity === 0;
+  const baseColor = isDecoration ? (furnitureConfig?.color ?? "#64748b") : (STATUS_COLORS[table.status] ?? STATUS_COLORS.available);
+  const borderRadius = table.shape === "round" ? "9999px" : "16px";
 
   const shapeClasses = cn(
-    "absolute flex flex-col items-center justify-center shadow-lg border-2 transition-shadow",
-    "text-white font-bold select-none",
+    "absolute flex flex-col items-center justify-center select-none transition-all duration-200",
+    "border border-white/20 backdrop-blur-sm",
     {
-      "rounded-lg": table.shape === "square" || table.shape === "rectangle",
-      "rounded-full": table.shape === "round",
       "cursor-grab active:cursor-grabbing": isEditMode,
-      "cursor-pointer hover:shadow-xl hover:scale-105": !isEditMode,
-      "opacity-70 scale-105 shadow-2xl z-50": isDragging,
-      "z-10": !isDragging,
+      "cursor-pointer hover:scale-105 hover:shadow-2xl": !isEditMode,
+      "opacity-90 scale-105 shadow-2xl z-50 ring-2 ring-white/50": isDragging,
+      "z-10 shadow-xl": !isDragging,
+      "ring-4 ring-orange-500 ring-offset-2 ring-offset-slate-900": isSelected && isEditMode,
     }
   );
+
+  const Icon = furnitureConfig?.icon;
 
   return (
     <div
       ref={setNodeRef}
       style={{
-        ...style,
-        width,
-        height,
-        backgroundColor: color,
-        borderColor: color,
+        ...style, width, height, borderRadius, backgroundColor: baseColor,
+        boxShadow: isDragging ? "0 20px 25px -5px rgba(0,0,0,0.5), 0 8px 10px -6px rgba(0,0,0,0.5)" : "0 10px 15px -3px rgba(0,0,0,0.4), 0 4px 6px -4px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2)",
         transform: `translate3d(${transform?.x ?? 0}px, ${transform?.y ?? 0}px, 0) rotate(${table.rotation}deg)`,
       }}
       className={shapeClasses}
-      onClick={() => !isEditMode && onClick(table)}
+      onClick={() => onClick(table)}
       {...(isEditMode ? listeners : {})}
       {...(isEditMode ? attributes : {})}
-      title={`${table.table_number} · ${statusLabel}`}
     >
+      {/* Brillo interior para efecto 3D */}
+      <div className="absolute inset-0 rounded-[inherit] bg-gradient-to-br from-white/20 to-transparent pointer-events-none" />
+      
       {isEditMode && (
-        <div className="absolute -top-2 -right-2 bg-slate-900 rounded-full p-1 shadow-md">
-          <GripVertical size={12} className="text-white" />
+        <div className="absolute -top-3 -right-3 bg-slate-800 border border-slate-600 rounded-full p-1.5 shadow-lg z-20">
+          <GripVertical size={14} className="text-slate-300" />
         </div>
       )}
 
-      <div className="text-base font-bold">{table.table_number}</div>
+      {isDecoration && Icon ? (
+        <div className="relative z-10 flex flex-col items-center gap-1">
+          <Icon size={width > 60 ? 28 : 20} className="text-white/90 drop-shadow-md" />
+          <span className="text-[10px] font-bold text-white/80 uppercase tracking-wider">{furnitureConfig?.label}</span>
+        </div>
+      ) : (
+        <div className="relative z-10 flex flex-col items-center gap-1">
+          <span className="text-lg font-black text-white drop-shadow-md tracking-tight">{table.table_number}</span>
+          {table.capacity > 0 && (
+            <div className="flex items-center gap-1 bg-black/20 px-2 py-0.5 rounded-full">
+              <Users size={12} className="text-white/90" />
+              <span className="text-xs font-bold text-white/90">{table.capacity}</span>
+            </div>
+          )}
+        </div>
+      )}
 
-      <div className="flex items-center gap-1 text-xs opacity-90 mt-0.5">
-        <Users size={10} />
-        <span>{table.capacity}</span>
-      </div>
-
-      {!isEditMode && (
-        <div
-          className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-xs whitespace-nowrap px-1.5 py-0.5 rounded"
-          style={{ backgroundColor: color, color: "white" }}
-        >
-          {statusLabel}
+      {!isEditMode && !isDecoration && (
+        <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-black uppercase tracking-wider whitespace-nowrap px-2 py-1 rounded-md shadow-lg border border-white/10" style={{ backgroundColor: baseColor, color: "white" }}>
+          {t(`floor_plan.table.status.${table.status}`)}
         </div>
       )}
     </div>

@@ -21,8 +21,6 @@
     "searching": "搜索中...",
     "continue": "继续",
     "discard": "丢弃",
-    "back": "返回",
-    "close": "关闭",
     "create": "创建",
     "saving": "保存中..."
   },
@@ -117,8 +115,8 @@
     "orders_with_error": "个订单同步错误",
     "channel_label": "渠道",
     "channel_dine_in": "堂食",
-    "channel_delivery": "外卖",
-    "channel_takeout": "自提",
+    "channel_delivery": "外卖配送",
+    "channel_takeout": "外带自取",
     "channel_uber_eats": "UberEats",
     "channel_rappi": "Rappi",
     "search_product": "搜索产品...",
@@ -163,17 +161,12 @@
     "remove_item": "删除",
     "decrease_quantity": "减少数量",
     "increase_quantity": "增加数量",
-    "net_amount": "净额",
     "tax": "增值税",
     "loading_notes": "加载备注中...",
     "no_default_notes": "未配置预设备注",
     "delete_item_error": "删除项目时出错",
     "update_quantity_error": "更新数量时出错",
-    "new_order_hint": "选择销售渠道以开始订单。",
-    "cancel": "取消",
-    "dine_in": "堂食",
-    "channel_delivery": "外卖配送",
-    "channel_takeout": "外带自取"
+    "new_order_hint": "选择销售渠道以开始订单。"
   },
   "cashier": {
     "title": "收银台",
@@ -259,7 +252,7 @@
   "dashboard": {
     "title": "主面板"
   },
-   "sync": {
+  "sync": {
     "queue": "同步队列",
     "diagnostic": "诊断",
     "sync_status": "同步状态",
@@ -1141,13 +1134,13 @@
         "submit": "创建原材料",
         "submitting": "创建中...",
         "success_prefix": "原材料已创建",
-      "error_prefix": "错误：{{message}}",
-      "unknown_error": "发生未知错误，请重试。",
-      "validation_error": "请检查原料数据。确认必填字段已填写，且 SKU 未被使用。",
-      "sku_duplicate": "该 SKU 已存在，请为此原料使用唯一编码。",
-      "save_error": "无法保存原料，请重试。",
-      "validation_sku_required": "请输入原料的 SKU。",
-      "validation_name_required": "请输入原料名称。"
+        "error_prefix": "错误：{{message}}",
+        "unknown_error": "发生未知错误，请重试。",
+        "validation_error": "请检查原料数据。确认必填字段已填写，且 SKU 未被使用。",
+        "sku_duplicate": "该 SKU 已存在，请为此原料使用唯一编码。",
+        "save_error": "无法保存原料，请重试。",
+        "validation_sku_required": "请输入原料的 SKU。",
+        "validation_name_required": "请输入原料名称。"
       },
       "units_names": {
         "g": "克 (g)",
@@ -1174,7 +1167,9 @@
       "cancel": "取消",
       "add_zone": "新建区域",
       "delete": "删除",
-      "confirm": "确认?"
+      "confirm": "确认?",
+      "add_table": "添加桌子",
+      "add_decoration": "添加装饰"
     },
     "zone_panel": {
       "title": "区域",
@@ -1184,8 +1179,8 @@
       "cannot_delete_has_tables": "请先将桌子移到其他区域"
     },
     "canvas": {
-      "empty": "此平面图中没有桌位",
-      "empty_hint": "请从管理模块创建区域和桌位"
+      "empty": "平面图为空",
+      "empty_hint": "在编辑模式下添加桌子或装饰"
     },
     "modal": {
       "create": {
@@ -1225,6 +1220,39 @@
       "zone_deleted": "区域删除成功",
       "zone_delete_error": "无法删除区域",
       "discard_changes_confirm": "您有未保存的更改。是否放弃?"
+    },
+    "table": {
+      "status": {
+        "available": "空闲",
+        "occupied": "已占用",
+        "reserved": "已预订",
+        "maintenance": "维护中",
+        "billing": "请求结账"
+      }
+    },
+    "decorations": {
+      "title": "装饰元素",
+      "wall": "墙壁",
+      "chair": "椅子",
+      "plant": "植物 / 花卉",
+      "counter": "吧台 / 柜台",
+      "sofa": "沙发",
+      "hint": "点击添加到平面图中心"
+    },
+    "asset_library": {
+      "title": "资产库",
+      "tables": "桌子",
+      "decorations": "装饰品"
+    },
+    "properties": {
+      "no_selection": "选择一个元素以编辑其属性",
+      "title": "属性",
+      "table_number": "桌号",
+      "capacity": "容量 (人)",
+      "rotation": "旋转",
+      "position": "位置",
+      "duplicate": "复制",
+      "delete": "删除"
     }
   },
   "navigation": {

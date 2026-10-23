@@ -21,8 +21,6 @@
     "searching": "Buscando...",
     "continue": "Continuar",
     "discard": "Descartar",
-    "back": "Volver",
-    "close": "Cerrar",
     "create": "Crear",
     "saving": "Guardando..."
   },
@@ -84,7 +82,7 @@
     "loading": "Cargando pedidos...",
     "no_orders": "No hay pedidos",
     "no_orders_desc": "Los pedidos que crees aparecerán aquí",
-    "dine_in": "Mesa",
+    "dine_in": "Comer en el local",
     "takeaway": "Para llevar",
     "total_label": "Total:",
     "waiter": "Mesero:",
@@ -160,19 +158,14 @@
     "remove_item": "Eliminar",
     "decrease_quantity": "Disminuir cantidad",
     "increase_quantity": "Aumentar cantidad",
-    "net_amount": "Neto",
     "tax": "IVA",
     "loading_notes": "Cargando notas...",
     "no_default_notes": "No hay notas predefinidas configuradas",
     "delete_item_error": "Error al eliminar el item",
     "update_quantity_error": "Error al actualizar la cantidad",
-    "new_order_hint": "Elige el canal de venta para iniciar el pedido.",
-    "cancel": "Cancelar",
-    "dine_in": "Comer en el local",
-    "channel_delivery": "Delivery",
-    "channel_takeout": "Para llevar"
+    "new_order_hint": "Elige el canal de venta para iniciar el pedido."
   },
-   "sync": {
+  "sync": {
     "queue": "Cola de sincronización",
     "diagnostic": "Diagnóstico",
     "sync_status": "Estado de sincronización",
@@ -1138,13 +1131,13 @@
         "submit": "Crear Insumo",
         "submitting": "Creando...",
         "success_prefix": "Insumo creado",
-      "error_prefix": "Error: {{message}}",
-      "unknown_error": "Ocurrió un error inesperado. Intenta nuevamente.",
-      "validation_error": "Revisa los datos del ingrediente. Verifica los campos obligatorios y que el SKU no esté duplicado.",
-      "sku_duplicate": "El SKU ya existe. Utiliza un código único para este ingrediente.",
-      "save_error": "No se pudo guardar el ingrediente. Intenta nuevamente.",
-      "validation_sku_required": "Ingresa el SKU del ingrediente.",
-      "validation_name_required": "Ingresa el nombre del ingrediente."
+        "error_prefix": "Error: {{message}}",
+        "unknown_error": "Ocurrió un error inesperado. Intenta nuevamente.",
+        "validation_error": "Revisa los datos del ingrediente. Verifica los campos obligatorios y que el SKU no esté duplicado.",
+        "sku_duplicate": "El SKU ya existe. Utiliza un código único para este ingrediente.",
+        "save_error": "No se pudo guardar el ingrediente. Intenta nuevamente.",
+        "validation_sku_required": "Ingresa el SKU del ingrediente.",
+        "validation_name_required": "Ingresa el nombre del ingrediente."
       },
       "units_names": {
         "g": "Gramos (g)",
@@ -1171,7 +1164,9 @@
       "cancel": "Cancelar",
       "add_zone": "Nueva zona",
       "delete": "Eliminar",
-      "confirm": "¿Confirmar?"
+      "confirm": "¿Confirmar?",
+      "add_table": "Agregar Mesa",
+      "add_decoration": "Agregar Decoración"
     },
     "zone_panel": {
       "title": "Zonas",
@@ -1181,8 +1176,8 @@
       "cannot_delete_has_tables": "Mueva las mesas a otra zona primero"
     },
     "canvas": {
-      "empty": "No hay mesas en este plano",
-      "empty_hint": "Cree zonas y mesas desde el módulo de administración"
+      "empty": "El plano está vacío",
+      "empty_hint": "Agrega mesas o decoraciones en modo edición"
     },
     "modal": {
       "create": {
@@ -1222,6 +1217,39 @@
       "zone_deleted": "Zona eliminada correctamente",
       "zone_delete_error": "No se pudo eliminar la zona",
       "discard_changes_confirm": "Tienes cambios sin guardar. ¿Deseas descartarlos?"
+    },
+    "table": {
+      "status": {
+        "available": "Disponible",
+        "occupied": "Ocupada",
+        "reserved": "Reservada",
+        "maintenance": "Mantenimiento",
+        "billing": "Pidiendo cuenta"
+      }
+    },
+    "decorations": {
+      "title": "Elementos de Decoración",
+      "wall": "Muro",
+      "chair": "Silla",
+      "plant": "Planta / Flor",
+      "counter": "Barra / Mostrador",
+      "sofa": "Sofá",
+      "hint": "Haz clic para agregar al centro del plano"
+    },
+    "asset_library": {
+      "title": "Biblioteca de Activos",
+      "tables": "Mesas",
+      "decorations": "Decoraciones"
+    },
+    "properties": {
+      "no_selection": "Selecciona un elemento para editar sus propiedades",
+      "title": "Propiedades",
+      "table_number": "Número de Mesa",
+      "capacity": "Capacidad (personas)",
+      "rotation": "Rotación",
+      "position": "Posición",
+      "duplicate": "Duplicar",
+      "delete": "Eliminar"
     }
   },
   "navigation": {
