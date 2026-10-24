@@ -20,6 +20,10 @@ class DiningZoneResource extends JsonResource
             'is_active' => $this->is_active,
             // tables_count viene de withCount('tables') en el service
             'tables_count' => $this->whenCounted('tables', (int) ($this->tables_count ?? 0)),
+	    'position_x' => $this->position_x, // ✅ Agregado
+            'position_y' => $this->position_y, // ✅ Agregado
+            'width' => $this->width,           // ✅ Agregado
+            'height' => $this->height,         // ✅ Agregado
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

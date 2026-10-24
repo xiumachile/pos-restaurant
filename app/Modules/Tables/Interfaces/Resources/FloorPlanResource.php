@@ -5,10 +5,6 @@ namespace Modules\Tables\Interfaces\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/**
- * Resource para el floor plan completo.
- * Incluye todas las zonas y sus mesas con posiciones.
- */
 class FloorPlanResource extends JsonResource
 {
     public function toArray(Request $request): array
@@ -20,7 +16,7 @@ class FloorPlanResource extends JsonResource
                     'uuid' => $table->uuid,
                     'table_number' => $table->table_number,
                     'zone_id' => $table->zone_id,
-                    'zone_uuid' => $table->zone?->uuid,
+                    'zone_uuid' => $table->zone ? $table->zone->uuid : null, // ✅ Forzamos la clave
                     'capacity' => $table->capacity,
                     'status' => $table->status->value,
                     'has_active_order' => $table->hasActiveOrder(),
@@ -31,6 +27,19 @@ class FloorPlanResource extends JsonResource
                     'shape' => $table->shape->value,
                     'width' => $table->width,
                     'height' => $table->height,
+                    'furniture_type' => $table->furniture_type ?? null,
+                ];
+            }),
+            'decorations' => ($this->resource['decorations'] ?? collect())->map(function ($deco) {
+                return [
+                    'uuid' => $deco->uuid,
+                    'type' => $deco->type,
+                    'position_x' => $deco->position_x,
+                    'position_y' => $deco->position_y,
+                    'rotation' => $deco->rotation,
+                    'width' => $deco->width,
+                    'height' => $deco->height,
+                    'properties' => $deco->properties,
                 ];
             }),
         ];

@@ -36,6 +36,10 @@ class DiningZone extends Model
         'floor_level',
         'sort_order',
         'is_active',
+	'position_x', // ✅ Agregado
+        'position_y', // ✅ Agregado
+        'width',      // ✅ Agregado
+        'height',     // ✅ Agregado
     ];
 
     protected $casts = [
@@ -43,6 +47,10 @@ class DiningZone extends Model
         'floor_level' => 'integer',
         'sort_order' => 'integer',
         'is_active' => 'boolean',
+	'position_x' => 'integer', // ✅ Agregado
+        'position_y' => 'integer', // ✅ Agregado
+        'width' => 'integer',      // ✅ Agregado
+        'height' => 'integer',     // ✅ Agregado
     ];
 
     protected array $translatableFields = ['name_translations'];
