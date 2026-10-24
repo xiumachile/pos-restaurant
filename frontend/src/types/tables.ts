@@ -29,11 +29,11 @@ export interface TablesArea {
 }
 
 export const TABLE_STATUS_LABELS = {
-  available: "table.available",
-  occupied: "tables.occupied",
-  billing: "tables.billing",
-  maintenance: "tables.maintenance", // Agrega los que tengas
-} as const;
+  available: "floor_plan.table.status.available",
+  occupied: "floor_plan.table.status.occupied",
+  billing: "floor_plan.table.status.billing",
+  maintenance: "floor_plan.table.status.maintenance",
+};
 
 export const TABLE_STATUS_STYLES: Record<
   TableStatus,
