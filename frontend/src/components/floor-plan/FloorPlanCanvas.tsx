@@ -96,7 +96,7 @@ export function FloorPlanCanvas({
   return (
     <DndContext sensors={sensors} modifiers={[restrictToParentElement]} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       {/* Contenedor con scroll */}
-      <div className="w-full h-full overflow-auto bg-slate-950 rounded-2xl border border-slate-700/50 shadow-2xl p-8 flex items-center justify-center">
+      <div className="floor-plan-canvas-container w-full h-full overflow-auto bg-slate-950 rounded-2xl border border-slate-700/50 shadow-2xl p-8 flex items-center justify-center">
 
         {/* Lienzo de tamaño fijo */}
         <div
@@ -108,7 +108,8 @@ export function FloorPlanCanvas({
             backgroundSize: `${gridSize}px ${gridSize}px`,
           }}
         >
-          {zones.map((zone) => <DiningZoneBackground key={zone.uuid} zone={zone} tables={tables} />)}
+          // Línea corregida:
+{zones.map((zone) => <DiningZoneBackground key={zone.uuid} zone={zone} />)}
           {decorations.map((decoration) => <DraggableDecoration key={decoration.uuid} decoration={decoration} isEditMode={isEditMode} />)}
           {tables.map((table) => <DraggableTable key={table.uuid} table={table} isEditMode={isEditMode} isSelected={table.uuid === selectedTableUuid} onClick={handleTableClick} />)}
 

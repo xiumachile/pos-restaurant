@@ -1,86 +1,50 @@
 import { useTranslation } from "react-i18next";
-import type { DiningZone, TablePosition } from "@/types/floorPlan";
+import type { DiningZone } from "@/types/floorPlan";
 import { getTranslation } from "@/utils/floorPlanHelpers";
 
 interface Props {
   zone: DiningZone;
-  tables: TablePosition[];
 }
 
-/**
- * Renderiza el fondo visual de una zona calculando automáticamente
- * el rectángulo que contiene todas sus mesas (con padding).
- */
-export function DiningZoneBackground({ zone, tables }: Props) {
+export function DiningZoneBackground({ zone }: Props) {
   const { t } = useTranslation();
-  const zoneTables = tables.filter((t) => t.zone_uuid === zone.uuid);
-
-  if (zoneTables.length === 0) {
-    // Zona vacía: renderizar un placeholder pequeño
-    return (
-      <div
-        className="absolute border-2 border-dashed rounded-lg flex items-center justify-center pointer-events-none"
-        style={{
-          left: 20,
-          top: 20,
-          width: 200,
-          height: 100,
-          backgroundColor: zone.color + "15",
-          borderColor: zone.color + "60",
-        }}
-      >
-        <div className="text-center">
-          <p className="text-xs font-medium" style={{ color: zone.color }}>
-            {getTranslation(zone.name_translations, zone.code)}
-          </p>
-          <p className="text-xs opacity-60 mt-1">
-            {t("floor_plan.zone_panel.empty_zone")}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Calcular bounding box de las mesas de la zona
-  const padding = 30;
-  const minX = Math.min(...zoneTables.map((t) => t.position_x)) - padding;
-  const minY = Math.min(...zoneTables.map((t) => t.position_y)) - padding;
-  const maxX =
-    Math.max(
-      ...zoneTables.map((t) => {
-        const w = t.shape === "rectangle" ? (t.width ?? 120) : 80;
-        return t.position_x + w;
-      })
-    ) + padding;
-  const maxY =
-    Math.max(
-      ...zoneTables.map((t) => {
-        const h = t.shape === "rectangle" ? (t.height ?? 80) : 80;
-        return t.position_y + h;
-      })
-    ) + padding;
-
-  const width = Math.max(maxX - minX, 200);
-  const height = Math.max(maxY - minY, 120);
+  
+  // Usar dimensiones de la zona, con fallbacks por si hay datos antiguos
+  const x = zone.position_x ?? 20;
+  const y = zone.position_y ?? 20;
+  const width = zone.width ?? 400;
+  const height = zone.height ?? 300;
 
   return (
     <div
-      className="absolute border-2 border-dashed rounded-xl pointer-events-none transition-all"
-      style={{
-        left: minX,
-        top: minY,
-        width,
-        height,
-        backgroundColor: zone.color + "12",
-        borderColor: zone.color + "50",
+      className="absolute rounded-2xl pointer-events-none transition-all duration-300 border border-white/10 flex flex-col"
+      style={{ 
+        left: x, 
+        top: y, 
+        width, 
+        height, 
+        backgroundColor: `${zone.color}15`, 
+        boxShadow: `inset 0 0 30px ${zone.color}10` 
       }}
     >
-      <div
-        className="absolute top-1 left-2 px-2 py-0.5 rounded text-xs font-semibold"
+      {/* Etiqueta de la zona */}
+      <div 
+        className="absolute -top-3 left-4 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg border border-white/20 flex items-center gap-1.5" 
         style={{ backgroundColor: zone.color, color: "white" }}
       >
+        <span className="w-1.5 h-1.5 rounded-full bg-white/50" />
         {getTranslation(zone.name_translations, zone.code)}
+        <span className="opacity-70 ml-1">({zone.tables_count || 0} {t("floor_plan.zone_panel.tables", "mesas")})</span>
       </div>
+      
+      {/* Indicador visual de que es una zona vacía (opcional, solo en modo edición) */}
+      {zone.tables_count === 0 && (
+        <div className="flex-1 flex items-center justify-center opacity-30">
+          <span className="text-xs font-medium" style={{ color: zone.color }}>
+            {t("floor_plan.zone_panel.empty_zone", "Zona vacía")}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

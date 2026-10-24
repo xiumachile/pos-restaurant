@@ -1274,5 +1274,11 @@
     "switch_to_chinese": "切换到中文",
     "spanish": "西班牙语",
     "chinese_simplified": "中文（简体）"
+  },
+  "table": {
+    "available": "空闲",
+    "occupied": "已占用",
+    "billing": "请求结账",
+    "maintenance": "维护中"
   }
 }

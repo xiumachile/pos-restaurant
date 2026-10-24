@@ -1,23 +1,22 @@
 import { useTranslation } from "react-i18next";
-import { Square, Circle, RectangleHorizontal, RectangleVertical, Armchair, Sofa, Flower, Columns, Server } from "lucide-react";
+
+import { Square, Circle, RectangleHorizontal, Armchair, Sofa, Flower, Columns, Server } from "lucide-react";
+
 import type { FurnitureType } from "@/types/floorPlan";
 
 export const FURNITURE_CATALOG = [
-  // Mesas
-  { id: "table_square_2" as FurnitureType, label: "Mesa Cuadrada (2p)", icon: Square, width: 60, height: 60, capacity: 2, color: "#3b82f6" },
-  { id: "table_square_4" as FurnitureType, label: "Mesa Cuadrada (4p)", icon: Square, width: 80, height: 80, capacity: 4, color: "#3b82f6" },
-  { id: "table_round_4" as FurnitureType, label: "Mesa Redonda (4p)", icon: Circle, width: 80, height: 80, capacity: 4, color: "#10b981" },
-  { id: "table_round_6" as FurnitureType, label: "Mesa Redonda (6p)", icon: Circle, width: 100, height: 100, capacity: 6, color: "#10b981" },
-  { id: "table_rectangle_6" as FurnitureType, label: "Mesa Rectangular (6p)", icon: RectangleHorizontal, width: 120, height: 80, capacity: 6, color: "#8b5cf6" },
-  { id: "table_rectangle_8" as FurnitureType, label: "Mesa Rectangular (8p)", icon: RectangleHorizontal, width: 140, height: 80, capacity: 8, color: "#8b5cf6" },
-  // Mobiliario
-  { id: "bar_counter" as FurnitureType, label: "Barra / Mostrador", icon: RectangleHorizontal, width: 160, height: 40, capacity: 0, color: "#d97706" },
+  { id: "table_square_2" as FurnitureType, label: "Mesa 2p", icon: Square, width: 60, height: 60, capacity: 2, color: "#3b82f6" },
+  { id: "table_square_4" as FurnitureType, label: "Mesa 4p", icon: Square, width: 80, height: 80, capacity: 4, color: "#3b82f6" },
+  { id: "table_round_4" as FurnitureType, label: "Redonda 4p", icon: Circle, width: 80, height: 80, capacity: 4, color: "#10b981" },
+  { id: "table_round_6" as FurnitureType, label: "Redonda 6p", icon: Circle, width: 100, height: 100, capacity: 6, color: "#10b981" },
+  { id: "table_rectangle_6" as FurnitureType, label: "Rectangular 6p", icon: RectangleHorizontal, width: 120, height: 80, capacity: 6, color: "#8b5cf6" },
+  { id: "table_rectangle_8" as FurnitureType, label: "Rectangular 8p", icon: RectangleHorizontal, width: 140, height: 80, capacity: 8, color: "#8b5cf6" },
+  { id: "bar_counter" as FurnitureType, label: "Barra", icon: RectangleHorizontal, width: 160, height: 40, capacity: 0, color: "#d97706" },
   { id: "booth" as FurnitureType, label: "Booth / Sofá", icon: Sofa, width: 120, height: 60, capacity: 4, color: "#6366f1" },
-  // Decoración
   { id: "wall" as FurnitureType, label: "Muro", icon: RectangleHorizontal, width: 120, height: 20, capacity: 0, color: "#475569" },
-  { id: "pillar" as FurnitureType, label: "Pilar / Columna", icon: Columns, width: 40, height: 40, capacity: 0, color: "#64748b" },
+  { id: "pillar" as FurnitureType, label: "Pilar", icon: Columns, width: 40, height: 40, capacity: 0, color: "#64748b" },
   { id: "plant" as FurnitureType, label: "Planta", icon: Flower, width: 50, height: 50, capacity: 0, color: "#22c55e" },
-  { id: "service_station" as FurnitureType, label: "Estación de Servicio", icon: Server, width: 60, height: 60, capacity: 0, color: "#ec4899" },
+  { id: "service_station" as FurnitureType, label: "Estación", icon: Server, width: 60, height: 60, capacity: 0, color: "#ec4899" },
 ] as const;
 
 interface Props {

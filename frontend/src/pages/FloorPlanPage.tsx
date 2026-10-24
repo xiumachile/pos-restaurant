@@ -88,17 +88,23 @@ export function FloorPlanPage() {
     setSelectedTableUuid(null);
   };
 
-  const handleAddFurniture = (type: FurnitureType) => {
+     const handleAddFurniture = (type: FurnitureType) => {
+    console.log("🔍 [DEBUG] Clic en agregar:", type);
+    
     const config = FURNITURE_CATALOG.find((f) => f.id === type);
-    if (!config) return;
+    if (!config) {
+      console.error("❌ [DEBUG] Configuración NO encontrada para:", type);
+      return;
+    }
+    console.log("✅ [DEBUG] Configuración encontrada:", config.label);
 
     if (config.capacity > 0) {
       const newTable: TablePosition = {
         uuid: crypto.randomUUID(),
         table_number: `Mesa ${localTables.length + 1}`,
         capacity: config.capacity,
-        position_x: 200,
-        position_y: 200,
+        position_x: (canvasConfig.width ?? 2000) / 2,
+        position_y: (canvasConfig.height ?? 1500) / 2,
         rotation: 0,
         shape: config.id.includes("round") ? "round" : config.id.includes("rectangle") ? "rectangle" : "square",
         width: config.width,
@@ -110,21 +116,39 @@ export function FloorPlanPage() {
         current_order_id: null,
         furniture_type: type,
       } as TablePosition;
+      
+      console.log("➕ [DEBUG] Agregando mesa al estado:", newTable.table_number);
       setLocalTables((prev) => [...prev, newTable]);
       setSelectedTableUuid(newTable.uuid);
+      
+      // ✅ Scroll automático al centro del canvas después de agregar
+      setTimeout(() => {
+        const canvasContainer = document.querySelector('.floor-plan-canvas-container');
+        if (canvasContainer) {
+          const scrollX = (canvasConfig.width ?? 2000) / 2 - canvasContainer.clientWidth / 2;
+          const scrollY = (canvasConfig.height ?? 1500) / 2 - canvasContainer.clientHeight / 2;
+          canvasContainer.scrollTo({
+            left: Math.max(0, scrollX),
+            top: Math.max(0, scrollY),
+            behavior: 'smooth'
+          });
+        }
+      }, 100);
     } else {
       const newDecoration: DecorationPosition = {
         uuid: crypto.randomUUID(),
         type,
-        position_x: 200,
-        position_y: 200,
+        position_x: (canvasConfig.width ?? 2000) / 2,
+        position_y: (canvasConfig.height ?? 1500) / 2,
         rotation: 0,
         width: config.width,
         height: config.height,
       };
+      console.log("➕ [DEBUG] Agregando decoración al estado:", config.label);
       setLocalDecorations((prev) => [...prev, newDecoration]);
     }
     setHasChanges(true);
+    console.log("🔄 [DEBUG] Estado actualizado, longitudes -> Mesas:", localTables.length + 1, "Decoraciones:", localDecorations.length + 1);
   };
 
   const handleUpdateTable = (uuid: string, updates: Partial<TablePosition>) => {

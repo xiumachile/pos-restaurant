@@ -27,6 +27,10 @@ export interface DiningZone {
   is_active: boolean;
   tables_count?: number;
   created_at?: string;
+  position_x: number;
+  position_y: number;
+  width: number;
+  height: number;
 }
 
 export interface TablePosition {

@@ -1271,5 +1271,11 @@
     "switch_to_chinese": "Cambiar a Chino",
     "spanish": "Español",
     "chinese_simplified": "Chino (Simplificado)"
+  },
+  "table": {
+    "available": "Disponible",
+    "occupied": "Ocupada",
+    "billing": "Pidiendo cuenta",
+    "maintenance": "Mantenimiento"
   }
 }
