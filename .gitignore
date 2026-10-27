@@ -62,3 +62,6 @@ requiere
 pos_restaurant
 *.backup.*
 backup_postgres_*.sql
+.env
+.env.*
+.env.local

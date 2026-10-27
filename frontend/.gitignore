@@ -28,3 +28,6 @@ dist-ssr
 src-tauri/*.bak
 
 # Reportes temporales de auditoría (no commitear)
+.env
+.env.*
+.env.local
