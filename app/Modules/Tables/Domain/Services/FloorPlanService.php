@@ -10,15 +10,15 @@ use App\Shared\Application\TenantContext;
 
 class FloorPlanService
 {
-        public function getFloorPlan(int $companyId, int $branchId): array
+    public function getFloorPlan(int $companyId, int $branchId): array
     {
-        if (class_exists(\App\Shared\Application\TenantContext::class)) {
-            app(\App\Shared\Application\TenantContext::class)->setCompany($companyId, $branchId);
+        if (class_exists(TenantContext::class)) {
+            app(TenantContext::class)->setCompany($companyId, $branchId);
         }
 
         try {
-            // 1. Zonas con conteo CORREGIDO (cuenta floor_plan_objects de tipo 'table' en esta zona)
-            $zones = \Modules\Tables\Domain\Entities\DiningZone::where('branch_id', $branchId)
+            // 1. Zonas
+            $zones = DiningZone::where('branch_id', $branchId)
                 ->select('dining_zones.*')
                 ->selectSub(function ($query) {
                     $query->selectRaw('count(*)')
@@ -30,7 +30,7 @@ class FloorPlanService
                 ->get();
 
             // 2. Objetos gráficos
-            $objects = \Modules\Tables\Domain\Entities\FloorPlanObject::where('branch_id', $branchId)
+            $objects = FloorPlanObject::where('branch_id', $branchId)
                 ->with('table')
                 ->get()
                 ->map(function ($obj) {
@@ -48,13 +48,13 @@ class FloorPlanService
                 });
 
             // 3. Mesas disponibles
-            $linkedTableUuids = \Illuminate\Support\Facades\DB::table('floor_plan_objects')
+            $linkedTableUuids = DB::table('floor_plan_objects')
                 ->where('branch_id', $branchId)
                 ->whereNotNull('table_uuid')
                 ->pluck('table_uuid')
                 ->toArray();
 
-            $availableTablesRaw = \Illuminate\Support\Facades\DB::table('restaurant_tables')
+            $availableTablesRaw = DB::table('restaurant_tables')
                 ->where('branch_id', $branchId)
                 ->whereNull('deleted_at')
                 ->whereNotIn('uuid', $linkedTableUuids)
@@ -71,10 +71,53 @@ class FloorPlanService
                 ];
             })->toArray();
 
-            // 4. Configuración del Canvas
-            $settings = \Illuminate\Support\Facades\DB::table('floor_plan_settings')
+            // 4. Mesas con posición (COMPATIBILIDAD PARA TESTS Y FRONTEND LEGACY)
+            $tables = RestaurantTable::where('company_id', $companyId)
                 ->where('branch_id', $branchId)
-                ->first();
+                ->whereNull('deleted_at')
+                ->whereNotNull('position_x')
+                ->with('zone')
+                ->get()
+                ->map(function ($table) {
+                    return [
+                        'uuid' => $table->uuid,
+                        'table_number' => $table->table_number,
+                        'zone_id' => $table->zone_id,
+                        'zone_uuid' => $table->zone ? $table->zone->uuid : null,
+                        'capacity' => $table->capacity,
+                        'status' => $table->status,
+                        'has_active_order' => (bool) $table->current_order_id,
+                        'current_order_id' => $table->current_order_id,
+                        'position_x' => $table->position_x,
+                        'position_y' => $table->position_y,
+                        'rotation' => $table->rotation,
+                        'shape' => $table->shape,
+                        'width' => $table->width,
+                        'height' => $table->height,
+                        'furniture_type' => $table->furniture_type ?? 'table_square_4',
+                    ];
+                });
+
+            // 5. Decoraciones (COMPATIBILIDAD)
+            $decorations = FloorPlanObject::where('company_id', $companyId)
+                ->where('branch_id', $branchId)
+                ->where('object_type', '!=', 'table')
+                ->get()
+                ->map(function ($obj) {
+                    return [
+                        'uuid' => $obj->uuid,
+                        'type' => $obj->type ?? $obj->object_type,
+                        'position_x' => $obj->position_x,
+                        'position_y' => $obj->position_y,
+                        'rotation' => $obj->rotation,
+                        'width' => $obj->width,
+                        'height' => $obj->height,
+                        'properties' => $obj->properties,
+                    ];
+                });
+
+            // 6. Configuración del Canvas
+            $settings = DB::table('floor_plan_settings')->where('branch_id', $branchId)->first();
 
             return [
                 'plan' => [
@@ -87,11 +130,14 @@ class FloorPlanService
                 'zones' => $zones,
                 'objects' => $objects,
                 'available_tables' => $availableTables,
+                'tables' => $tables,         // ✅ NECESARIO PARA LOS TESTS
+                'decorations' => $decorations, // ✅ NECESARIO PARA LOS TESTS
             ];
         } finally {
             // Limpieza opcional
         }
     }
+
     public function saveFloorPlan(int $branchId, array $payload): array
     {
         $companyId = DB::table('branches')->where('id', $branchId)->value('company_id');
@@ -99,13 +145,13 @@ class FloorPlanService
             throw new \RuntimeException('Sucursal no encontrada.');
         }
 
-        // ✅ Establecer contexto de tenant para el guardado
-        app(TenantContext::class)->setCompany($companyId, $branchId);
+        if (class_exists(TenantContext::class)) {
+            app(TenantContext::class)->setCompany($companyId, $branchId);
+        }
 
         return DB::transaction(function () use ($companyId, $branchId, $payload) {
             $tablesUpdatedCount = 0;
 
-            // COMPATIBILIDAD: Convertir payload antiguo 'tables' a 'objects'
             if (empty($payload['objects']) && !empty($payload['tables'])) {
                 foreach ($payload['tables'] as $tableData) {
                     $payload['objects'][] = [
@@ -126,7 +172,6 @@ class FloorPlanService
             $incomingObjectUuids = array_column($payload['objects'] ?? [], 'uuid');
             $incomingZoneUuids = array_column($payload['zones'] ?? [], 'uuid');
 
-            // 1. Sincronización de Zonas
             foreach ($payload['zones'] ?? [] as $zoneData) {
                 DiningZone::updateOrCreate(
                     ['uuid' => $zoneData['uuid'], 'branch_id' => $branchId],
@@ -148,7 +193,6 @@ class FloorPlanService
                 DiningZone::where('branch_id', $branchId)->whereNotIn('uuid', $incomingZoneUuids)->delete();
             }
 
-            // 2. Sincronización de Objetos Gráficos
             foreach ($payload['objects'] ?? [] as $objData) {
                 if ($objData['object_type'] === 'table' && !empty($objData['table_uuid'])) {
                     $isValidTable = DB::table('restaurant_tables')
@@ -161,7 +205,6 @@ class FloorPlanService
                         throw new \InvalidArgumentException("La mesa {$objData['table_uuid']} no pertenece a esta sucursal o no existe.");
                     }
 
-                    // ✅ ACTUALIZAR LA MESA OPERATIVA PARA COMPATIBILIDAD
                     DB::table('restaurant_tables')
                         ->where('uuid', $objData['table_uuid'])
                         ->update([
@@ -202,7 +245,6 @@ class FloorPlanService
                 FloorPlanObject::where('branch_id', $branchId)->whereNotIn('uuid', $incomingObjectUuids)->delete();
             }
 
-            // 3. Configuración del Canvas
             if (!empty($payload['plan'])) {
                 DB::table('floor_plan_settings')->updateOrInsert(
                     ['branch_id' => $branchId],
@@ -222,7 +264,9 @@ class FloorPlanService
 
     public function createZone(int $companyId, int $branchId, array $data): DiningZone
     {
-        app(TenantContext::class)->setCompany($companyId, $branchId);
+        if (class_exists(TenantContext::class)) {
+            app(TenantContext::class)->setCompany($companyId, $branchId);
+        }
         return DiningZone::create(array_merge($data, [
             'company_id' => $companyId,
             'branch_id' => $branchId,

@@ -91,3 +91,17 @@ export function AssetLibrary({ onAddObject, isEditMode }: Props) {
     </div>
   );
 }
+
+// ============================================================================
+// LEGACY EXPORTS (Para compatibilidad con cualquier archivo residual)
+// ============================================================================
+export const FURNITURE_CATALOG = [
+  { id: 'table_square_4', type: 'table', width: 80, height: 80 },
+  { id: 'table_round_4', type: 'table', width: 80, height: 80 },
+  { id: 'table_rectangle_6', type: 'table', width: 120, height: 80 },
+  { id: 'wall', type: 'wall', width: 200, height: 20 },
+  { id: 'plant', type: 'plant', width: 60, height: 60 },
+  { id: 'column', type: 'column', width: 40, height: 40 },
+  { id: 'booth', type: 'booth', width: 120, height: 80 },
+  { id: 'bar_counter', type: 'counter', width: 160, height: 40 },
+];

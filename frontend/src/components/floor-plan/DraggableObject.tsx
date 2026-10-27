@@ -82,7 +82,7 @@ export function DraggableObject({ object, isEditMode, isSelected, onClick }: Pro
       case "plant": return <PlantGeometry color={color} />;
       case "counter": return <BarCounterGeometry color={color} />;
       case "column":
-      case "pillar": return <PillarGeometry color={color} />;
+      case "column": return <PillarGeometry color={color} />;
       default: return <div className="w-full h-full bg-slate-500/50 rounded" />;
     }
   };
