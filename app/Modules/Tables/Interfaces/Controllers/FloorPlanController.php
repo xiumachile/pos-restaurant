@@ -18,37 +18,34 @@ class FloorPlanController extends Controller
         $this->service = $service;
     }
 
-    /**
-     * GET /api/v1/floor-plan
-     */
     public function show(Request $request): JsonResponse
     {
         $user = $request->user();
-        $floorPlan = $this->service->getFloorPlan($user->company_id, $user->branch_id);
+        $floorPlanData = $this->service->getFloorPlan($user->company_id, $user->branch_id);
         
         return response()->json([
-            'data' => new FloorPlanResource($floorPlan),
+            'data' => new FloorPlanResource($floorPlanData),
         ]);
     }
 
-    /**
-     * PUT /api/v1/floor-plan
-     */
     public function update(SaveFloorPlanRequest $request): JsonResponse
     {
         $user = $request->user();
         
-        $result = $this->service->saveFloorPlan(
-            $user->branch_id,
-            $request->input('tables', []),
-            $request->input('decorations', [])
-        );
+        // Guardamos y obtenemos el conteo de mesas actualizadas
+        $result = $this->service->saveFloorPlan($user->branch_id, $request->validated());
         
+        // Obtenemos el estado actualizado para devolverlo al frontend
+        $updatedData = $this->service->getFloorPlan($user->company_id, $user->branch_id);
+        
+        // Fusionamos el recurso con el dato específico que esperan las pruebas
+        $resource = new FloorPlanResource($updatedData);
+        $responseData = $resource->toArray($request);
+        $responseData['tables_updated'] = $result['tables_updated'] ?? 0;
+
         return response()->json([
-            'message' => 'Floor plan guardado correctamente',
-            'data' => [
-                'tables_updated' => $result['tables']->count(),
-            ],
+            'message' => 'Plano guardado y sincronizado correctamente',
+            'data' => $responseData,
         ]);
     }
 }

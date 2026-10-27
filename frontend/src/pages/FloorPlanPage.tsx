@@ -1,413 +1,326 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+// src/pages/FloorPlanPage.tsx
+import { useState, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Map, Edit3, Save, Loader2, CheckCircle2, AlertTriangle, Settings2 } from "lucide-react";
-import {
-  useFloorPlan,
-  useSaveFloorPlan,
-  useCreateDiningZone,
-  useUpdateDiningZone,
-  useDeleteDiningZone,
-} from "@/hooks/useFloorPlan";
-import type {
-  DiningZone,
-  TablePosition,
-  DecorationPosition,
-  CreateDiningZonePayload,
-  UpdateDiningZonePayload,
-  FurnitureType,
-  CanvasConfig,
+import { Map, Save, X, Edit3, Settings2 } from "lucide-react";
+import type { 
+  FloorPlanObject, 
+  FloorPlanZone, 
+  CanvasConfig, 
+  ObjectType, 
+  SaveFloorPlanPayload,
+  OperationalTableData
 } from "@/types/floorPlan";
-import { FURNITURE_CATALOG } from "@/components/floor-plan/AssetLibrary";
 import { FloorPlanCanvas } from "@/components/floor-plan/FloorPlanCanvas";
-import { DiningZonePanel } from "@/components/floor-plan/DiningZonePanel";
-import { CreateZoneModal } from "@/components/floor-plan/CreateZoneModal";
-import { EditZoneModal } from "@/components/floor-plan/EditZoneModal";
 import { AssetLibrary } from "@/components/floor-plan/AssetLibrary";
 import { PropertiesPanel } from "@/components/floor-plan/PropertiesPanel";
 import { CanvasSettingsPanel } from "@/components/floor-plan/CanvasSettingsPanel";
-
-type Toast = { type: "success" | "error"; message: string } | null;
+import { useFloorPlan, useSaveFloorPlan } from "@/hooks/useFloorPlan";
 
 export function FloorPlanPage() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-
-  const { data, isLoading, error } = useFloorPlan();
-  const saveMutation = useSaveFloorPlan();
-  const createZoneMutation = useCreateDiningZone();
-  const updateZoneMutation = useUpdateDiningZone();
-  const deleteZoneMutation = useDeleteDiningZone();
-
+  
   const [isEditMode, setIsEditMode] = useState(false);
-  const [localTables, setLocalTables] = useState<TablePosition[]>([]);
-  const [localDecorations, setLocalDecorations] = useState<DecorationPosition[]>([]);
-  const [hasChanges, setHasChanges] = useState(false);
-  const [showCreateZone, setShowCreateZone] = useState(false);
-  const [editingZone, setEditingZone] = useState<DiningZone | null>(null);
-  const [selectedTableUuid, setSelectedTableUuid] = useState<string | null>(null);
-  const [toast, setToast] = useState<Toast>(null);
-  // ✅ Configuración del lienzo (canvas)
-  const [canvasConfig, setCanvasConfig] = useState<CanvasConfig>({
-    width: 2000,
-    height: 1500,
-    grid_size: 40,
+  const [selectedObjectUuid, setSelectedObjectUuid] = useState<string | null>(null);
+  const [localObjects, setLocalObjects] = useState<FloorPlanObject[]>([]);
+  const [localZones, setLocalZones] = useState<FloorPlanZone[]>([]);
+  const [availableTables, setAvailableTables] = useState<OperationalTableData[]>([]);
+  const [canvasConfig, setCanvasConfig] = useState<CanvasConfig>({ 
+    width: 2000, 
+    height: 1500, 
+    grid_size: 40, 
+    unit: 'px', 
+    version: 1 
   });
-  // ✅ Modal de configuración del canvas
+  
   const [showCanvasSettings, setShowCanvasSettings] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
 
-  // ✅ Sincronizar cuando data cambia desde el servidor
+  // Polling cada 15s en modo operacional, 0 en modo edición
+  const { data, isLoading, refetch } = useFloorPlan(true, isEditMode ? 0 : 15000);
+  const saveMutation = useSaveFloorPlan();
+
+  // Sincronizar estado local con datos del backend
   useEffect(() => {
     if (data && !hasChanges) {
-      setLocalTables(data.tables || []);
-      setLocalDecorations((data as any).decorations || []);
-      if ((data as any).canvas) {
-        setCanvasConfig((data as any).canvas);
+      setLocalObjects(data.objects || []);
+      setLocalZones(data.zones || []);
+      setAvailableTables(data.available_tables || []);
+      if (data.plan) {
+        setCanvasConfig(prev => ({ ...prev, ...data.plan }));
       }
     }
   }, [data, hasChanges]);
 
-  const showToast = (type: "success" | "error", message: string) => {
-    setToast({ type, message });
-    setTimeout(() => setToast(null), 4000);
-  };
+  // --- Manejadores de Acciones ---
 
-  const handleToggleEdit = () => {
-    if (isEditMode && hasChanges) {
-      if (!window.confirm(t("floor_plan.messages.discard_changes_confirm", "¿Descartar cambios no guardados?"))) {
+  const handleAddObjectAt = (objectType: ObjectType, x: number, y: number) => {
+    if (objectType === "table") {
+      // ⚠️ REGLA FUNDAMENTAL: Buscar una mesa operativa real disponible
+      const availableTable = availableTables.find(
+        t => !localObjects.some(obj => obj.table_uuid === t.uuid)
+      );
+
+      if (!availableTable) {
+        alert(t("floor_plan.errors.no_available_tables", "No hay mesas operativas disponibles para colocar en el plano."));
         return;
       }
-      if (data) {
-        setLocalTables(data.tables);
-        setLocalDecorations((data as any).decorations || []);
-        if ((data as any).canvas) setCanvasConfig((data as any).canvas);
-      }
-      setHasChanges(false);
-    }
-    setIsEditMode(!isEditMode);
-    setSelectedTableUuid(null);
-  };
 
-     const handleAddFurniture = (type: FurnitureType) => {
-    console.log("🔍 [DEBUG] Clic en agregar:", type);
-    
-    const config = FURNITURE_CATALOG.find((f) => f.id === type);
-    if (!config) {
-      console.error("❌ [DEBUG] Configuración NO encontrada para:", type);
-      return;
-    }
-    console.log("✅ [DEBUG] Configuración encontrada:", config.label);
-
-    if (config.capacity > 0) {
-      const newTable: TablePosition = {
-        uuid: crypto.randomUUID(),
-        table_number: `Mesa ${localTables.length + 1}`,
-        capacity: config.capacity,
-        position_x: (canvasConfig.width ?? 2000) / 2,
-        position_y: (canvasConfig.height ?? 1500) / 2,
+      const newObject: FloorPlanObject = {
+        uuid: crypto.randomUUID(), // UUID del objeto gráfico (no de la mesa)
+        object_type: "table",
+        table_uuid: availableTable.uuid, // ✅ Vinculación estable
+        zone_uuid: null, // ✅ AGREGADO
+        position_x: x,
+        position_y: y,
+        width: 80,
+        height: 80,
         rotation: 0,
-        shape: config.id.includes("round") ? "round" : config.id.includes("rectangle") ? "rectangle" : "square",
-        width: config.width,
-        height: config.height,
-        status: "available",
-        zone_id: null,
-        zone_uuid: null,
-        has_active_order: false,
-        current_order_id: null,
-        furniture_type: type,
-      } as TablePosition;
-      
-      console.log("➕ [DEBUG] Agregando mesa al estado:", newTable.table_number);
-      setLocalTables((prev) => [...prev, newTable]);
-      setSelectedTableUuid(newTable.uuid);
-      
-      // ✅ Scroll automático al centro del canvas después de agregar
-      setTimeout(() => {
-        const canvasContainer = document.querySelector('.floor-plan-canvas-container');
-        if (canvasContainer) {
-          const scrollX = (canvasConfig.width ?? 2000) / 2 - canvasContainer.clientWidth / 2;
-          const scrollY = (canvasConfig.height ?? 1500) / 2 - canvasContainer.clientHeight / 2;
-          canvasContainer.scrollTo({
-            left: Math.max(0, scrollX),
-            top: Math.max(0, scrollY),
-            behavior: 'smooth'
-          });
+        z_index: 10,
+        properties: { shape: "square" },
+        operational_data: {
+          uuid: availableTable.uuid,
+          table_number: availableTable.table_number,
+          capacity: availableTable.capacity,
+          status: availableTable.status,
+          has_active_order: availableTable.has_active_order,
+          current_order_id: availableTable.current_order_id,
         }
-      }, 100);
+      };
+      
+      setLocalObjects(prev => [...prev, newObject]);
+      setSelectedObjectUuid(newObject.uuid);
     } else {
-      const newDecoration: DecorationPosition = {
+      // Es un objeto decorativo (muro, planta, booth, etc.)
+      const newObject: FloorPlanObject = {
         uuid: crypto.randomUUID(),
-        type,
-        position_x: (canvasConfig.width ?? 2000) / 2,
-        position_y: (canvasConfig.height ?? 1500) / 2,
+        object_type: objectType,
+        table_uuid: null,
+        zone_uuid: null, // ✅ AGREGADO
+        position_x: x,
+        position_y: y,
+        width: objectType === "wall" ? 120 : 60,
+        height: objectType === "wall" ? 20 : 60,
         rotation: 0,
-        width: config.width,
-        height: config.height,
+        z_index: 5,
+        properties: {}
       };
-      console.log("➕ [DEBUG] Agregando decoración al estado:", config.label);
-      setLocalDecorations((prev) => [...prev, newDecoration]);
+      setLocalObjects(prev => [...prev, newObject]);
+      setSelectedObjectUuid(newObject.uuid);
     }
     setHasChanges(true);
-    console.log("🔄 [DEBUG] Estado actualizado, longitudes -> Mesas:", localTables.length + 1, "Decoraciones:", localDecorations.length + 1);
   };
 
-  const handleUpdateTable = (uuid: string, updates: Partial<TablePosition>) => {
-    setLocalTables((prev) => prev.map((t) => (t.uuid === uuid ? { ...t, ...updates } : t)));
+    const handleAddObjectFromLibrary = (objectType: ObjectType) => {
+    // Al hacer clic en la biblioteca, se agrega en una posición por defecto
+    handleAddObjectAt(objectType, 100, 100); 
+  };
+
+  const handleObjectPositionChange = (uuid: string, x: number, y: number) => {
+    setLocalObjects(prev => prev.map(obj => 
+      obj.uuid === uuid ? { ...obj, position_x: x, position_y: y } : obj
+    ));
     setHasChanges(true);
   };
 
-  const handleDeleteTable = (uuid: string) => {
-    setLocalTables((prev) => prev.filter((t) => t.uuid !== uuid));
-    setHasChanges(true);
-    setSelectedTableUuid(null);
-  };
-
-  const handleDeleteDecoration = (uuid: string) => {
-    setLocalDecorations((prev) => prev.filter((d) => d.uuid !== uuid));
-    setHasChanges(true);
-  };
-
-  const handleDuplicateTable = (table: TablePosition) => {
-    const newTable: TablePosition = {
-      ...table,
-      uuid: crypto.randomUUID(),
-      table_number: `${table.table_number} (copia)`,
-      position_x: table.position_x + 50,
-      position_y: table.position_y + 50,
-    };
-    setLocalTables((prev) => [...prev, newTable]);
-    setHasChanges(true);
-    setSelectedTableUuid(newTable.uuid);
-  };
-
-  const handleTablePositionChange = (uuid: string, x: number, y: number) => {
-    setLocalTables((prev) => prev.map((t) => (t.uuid === uuid ? { ...t, position_x: x, position_y: y } : t)));
-    setHasChanges(true);
-  };
-
-  const handleDecorationPositionChange = (uuid: string, x: number, y: number) => {
-    setLocalDecorations((prev) => prev.map((d) => (d.uuid === uuid ? { ...d, position_x: x, position_y: y } : d)));
-    setHasChanges(true);
-  };
-
-  const handleTableClick = (table: TablePosition) => {
-    if (!isEditMode) {
-      navigate(`/tables/${table.uuid}`);
-    } else {
-      setSelectedTableUuid(table.uuid);
+  const handleObjectClick = (obj: FloorPlanObject) => {
+    if (!isEditMode && obj.object_type === "table" && obj.table_uuid) {
+      // Aquí iría la navegación al POS operacional:
+      // navigate(`/pos/order?table_uuid=${obj.table_uuid}`);
+      console.log("Abrir mesa operativa:", obj.table_uuid);
     }
   };
 
-  // ✅ Guardar solo la configuración del canvas (el endpoint guarda todo el plano)
-  const handleCanvasConfigSave = async (newConfig: CanvasConfig) => {
+  const handleUpdateObject = (uuid: string, updates: Partial<FloorPlanObject>) => {
+    setLocalObjects(prev => prev.map(obj => 
+      obj.uuid === uuid ? { ...obj, ...updates } : obj
+    ));
+    setHasChanges(true);
+  };
+
+  const handleDeleteObject = (uuid: string) => {
+    setLocalObjects(prev => prev.filter(obj => obj.uuid !== uuid));
+    if (selectedObjectUuid === uuid) setSelectedObjectUuid(null);
+    setHasChanges(true);
+  };
+
+    const handleSave = async () => {
     try {
-      const payload = {
-        tables: localTables.map((t) => ({
-          uuid: t.uuid,
-          position_x: t.position_x,
-          position_y: t.position_y,
-          rotation: t.rotation,
-          shape: t.shape,
-          width: t.width,
-          height: t.height,
-          furniture_type: t.furniture_type,
+      // Filtrar y sanitizar objetos para evitar nulls en campos requeridos
+      const validObjects = localObjects
+        .filter(obj => {
+          // No enviar mesas gráficas sin una mesa operativa real vinculada
+          if (obj.object_type === 'table' && !obj.table_uuid) return false;
+          return true;
+        })
+        .map(obj => ({
+          uuid: obj.uuid,
+          object_type: obj.object_type,
+          table_uuid: obj.table_uuid || null,
+          zone_uuid: obj.zone_uuid || null,
+          position_x: Math.round(obj.position_x) || 0,
+          position_y: Math.round(obj.position_y) || 0,
+          width: obj.width || (obj.object_type === 'table' ? 80 : 60), // ✅ Fallback a número
+          height: obj.height || (obj.object_type === 'table' ? 80 : 60), // ✅ Fallback a número
+          rotation: obj.rotation || 0,
+          z_index: obj.z_index || 0,
+          properties: obj.properties || {},
+        }));
+
+      const payload: SaveFloorPlanPayload = {
+        plan_version: canvasConfig.version,
+        plan: {
+          width: canvasConfig.width || 2400,
+          height: canvasConfig.height || 1800,
+          grid_size: canvasConfig.grid_size || 40,
+          unit: canvasConfig.unit || 'px',
+        },
+        zones: localZones.map(z => ({
+          uuid: z.uuid,
+          name: z.name || z.code,
+          code: z.code,
+          type: z.type || 'other',
+          color: z.color || '#cccccc',
+          name_translations: z.name_translations || {},
+          position_x: z.position_x || 0,
+          position_y: z.position_y || 0,
+          width: z.width || 400,
+          height: z.height || 300,
+          rotation: z.rotation || 0,
+          properties: z.properties || {},
         })),
-        decorations: localDecorations.map((d) => ({
-          uuid: d.uuid,
-          type: d.type,
-          position_x: d.position_x,
-          position_y: d.position_y,
-          rotation: d.rotation,
-          width: d.width,
-          height: d.height,
-        })),
-        canvas: newConfig,
+        objects: validObjects,
       };
 
       await saveMutation.mutateAsync(payload);
-      setCanvasConfig(newConfig);
-      setShowCanvasSettings(false);
-      showToast("success", t("floor_plan.messages.canvas_settings_saved", "Configuración del plano guardada"));
-    } catch (err: any) {
-      showToast("error", err?.response?.data?.message ?? t("floor_plan.messages.error_save", "Error al guardar"));
-    }
-  };
-
-  const handleSave = async () => {
-    try {
-      const payload = {
-        tables: localTables.map((t) => ({
-          uuid: t.uuid,
-          position_x: t.position_x,
-          position_y: t.position_y,
-          rotation: t.rotation,
-          shape: t.shape,
-          width: t.width,
-          height: t.height,
-          furniture_type: t.furniture_type, // ✅ Crucial para que el backend sepa qué renderizar
-        })),
-        decorations: localDecorations.map((d) => ({
-          uuid: d.uuid,
-          type: d.type,
-          position_x: d.position_x,
-          position_y: d.position_y,
-          rotation: d.rotation,
-          width: d.width,
-          height: d.height,
-        })),
-        canvas: canvasConfig, // ✅ Enviar configuración del lienzo al backend
-      };
-      await saveMutation.mutateAsync(payload);
-      showToast("success", t("floor_plan.messages.saved", "Plano guardado correctamente"));
+      
       setHasChanges(false);
       setIsEditMode(false);
-    } catch (err: any) {
-      showToast("error", err?.response?.data?.message ?? t("floor_plan.messages.error_save", "Error al guardar"));
+      setSelectedObjectUuid(null);
+      refetch();
+    } catch (error: any) {
+      console.error("Error detallado al guardar:", error.response?.data || error);
+      alert(t("floor_plan.errors.save_failed", "Error al guardar. Revisa la consola para más detalles."));
     }
   };
-
   const handleCancel = () => {
-    if (data) {
-      setLocalTables(data.tables);
-      setLocalDecorations((data as any).decorations || []);
-      if ((data as any).canvas) setCanvasConfig((data as any).canvas);
+    if (hasChanges && !window.confirm(t("floor_plan.messages.discard_changes", "¿Descartar cambios no guardados?"))) {
+      return;
     }
     setHasChanges(false);
     setIsEditMode(false);
-    setSelectedTableUuid(null);
+    setSelectedObjectUuid(null);
+    refetch(); // Revertir a datos del servidor
   };
 
-  const handleCreateZone = async (payload: CreateDiningZonePayload) => {
-    await createZoneMutation.mutateAsync(payload);
-    showToast("success", t("floor_plan.messages.zone_created", "Zona creada"));
+  const handleCanvasConfigSave = (newConfig: CanvasConfig) => {
+    setCanvasConfig(prev => ({ ...prev, ...newConfig }));
+    setHasChanges(true);
+    setShowCanvasSettings(false);
   };
 
-  const handleUpdateZone = async (uuid: string, payload: UpdateDiningZonePayload) => {
-    await updateZoneMutation.mutateAsync({ uuid, payload });
-    showToast("success", t("floor_plan.messages.zone_updated", "Zona actualizada"));
-  };
-
-  const handleDeleteZone = async (zone: DiningZone) => {
-    try {
-      await deleteZoneMutation.mutateAsync(zone.uuid);
-      showToast("success", t("floor_plan.messages.zone_deleted", "Zona eliminada"));
-    } catch (err: any) {
-      showToast("error", err?.response?.data?.message ?? t("floor_plan.messages.zone_delete_error", "Error al eliminar"));
-    }
-  };
+  const selectedObject = localObjects.find(obj => obj.uuid === selectedObjectUuid) || null;
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full min-h-[600px]">
-        <Loader2 className="animate-spin text-orange-500" size={48} />
+      <div className="flex items-center justify-center h-full text-slate-400">
+        {t("floor_plan.messages.loading", "Cargando plano...")}
       </div>
     );
   }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-full min-h-[600px] text-red-400">
-        <p>{t("floor_plan.messages.error_load", "Error al cargar el plano")}</p>
-      </div>
-    );
-  }
-
-  const zones = data?.zones ?? [];
-  const selectedTable = localTables.find((t) => t.uuid === selectedTableUuid) || null;
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between p-4 border-b border-slate-700 bg-slate-800/50">
+    <div className="flex flex-col h-full bg-slate-900 text-white">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b border-slate-700 bg-slate-800/50 shrink-0">
         <div className="flex items-center gap-3">
           <Map size={28} className="text-orange-400" />
           <div>
-            <h1 className="text-2xl font-bold text-white">{t("floor_plan.title", "Plano del Restaurante")}</h1>
-            <p className="text-sm text-slate-400">{t("floor_plan.subtitle", "Organiza las mesas y zonas")}</p>
+            <h1 className="text-xl font-bold text-white">{t("floor_plan.title", "Plano del Restaurante")}</h1>
+            <p className="text-xs text-slate-400">{t("floor_plan.subtitle", "Organiza las mesas y zonas")}</p>
           </div>
         </div>
+        
         <div className="flex items-center gap-2">
-          {/* ✅ Botón de configuración del canvas */}
           <button
             onClick={() => setShowCanvasSettings(true)}
-            className="flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm"
-            title={t("floor_plan.canvas_settings.title", "Configuración del Plano")}
+            className="flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm border border-slate-600"
           >
             <Settings2 size={16} />
-            <span className="hidden sm:inline">
-              {canvasConfig.width}×{canvasConfig.height}
-            </span>
+            <span className="hidden sm:inline">{canvasConfig.width}×{canvasConfig.height}</span>
           </button>
 
           {isEditMode ? (
             <>
-              <button onClick={handleCancel} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors">
+              <button
+                onClick={handleCancel}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm"
+              >
+                <X size={16} />
                 {t("floor_plan.actions.cancel", "Cancelar")}
               </button>
               <button
                 onClick={handleSave}
                 disabled={!hasChanges || saveMutation.isPending}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors text-sm font-medium"
               >
-                {saveMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                {t("floor_plan.actions.save", "Guardar")}
-                {hasChanges && <span className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />}
+                <Save size={16} />
+                {saveMutation.isPending ? t("floor_plan.actions.saving", "Guardando...") : t("floor_plan.actions.save", "Guardar cambios")}
               </button>
             </>
           ) : (
-            <button onClick={handleToggleEdit} className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors">
+            <button
+              onClick={() => setIsEditMode(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors text-sm font-medium"
+            >
               <Edit3 size={16} />
-              {t("floor_plan.actions.edit", "Editar")}
+              {t("floor_plan.actions.edit", "Editar plano")}
             </button>
           )}
         </div>
       </div>
 
+      {/* Área de Trabajo Principal */}
       <div className="flex flex-1 overflow-hidden">
-        {isEditMode && <AssetLibrary onAddFurniture={handleAddFurniture} isEditMode={isEditMode} />}
-        <div className="flex-1 p-4 overflow-hidden">
+        {/* Panel Izquierdo: Biblioteca de Activos */}
+                {isEditMode && (
+          <AssetLibrary onAddObject={handleAddObjectFromLibrary} isEditMode={isEditMode} />
+        )}
+        
+        {/* Centro: Lienzo del Plano */}
+        <div className="flex-1 p-4 overflow-hidden bg-slate-950">
           <FloorPlanCanvas
-            zones={zones}
-            tables={localTables}
-            decorations={localDecorations}
-            isEditMode={isEditMode}
-            selectedTableUuid={selectedTableUuid}
-            onTablePositionChange={handleTablePositionChange}
-            onDecorationPositionChange={handleDecorationPositionChange}
-            onTableClick={handleTableClick}
-            onTableSelect={setSelectedTableUuid}
-            canvasConfig={canvasConfig}
-          />
+  zones={localZones}
+  objects={localObjects}  // ✅ Pasar objects, no tables/decorations
+  isEditMode={isEditMode}
+  selectedObjectUuid={selectedObjectUuid}
+  canvasConfig={canvasConfig}
+  onObjectPositionChange={handleObjectPositionChange}
+  onAddObjectAt={handleAddObjectAt}
+  onObjectClick={handleObjectClick}
+  onObjectSelect={setSelectedObjectUuid}
+/>
         </div>
+
+        {/* Panel Derecho: Propiedades */}
         {isEditMode && (
           <PropertiesPanel
-            selectedTable={selectedTable}
-            onUpdateTable={handleUpdateTable}
-            onDeleteTable={handleDeleteTable}
-            onDuplicateTable={handleDuplicateTable}
+            selectedObject={selectedObject}
+            zones={localZones}
+            availableTables={availableTables}
+            onUpdateObject={handleUpdateObject}
+            onDeleteObject={handleDeleteObject}
             isEditMode={isEditMode}
           />
         )}
       </div>
 
-      {/* ✅ Modal de configuración del canvas */}
+      {/* Modal de Configuración del Canvas */}
       <CanvasSettingsPanel
         canvasConfig={canvasConfig}
         onSave={handleCanvasConfigSave}
         onClose={() => setShowCanvasSettings(false)}
         isOpen={showCanvasSettings}
       />
-
-      <CreateZoneModal isOpen={showCreateZone} onClose={() => setShowCreateZone(false)} onSubmit={handleCreateZone} />
-      <EditZoneModal isOpen={!!editingZone} zone={editingZone} onClose={() => setEditingZone(null)} onSubmit={handleUpdateZone} />
-
-      {toast && (
-        <div className={`fixed bottom-6 right-6 flex items-center gap-3 px-4 py-3 rounded-lg shadow-2xl z-50 ${
-          toast.type === "success" ? "bg-emerald-900/90 border border-emerald-700 text-emerald-100" : "bg-red-900/90 border border-red-700 text-red-100"
-        }`}>
-          {toast.type === "success" ? <CheckCircle2 size={20} className="text-emerald-400" /> : <AlertTriangle size={20} className="text-red-400" />}
-          <span className="text-sm font-medium">{toast.message}</span>
-        </div>
-      )}
     </div>
   );
 }

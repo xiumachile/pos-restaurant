@@ -1,104 +1,138 @@
-import { useState } from "react";
-import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors, DragOverlay } from "@dnd-kit/core";
+import { useState, useMemo } from "react";
+import { DndContext, DragEndEvent, DragOverEvent, PointerSensor, useSensor, useSensors, DragOverlay } from "@dnd-kit/core";
 import { restrictToParentElement } from "@dnd-kit/modifiers";
 import { useTranslation } from "react-i18next";
-import type { DiningZone, TablePosition, DecorationPosition, CanvasConfig } from "@/types/floorPlan";
+import type { FloorPlanObject, FloorPlanZone, CanvasConfig, ObjectType } from "@/types/floorPlan";
 import { DiningZoneBackground } from "./DiningZoneBackground";
-import { DraggableTable } from "./DraggableTable";
-import { DraggableDecoration } from "./DraggableDecoration";
+import { DraggableObject } from "./DraggableObject";
 
 interface Props {
-  zones: DiningZone[];
-  tables: TablePosition[];
-  decorations: DecorationPosition[];
+  zones: FloorPlanZone[];
+  objects: FloorPlanObject[];
   isEditMode: boolean;
-  selectedTableUuid: string | null;
-  onTablePositionChange: (uuid: string, x: number, y: number) => void;
-  onDecorationPositionChange: (uuid: string, x: number, y: number) => void;
-  onTableClick: (table: TablePosition) => void;
-  onTableSelect: (uuid: string | null) => void;
-  canvasConfig: CanvasConfig; // ✅ Agregado
+  selectedObjectUuid: string | null;
+  onObjectPositionChange: (uuid: string, x: number, y: number) => void;
+  onAddObjectAt: (objectType: ObjectType, x: number, y: number) => void;
+  onObjectClick: (object: FloorPlanObject) => void;
+  onObjectSelect: (uuid: string | null) => void;
+  canvasConfig: CanvasConfig;
 }
 
 function snapToGrid(value: number, gridSize: number): number {
   return Math.round(value / gridSize) * gridSize;
 }
 
+// ✅ DISTRIBUIR mesas en (0,0) automáticamente en una cuadrícula
+function distributeObjects(objects: FloorPlanObject[], canvasWidth: number, canvasHeight: number): FloorPlanObject[] {
+  const gridSize = 150;
+  const startX = 100;
+  const startY = 100;
+  const maxCols = Math.floor((canvasWidth - 200) / gridSize);
+  let col = 0;
+  let row = 0;
+
+  return objects.map((obj, index) => {
+    // Si está en (0,0) o tiene posición inválida, distribuirlo
+    if ((obj.position_x === 0 && obj.position_y === 0) || 
+        obj.position_x < 0 || obj.position_y < 0 ||
+        obj.position_x > canvasWidth || obj.position_y > canvasHeight) {
+      const distributed = {
+        ...obj,
+        position_x: startX + col * gridSize,
+        position_y: startY + row * gridSize,
+      };
+      col++;
+      if (col >= maxCols) {
+        col = 0;
+        row++;
+      }
+      return distributed;
+    }
+    return obj;
+  });
+}
+
 export function FloorPlanCanvas({
   zones,
-  tables,
-  decorations,
+  objects,
   isEditMode,
-  selectedTableUuid,
-  onTablePositionChange,
-  onDecorationPositionChange,
-  onTableClick,
-  onTableSelect,
+  selectedObjectUuid,
+  onObjectPositionChange,
+  onAddObjectAt,
+  onObjectClick,
+  onObjectSelect,
   canvasConfig,
 }: Props) {
   const { t } = useTranslation();
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [activeType, setActiveType] = useState<"table" | "decoration" | null>(null);
+  const [activeType, setActiveType] = useState<"palette" | "object" | null>(null);
+  const [activePaletteType, setActivePaletteType] = useState<ObjectType | null>(null);
 
   const gridSize = canvasConfig.grid_size ?? 40;
-  const canvasWidth = canvasConfig.width ?? 2000;
-  const canvasHeight = canvasConfig.height ?? 1500;
+  const canvasWidth = canvasConfig.width ?? 2400;
+  const canvasHeight = canvasConfig.height ?? 1800;
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  // ✅ DISTRIBUIR objetos automáticamente
+  const distributedObjects = useMemo(
+    () => distributeObjects(objects, canvasWidth, canvasHeight),
+    [objects, canvasWidth, canvasHeight]
+  );
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
 
   const handleDragStart = (event: any) => {
     setActiveId(event.active.id);
-    if (tables.find((t) => t.uuid === event.active.id)) setActiveType("table");
-    else if (decorations.find((d) => d.uuid === event.active.id)) setActiveType("decoration");
+    if (event.active.data.current?.fromLibrary) {
+      setActiveType("palette");
+      setActivePaletteType(event.active.data.current?.objectType || null);
+    } else if (distributedObjects.find((obj) => obj.uuid === event.active.id)) {
+      setActiveType("object");
+      setActivePaletteType(null);
+    }
   };
+
+  const handleDragOver = (event: DragOverEvent) => {};
 
   const handleDragEnd = (event: DragEndEvent) => {
-    const { active, delta } = event;
-    const table = tables.find((t) => t.uuid === active.id);
-    if (table) {
-      onTablePositionChange(
-        table.uuid,
-        Math.max(0, snapToGrid(table.position_x + delta.x, gridSize)),
-        Math.max(0, snapToGrid(table.position_y + delta.y, gridSize))
-      );
-    } else {
-      const decoration = decorations.find((d) => d.uuid === active.id);
-      if (decoration) {
-        onDecorationPositionChange(
-          decoration.uuid,
-          Math.max(0, snapToGrid(decoration.position_x + delta.x, gridSize)),
-          Math.max(0, snapToGrid(decoration.position_y + delta.y, gridSize))
-        );
+    const { active, delta, over } = event;
+    
+    if (activeType === "palette" && activePaletteType && over) {
+      const dropX = snapToGrid((active.rect.current.translated?.left || 100) - (over.rect.left || 0), gridSize);
+      const dropY = snapToGrid((active.rect.current.translated?.top || 100) - (over.rect.top || 0), gridSize);
+      onAddObjectAt(activePaletteType, Math.max(0, dropX), Math.max(0, dropY));
+    } else if (activeType === "object") {
+      const obj = distributedObjects.find((o) => o.uuid === active.id);
+      if (obj) {
+        const objWidth = obj.width || (obj.object_type === 'table' ? 80 : 60);
+        const objHeight = obj.height || (obj.object_type === 'table' ? 80 : 60);
+        const newX = Math.max(0, Math.min(canvasWidth - objWidth, snapToGrid(obj.position_x + delta.x, gridSize)));
+        const newY = Math.max(0, Math.min(canvasHeight - objHeight, snapToGrid(obj.position_y + delta.y, gridSize)));
+        onObjectPositionChange(obj.uuid, newX, newY);
       }
     }
+    
     setActiveId(null);
     setActiveType(null);
+    setActivePaletteType(null);
   };
 
-  const handleTableClick = (table: TablePosition) => {
-    isEditMode ? onTableSelect(table.uuid) : onTableClick(table);
+  const handleObjectClick = (obj: FloorPlanObject) => {
+    isEditMode ? onObjectSelect(obj.uuid) : onObjectClick(obj);
   };
 
-  if (tables.length === 0 && decorations.length === 0) {
-    return (
-      <div className="w-full h-full flex items-center justify-center text-slate-500">
-        <div className="text-center p-8 border-2 border-dashed border-slate-700 rounded-2xl bg-slate-800/30">
-          <p className="text-lg font-medium mb-2">{t("floor_plan.canvas.empty", "El plano está vacío")}</p>
-          <p className="text-sm opacity-70">{t("floor_plan.canvas.empty_hint", "Agrega mesas o decoraciones en modo edición")}</p>
-        </div>
-      </div>
-    );
-  }
-
-  const activeTable = activeType === "table" ? tables.find((t) => t.uuid === activeId) : null;
-  const activeDecoration = activeType === "decoration" ? decorations.find((d) => d.uuid === activeId) : null;
+  const activeObject = activeType === "object" ? distributedObjects.find((o) => o.uuid === activeId) || null : null;
 
   return (
-    <DndContext sensors={sensors} modifiers={[restrictToParentElement]} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      {/* Contenedor con scroll */}
-      <div className="floor-plan-canvas-container w-full h-full overflow-auto bg-slate-950 rounded-2xl border border-slate-700/50 shadow-2xl p-8 flex items-center justify-center">
-
-        {/* Lienzo de tamaño fijo */}
+    <DndContext 
+      sensors={sensors} 
+      modifiers={[restrictToParentElement]} 
+      onDragStart={handleDragStart} 
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="floor-plan-canvas-container w-full h-full overflow-auto bg-slate-950 rounded-2xl border border-slate-700/50 shadow-2xl">
         <div
           className="relative shadow-2xl"
           style={{
@@ -108,14 +142,36 @@ export function FloorPlanCanvas({
             backgroundSize: `${gridSize}px ${gridSize}px`,
           }}
         >
-          // Línea corregida:
-{zones.map((zone) => <DiningZoneBackground key={zone.uuid} zone={zone} />)}
-          {decorations.map((decoration) => <DraggableDecoration key={decoration.uuid} decoration={decoration} isEditMode={isEditMode} />)}
-          {tables.map((table) => <DraggableTable key={table.uuid} table={table} isEditMode={isEditMode} isSelected={table.uuid === selectedTableUuid} onClick={handleTableClick} />)}
+          {zones.map((zone) => (
+            <DiningZoneBackground key={zone.uuid} zone={zone} />
+          ))}
+          
+          {distributedObjects.map((obj) => (
+            <DraggableObject
+              key={obj.uuid}
+              object={obj}
+              isEditMode={isEditMode}
+              isSelected={obj.uuid === selectedObjectUuid}
+              onClick={() => handleObjectClick(obj)}
+            />
+          ))}
 
           <DragOverlay dropAnimation={null}>
-            {activeTable && <DraggableTable table={activeTable} isEditMode={true} isSelected={false} onClick={() => {}} />}
-            {activeDecoration && <DraggableDecoration decoration={activeDecoration} isEditMode={true} />}
+            {activeObject && (
+              <DraggableObject
+                object={activeObject}
+                isEditMode={true}
+                isSelected={false}
+                onClick={() => {}}
+              />
+            )}
+            {activeType === "palette" && activePaletteType && (
+              <div className="opacity-80 scale-110 drop-shadow-2xl pointer-events-none">
+                <div className="w-16 h-16 rounded-lg border-2 border-dashed border-orange-400 bg-slate-800/80 flex items-center justify-center">
+                  <span className="text-[10px] text-orange-400 font-bold">Nuevo</span>
+                </div>
+              </div>
+            )}
           </DragOverlay>
         </div>
       </div>

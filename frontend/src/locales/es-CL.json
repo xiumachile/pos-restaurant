@@ -1166,7 +1166,8 @@
       "delete": "Eliminar",
       "confirm": "¿Confirmar?",
       "add_table": "Agregar Mesa",
-      "add_decoration": "Agregar Decoración"
+      "add_decoration": "Agregar Decoración",
+      "saving": "Guardando..."
     },
     "zone_panel": {
       "title": "Zonas",
@@ -1210,7 +1211,9 @@
       "zone_deleted": "Zona eliminada correctamente",
       "zone_delete_error": "No se pudo eliminar la zona",
       "discard_changes_confirm": "Tienes cambios sin guardar. ¿Deseas descartarlos?",
-      "canvas_settings_saved": "Configuración del plano guardada"
+      "canvas_settings_saved": "Configuración del plano guardada",
+      "loading": "Cargando plano...",
+      "discard_changes": "¿Descartar cambios no guardados?"
     },
     "table": {
       "status": {
@@ -1232,7 +1235,8 @@
     "asset_library": {
       "title": "Biblioteca de Activos",
       "tables": "Mesas",
-      "decorations": "Decoraciones"
+      "decorations": "Mobiliario y Decoración",
+      "hint": "Haz clic para agregar al centro del plano"
     },
     "properties": {
       "no_selection": "Selecciona un elemento para editar sus propiedades",
@@ -1240,9 +1244,17 @@
       "table_number": "Número de Mesa",
       "capacity": "Capacidad (personas)",
       "rotation": "Rotación",
-      "position": "Posición",
+      "position": "Posición (px)",
       "duplicate": "Duplicar",
-      "delete": "Eliminar"
+      "delete": "Eliminar",
+      "object_type": "Tipo",
+      "geometry": "Geometría",
+      "dimensions": "Dimensiones (px)",
+      "zone": "Zona",
+      "no_zone": "Sin zona",
+      "operational_data": "Datos Operativos",
+      "linked_table": "Mesa Operativa",
+      "select_table": "Seleccionar mesa..."
     },
     "canvas_settings": {
       "title": "Configuración del Plano",
@@ -1254,6 +1266,31 @@
       "grid_hint": "Distancia entre líneas de la cuadrícula",
       "current_size": "Tamaño actual:",
       "save": "Guardar Configuración"
+    },
+    "objects": {
+      "table": "Mesa",
+      "wall": "Muro",
+      "door": "Puerta",
+      "window": "Ventana",
+      "column": "Columna",
+      "plant": "Planta",
+      "counter": "Mostrador",
+      "booth": "Booth",
+      "bench": "Banca",
+      "sofa": "Sofá",
+      "service_station": "Estación de servicio",
+      "partition": "Separador",
+      "other": "Otro"
+    },
+    "errors": {
+      "no_available_tables": "No hay mesas operativas disponibles para colocar en el plano.",
+      "save_failed": "Error al guardar los cambios."
+    },
+    "status": {
+      "available": "Disponible",
+      "occupied": "Ocupada",
+      "billing": "Facturando",
+      "maintenance": "Mantenimiento"
     }
   },
   "navigation": {

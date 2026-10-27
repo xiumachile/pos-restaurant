@@ -2,164 +2,227 @@
 
 namespace Modules\Tables\Domain\Services;
 
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Modules\Tables\Domain\Entities\DiningZone;
 use Modules\Tables\Domain\Entities\FloorPlanObject;
 use Modules\Tables\Domain\Entities\RestaurantTable;
+use App\Shared\Application\TenantContext;
 
 class FloorPlanService
 {
-    public function getFloorPlan(int $companyId, int $branchId): array
+        public function getFloorPlan(int $companyId, int $branchId): array
     {
-        $zones = DiningZone::where('company_id', $companyId)
-            ->where('branch_id', $branchId)
-            ->withCount('tables')
-            ->ordered()
-            ->get();
+        if (class_exists(\App\Shared\Application\TenantContext::class)) {
+            app(\App\Shared\Application\TenantContext::class)->setCompany($companyId, $branchId);
+        }
 
-        $tables = RestaurantTable::where('company_id', $companyId)
-            ->where('branch_id', $branchId)
-            ->with('zone')
-            ->get();
+        try {
+            // 1. Zonas con conteo CORREGIDO (cuenta floor_plan_objects de tipo 'table' en esta zona)
+            $zones = \Modules\Tables\Domain\Entities\DiningZone::where('branch_id', $branchId)
+                ->select('dining_zones.*')
+                ->selectSub(function ($query) {
+                    $query->selectRaw('count(*)')
+                          ->from('floor_plan_objects')
+                          ->whereColumn('floor_plan_objects.zone_uuid', 'dining_zones.uuid')
+                          ->where('floor_plan_objects.object_type', 'table');
+                }, 'tables_count')
+                ->ordered()
+                ->get();
 
-        // Cargar objetos decorativos
-        $decorations = FloorPlanObject::where('company_id', $companyId)
-            ->where('branch_id', $branchId)
-            ->get();
+            // 2. Objetos gráficos
+            $objects = \Modules\Tables\Domain\Entities\FloorPlanObject::where('branch_id', $branchId)
+                ->with('table')
+                ->get()
+                ->map(function ($obj) {
+                    $data = $obj->toArray();
+                    if ($obj->object_type === 'table' && $obj->table) {
+                        $data['operational_data'] = [
+                            'table_number' => $obj->table->table_number,
+                            'capacity' => $obj->table->capacity,
+                            'status' => $obj->table->status,
+                            'has_active_order' => (bool) $obj->table->current_order_id,
+                            'current_order_id' => $obj->table->current_order_id,
+                        ];
+                    }
+                    return $data;
+                });
 
-        $settings = DB::table('floor_plan_settings')
-            ->where('branch_id', $branchId)
-            ->first();
+            // 3. Mesas disponibles
+            $linkedTableUuids = \Illuminate\Support\Facades\DB::table('floor_plan_objects')
+                ->where('branch_id', $branchId)
+                ->whereNotNull('table_uuid')
+                ->pluck('table_uuid')
+                ->toArray();
 
-        return [
-            'zones' => $zones,
-            'tables' => $tables,
-            'decorations' => $decorations,
-            'canvas' => $settings ? [
-                'width' => $settings->canvas_width,
-                'height' => $settings->canvas_height,
-                'grid_size' => $settings->grid_size,
-            ] : [
-                'width' => 2000,
-                'height' => 1500,
-                'grid_size' => 40,
-            ],
-        ];
-    }
+            $availableTablesRaw = \Illuminate\Support\Facades\DB::table('restaurant_tables')
+                ->where('branch_id', $branchId)
+                ->whereNull('deleted_at')
+                ->whereNotIn('uuid', $linkedTableUuids)
+                ->get(['uuid', 'table_number', 'capacity', 'status', 'current_order_id']);
 
-    public function saveFloorPlan(
-        int $branchId,
-        array $tablesData,
-        array $decorationsData = [],
-        array $canvasData = []
-    ): array {
-        $uuids = array_column($tablesData, 'uuid');
+            $availableTables = collect($availableTablesRaw)->map(function ($table) {
+                return [
+                    'uuid' => $table->uuid,
+                    'table_number' => $table->table_number,
+                    'capacity' => $table->capacity,
+                    'status' => $table->status,
+                    'has_active_order' => (bool) $table->current_order_id,
+                    'current_order_id' => $table->current_order_id,
+                ];
+            })->toArray();
 
-        return DB::transaction(function () use ($branchId, $tablesData, $uuids, $decorationsData, $canvasData) {
-            // Actualizar mesas
-            $tables = $this->updateTables($branchId, $tablesData, $uuids);
-
-            // Guardar decoraciones (sync completo)
-            $decorations = $this->syncDecorations($branchId, $decorationsData);
-
-            // Guardar configuración del canvas
-            if (!empty($canvasData)) {
-                $this->saveCanvasConfig($branchId, $canvasData);
-            }
+            // 4. Configuración del Canvas
+            $settings = \Illuminate\Support\Facades\DB::table('floor_plan_settings')
+                ->where('branch_id', $branchId)
+                ->first();
 
             return [
-                'tables' => $tables,
-                'decorations' => $decorations,
+                'plan' => [
+                    'width' => $settings->canvas_width ?? 2400,
+                    'height' => $settings->canvas_height ?? 1800,
+                    'grid_size' => $settings->grid_size ?? 40,
+                    'unit' => 'px',
+                    'version' => 1,
+                ],
+                'zones' => $zones,
+                'objects' => $objects,
+                'available_tables' => $availableTables,
             ];
-        });
-    }
-
-    private function updateTables(int $branchId, array $tablesData, array $uuids): Collection
-    {
-        $uniqueUuids = array_unique($uuids);
-
-        $tables = RestaurantTable::where('branch_id', $branchId)
-            ->whereNull('deleted_at')
-            ->whereIn('uuid', $uniqueUuids)
-            ->get()
-            ->keyBy('uuid');
-
-        if ($tables->count() !== count($uniqueUuids)) {
-            throw new \InvalidArgumentException(
-                'Algunas mesas no pertenecen a esta sucursal.'
-            );
+        } finally {
+            // Limpieza opcional
         }
-
-        foreach ($tablesData as $tableData) {
-            $table = $tables->get($tableData['uuid']);
-            $table->update([
-                'position_x' => (int) $tableData['position_x'],
-                'position_y' => (int) $tableData['position_y'],
-                'rotation' => (int) $tableData['rotation'],
-                'shape' => $tableData['shape'],
-                'width' => $tableData['width'] ?? null,
-                'height' => $tableData['height'] ?? null,
-            ]);
-        }
-
-        return $tables->values();
     }
-
-    private function saveCanvasConfig(int $branchId, array $canvasData): void
+    public function saveFloorPlan(int $branchId, array $payload): array
     {
         $companyId = DB::table('branches')->where('id', $branchId)->value('company_id');
-
-        if ($companyId === null) {
-            throw new \RuntimeException('No se encontró la sucursal indicada.');
+        if (!$companyId) {
+            throw new \RuntimeException('Sucursal no encontrada.');
         }
 
-        DB::table('floor_plan_settings')->updateOrInsert(
-            ['branch_id' => $branchId],
-            [
-                'company_id' => $companyId,
-                'canvas_width' => $canvasData['width'] ?? 2000,
-                'canvas_height' => $canvasData['height'] ?? 1500,
-                'grid_size' => $canvasData['grid_size'] ?? 40,
-                'updated_at' => now(),
-            ]
-        );
-    }
+        // ✅ Establecer contexto de tenant para el guardado
+        app(TenantContext::class)->setCompany($companyId, $branchId);
 
-    private function syncDecorations(int $branchId, array $decorationsData): Collection
-    {
-        $company = DB::table('branches')->where('id', $branchId)->value('company_id');
+        return DB::transaction(function () use ($companyId, $branchId, $payload) {
+            $tablesUpdatedCount = 0;
 
-        if ($company === null) {
-            throw new \RuntimeException('No se encontró la sucursal indicada.');
-        }
+            // COMPATIBILIDAD: Convertir payload antiguo 'tables' a 'objects'
+            if (empty($payload['objects']) && !empty($payload['tables'])) {
+                foreach ($payload['tables'] as $tableData) {
+                    $payload['objects'][] = [
+                        'uuid' => $tableData['uuid'],
+                        'object_type' => 'table',
+                        'table_uuid' => $tableData['uuid'],
+                        'position_x' => (int) $tableData['position_x'],
+                        'position_y' => (int) $tableData['position_y'],
+                        'rotation' => (int) ($tableData['rotation'] ?? 0),
+                        'width' => (int) ($tableData['width'] ?? 80),
+                        'height' => (int) ($tableData['height'] ?? 80),
+                        'properties' => ['shape' => $tableData['shape'] ?? 'square'],
+                        'type' => 'table',
+                    ];
+                }
+            }
 
-        // Eliminar decoraciones existentes
-        FloorPlanObject::where('branch_id', $branchId)->delete();
+            $incomingObjectUuids = array_column($payload['objects'] ?? [], 'uuid');
+            $incomingZoneUuids = array_column($payload['zones'] ?? [], 'uuid');
 
-        // Insertar nuevas decoraciones
-        $decorations = collect();
-        foreach ($decorationsData as $decoData) {
-            $decoration = FloorPlanObject::create([
-                'company_id' => $company,
-                'branch_id' => $branchId,
-                'uuid' => $decoData['uuid'],
-                'type' => $decoData['type'],
-                'position_x' => (int) $decoData['position_x'],
-                'position_y' => (int) $decoData['position_y'],
-                'rotation' => (int) $decoData['rotation'],
-                'width' => $decoData['width'] ?? null,
-                'height' => $decoData['height'] ?? null,
-                'properties' => $decoData['properties'] ?? null,
-            ]);
-            $decorations->push($decoration);
-        }
+            // 1. Sincronización de Zonas
+            foreach ($payload['zones'] ?? [] as $zoneData) {
+                DiningZone::updateOrCreate(
+                    ['uuid' => $zoneData['uuid'], 'branch_id' => $branchId],
+                    [
+                        'company_id' => $companyId,
+                        'code' => $zoneData['code'],
+                        'name_translations' => $zoneData['name_translations'] ?? [],
+                        'type' => $zoneData['type'] ?? 'other',
+                        'position_x' => (int) $zoneData['position_x'],
+                        'position_y' => (int) $zoneData['position_y'],
+                        'width' => (int) $zoneData['width'],
+                        'height' => (int) $zoneData['height'],
+                        'rotation' => (int) ($zoneData['rotation'] ?? 0),
+                        'color' => $zoneData['properties']['color'] ?? '#cccccc',
+                    ]
+                );
+            }
+            if (!empty($incomingZoneUuids)) {
+                DiningZone::where('branch_id', $branchId)->whereNotIn('uuid', $incomingZoneUuids)->delete();
+            }
 
-        return $decorations;
+            // 2. Sincronización de Objetos Gráficos
+            foreach ($payload['objects'] ?? [] as $objData) {
+                if ($objData['object_type'] === 'table' && !empty($objData['table_uuid'])) {
+                    $isValidTable = DB::table('restaurant_tables')
+                        ->where('uuid', $objData['table_uuid'])
+                        ->where('branch_id', $branchId)
+                        ->whereNull('deleted_at')
+                        ->first();
+                    
+                    if (!$isValidTable) {
+                        throw new \InvalidArgumentException("La mesa {$objData['table_uuid']} no pertenece a esta sucursal o no existe.");
+                    }
+
+                    // ✅ ACTUALIZAR LA MESA OPERATIVA PARA COMPATIBILIDAD
+                    DB::table('restaurant_tables')
+                        ->where('uuid', $objData['table_uuid'])
+                        ->update([
+                            'position_x' => (int) $objData['position_x'],
+                            'position_y' => (int) $objData['position_y'],
+                            'rotation' => (int) ($objData['rotation'] ?? 0),
+                            'shape' => $objData['properties']['shape'] ?? ($objData['shape'] ?? 'square'),
+                            'width' => (int) $objData['width'],
+                            'height' => (int) $objData['height'],
+                            'updated_at' => now(),
+                        ]);
+                }
+
+                FloorPlanObject::updateOrCreate(
+                    ['uuid' => $objData['uuid'], 'branch_id' => $branchId],
+                    [
+                        'company_id' => $companyId,
+                        'zone_uuid' => $objData['zone_uuid'] ?? null,
+                        'table_uuid' => $objData['table_uuid'] ?? null,
+                        'object_type' => $objData['object_type'] ?? 'decoration',
+                        'type' => $objData['object_type'] ?? $objData['type'] ?? 'decoration',
+                        'position_x' => (int) $objData['position_x'],
+                        'position_y' => (int) $objData['position_y'],
+                        'width' => (int) $objData['width'],
+                        'height' => (int) $objData['height'],
+                        'rotation' => (int) ($objData['rotation'] ?? 0),
+                        'z_index' => (int) ($objData['z_index'] ?? 0),
+                        'properties' => $objData['properties'] ?? null,
+                    ]
+                );
+                
+                if ($objData['object_type'] === 'table') {
+                    $tablesUpdatedCount++;
+                }
+            }
+            
+            if (!empty($incomingObjectUuids)) {
+                FloorPlanObject::where('branch_id', $branchId)->whereNotIn('uuid', $incomingObjectUuids)->delete();
+            }
+
+            // 3. Configuración del Canvas
+            if (!empty($payload['plan'])) {
+                DB::table('floor_plan_settings')->updateOrInsert(
+                    ['branch_id' => $branchId],
+                    [
+                        'company_id' => $companyId,
+                        'canvas_width' => (int) $payload['plan']['width'],
+                        'canvas_height' => (int) $payload['plan']['height'],
+                        'grid_size' => (int) $payload['plan']['grid_size'],
+                        'updated_at' => now(),
+                    ]
+                );
+            }
+
+            return ['tables_updated' => $tablesUpdatedCount];
+        });
     }
 
     public function createZone(int $companyId, int $branchId, array $data): DiningZone
     {
+        app(TenantContext::class)->setCompany($companyId, $branchId);
         return DiningZone::create(array_merge($data, [
             'company_id' => $companyId,
             'branch_id' => $branchId,
@@ -173,7 +236,6 @@ class FloorPlanService
             ->firstOrFail();
 
         $zone->update($data);
-
         return $zone->fresh();
     }
 
@@ -183,10 +245,11 @@ class FloorPlanService
             ->where('branch_id', $branchId)
             ->firstOrFail();
 
-        if ($zone->activeTablesCount() > 0) {
-            throw new \RuntimeException(
-                "No se puede eliminar la zona '{$zone->code}' porque tiene {$zone->activeTablesCount()} mesa(s) asignada(s)."
-            );
+        $hasTables = FloorPlanObject::where('zone_uuid', $zone->uuid)->where('object_type', 'table')->exists();
+        $hasTablesOld = RestaurantTable::where('zone_id', $zone->id)->whereNull('deleted_at')->exists();
+
+        if ($hasTables || $hasTablesOld) {
+            throw new \RuntimeException("No se puede eliminar la zona '{$zone->code}' porque tiene mesas asignadas.");
         }
 
         $zone->delete();

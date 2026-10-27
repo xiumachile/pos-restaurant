@@ -19,11 +19,6 @@ export function DraggableDecoration({ decoration, isEditMode }: Props) {
   const config = FURNITURE_CATALOG.find((f) => f.id === decoration.type);
   if (!config) return null;
 
-  const style = transform 
-    ? { transform: CSS.Translate.toString(transform), left: decoration.position_x, top: decoration.position_y }
-    : { left: decoration.position_x, top: decoration.position_y };
-
-  // Renderizado visual específico por tipo
   const renderVisual = () => {
     switch (config.id) {
       case 'plant':
@@ -52,8 +47,30 @@ export function DraggableDecoration({ decoration, isEditMode }: Props) {
             <div className="w-[90%] h-[30%] bg-amber-600 rounded-sm mt-1" />
           </div>
         );
+      case 'booth':
+        return (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-[90%] h-[80%] bg-indigo-600 rounded-lg border-2 border-indigo-800 relative">
+              <div className="absolute top-0 left-0 right-0 h-[30%] bg-indigo-500 rounded-t-lg" />
+              <div className="absolute bottom-2 left-2 right-2 h-[40%] bg-indigo-400 rounded" />
+            </div>
+          </div>
+        );
+      case 'service_station':
+        return (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-[80%] h-[80%] bg-pink-600 rounded-lg border-2 border-pink-800 flex flex-col items-center justify-center gap-1">
+              <div className="w-[60%] h-[30%] bg-white/80 rounded" />
+              <div className="w-[40%] h-[20%] bg-white/60 rounded" />
+            </div>
+          </div>
+        );
       default:
-        return <div className="absolute inset-2 rounded bg-slate-500 opacity-50" />;
+        return (
+          <div className="absolute inset-2 rounded bg-slate-500 border border-slate-600 flex items-center justify-center">
+            <span className="text-[8px] text-white/70 font-bold">{config.label}</span>
+          </div>
+        );
     }
   };
 
@@ -61,10 +78,13 @@ export function DraggableDecoration({ decoration, isEditMode }: Props) {
     <div
       ref={setNodeRef}
       style={{
-        ...style,
         width: config.width,
         height: config.height,
-        transform: `translate3d(${transform?.x ?? 0}px, ${transform?.y ?? 0}px, 0) rotate(${decoration.rotation}deg)`,
+        left: decoration.position_x,
+        top: decoration.position_y,
+        transform: transform 
+          ? `${CSS.Translate.toString(transform)} rotate(${decoration.rotation}deg)`
+          : `rotate(${decoration.rotation}deg)`,
       }}
       className={cn(
         "absolute select-none transition-all",
@@ -77,7 +97,6 @@ export function DraggableDecoration({ decoration, isEditMode }: Props) {
       {...(isEditMode ? listeners : {})}
       {...(isEditMode ? attributes : {})}
     >
-      {/* Capa visual con pointer-events-none para no bloquear el drag */}
       <div className="absolute inset-0 pointer-events-none">
         {renderVisual()}
       </div>

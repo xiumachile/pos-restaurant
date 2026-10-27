@@ -1169,7 +1169,8 @@
       "delete": "删除",
       "confirm": "确认?",
       "add_table": "添加桌子",
-      "add_decoration": "添加装饰"
+      "add_decoration": "添加装饰",
+      "saving": "Guardando..."
     },
     "zone_panel": {
       "title": "区域",
@@ -1204,16 +1205,8 @@
     },
     "tables": {},
     "messages": {
-      "saved": "平面图已保存",
-      "error_save": "保存平面图时出错",
-      "error_load": "加载平面图时出错",
-      "error_generic": "发生错误。请重试。",
-      "zone_created": "区域创建成功",
-      "zone_updated": "区域更新成功",
-      "zone_deleted": "区域删除成功",
-      "zone_delete_error": "无法删除区域",
-      "discard_changes_confirm": "您有未保存的更改。是否放弃?",
-      "canvas_settings_saved": "平面图设置已保存"
+      "loading": "加载平面图...",
+      "discard_changes": "放弃未保存的更改？"
     },
     "table": {
       "status": {
@@ -1233,17 +1226,24 @@
       "hint": "点击添加到平面图中心"
     },
     "asset_library": {
-      "title": "资产库",
+      "title": "对象库",
+      "hint": "点击添加到平面图中心",
       "tables": "桌子",
-      "decorations": "装饰品"
+      "decorations": "家具和装饰"
     },
     "properties": {
-      "no_selection": "选择一个元素以编辑其属性",
       "title": "属性",
-      "table_number": "桌号",
-      "capacity": "容量 (人)",
+      "no_selection": "选择一个元素以编辑其属性",
+      "object_type": "类型",
+      "geometry": "几何",
+      "position": "位置 (px)",
+      "dimensions": "尺寸 (px)",
       "rotation": "旋转",
-      "position": "位置",
+      "zone": "区域",
+      "no_zone": "无区域",
+      "operational_data": "操作数据",
+      "linked_table": "操作台",
+      "select_table": "选择桌子...",
       "duplicate": "复制",
       "delete": "删除"
     },
@@ -1257,6 +1257,31 @@
       "grid_hint": "网格线之间的距离",
       "current_size": "当前尺寸:",
       "save": "保存设置"
+    },
+    "objects": {
+      "table": "桌子",
+      "wall": "墙壁",
+      "door": "门",
+      "window": "窗户",
+      "column": "柱子",
+      "plant": "植物",
+      "counter": "柜台",
+      "booth": "卡座",
+      "bench": "长凳",
+      "sofa": "沙发",
+      "service_station": "服务站",
+      "partition": "隔断",
+      "other": "其他"
+    },
+    "errors": {
+      "no_available_tables": "没有可用的操作台放置在平面图中。",
+      "save_failed": "保存更改时出错。"
+    },
+    "status": {
+      "available": "Disponible",
+      "occupied": "Ocupada",
+      "billing": "Facturando",
+      "maintenance": "Mantenimiento"
     }
   },
   "navigation": {
