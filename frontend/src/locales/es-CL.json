@@ -307,7 +307,12 @@
     "tips_pending_in_cash": "Propinas pendientes en caja",
     "no_pending_tips_note": "Sin propinas pendientes",
     "count_summary": "Arqueo: {{summary}}",
-    "tips_not_delivered_warning": "Debes indicar si las propinas pendientes fueron entregadas antes de continuar."
+    "tips_not_delivered_warning": "Debes indicar si las propinas pendientes fueron entregadas antes de continuar.",
+    "tab_all": "Todos",
+    "tab_tables": "Mesas",
+    "tab_delivery": "Delivery",
+    "tab_takeout": "Para llevar",
+    "no_policy": "No hay política de pago configurada"
   },
   "dashboard": {
     "title": "Panel Principal"

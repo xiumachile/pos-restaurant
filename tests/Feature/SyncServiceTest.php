@@ -16,6 +16,13 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    // ✅ Limpieza explícita para garantizar aislamiento absoluto
+    SyncQueue::withoutGlobalScopes()->truncate();
+    SyncLog::withoutGlobalScopes()->truncate();
+    Order::withoutGlobalScopes()->truncate();
+    Branch::withoutGlobalScopes()->truncate();
+    Company::withoutGlobalScopes()->truncate();
+    User::withoutGlobalScopes()->truncate();
     $this->company = Company::forceCreate([
         'tax_id' => '76.555.555-5',
         'legal_name' => 'Sync Service Test SpA',

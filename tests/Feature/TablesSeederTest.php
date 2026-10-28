@@ -9,6 +9,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    // ✅ Limpieza explícita para garantizar aislamiento absoluto en este test
+    // Evita fallos por acumulación de registros de otros tests (fuga de estado)
+    RestaurantTable::withoutGlobalScopes()->truncate();
+    Branch::withoutGlobalScopes()->truncate();
+    Company::withoutGlobalScopes()->truncate();
+
     // Crear empresa y sucursales base para todos los tests
     $this->company = Company::create([
         'tax_id' => 'SEED-BASE-' . uniqid(),
@@ -39,11 +45,11 @@ test('TablesDemoSeeder crea mesas para todas las sucursales activas', function (
 
     // Verificar que se crearon mesas
     expect(RestaurantTable::count())->toBeGreaterThan(0);
-    
+
     // Verificar que hay mesas en ambas sucursales
     $branchesWithTables = RestaurantTable::distinct()->pluck('branch_id')->count();
     expect($branchesWithTables)->toBe(2);
-    
+
     // Cada sucursal debería tener 14 mesas (5 MAIN + 4 TERRAZA + 2 VIP + 3 BAR)
     expect(RestaurantTable::count())->toBe(28);
 });
@@ -81,10 +87,10 @@ test('todas las mesas inician en estado available', function () {
 
     $total = RestaurantTable::count();
     $available = RestaurantTable::where('status', 'available')->count();
-    
+
     // Verificar que hay mesas creadas
     expect($total)->toBeGreaterThan(0);
-    
+
     // Verificar que TODAS están en estado available
     expect($available)->toBe($total);
 });

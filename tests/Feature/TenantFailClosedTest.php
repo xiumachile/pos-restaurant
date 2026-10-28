@@ -8,11 +8,17 @@ use App\Shared\Domain\Exceptions\TenantContextNotSetException;
 use Modules\Orders\Domain\Entities\Order;
 use Modules\Orders\Domain\ValueObjects\OrderStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    // ✅ Limpieza explícita para garantizar aislamiento absoluto en este test
+    // Evita fallos por acumulación de registros de otros tests (fuga de estado)
+    User::withoutGlobalScopes()->truncate();
+    Order::withoutGlobalScopes()->truncate();
+    Branch::withoutGlobalScopes()->truncate();
+    Company::withoutGlobalScopes()->truncate();
+
     $this->companyA = Company::create([
         'tax_id' => '76.111.111-1',
         'legal_name' => 'Company A SpA',
@@ -65,7 +71,6 @@ beforeEach(function () {
 // ============================================
 
 test('User de empresa A no puede ver usuarios de empresa B', function () {
-    // Contexto: usuario A
     $this->tenantContext->setCompany(
         companyId: $this->companyA->id,
         branchId: $this->branchA->id,
@@ -82,7 +87,6 @@ test('User de empresa A no puede ver usuarios de empresa B', function () {
 });
 
 test('User de empresa B solo ve sus propios usuarios', function () {
-    // Contexto: usuario B
     $this->tenantContext->setCompany(
         companyId: $this->companyB->id,
         branchId: $this->branchB->id,
@@ -103,13 +107,10 @@ test('User de empresa B solo ve sus propios usuarios', function () {
 // ============================================
 
 test('CompanyScope permite queries en tests (runningUnitTests)', function () {
-    // En tests, el scope debe ser permisivo (runningUnitTests = true)
-    // Limpiar contexto
     $this->tenantContext->clear();
 
-    // Esto NO debe fallar porque estamos en tests
     $users = User::all();
-    expect($users->count())->toBe(2); // Sin filtro
+    expect($users->count())->toBe(2); // Sin filtro, solo los 2 del beforeEach
 });
 
 test('withoutGlobalScopes permite acceder a todos los datos', function () {
@@ -122,10 +123,7 @@ test('withoutGlobalScopes permite acceder a todos los datos', function () {
         terminalId: null
     );
 
-    // Sin bypass: solo ve 1
     expect(User::count())->toBe(1);
-
-    // Con bypass: ve todos
     expect(User::withoutGlobalScopes()->count())->toBe(2);
 });
 
@@ -134,7 +132,6 @@ test('withoutGlobalScopes permite acceder a todos los datos', function () {
 // ============================================
 
 test('BranchScope aísla por branch_id cuando hay contexto', function () {
-    // Crear 2 órdenes en branches diferentes (mismo company)
     $branchA2 = Branch::create([
         'company_id' => $this->companyA->id,
         'code' => 'BRA2',
@@ -161,7 +158,6 @@ test('BranchScope aísla por branch_id cuando hay contexto', function () {
         'is_active' => true,
     ]);
 
-    // Sin filtro de contexto (modo test permisivo)
     Order::withoutGlobalScopes()->create([
         'company_id' => $this->companyA->id,
         'branch_id' => $this->branchA->id,
@@ -186,7 +182,6 @@ test('BranchScope aísla por branch_id cuando hay contexto', function () {
         'total' => 2380,
     ]);
 
-    // Contexto: branch A
     $this->tenantContext->setCompany(
         companyId: $this->companyA->id,
         branchId: $this->branchA->id,

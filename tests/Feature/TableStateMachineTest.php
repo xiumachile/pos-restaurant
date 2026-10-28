@@ -10,6 +10,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    // ✅ Limpieza explícita para garantizar aislamiento absoluto en este test
+    // Evita fallos por acumulación de registros de otros tests (fuga de estado)
+    RestaurantTable::withoutGlobalScopes()->truncate();
+    Branch::withoutGlobalScopes()->truncate();
+    Company::withoutGlobalScopes()->truncate();
+
     $this->company = Company::create([
         'tax_id' => 'TABLES-001',
         'legal_name' => 'Test Tables Company',
@@ -71,9 +77,9 @@ test('permite transicion de billing a available liberando el pedido', function (
 test('permite transicion directa de occupied a available (flujo simplificado)', function () {
     $this->table->occupy(12345);
     expect($this->table->status)->toBe(TableStatus::Occupied);
-    
+
     $this->table->free();
-    
+
     expect($this->table->status)->toBe(TableStatus::Available);
     expect($this->table->current_order_id)->toBeNull();
 });
@@ -131,10 +137,10 @@ test('permite liberar mesa via occupied → available (flujo simplificado tras p
     // Este flujo se usa cuando se paga directamente sin pasar por billing
     $this->table->occupy(12345);
     expect($this->table->status)->toBe(TableStatus::Occupied);
-    
+
     // Pago directo: occupied → available (sin pasar por billing)
     $this->table->free();
-    
+
     expect($this->table->status)->toBe(TableStatus::Available);
     expect($this->table->current_order_id)->toBeNull();
     expect($this->table->hasActiveOrder())->toBeFalse();

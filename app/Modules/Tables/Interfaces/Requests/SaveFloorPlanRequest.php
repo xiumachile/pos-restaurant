@@ -35,12 +35,17 @@ class SaveFloorPlanRequest extends FormRequest
             'zones.*.rotation' => 'nullable|integer|in:0,90,180,270',
             'zones.*.properties' => 'nullable|array',
 
-            // NUEVO CONTRATO
+            // NUEVO CONTRATO: Tipos de objetos actualizados
             'objects' => 'nullable|array',
             'objects.*.uuid' => 'required|string|uuid',
             'objects.*.object_type' => [
                 'required', 
-                Rule::in(['table', 'chair', 'wall', 'door', 'window', 'column', 'plant', 'counter', 'booth', 'bench', 'sofa', 'service_station', 'partition', 'other'])
+                Rule::in([
+                    'table', 'table_round', 'table_square', 'table_rectangle',
+                    'chair', 'stool', 'wall', 'door', 'door_single', 'door_double', 
+                    'window', 'column', 'plant', 'counter', 'booth', 'bench', 
+                    'sofa', 'service_station', 'partition', 'other'
+                ])
             ],
             'objects.*.table_uuid' => [
                 'nullable', 'string', 'uuid',

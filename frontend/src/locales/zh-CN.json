@@ -247,7 +247,12 @@
     "tips_pending_in_cash": "收银台有待处理小费",
     "no_pending_tips_note": "无待处理小费",
     "count_summary": "清点：{{summary}}",
-    "tips_not_delivered_warning": "在继续之前，您必须指明待处理的小费是否已发放。"
+    "tips_not_delivered_warning": "在继续之前，您必须指明待处理的小费是否已发放。",
+    "tab_all": "全部",
+    "tab_tables": "堂食",
+    "tab_delivery": "外卖",
+    "tab_takeout": "自取",
+    "no_policy": "未配置付款政策"
   },
   "dashboard": {
     "title": "主面板"

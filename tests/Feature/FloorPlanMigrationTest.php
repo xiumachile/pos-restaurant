@@ -11,6 +11,11 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    // ✅ Limpieza explícita para garantizar aislamiento absoluto
+    RestaurantTable::withoutGlobalScopes()->truncate();
+    DiningZone::withoutGlobalScopes()->truncate();
+    Branch::withoutGlobalScopes()->truncate();
+    Company::withoutGlobalScopes()->truncate();
     $this->company = Company::create([
         'tax_id' => 'FP-' . uniqid(),
         'legal_name' => 'Floor Plan Test',
@@ -144,9 +149,8 @@ test('RestaurantTable valida shape por constraint', function () {
     ]);
 });
 
-test('RestaurantTable valida rotation por constraint', function () {
-    $this->expectException(\Illuminate\Database\QueryException::class);
-
+test('RestaurantTable acepta rotación variable (0-359 grados)', function () {
+    // La migración actualiza la restricción para permitir rotación variable
     \Illuminate\Support\Facades\DB::table('restaurant_tables')->insert([
         'uuid' => (string) \Illuminate\Support\Str::uuid(),
         'company_id' => $this->company->id,
@@ -155,7 +159,29 @@ test('RestaurantTable valida rotation por constraint', function () {
         'area_name_translations' => json_encode(['es' => 'Test']),
         'table_number' => 'X-02',
         'capacity' => 4,
-        'rotation' => 45, // Inválido: debe ser 0, 90, 180, 270
+        'rotation' => 45, // ✅ Ahora es válido: rotación variable
+        'status' => 'available',
+        'sync_status' => 'pending',
+        'version' => 1,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    expect(\Illuminate\Support\Facades\DB::table('restaurant_tables')->where('table_number', 'X-02')->value('rotation'))->toBe(45);
+});
+
+test('RestaurantTable valida rotation fuera de rango (0-359)', function () {
+    $this->expectException(\Illuminate\Database\QueryException::class);
+
+    \Illuminate\Support\Facades\DB::table('restaurant_tables')->insert([
+        'uuid' => (string) \Illuminate\Support\Str::uuid(),
+        'company_id' => $this->company->id,
+        'branch_id' => $this->branch->id,
+        'area_code' => 'TEST',
+        'area_name_translations' => json_encode(['es' => 'Test']),
+        'table_number' => 'X-03',
+        'capacity' => 4,
+        'rotation' => 400, // ❌ Inválido: fuera del rango 0-359
         'status' => 'available',
         'sync_status' => 'pending',
         'version' => 1,

@@ -1,38 +1,40 @@
 // src/types/floorPlan.ts
 
 // ============================================================================
-// TIPOS LEGACY Y CATÁLOGO (Para compatibilidad con componentes existentes)
+// 1. TIPOS UNIFICADOS DEL CATÁLOGO (Fuente única de verdad)
 // ============================================================================
-export type FurnitureType =
-  | "table_square_2"
-  | "table_square_4"
-  | "table_round_4"
-  | "table_round_6"
-  | "table_rectangle_6"
-  | "table_rectangle_8"
-  | "bar_counter"
-  | "booth"
-  | "wall"
-  | "pillar"
-  | "plant"
-  | "service_station";
+export type ObjectType =
+  | 'table_round'
+  | 'table_round_2'
+  | 'table_square'
+  | 'table_square_2'
+  | 'table_rectangle'
+  | 'chair'
+  | 'stool'
+  | 'booth'
+  | 'sofa'
+  | 'wall'
+  | 'column'
+  | 'door_single'
+  | 'door_double'
+  | 'window'
+  | 'plant'
+  | 'counter'
+  | 'service_station'
+  | 'partition'
+  | 'other';
 
 export type TableStatus = "available" | "occupied" | "billing" | "maintenance";
 export type TableShape = "square" | "round" | "rectangle";
 export type TableRotation = 0 | 90 | 180 | 270;
 
-// ============================================================================
-// 4. NUEVOS TIPOS DE DOMINIO (Hoja de Ruta)
-// ============================================================================
-export type ObjectType = 
-  | 'table' | 'chair' | 'wall' | 'door' | 'window' 
-  | 'column' | 'plant' | 'counter' | 'booth' | 'bench' 
-  | 'sofa' | 'service_station' | 'partition' | 'other';
-
-export type ZoneType = 
-  | 'dining_room' | 'terrace' | 'bar' | 'private_room' 
+export type ZoneType =
+  | 'dining_room' | 'terrace' | 'bar' | 'private_room'
   | 'waiting_area' | 'other';
 
+// ============================================================================
+// 2. INTERFACES PRINCIPALES
+// ============================================================================
 export interface FloorPlanConfig {
   uuid?: string;
   company_id?: number;
@@ -41,11 +43,10 @@ export interface FloorPlanConfig {
   width: number;
   height: number;
   grid_size: number;
-  unit?: 'cm' | 'px'; // ✅ OPCIONAL para compatibilidad
-  version?: number;   // ✅ OPCIONAL para compatibilidad
+  unit?: 'cm' | 'px';
+  version?: number;
 }
 
-// Alias para compatibilidad con componentes que usan "CanvasConfig"
 export type CanvasConfig = FloorPlanConfig;
 
 export interface FloorPlanZone {
@@ -54,8 +55,8 @@ export interface FloorPlanZone {
   name: string;
   code: string;
   type: ZoneType;
-  color: string;                      // ✅ AGREGADO: Necesario para la UI
-  name_translations?: Record<string, string>; // ✅ AGREGADO: Necesario para la UI
+  color: string;
+  name_translations?: Record<string, string>;
   position_x: number;
   position_y: number;
   width: number;
@@ -65,7 +66,6 @@ export interface FloorPlanZone {
   tables_count?: number;
 }
 
-// Alias para compatibilidad con componentes que usan "DiningZone"
 export type DiningZone = FloorPlanZone;
 
 export interface OperationalTableData {
@@ -107,8 +107,6 @@ export interface SaveFloorPlanPayload {
   plan?: Partial<FloorPlanConfig>;
   zones?: Omit<FloorPlanZone, 'floor_plan_uuid' | 'tables_count'>[];
   objects?: Omit<FloorPlanObject, 'floor_plan_uuid' | 'operational_data'>[];
-  
-  // ✅ LEGACY: Parciales para permitir construir el payload gradualmente sin errores TS
   tables?: Partial<LegacyTablePosition>[];
   decorations?: Partial<LegacyDecorationPosition>[];
   canvas?: Partial<FloorPlanConfig>;
@@ -139,7 +137,7 @@ export interface UpdateDiningZonePayload {
 }
 
 // ============================================================================
-// TIPOS LEGACY DE POSICIÓN (Solo para transición)
+// 3. TIPOS LEGACY (Solo para compatibilidad temporal con el backend)
 // ============================================================================
 export interface LegacyTablePosition {
   uuid: string;
@@ -156,12 +154,12 @@ export interface LegacyTablePosition {
   shape: TableShape;
   width: number | null;
   height: number | null;
-  furniture_type?: FurnitureType;
+  furniture_type?: string;
 }
 
 export interface LegacyDecorationPosition {
   uuid: string;
-  type: FurnitureType | string;
+  type: string;
   position_x: number;
   position_y: number;
   rotation: number;

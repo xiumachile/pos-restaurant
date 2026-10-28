@@ -1,155 +1,93 @@
-import { useState, useEffect } from "react";
-import { useTranslation } from "react-i18next";
-import { X, Loader2 } from "lucide-react";
+// src/components/floor-plan/CanvasSettingsPanel.tsx
+import { useState } from "react";
+import { X } from "lucide-react";
 import type { CanvasConfig } from "@/types/floorPlan";
 
 interface Props {
   canvasConfig: CanvasConfig;
-  onSave: (config: CanvasConfig) => Promise<void> | void;
+  onSave: (config: CanvasConfig) => void;
   onClose: () => void;
   isOpen: boolean;
 }
 
 export function CanvasSettingsPanel({ canvasConfig, onSave, onClose, isOpen }: Props) {
-  const { t } = useTranslation();
-  const [width, setWidth] = useState<string>(String(canvasConfig.width));
-  const [height, setHeight] = useState<string>(String(canvasConfig.height));
-  const [gridSize, setGridSize] = useState<string>(String(canvasConfig.grid_size));
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Resetear el formulario cada vez que se abre el modal
-  useEffect(() => {
-    if (isOpen) {
-      setWidth(String(canvasConfig.width));
-      setHeight(String(canvasConfig.height));
-      setGridSize(String(canvasConfig.grid_size));
-      setError(null);
-    }
-  }, [isOpen, canvasConfig]);
+  const [width, setWidth] = useState(canvasConfig.width);
+  const [height, setHeight] = useState(canvasConfig.height);
+  const [gridSize, setGridSize] = useState(canvasConfig.grid_size);
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const w = parseInt(width, 10);
-    const h = parseInt(height, 10);
-    const g = parseInt(gridSize, 10);
-
-    if (isNaN(w) || isNaN(h) || isNaN(g) || w <= 0 || h <= 0 || g <= 0) {
-      setError(t("floor_plan.canvas_settings.invalid", "Ingresa valores numéricos válidos mayores a 0"));
-      return;
-    }
-
-    // Valores razonables para evitar líenzos extremos
-    if (w < 400 || h < 400) {
-      setError(t("floor_plan.canvas_settings.too_small", "El lienzo debe medir al menos 400×400"));
-      return;
-    }
-    if (w > 10000 || h > 10000) {
-      setError(t("floor_plan.canvas_settings.too_big", "El lienzo no puede superar 10000×10000"));
-      return;
-    }
-
-    setIsSaving(true);
-    setError(null);
-    try {
-      await onSave({ width: w, height: h, grid_size: g });
-    } finally {
-      setIsSaving(false);
-    }
+  const handleSave = () => {
+    onSave({
+      ...canvasConfig,
+      width: Math.max(800, Math.min(4000, width)),
+      height: Math.max(600, Math.min(3000, height)),
+      grid_size: Math.max(10, Math.min(100, gridSize)),
+    });
   };
 
-  const inputClass =
-    "w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent";
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div
-        className="w-full max-w-md bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between p-4 border-b border-slate-700">
-          <h2 className="text-lg font-bold text-white">
-            {t("floor_plan.canvas_settings.title", "Configuración del Plano")}
-          </h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
-            <X size={20} />
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+      <div className="bg-slate-800 rounded-lg border border-slate-700 p-6 w-96">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-white">Configuración del Lienzo</h3>
+          <button onClick={onClose} className="p-1 hover:bg-slate-700 rounded">
+            <X size={20} className="text-slate-400" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1">
-                {t("floor_plan.canvas_settings.width", "Ancho (px)")}
-              </label>
-              <input
-                type="number"
-                min={400}
-                max={10000}
-                value={width}
-                onChange={(e) => setWidth(e.target.value)}
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1">
-                {t("floor_plan.canvas_settings.height", "Alto (px)")}
-              </label>
-              <input
-                type="number"
-                min={400}
-                max={10000}
-                value={height}
-                onChange={(e) => setHeight(e.target.value)}
-                className={inputClass}
-              />
-            </div>
-          </div>
-
+        <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1">
-              {t("floor_plan.canvas_settings.grid_size", "Tamaño de celda (px)")}
+            <label className="text-xs font-semibold text-slate-400 uppercase block mb-1">
+              Ancho (px)
             </label>
             <input
               type="number"
-              min={5}
-              max={200}
-              value={gridSize}
-              onChange={(e) => setGridSize(e.target.value)}
-              className={inputClass}
+              value={width}
+              onChange={(e) => setWidth(parseInt(e.target.value) || 2400)}
+              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
             />
-            <p className="text-xs text-slate-500 mt-1">
-              {t("floor_plan.canvas_settings.grid_hint", "Las mesas se ajustarán a este tamaño de celda")}
-            </p>
           </div>
 
-          {error && (
-            <div className="px-3 py-2 bg-red-900/40 border border-red-700 rounded-lg text-red-200 text-sm">
-              {error}
-            </div>
-          )}
-
-          <div className="flex items-center justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-            >
-              {t("common.cancel", "Cancelar")}
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors"
-            >
-              {isSaving && <Loader2 size={16} className="animate-spin" />}
-              {t("common.save", "Guardar")}
-            </button>
+          <div>
+            <label className="text-xs font-semibold text-slate-400 uppercase block mb-1">
+              Alto (px)
+            </label>
+            <input
+              type="number"
+              value={height}
+              onChange={(e) => setHeight(parseInt(e.target.value) || 1800)}
+              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+            />
           </div>
-        </form>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-400 uppercase block mb-1">
+              Tamaño de cuadrícula (px)
+            </label>
+            <input
+              type="number"
+              value={gridSize}
+              onChange={(e) => setGridSize(parseInt(e.target.value) || 40)}
+              className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-2 mt-6">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            className="flex-1 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded transition-colors font-medium"
+          >
+            Guardar
+          </button>
+        </div>
       </div>
     </div>
   );
