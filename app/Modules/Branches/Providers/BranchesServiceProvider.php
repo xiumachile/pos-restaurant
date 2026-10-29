@@ -10,7 +10,6 @@ class BranchesServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        // Registrar el contrato como singleton
         $this->app->singleton(
             BranchQueryServiceInterface::class,
             BranchQueryService::class
@@ -19,6 +18,6 @@ class BranchesServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        //
+        // Las rutas se cargan automáticamente desde ModuleServiceProvider
     }
 }

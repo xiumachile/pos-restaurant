@@ -1,9 +1,11 @@
+import { useAuthStore } from '@/store/useAuthStore';
 import { useState } from 'react'; 
 import { useQueryClient } from '@tanstack/react-query';
 import { useCartStore } from '@/stores/useCartStore';
 import { OrderRepository } from '@/db/repositories/OrderRepository';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import { apiClient } from '@/services/apiClient';
 import { Settings, DollarSign, Clock, CheckCircle2, Trash2, RefreshCw } from 'lucide-react';
 
 /**
@@ -23,6 +25,27 @@ export function GeneralSettingsPage() {
     setChangePopupDuration,
     setRequirePaymentReference,
   } = useSettingsStore();
+
+  const { user, updateUser } = useAuthStore();
+  const [orderMode, setOrderMode] = useState(user?.branch?.table_order_mode || 'card');
+  const [isSavingMode, setIsSavingMode] = useState(false);
+
+  const handleOrderModeChange = async (newMode: 'card' | 'visual' | 'free') => {
+    setIsSavingMode(true);
+    try {
+      await apiClient.patch('/branch/settings', { table_order_mode: newMode });
+      setOrderMode(newMode);
+      // Actualizar el store local para reflejar el cambio inmediatamente
+      if (user && user.branch) {
+        updateUser({ ...user, branch: { ...user.branch, table_order_mode: newMode } });
+      }
+    } catch (error) {
+      console.error("Error al actualizar modo de pedido:", error);
+      alert("Error al guardar la configuración. Inténtalo de nuevo.");
+    } finally {
+      setIsSavingMode(false);
+    }
+  };
 
   const [isRepairing, setIsRepairing] = useState(false);
   const [repairResult, setRepairResult] = useState<{ repairedOrders: number; freedTables: number } | null>(null);
@@ -184,6 +207,42 @@ export function GeneralSettingsPage() {
               </p>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Configuración de Toma de Pedido */}
+      <div className="bg-white dark:bg-slate-900 rounded-xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+          <Settings className="w-5 h-5 text-orange-500" />
+          {t("settings.order_taking_mode_title", "Modo de Toma de Pedido en Mesas")}
+        </h3>
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+          {t("settings.order_taking_mode_desc", "Selecciona cómo los garzones seleccionarán las mesas para tomar pedidos.")}
+        </p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[
+            { value: 'card', label: t("settings.mode_card", "Tarjetas (Grid)"), desc: t("settings.mode_card_desc", "Vista de cuadrícula con estados de mesa") },
+            { value: 'visual', label: t("settings.mode_visual", "Plano Visual"), desc: t("settings.mode_visual_desc", "Mapa interactivo del restaurante") },
+            { value: 'free', label: t("settings.mode_free", "Modo Libre"), desc: t("settings.mode_free_desc", "Ingreso manual del número de mesa") },
+          ].map((mode) => (
+            <button
+              key={mode.value}
+              onClick={() => handleOrderModeChange(mode.value as 'card' | 'visual' | 'free')}
+              disabled={isSavingMode}
+              className={`relative p-4 rounded-lg border-2 text-left transition-all ${
+                orderMode === mode.value
+                  ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                  : 'border-slate-200 dark:border-slate-700 hover:border-orange-300 dark:hover:border-orange-700'
+              }`}
+            >
+              <div className="font-medium text-slate-900 dark:text-white mb-1">{mode.label}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">{mode.desc}</div>
+              {orderMode === mode.value && (
+                <div className="absolute top-2 right-2 w-3 h-3 bg-orange-500 rounded-full"></div>
+              )}
+            </button>
+          ))}
         </div>
       </div>
 

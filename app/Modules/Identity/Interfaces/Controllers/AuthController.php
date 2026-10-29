@@ -120,7 +120,7 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         $user = $request->user();
-        $user->load('company');
+        $user->load(['company', 'branch']);
 
         return response()->json([
             'data' => [
@@ -136,6 +136,13 @@ class AuthController extends Controller
                     'id' => $user->company->id ?? null,
                     'uuid' => $user->company->uuid ?? null,
                     'trade_name' => $user->company->trade_name ?? null,
+                ],
+                'branch' => [
+                    'id' => $user->branch->id ?? null,
+                    'uuid' => $user->branch->uuid ?? null,
+                    'name' => $user->branch->name ?? null,
+                    'code' => $user->branch->code ?? null,
+                    'table_order_mode' => $user->branch->table_order_mode ?? 'card',
                 ],
             ],
         ]);

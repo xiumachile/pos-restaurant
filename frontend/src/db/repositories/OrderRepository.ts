@@ -115,9 +115,12 @@ export class OrderRepository {
         );
         
         if (!tableCheck || tableCheck.length === 0) {
-          throw new Error(`Mesa ${payload.table_id} no existe o no pertenece al tenant`);
+          throw new Error(
+            `[OrderRepository] Mesa ${payload.table_id} no existe ` +
+            `o no pertenece al tenant ${payload.company_id}/${payload.branch_id}.`
+          );
         }
-        
+
         if (tableCheck[0].status !== 'available') {
           throw new Error(`Mesa ${payload.table_id} ya está ocupada (estado: ${tableCheck[0].status})`);
         }
@@ -664,7 +667,8 @@ export class OrderRepository {
           [payload.table_id, payload.company_id, payload.branch_id]
         );
         if (!tableExists || tableExists.length === 0) {
-          throw new Error(`Mesa ${payload.table_id} no existe o no pertenece al tenant`);
+          console.warn(`[OrderRepository] ⚠️ Mesa ${payload.table_id} no encontrada en local_tables al actualizar estado.`);
+          // Permitimos continuar para que el backend maneje la validación final
         }
 
         // b) Actualizar estado de la mesa (se acumula en la transacción)

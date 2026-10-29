@@ -55,14 +55,11 @@ export function getAuthContext(): AuthContext {
     );
   }
 
-  // ADR-014: Preferir company.uuid / branch.uuid (string original del backend)
-  // porque los tests y la DB usan strings como "company-1" / "branch-1" (no numbers).
-  const company_id = user.company?.uuid 
-    ? String(user.company.uuid) 
-    : String(user.company_id);
-  const branch_id = user.branch?.uuid 
-    ? String(user.branch.uuid) 
-    : String(user.branch_id);
+  // ADR-014 (corregido): Usar company_id / branch_id numéricos como strings.
+  // PullEngine.ts y Rust orders.rs guardan/consultan con estos IDs numéricos.
+  // authContext.test.ts espera "42" y "7" (no UUIDs).
+  const company_id = String(user.company_id);
+  const branch_id = String(user.branch_id);
 
   return {
     company_id,
@@ -232,11 +229,7 @@ export function getCashierContextSafe(): CashierContext | null {
   }
 
   return {
-    company_id: user.company?.uuid 
-      ? String(user.company.uuid) 
-      : user.company_id 
-        ? String(user.company_id) 
-        : "unknown",
+    company_id: user.company_id ? String(user.company_id) : "unknown",
     branch_id: user.branch_id ? String(user.branch_id) : "unknown",
     terminal_id: getTerminalId(),
     user_id: user.uuid,  // ✅ UUID correcto (no user.id)

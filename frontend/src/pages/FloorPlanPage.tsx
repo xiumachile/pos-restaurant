@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Map, Save, X, Edit3, Settings2 } from "lucide-react";
 import type {
@@ -25,6 +26,7 @@ import { apiClient } from "@/services/apiClient";
 
 export function FloorPlanPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedObjectUuid, setSelectedObjectUuid] = useState<string | null>(null);
@@ -165,8 +167,9 @@ export function FloorPlanPage() {
   };
 
   const handleObjectClick = (obj: FloorPlanObject) => {
+    // ✅ En modo lectura (no edición), navegar a la toma de pedido de la mesa
     if (!isEditMode && obj.object_type.includes("table") && obj.table_uuid) {
-      console.log("Abrir mesa operativa:", obj.table_uuid);
+      navigate(`/tables/${obj.table_uuid}`);
     }
   };
 

@@ -25,6 +25,7 @@ class Branch extends Model
     use SoftDeletes;
 
     protected $fillable = [
+        'table_order_mode',
         'company_id',
         'code',
         'name',

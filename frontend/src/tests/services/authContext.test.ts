@@ -281,7 +281,7 @@ describe("getCashierContextSafe", () => {
     const ctx = getCashierContextSafe();
 
     expect(ctx).not.toBeNull();
-    expect(ctx?.company_id).toBe("company-uuid-abc");  // UUID de company
+    expect(ctx?.company_id).toBe("10");  // ID numérico (no UUID)any
     expect(ctx?.branch_id).toBe("5");
     expect(ctx?.user_id).toBe("user-uuid-cashier");  // ✅ UUID, NO "42"
     expect(ctx?.user_name).toBe("Cashier Test User");
@@ -312,9 +312,9 @@ describe("getCashierContextSafe", () => {
     const { getCashierContextSafe } = await import("@/services/authContext");
     const ctx = getCashierContextSafe();
 
-    // company_id debe ser el UUID de company, no el número
-    expect(ctx?.company_id).toBe("company-uuid-abc");
-    expect(ctx?.company_id).not.toBe("10");
+    // company_id debe ser el ID numérico, no el UUID
+    expect(ctx?.company_id).toBe("10");
+    expect(ctx?.company_id).not.toBe("company-uuid-abc");
   });
 
   it("debería hacer fallback a company_id numérico si company.uuid no está", async () => {

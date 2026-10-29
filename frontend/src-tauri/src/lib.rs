@@ -174,6 +174,7 @@ fn get_trusted_migration(version: &str) -> Option<&'static str> {
         "025" => Some(include_str!("../../src/db/migrations/025_add_floor_plan_coordinates.sql")),
         "026" => Some(include_str!("../../src/db/migrations/026_create_local_customers.sql")),
         "027" => Some(include_str!("../../src/db/migrations/027_add_customer_to_local_orders.sql")), // AUD-02 FIX: Añadir updated_at faltante
+        "029" => Some(include_str!("../../src/db/migrations/029_add_customer_delivery_columns.sql")), // AUD-05 FIX: Renombrado desde 023 para evitar conflicto
         _ => None, // Cualquier otra versión será rechazada por seguridad
     }
 }
@@ -414,6 +415,7 @@ fn validate_write_sql(sql: &str) -> Result<(), String> {
         "local_orders",
         "local_order_items",
         "local_payments",
+        "local_payment_methods",
         "local_bills",
         "local_cash_sessions",
         "local_cash_movements",
@@ -421,11 +423,11 @@ fn validate_write_sql(sql: &str) -> Result<(), String> {
         "local_categories",
         "local_products",
         "local_customers",
-        "sync_queue",
-        "table_mutations",
-        "table_local_mutations",
+        "local_print_jobs",
         "printer_configs",
+        "table_local_mutations",
         "offline_events",
+        "sync_queue",
         "idempotency_keys",
         "sync_state",
     ];

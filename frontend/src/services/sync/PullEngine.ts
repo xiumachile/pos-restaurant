@@ -499,16 +499,17 @@ export class PullEngine {
   private getCurrentTenantContext(): { companyId: string; branchId: string } {
     try {
       const user = useAuthStore.getState().user;
-      const companyId = user?.company?.uuid 
-        ? String(user.company.uuid) 
-        : user?.company_id 
-          ? String(user.company_id) 
-          : "company-1";
-      const branchId = user?.branch_id ? String(user.branch_id) : "branch-1";
+      // Usar company_id (entero) para consistencia con OrderRepository y backend
+      const companyId = user?.company_id 
+        ? String(user.company_id) 
+        : "1";
+      const branchId = user?.branch_id 
+        ? String(user.branch_id) 
+        : "1";
       return { companyId, branchId };
     } catch (error) {
       console.warn("[PullEngine] ⚠️ Error leyendo tenant context:", error);
-      return { companyId: "company-1", branchId: "branch-1" };
+      return { companyId: "1", branchId: "1" };
     }
   }
 }

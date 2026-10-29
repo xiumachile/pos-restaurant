@@ -192,6 +192,11 @@ class AuthenticationService
 
     private function buildResponse(User $user, string $token): array
     {
+        // Obtenemos la sucursal sin Global Scopes para evitar errores de TenantContext durante el login
+        $branch = $user->branch_id 
+            ? \Modules\Branches\Domain\Entities\Branch::withoutGlobalScopes()->find($user->branch_id) 
+            : null;
+
         return [
             'access_token' => $token,
             'token_type' => 'bearer',
@@ -206,9 +211,16 @@ class AuthenticationService
                 'branch_id' => $user->branch_id,
                 'is_active' => $user->is_active,
                 'company' => [
-                    'id' => $user->company->id ?? null,
-                    'uuid' => $user->company->uuid ?? null,
-                    'trade_name' => $user->company->trade_name ?? null,
+                    'id' => $user->company?->id ?? null,
+                    'uuid' => $user->company?->uuid ?? null,
+                    'trade_name' => $user->company?->trade_name ?? null,
+                ],
+                'branch' => [
+                    'id' => $branch?->id ?? null,
+                    'uuid' => $branch?->uuid ?? null,
+                    'name' => $branch?->name ?? null,
+                    'code' => $branch?->code ?? null,
+                    'table_order_mode' => $branch?->table_order_mode ?? 'card',
                 ],
             ],
         ];

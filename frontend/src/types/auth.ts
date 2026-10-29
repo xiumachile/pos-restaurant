@@ -16,6 +16,7 @@ export interface User {
     uuid?: string;  // ← Agregado para preservar string original del backend
     name: string;
     code: string;
+    table_order_mode?: 'card' | 'visual' | 'free'; // ← Modo de toma de pedido
   };
 }
 
