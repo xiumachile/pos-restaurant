@@ -1,0 +1,7 @@
+/target/
+.env
+.env.*
+!.env.example
+
+# Respaldos temporales de código
+*.rs.bak
