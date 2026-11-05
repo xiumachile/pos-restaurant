@@ -71,6 +71,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "/api/v1/zonas",
             get(http::zonas::listar).post(http::zonas::crear),
         )
+        .route(
+            "/api/v1/zonas/{id}",
+            axum::routing::patch(http::zonas::actualizar),
+        )
         .with_state(AppState { db: pool });
 
     let address = SocketAddr::from(([127, 0, 0, 1], 3001));

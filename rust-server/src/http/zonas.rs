@@ -220,6 +220,122 @@ mod zonas_validacion_tests {
 
         assert!(resultado.is_err());
     }
+    #[test]
+    fn actualizar_acepta_cambios_parciales_validos() {
+        let casos = [
+            json!({"version": 1, "color": "#22C55E"}),
+            json!({"version": 1, "nivel_piso": -1}),
+            json!({"version": 1, "orden": 5}),
+            json!({"version": 1, "activo": false}),
+            json!({
+                "version": 1,
+                "nombre_traducciones": {
+                    "es": "Terraza",
+                    "zh": "露台"
+                }
+            }),
+        ];
+
+        for caso in casos {
+            let request: ActualizarZonaRequest = serde_json::from_value(caso).unwrap();
+
+            assert!(validar_actualizar_zona(&request));
+        }
+    }
+
+    #[test]
+    fn actualizar_rechaza_version_invalida() {
+        for version in [0, -1] {
+            let request: ActualizarZonaRequest = serde_json::from_value(json!({
+                "version": version,
+                "color": "#22C55E"
+            }))
+            .unwrap();
+
+            assert!(!validar_actualizar_zona(&request));
+        }
+
+        assert!(
+            serde_json::from_value::<ActualizarZonaRequest>(json!({"color": "#22C55E"})).is_err()
+        );
+    }
+
+    #[test]
+    fn actualizar_rechaza_solicitud_sin_cambios() {
+        let request: ActualizarZonaRequest = serde_json::from_value(json!({
+            "version": 1
+        }))
+        .unwrap();
+
+        assert!(!validar_actualizar_zona(&request));
+    }
+
+    #[test]
+    fn actualizar_rechaza_traducciones_invalidas() {
+        for traducciones in [
+            json!({"es": "Terraza"}),
+            json!({"zh": "露台"}),
+            json!({"es": "", "zh": "露台"}),
+            json!({"es": "Terraza", "zh": " "}),
+            json!(["Terraza", "露台"]),
+        ] {
+            let request: ActualizarZonaRequest = serde_json::from_value(json!({
+                "version": 1,
+                "nombre_traducciones": traducciones
+            }))
+            .unwrap();
+
+            assert!(!validar_actualizar_zona(&request));
+        }
+    }
+
+    #[test]
+    fn actualizar_rechaza_color_invalido() {
+        for color in ["", "22C55E", "#FFF", "#GGGGGG"] {
+            let request: ActualizarZonaRequest = serde_json::from_value(json!({
+                "version": 1,
+                "color": color
+            }))
+            .unwrap();
+
+            assert!(!validar_actualizar_zona(&request));
+        }
+    }
+
+    #[test]
+    fn actualizar_rechaza_campos_inmutables() {
+        for campo in ["codigo", "id", "establecimiento_id"] {
+            let mut datos = json!({
+                "version": 1,
+                "color": "#22C55E"
+            });
+
+            datos[campo] = json!("NO_PERMITIDO");
+
+            assert!(serde_json::from_value::<ActualizarZonaRequest>(datos).is_err());
+        }
+    }
+    #[test]
+    fn actualizar_rechaza_null_explicito() {
+        for campo in [
+            "nombre_traducciones",
+            "color",
+            "nivel_piso",
+            "orden",
+            "activo",
+        ] {
+            let mut datos = json!({
+                "version": 1,
+                "color": "#22C55E"
+            });
+
+            datos[campo] = serde_json::Value::Null;
+
+            let resultado = serde_json::from_value::<ActualizarZonaRequest>(datos);
+
+            assert!(resultado.is_err(), "El campo {campo} no debe aceptar null");
+        }
+    }
 }
 
 /// Crea una zona en el establecimiento de la sesión autenticada.
@@ -294,4 +410,166 @@ pub(crate) async fn crear(
         }),
     )
         .into_response()
+}
+
+/// Deserializa un campo opcional, rechazando null explícito.
+///
+/// Campo ausente: None, mediante serde(default).
+/// Campo presente: Some(valor), siempre que no sea null.
+fn campo_actualizacion<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::Deserialize<'de>,
+{
+    use serde::{Deserialize, de::Error};
+
+    let valor = serde_json::Value::deserialize(deserializer)?;
+
+    if valor.is_null() {
+        return Err(D::Error::custom(
+            "null no está permitido en campos de actualización",
+        ));
+    }
+
+    T::deserialize(valor).map(Some).map_err(D::Error::custom)
+}
+
+/// Datos permitidos para actualizar parcialmente una zona.
+///
+/// El código, UUID y establecimiento son inmutables.
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ActualizarZonaRequest {
+    version: i32,
+
+    #[serde(default, deserialize_with = "campo_actualizacion")]
+    nombre_traducciones: Option<serde_json::Value>,
+
+    #[serde(default, deserialize_with = "campo_actualizacion")]
+    color: Option<String>,
+
+    #[serde(default, deserialize_with = "campo_actualizacion")]
+    nivel_piso: Option<i32>,
+
+    #[serde(default, deserialize_with = "campo_actualizacion")]
+    orden: Option<i32>,
+
+    #[serde(default, deserialize_with = "campo_actualizacion")]
+    activo: Option<bool>,
+}
+
+/// Valida los datos de actualización parcial de una zona.
+///
+/// Requiere una versión positiva y al menos un campo modificable.
+/// Los campos proporcionados deben respetar las reglas de creación.
+fn validar_actualizar_zona(request: &ActualizarZonaRequest) -> bool {
+    if request.version < 1 {
+        return false;
+    }
+
+    let tiene_cambios = request.nombre_traducciones.is_some()
+        || request.color.is_some()
+        || request.nivel_piso.is_some()
+        || request.orden.is_some()
+        || request.activo.is_some();
+
+    if !tiene_cambios {
+        return false;
+    }
+
+    if let Some(traducciones) = &request.nombre_traducciones {
+        let validas = traducciones.as_object().is_some_and(|objeto| {
+            ["es", "zh"].iter().all(|idioma| {
+                objeto
+                    .get(*idioma)
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|nombre| !nombre.trim().is_empty())
+            })
+        });
+
+        if !validas {
+            return false;
+        }
+    }
+
+    if let Some(color) = &request.color {
+        let valido = color.len() == 7
+            && color.starts_with('#')
+            && color.as_bytes()[1..].iter().all(u8::is_ascii_hexdigit);
+
+        if !valido {
+            return false;
+        }
+    }
+
+    true
+}
+
+/// Actualiza parcialmente una zona del establecimiento autenticado.
+pub(crate) async fn actualizar(
+    State(state): State<AppState>,
+    sesion: SesionAutenticada,
+    axum::extract::Path(zona_id): axum::extract::Path<Uuid>,
+    solicitud: Result<Json<ActualizarZonaRequest>, axum::extract::rejection::JsonRejection>,
+) -> Response {
+    use axum::response::IntoResponse;
+
+    if let Err(respuesta) = exigir_permiso(&state, &sesion, "mesas.configurar").await {
+        return respuesta;
+    }
+
+    let Json(request) = match solicitud {
+        Ok(request) => request,
+        Err(error) => {
+            return match error {
+                axum::extract::rejection::JsonRejection::JsonSyntaxError(_) => {
+                    respuesta_error(StatusCode::BAD_REQUEST, "json_invalido")
+                }
+                axum::extract::rejection::JsonRejection::JsonDataError(_) => {
+                    respuesta_error(StatusCode::UNPROCESSABLE_ENTITY, "datos_invalidos")
+                }
+                axum::extract::rejection::JsonRejection::MissingJsonContentType(_) => {
+                    respuesta_error(StatusCode::UNSUPPORTED_MEDIA_TYPE, "content_type_invalido")
+                }
+                _ => respuesta_error(StatusCode::BAD_REQUEST, "solicitud_invalida"),
+            };
+        }
+    };
+
+    if !validar_actualizar_zona(&request) {
+        return respuesta_error(StatusCode::UNPROCESSABLE_ENTITY, "datos_invalidos");
+    }
+
+    let cambios = repository::ActualizarZona {
+        version: request.version,
+        nombre_traducciones: request.nombre_traducciones,
+        color: request.color,
+        nivel_piso: request.nivel_piso,
+        orden: request.orden,
+        activo: request.activo,
+    };
+
+    let establecimiento_id = sesion.0.establecimiento_id;
+
+    match repository::actualizar_zona(&state.db, establecimiento_id, zona_id, cambios).await {
+        Ok(Some(zona)) => Json(ZonaResponse {
+            id: zona.id,
+            codigo: zona.codigo,
+            nombre_traducciones: zona.nombre_traducciones,
+            color: zona.color,
+            nivel_piso: zona.nivel_piso,
+            orden: zona.orden,
+            activo: zona.activo,
+            version: zona.version,
+        })
+        .into_response(),
+
+        Ok(None) => match repository::existe_zona(&state.db, establecimiento_id, zona_id).await {
+            Ok(true) => respuesta_error(StatusCode::CONFLICT, "version_conflicto"),
+            Ok(false) => respuesta_error(StatusCode::NOT_FOUND, "zona_no_encontrada"),
+            Err(_) => respuesta_error(StatusCode::SERVICE_UNAVAILABLE, "servicio_no_disponible"),
+        },
+
+        Err(_) => respuesta_error(StatusCode::SERVICE_UNAVAILABLE, "servicio_no_disponible"),
+    }
 }

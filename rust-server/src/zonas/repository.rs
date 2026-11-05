@@ -102,3 +102,92 @@ pub async fn crear_zona(
     .fetch_one(pool)
     .await
 }
+/// Campos permitidos para actualizar parcialmente una zona.
+///
+/// El código y el establecimiento son inmutables.
+pub struct ActualizarZona {
+    pub version: i32,
+    pub nombre_traducciones: Option<serde_json::Value>,
+    pub color: Option<String>,
+    pub nivel_piso: Option<i32>,
+    pub orden: Option<i32>,
+    pub activo: Option<bool>,
+}
+
+/// Actualiza una zona mediante concurrencia optimista.
+///
+/// Solo modifica zonas del establecimiento autenticado,
+/// no eliminadas y cuya versión coincide con la solicitada.
+///
+/// Si no existe una fila que cumpla las condiciones,
+/// devuelve Ok(None).
+pub async fn actualizar_zona(
+    pool: &PgPool,
+    establecimiento_id: Uuid,
+    zona_id: Uuid,
+    cambios: ActualizarZona,
+) -> Result<Option<Zona>, sqlx::Error> {
+    sqlx::query_as::<_, Zona>(
+        r#"
+        UPDATE zonas
+        SET
+            nombre_traducciones = COALESCE($4, nombre_traducciones),
+            color = COALESCE($5, color),
+            nivel_piso = COALESCE($6, nivel_piso),
+            orden = COALESCE($7, orden),
+            activo = COALESCE($8, activo),
+            version = version + 1,
+            updated_at = NOW()
+        WHERE id = $1
+          AND establecimiento_id = $2
+          AND version = $3
+          AND deleted_at IS NULL
+        RETURNING
+            id,
+            establecimiento_id,
+            codigo,
+            nombre_traducciones,
+            color,
+            nivel_piso,
+            orden,
+            activo,
+            version
+        "#,
+    )
+    .bind(zona_id)
+    .bind(establecimiento_id)
+    .bind(cambios.version)
+    .bind(cambios.nombre_traducciones)
+    .bind(cambios.color)
+    .bind(cambios.nivel_piso)
+    .bind(cambios.orden)
+    .bind(cambios.activo)
+    .fetch_optional(pool)
+    .await
+}
+
+/// Comprueba si una zona existe y no está eliminada
+/// dentro del establecimiento autenticado.
+///
+/// No consulta ni revela zonas de otros establecimientos.
+pub async fn existe_zona(
+    pool: &PgPool,
+    establecimiento_id: Uuid,
+    zona_id: Uuid,
+) -> Result<bool, sqlx::Error> {
+    sqlx::query_scalar::<_, bool>(
+        r#"
+        SELECT EXISTS (
+            SELECT 1
+            FROM zonas
+            WHERE id = $1
+              AND establecimiento_id = $2
+              AND deleted_at IS NULL
+        )
+        "#,
+    )
+    .bind(zona_id)
+    .bind(establecimiento_id)
+    .fetch_one(pool)
+    .await
+}
