@@ -16,3 +16,7 @@ pub mod zonas;
 
 #[cfg(test)]
 mod zonas_integration_tests;
+
+pub mod mesas;
+#[cfg(test)]
+mod mesas_integration_tests;

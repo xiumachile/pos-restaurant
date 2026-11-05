@@ -1,5 +1,6 @@
 mod auth;
 mod http;
+mod mesas;
 mod zonas;
 use axum::{
     Json, Router,
@@ -67,6 +68,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/v1/auth/login", post(http::auth::login))
         .route("/api/v1/auth/me", get(http::me::me))
         .route("/api/v1/auth/logout", post(http::logout::logout))
+        .route("/api/v1/mesas", get(http::mesas::listar))
         .route(
             "/api/v1/zonas",
             get(http::zonas::listar).post(http::zonas::crear),
