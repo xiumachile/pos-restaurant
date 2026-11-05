@@ -11,3 +11,8 @@ mod login_integration_tests;
 mod authorization_integration_tests;
 
 pub mod role_permissions;
+
+pub mod zonas;
+
+#[cfg(test)]
+mod zonas_integration_tests;

@@ -1,5 +1,6 @@
 mod auth;
 mod http;
+mod zonas;
 use axum::{
     Json, Router,
     routing::{get, post},
@@ -66,6 +67,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/v1/auth/login", post(http::auth::login))
         .route("/api/v1/auth/me", get(http::me::me))
         .route("/api/v1/auth/logout", post(http::logout::logout))
+        .route(
+            "/api/v1/zonas",
+            get(http::zonas::listar).post(http::zonas::crear),
+        )
         .with_state(AppState { db: pool });
 
     let address = SocketAddr::from(([127, 0, 0, 1], 3001));
