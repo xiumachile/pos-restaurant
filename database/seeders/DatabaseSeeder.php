@@ -8,12 +8,12 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->call([
-            BaseTenantSeeder::class,
-            PaymentMethodSeeder::class,
-            CompanyCapabilitiesSeeder::class,
-            CatalogDemoSeeder::class,
-            TablesDemoSeeder::class,
-        ]);
+        // Instalación limpia.
+        //
+        // No crear empresas, sucursales, usuarios,
+        // terminales, zonas, mesas ni productos demo.
+        //
+        // Los datos técnicos indispensables se
+        // incorporarán aquí tras su validación.
     }
 }
